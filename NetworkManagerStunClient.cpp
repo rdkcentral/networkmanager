@@ -360,7 +360,7 @@ bool client::bind(
         auto time_in_cache = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::steady_clock::now() - m_last_cache_time);
 
-        verbose("client::bind cache time=%lld\n", time_in_cache.count());
+        verbose("client::bind cache time=%ld\n", time_in_cache.count());
 
         if(time_in_cache.count() < m_cache_timeout)
         {
@@ -672,7 +672,7 @@ std::unique_ptr<message> client::send_binding_request(std::chrono::milliseconds 
 std::unique_ptr<message> client::send_binding_request(sockaddr_storage const & addr, 
   std::chrono::milliseconds wait_time)
 {
-  this->verbose("sending binding request with wait time:%lld ms\n", wait_time.count());
+  this->verbose("sending binding request with wait time:%ld ms\n", wait_time.count());
   this->create_udp_socket(addr.ss_family);
   std::unique_ptr<message> binding_request(message_factory::create_binding_request());
   std::unique_ptr<message> binding_response(this->send_message(addr, *binding_request, wait_time));

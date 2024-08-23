@@ -1,0 +1,229 @@
+
+name: l1-test
+
+on:
+  push:
+    branches: [ main, develop]
+  pull_request:
+    branches: [ main, develop]
+
+env:
+  BUILD_TYPE: Debug
+  THUNDER_REF: "R4.4.1"
+  THUNDER_TOOLS_REF: "R4.4.1"
+  INTERFACES_REF: "R4.4.1"
+
+jobs:
+  l1-tests:
+    name: Build and run unit tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [ gcc, clang ]
+        coverage: [ with-coverage, without-coverage ]
+        exclude:
+          - compiler: clang
+            coverage: with-coverage
+          - compiler: clang
+            coverage: without-coverage
+          - compiler: gcc
+            coverage: without-coverage
+
+    steps:
+      - name: Set up cache
+        # Cache Thunder/ThunderInterfaces.
+        # https://github.com/actions/cache
+        # https://docs.github.com/en/rest/actions/cache
+        # Modify the key if changing the list.
+        if: ${{ !env.ACT }}
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build/Thunder
+            build/ThunderInterfaces
+            build/ThunderTools
+            install
+            !install/etc/WPEFramework/plugins
+            !install/usr/bin/RdkServicesL1Test
+            !install/usr/include/gmock
+            !install/usr/include/gtest
+            !install/usr/lib/libgmockd.a
+            !install/usr/lib/libgmock_maind.a
+            !install/usr/lib/libgtestd.a
+            !install/usr/lib/libgtest_maind.a
+            !install/usr/lib/cmake/GTest
+            !install/usr/lib/pkgconfig/gmock.pc
+            !install/usr/lib/pkgconfig/gmock_main.pc
+            !install/usr/lib/pkgconfig/gtest.pc
+            !install/usr/lib/pkgconfig/gtest_main.pc
+            !install/usr/lib/wpeframework/plugins
+          key: ${{ runner.os }}-${{ env.THUNDER_REF }}-${{ env.INTERFACES_REF }}-3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install jsonref
+
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.16.x'
+
+      - name: Install packages
+        run: >
+          sudo apt update
+          &&
+          sudo apt install -y libnm0 git pkg-config ninja-build libssl-dev libglib2.0-dev libnm-dev libcurl4-openssl-dev valgrind lcov clang
+
+      - name: Checkout ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/ThunderTools
+          path: ThunderTools
+          ref: ${{env.THUNDER_TOOLS_REF}}
+      - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderTools"
+          -B build/ThunderTools
+          -DEXCEPTIONS_ENABLE=ON
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DGENERIC_CMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderTools -j8
+          &&
+          cmake --install build/ThunderTools
+
+      - name: Checkout Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/Thunder
+          path: Thunder
+          ref: ${{env.THUNDER_REF}}
+
+      - name: Build Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/Thunder"
+          -B build/Thunder
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DBUILD_TYPE=${{env.BUILD_TYPE}}
+          -DBINDING=127.0.0.1
+          -DPORT=55555
+          -DEXCEPTIONS_ENABLE=ON
+          &&
+          cmake --build build/Thunder -j8
+          &&
+          cmake --install build/Thunder
+
+      - name: Checkout ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v3
+        with:
+          repository: rdkcentral/ThunderInterfaces
+          path: ThunderInterfaces
+          ref: ${{env.INTERFACES_REF}}
+
+      - name: Build ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderInterfaces"
+          -B build/ThunderInterfaces
+          -DEXCEPTIONS_ENABLE=ON
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderInterfaces -j8
+          &&
+          cmake --install build/ThunderInterfaces
+
+      - name: Checkout networkmanager
+        uses: actions/checkout@v3
+        with:
+          path: networkmanager
+
+      - name: Generate external headers
+        # Empty headers to mute errors
+        run: >
+          cd "${{github.workspace}}/networkmanager/Tests/"
+          &&
+          mkdir -p
+          headers
+          headers/rdk/iarmbus
+          headers/network
+          &&
+          cd headers
+          &&
+          touch
+          rdk/iarmbus/libIARM.h
+          rdk/iarmbus/libIBus.h
+          rdk/iarmbus/libIBusDaemon.h
+          network/wifiSrvMgrIarmIf.h
+          network/netsrvmgrIarm.h
+  
+      - name: Set clang toolchain
+        if: ${{ matrix.compiler == 'clang' }}
+        run: echo "TOOLCHAIN_FILE=${{github.workspace}}/networkmanager/Tests/clang.cmake" >> $GITHUB_ENV
+
+      - name: Set gcc/with-coverage toolchain
+        if: ${{ matrix.compiler == 'gcc' && matrix.coverage == 'with-coverage' && !env.ACT }}
+        run: echo "TOOLCHAIN_FILE=${{github.workspace}}/networkmanager/Tests/gcc-with-coverage.cmake" >> $GITHUB_ENV
+
+      - name: Build networkmanager with RDK Proxy
+        run: >
+          cmake
+          -S "${{github.workspace}}/networkmanager"
+          -B build/RDKNetworkmanager
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DCMAKE_CXX_FLAGS="
+          -fprofile-arcs
+          -ftest-coverage
+          -DEXCEPTIONS_ENABLE=ON
+          -I ${{github.workspace}}/networkmanagerTests/headers
+          -I ${{github.workspace}}/networkmanager/Tests/headers/rdk/iarmbus
+          -I ${{github.workspace}}/networkmanager/Tests/headers/network"
+          -DCMAKE_DISABLE_FIND_PACKAGE_IARMBus=ON
+          -DENABLE_GNOME_NETWORKMANAGER=OFF
+          -DENABLE_NETWORKMANAGER_UNIT_TEST=ON
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          &&
+          cmake --build build/RDKNetworkmanager -j16
+          &&
+          cmake --install build/RDKNetworkmanager
+
+      - name: Build networkmanager with Gnome Proxy
+        run: >
+          cmake
+          -S "${{github.workspace}}/networkmanager"
+          -B build/GnomeNetworkmanager
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DCMAKE_CXX_FLAGS="
+          -fprofile-arcs
+          -ftest-coverage
+          -DEXCEPTIONS_ENABLE=ON
+          -I ${{github.workspace}}/networkmanagerTests/headers
+          -I ${{github.workspace}}/networkmanager/Tests/headers/rdk/iarmbus
+          -I ${{github.workspace}}/networkmanager/Tests/headers/network
+          -Wall -Wno-error=format=
+          -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog"
+          -DCMAKE_DISABLE_FIND_PACKAGE_IARMBus=ON
+          -DENABLE_GNOME_NETWORKMANAGER=ON
+          -DENABLE_NETWORKMANAGER_UNIT_TEST=OFF
+          -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          &&
+          cmake --build build/GnomeNetworkmanager -j16
+          &&
+          cmake --install build/GnomeNetworkmanager
