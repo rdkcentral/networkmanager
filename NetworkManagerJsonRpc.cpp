@@ -112,6 +112,13 @@ namespace WPEFramework
             Unregister("GetSupportedSecurityModes");
         }
 
+        static bool caseInsensitiveCompare(const std::string& str1, const char* str2)
+        {
+            std::string upperStr1 = str1;
+            std::transform(upperStr1.begin(), upperStr1.end(), upperStr1.begin(), ::toupper);
+            return upperStr1 == str2;
+        }
+
         uint32_t NetworkManager::SetLogLevel (const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
@@ -179,7 +186,13 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
-            if (_networkManager)
+            if(m_primaryInterfaceCache.isSet())
+            {
+                NMLOG_TRACE("reading interface cached values");
+                interface = m_primaryInterfaceCache.getValue();
+                rc = Core::ERROR_NONE;
+            }
+            else if (_networkManager)
                 rc = _networkManager->GetPrimaryInterface(interface);
             else
                 rc = Core::ERROR_UNAVAILABLE;
@@ -187,7 +200,7 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
             {
                 response["interface"] = interface;      
-                m_defaultInterface = interface;
+                m_primaryInterfaceCache = interface;
                 response["success"] = true;
             }
             LOG_OUTPARAM();
@@ -276,8 +289,9 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string interface = "";
-            string ipversion = "";
+            string interface;
+            string ipversion;
+            bool isCacheLoaded = false;
             Exchange::INetworkManager::IPAddressInfo result{};
 
             if (parameters.HasLabel("interface"))
@@ -287,14 +301,60 @@ namespace WPEFramework
 
             if (!interface.empty() && ("wlan0" != interface) && ("eth0" != interface))
             {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
+                if(!interface.empty()) {
+                    NMLOG_WARNING("interface is neither wlan0 nor eth0: %s", interface.c_str());
+                    return Core::ERROR_RPC_CALL_FAILED;
+                }
+
+                NMLOG_TRACE("mandatory parameter 'interface' is missing");
+                interface = m_primaryInterfaceCache.getValue();
             }
 
-            if (_networkManager)
-                rc = _networkManager->GetIPSettings(interface, ipversion, result);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            if ("wlan0" == interface && m_wifiStateCache.isSet() && m_wifiStateCache.getValue() != Exchange::INetworkManager::WIFI_STATE_CONNECTED)
+            {
+                NMLOG_WARNING("WiFi not connected; no IP address available");
+                rc = Core::ERROR_NONE;
+            }
+            else if(m_primaryInterfaceCache.isSet() && (interface == m_primaryInterfaceCache.getValue()))
+            {
+                /* If ipversion is empty, IPv4 will be taken as the default version */
+                if(m_ipv4AddressCache.isSet() && (ipversion.empty() || caseInsensitiveCompare(ipversion,"IPV4")))
+                {
+                    NMLOG_INFO("reading ipv4 settings cached values");
+                    result = m_ipv4AddressCache.getValue();
+                    rc = Core::ERROR_NONE;
+                    isCacheLoaded = true;
+                }
+                else if(m_ipv6AddressCache.isSet() && (ipversion.empty() || caseInsensitiveCompare(ipversion,"IPV6")))
+                {
+                    NMLOG_INFO("reading ipv6 settings cached values");
+                    result = m_ipv6AddressCache.getValue();
+                    rc = Core::ERROR_NONE;
+                    isCacheLoaded = true;
+                }
+            }
+
+            if (!isCacheLoaded)
+            {
+                if (_networkManager)
+                {
+                    rc = _networkManager->GetIPSettings(interface, ipversion, result);
+                    /* The value will be cached only for the primary interface IP address. */
+                    if(Core::ERROR_NONE == rc && m_primaryInterfaceCache.isSet() && (interface == m_primaryInterfaceCache.getValue()))
+                    {
+                        NMLOG_TRACE("caching the ip address values");
+                        if(caseInsensitiveCompare(result.m_ipAddrType,"IPV4"))
+                            m_ipv4AddressCache = result;
+                        else if(caseInsensitiveCompare(result.m_ipAddrType,"IPV6"))
+                            m_ipv6AddressCache = result;
+                    }
+                }
+                else
+                {
+                    NMLOG_ERROR("_networkManager == null");
+                    rc = Core::ERROR_UNAVAILABLE;
+                }
+            }
 
             if (Core::ERROR_NONE == rc)
             {
@@ -982,6 +1042,7 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
             {
                 response["state"] = static_cast <int> (state);
+                m_wifiStateCache = state;
                 response["success"] = true;
             }
             LOG_OUTPARAM();

@@ -522,7 +522,7 @@ namespace WPEFramework
                     }
                     default:
                     {
-                        NMLOG_INFO("Event %d received; Unhandled", eventId);
+                        NMLOG_TRACE("Event %d received; Unhandled", eventId);
                         break;
                     }
                 }
@@ -629,7 +629,7 @@ namespace WPEFramework
                 std::vector<InterfaceDetails> interfaceList;
                 for (int i = 0; i < list.size; i++)
                 {
-                    NMLOG_INFO ("Interface Name = %s", list.interfaces[i].name);
+                    NMLOG_TRACE("Interface Name = %s", list.interfaces[i].name);
                     string interfaceName(list.interfaces[i].name);
                     if (("eth0" == interfaceName) || ("wlan0" == interfaceName))
                     {
@@ -833,11 +833,12 @@ namespace WPEFramework
                 result.m_gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
                 result.m_primaryDns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
                 result.m_secondaryDns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
+                NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filled the data");
                 rc = Core::ERROR_NONE;
             }
             else
             {
-                NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
+                NMLOG_ERROR("%s - Calling IARM Failed", IARM_BUS_NETSRVMGR_API_getIPSettings);
             }
 
             return rc;
