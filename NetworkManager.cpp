@@ -44,7 +44,7 @@ namespace WPEFramework
               _notification(this)
         {
             // Don't do any work in the constructor - all set up should be done in Initialize
-            m_defaultInterface = "wlan0";
+            m_wifiStateCache = Exchange::INetworkManager::WIFI_STATE_DISCONNECTED;
         }
 
         NetworkManager::~NetworkManager()

@@ -28,6 +28,7 @@
 
 #include <string>
 #include <atomic>
+#include <mutex>
 
 namespace WPEFramework
 {
@@ -123,7 +124,12 @@ namespace WPEFramework
                     JsonObject params;
                     params["interface"] = interface;
                     params["state"] = InterfaceStateToString(event);
+                    if(interface == "wlan0")
+                        _parent.m_wifiStateCache.reset();
                     _parent.Notify("onInterfaceStateChange", params);
+                    _parent.m_primaryInterfaceCache.reset();
+                    _parent.m_ipv6AddressCache.reset();
+                    _parent.m_ipv4AddressCache.reset();
                 }
 
                 void onIPAddressChange(const string interface, const bool isAcquired, const bool isIPv6, const string ipAddress) override
@@ -134,6 +140,10 @@ namespace WPEFramework
                     params["interface"] = interface;
                     params["ipAddress"] = ipAddress;
                     params["isIPv6"] = isIPv6;
+                    if(isIPv6)
+                        _parent.m_ipv6AddressCache.reset();
+                    else
+                        _parent.m_ipv4AddressCache.reset();
                     _parent.Notify("onIPAddressChange", params);
                 }
 
@@ -144,7 +154,7 @@ namespace WPEFramework
                     params["oldInterfaceName"] = prevActiveInterface;
                     params["newInterfaceName"] = currentActiveinterface;
                     _parent.Notify("onActiveInterfaceChange", params);
-
+                    _parent.m_primaryInterfaceCache.reset();
                 }
 
                 void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus oldState, const Exchange::INetworkManager::InternetStatus newstate) override
@@ -184,6 +194,7 @@ namespace WPEFramework
                     JsonObject result;
                     result["state"] = static_cast <int> (state);
                     _parent.Notify("onWiFiStateChange", result);
+                    _parent.m_wifiStateCache = state;
                 }
 
                 void onWiFiSignalStrengthChange(const string ssid, const string signalLevel, const Exchange::INetworkManager::WiFiSignalQuality signalQuality) override
@@ -264,7 +275,55 @@ namespace WPEFramework
                 return (m_publicIPAddress.empty() == true ? PluginHost::ISubSystem::IInternet::UNKNOWN : (m_publicIPAddressType == "IPV6" ? PluginHost::ISubSystem::IInternet::IPV6 : PluginHost::ISubSystem::IInternet::IPV4));
             }
             void PublishToThunderAboutInternet();
+            /* Class to store and manage cached data */
+            template<typename DataType>
+            class Cache {
+            public:
+                Cache() : is_set(false) {}
 
+                Cache& operator=(const DataType& value) {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    this->value = value;
+                    is_set.store(true);
+                    return *this;
+                }
+
+                Cache& operator=(DataType&& value) {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    this->value = std::move(value);
+                    is_set.store(true);
+                    return *this;
+                }
+
+                bool isSet() const {
+                    return is_set.load();
+                }
+
+                void reset() {
+                    is_set.store(false);
+                }
+
+                const DataType& getValue() const {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    return value;
+                }
+
+                DataType& getValue() {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    return value;
+                }
+
+            private:
+                DataType value;
+                std::atomic<bool> is_set;
+                mutable std::mutex mutex;
+            };
+
+            // cached varibales
+            Cache<Exchange::INetworkManager::WiFiState> m_wifiStateCache;
+            Cache<Exchange::INetworkManager::IPAddressInfo> m_ipv4AddressCache;
+            Cache<Exchange::INetworkManager::IPAddressInfo> m_ipv6AddressCache;
+            Cache<std::string> m_primaryInterfaceCache;
         private:
             // Notification/event handlers
             // Clean up when we're told to deactivate
@@ -315,7 +374,6 @@ namespace WPEFramework
             Exchange::INetworkManager *_networkManager;
             Core::Sink<Notification> _notification;
             string m_publicIPAddress;
-            string m_defaultInterface;
             string m_publicIPAddressType;
         };
     }

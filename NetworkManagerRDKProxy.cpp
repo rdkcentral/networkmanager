@@ -522,7 +522,7 @@ namespace WPEFramework
                     }
                     default:
                     {
-                        NMLOG_INFO("Event %d received; Unhandled", eventId);
+                        NMLOG_TRACE("Event %d received; Unhandled", eventId);
                         break;
                     }
                 }
@@ -629,7 +629,7 @@ namespace WPEFramework
                 std::vector<InterfaceDetails> interfaceList;
                 for (int i = 0; i < list.size; i++)
                 {
-                    NMLOG_INFO ("Interface Name = %s", list.interfaces[i].name);
+                    NMLOG_TRACE("Interface Name = %s", list.interfaces[i].name);
                     string interfaceName(list.interfaces[i].name);
                     if (("eth0" == interfaceName) || ("wlan0" == interfaceName))
                     {
@@ -818,10 +818,8 @@ namespace WPEFramework
 
             strncpy(iarmData.ipversion, ipversion.c_str(), 16);
             iarmData.isSupported = true;
-            NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - Before Calling IARM");
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filling the data");
                 result.m_ipAddrType     = string(iarmData.ipversion);
                 result.m_autoConfig     = iarmData.autoconfig;
                 result.m_dhcpServer     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);
@@ -829,17 +827,17 @@ namespace WPEFramework
                 result.m_ipAddress      = string(iarmData.ipaddress,MAX_IP_ADDRESS_LEN - 1);
                 if (0 == strcasecmp("ipv4", iarmData.ipversion))
                     result.m_prefix = NetmaskToPrefix(iarmData.netmask);
-		else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                     result.m_prefix = std::atoi(iarmData.netmask);
                 result.m_gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
                 result.m_primaryDns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
                 result.m_secondaryDns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
-                NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filled the data");
+                NMLOG_TRACE("GetIPSettings - IARM %s Success", IARM_BUS_NETSRVMGR_API_getIPSettings);
                 rc = Core::ERROR_NONE;
             }
             else
             {
-                NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
+                NMLOG_ERROR("%s - Calling IARM Failed", IARM_BUS_NETSRVMGR_API_getIPSettings);
             }
 
             return rc;
