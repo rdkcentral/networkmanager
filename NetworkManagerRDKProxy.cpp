@@ -598,7 +598,7 @@ namespace WPEFramework
                     usleep(500*1000);
                     retry++;
                 }
-            }while((retVal != IARM_RESULT_SUCCESS) && (retry < 10));
+            }while((retVal != IARM_RESULT_SUCCESS) && (retry < 3));
 
             if(retVal != IARM_RESULT_SUCCESS)
             {
