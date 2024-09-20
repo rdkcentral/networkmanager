@@ -276,19 +276,19 @@ namespace WPEFramework
             }
             void PublishToThunderAboutInternet();
             /* Class to store and manage cached data */
-            template<typename DataType>
+            template<typename CacheValue>
             class Cache {
             public:
                 Cache() : is_set(false) {}
 
-                Cache& operator=(const DataType& value) {
+                Cache& operator=(const CacheValue& value) {
                     std::lock_guard<std::mutex> lock(mutex);
                     this->value = value;
                     is_set.store(true);
                     return *this;
                 }
 
-                Cache& operator=(DataType&& value) {
+                Cache& operator=(CacheValue&& value) {
                     std::lock_guard<std::mutex> lock(mutex);
                     this->value = std::move(value);
                     is_set.store(true);
@@ -303,18 +303,18 @@ namespace WPEFramework
                     is_set.store(false);
                 }
 
-                const DataType& getValue() const {
+                const CacheValue& getValue() const {
                     std::lock_guard<std::mutex> lock(mutex);
                     return value;
                 }
 
-                DataType& getValue() {
+                CacheValue& getValue() {
                     std::lock_guard<std::mutex> lock(mutex);
                     return value;
                 }
 
             private:
-                DataType value;
+                CacheValue value;
                 std::atomic<bool> is_set;
                 mutable std::mutex mutex;
             };
