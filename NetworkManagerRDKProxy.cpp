@@ -522,7 +522,7 @@ namespace WPEFramework
                     }
                     default:
                     {
-                        NMLOG_TRACE("Event %d received; Unhandled", eventId);
+                        NMLOG_INFO("Event %d received; Unhandled", eventId);
                         break;
                     }
                 }
@@ -832,7 +832,7 @@ namespace WPEFramework
                 result.m_gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
                 result.m_primaryDns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
                 result.m_secondaryDns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
-                NMLOG_TRACE("GetIPSettings - IARM %s Success", IARM_BUS_NETSRVMGR_API_getIPSettings);
+                NMLOG_INFO("%s - IARM  Success", IARM_BUS_NETSRVMGR_API_getIPSettings);
                 rc = Core::ERROR_NONE;
             }
             else
