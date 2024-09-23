@@ -281,7 +281,6 @@ namespace WPEFramework
         uint32_t NetworkManager::GetIPSettings (const JsonObject& parameters, JsonObject& response)
         {
             LOGINFOMETHOD();
-            { string json; parameters.ToString(json); NMLOG_TRACE("input params=%s", json.c_str() ); }
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
             string ipversion;
