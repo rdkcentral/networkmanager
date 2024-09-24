@@ -1,0 +1,105 @@
+name: gnome_unit_test
+
+on:
+  push:
+    branches: [ main, develop, 'release/**']
+  pull_request:
+    branches: [ main, develop, 'release/**']
+
+env:
+  THUNDER_REF: "R4.4.1"
+
+jobs:
+  unit-tests:
+    name: Build and run unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure cache
+        if: ${{ !env.ACT }}
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build/Thunder
+            build/ThunderInterfaces
+            build/ThunderTools
+            install
+            !install/etc/WPEFramework/plugins
+            !install/usr/lib/wpeframework/plugins
+          key: ${{ runner.os }}-${{ env.THUNDER_REF }}
+
+      - name: Install packages
+        run: |
+          sudo apt update
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev ninja-build
+
+      - name: Configure Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install jsonref
+
+      - name: Configure CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.16.x'
+
+      - name: Checkout thunder repositories
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
+          git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
+          git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
+
+      - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderTools" -B build/ThunderTools
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DGENERIC_CMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderTools --target install -j8
+
+      - name: Build Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/Thunder" -B build/Thunder
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DBUILD_TYPE=Debug
+          -DBINDING=127.0.0.1
+          -DPORT=9998
+          &&
+          cmake --build build/Thunder --target install -j8
+
+      - name: Build ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderInterfaces --target install -j8
+
+      - name: Checkout networkmanager
+        uses: actions/checkout@v3
+        with:
+          path: networkmanager
+
+      - name: Build networkmanager with Gnome Proxy
+        run: >
+          cmake
+          -S "${{github.workspace}}/networkmanager"
+          -B build/GnomeNetworkmanager
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DENABLE_GNOME_NETWORKMANAGER=ON
+          &&
+          cmake --build build/GnomeNetworkmanager --target install -j8
+
