@@ -544,6 +544,11 @@ namespace WPEFramework
                 m_timer.stop();
                 NMLOG_INFO("subscriber timer stoped");
             }
+            else
+            {
+                m_timer.start(SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS);
+                NMLOG_INFO("subscriber timer started");
+            }
         }
 
          bool WiFiManager::ErrorCodeMapping(const uint32_t ipvalue, uint32_t &opvalue)

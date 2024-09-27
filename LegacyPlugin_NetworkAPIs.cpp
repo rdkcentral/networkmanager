@@ -864,6 +864,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 m_timer.stop();
                 NMLOG_INFO("subscriber timer stoped");
             }
+            else
+            {
+                m_timer.start(SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS);
+                NMLOG_INFO("subscriber timer started");
+            }
         }
 
         string Network::getInterfaceMapping(const string & interface)
