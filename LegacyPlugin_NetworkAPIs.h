@@ -44,6 +44,7 @@ namespace WPEFramework {
             uint32_t doPing(const JsonObject& parameters, JsonObject& response);
             uint32_t setIPSettings(const JsonObject& parameters, JsonObject& response);
             uint32_t getIPSettings(const JsonObject& parameters, JsonObject& response);
+            uint32_t getIPSettings2(const JsonObject& parameters, JsonObject& response);
             uint32_t isConnectedToInternet(const JsonObject& parameters, JsonObject& response);
             uint32_t setConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response);
             uint32_t getInternetConnectionState(const JsonObject& parameters, JsonObject& response);

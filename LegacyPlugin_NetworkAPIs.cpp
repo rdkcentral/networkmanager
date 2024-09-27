@@ -204,7 +204,7 @@ namespace WPEFramework
             Register("getCaptivePortalURI",               &Network::getCaptivePortalURI, this);
             Register("stopConnectivityMonitoring",        &Network::stopConnectivityMonitoring, this);
             GetHandler(2)->Register<JsonObject, JsonObject>("setIPSettings", &Network::setIPSettings, this);
-            GetHandler(2)->Register<JsonObject, JsonObject>("getIPSettings", &Network::getIPSettings, this);
+            GetHandler(2)->Register<JsonObject, JsonObject>("getIPSettings", &Network::getIPSettings2, this);
         }
 
         /**
@@ -439,6 +439,26 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
         {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
+
+            LOGINFOMETHOD();
+            rc = getIPSettings2(parameters, tmpResponse);
+
+            if (tmpResponse.HasLabel("ipaddr"))
+                response = tmpResponse;
+            else
+            {
+                NMLOG_INFO("IP Address not assigned to the given interface yet");
+                response["success"] = false;
+            }
+
+            LOGTRACEMETHODFIN();
+            return rc;
+        }
+
+        uint32_t Network::getIPSettings2 (const JsonObject& parameters, JsonObject& response)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            JsonObject tmpResponse;
             JsonObject tmpParameters;
             size_t index;
 
@@ -475,31 +495,33 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                         response["interface"] = "ETHERNET";
                 }
 
-                response["ipversion"]    = tmpResponse["ipversion"];
                 response["autoconfig"]   = tmpResponse["autoconfig"];
-                response["ipaddr"]       = tmpResponse["ipaddress"];
-                if(tmpResponse["ipaddress"].String().empty())
-                    response["netmask"]  = "";
-                else if (caseInsensitiveCompare(ipversion, "IPV4"))
+                if(!tmpResponse["ipaddress"].String().empty())
                 {
-                    index = tmpResponse["prefix"].Number();
-                    if(CIDR_NETMASK_IP_LEN <= index)
-                        return Core::ERROR_GENERAL;
-                    response["netmask"]  = CIDR_PREFIXES[index];
+                    response["ipversion"]    = tmpResponse["ipversion"];
+                    response["ipaddr"]       = tmpResponse["ipaddress"];
+                    if (caseInsensitiveCompare(ipversion, "IPV4"))
+                    {
+                        index = tmpResponse["prefix"].Number();
+                        if(CIDR_NETMASK_IP_LEN <= index)
+                            return Core::ERROR_GENERAL;
+                        response["netmask"]  = CIDR_PREFIXES[index];
+                    }
+                    else if (caseInsensitiveCompare(ipversion, "IPV6"))
+                    {
+                        response["netmask"]  = tmpResponse["prefix"];
+                    }
+                    response["gateway"]      = tmpResponse["gateway"];
+                    response["dhcpserver"]   = tmpResponse["dhcpserver"];
+                    response["primarydns"]   = tmpResponse["primarydns"];
+                    response["secondarydns"] = tmpResponse["secondarydns"];
                 }
-                else if (caseInsensitiveCompare(ipversion, "IPV6"))
-                {
-                    response["netmask"]  = tmpResponse["prefix"];
-                }
-                response["gateway"]      = tmpResponse["gateway"];
-                response["dhcpserver"]   = tmpResponse["dhcpserver"];
-                response["primarydns"]   = tmpResponse["primarydns"];
-                response["secondarydns"] = tmpResponse["secondarydns"];
                 response["success"]      = tmpResponse["success"];
             }
             LOGTRACEMETHODFIN();
             return rc;
         }
+
         uint32_t Network::isConnectedToInternet(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
