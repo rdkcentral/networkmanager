@@ -300,7 +300,7 @@ namespace WPEFramework
                 snprintf(cmd, sizeof(cmd), "ping -c %d -W %d '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             
-            NMLOG_INFO ("The Command is %s", cmd);
+            NMLOG_TRACE ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_PING, commandToExecute, response);
 
@@ -321,7 +321,7 @@ namespace WPEFramework
                 snprintf(cmd, 256, "traceroute -w 3 -m 6 -q %d %s 52 2>&1", noOfRequest, endpoint.c_str());
             }
 
-            NMLOG_INFO ("The Command is %s", cmd);
+            NMLOG_TRACE ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_TRACE, commandToExecute, tempResult);
 

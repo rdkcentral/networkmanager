@@ -34,7 +34,7 @@
 #endif
 
 namespace NetworkManagerLogger {
-    static LogLevel gDefaultLogLevel = TRACE_LEVEL;
+    static LogLevel gDefaultLogLevel = INFO_LEVEL;
 
     const char* methodName(const std::string& prettyFunction)
     {
@@ -72,7 +72,7 @@ namespace NetworkManagerLogger {
         }
         formattedLog[kFormatMessageSize - 1] = '\0';
 #ifdef USE_RDK_LOGGER
-        RDK_LOG((int)level, "LOG.RDK.NETSRVMGER", "%s\n", formattedLog);
+        RDK_LOG(static_cast<rdk_LogLevel>(level), "LOG.RDK.NETMGR", "%s\n", formattedLog);
 #else
         const char* levelMap[] = {"Fatal", "Error", "Warning", "Info", "Verbose", "Trace"};
         struct timeval tv;

@@ -14,8 +14,9 @@ add_compile_definitions(NETWORKMANAGER_PATCH_VERSION=${VERSION_PATCH})
 
 set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-
 include(CmakeHelperFunctions)
+
+option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
@@ -60,6 +61,12 @@ message("Setup ${PROJECT_NAME} v${PROJECT_VERSION}")
 
 set(PLUGIN_NETWORKMANAGER_LOGLEVEL "5" CACHE STRING "To configure default loglevel NetworkManager plugin")
 
+if (USE_RDK_LOGGER)
+    find_package(rdklogger REQUIRED)
+    add_definitions(-DUSE_RDK_LOGGER)
+
+    include_directories(${RDKLOGGER_INCLUDE_DIRS})
+endif (USE_RDK_LOGGER)
 
 include_directories(${PROJECT_SOURCE_DIR})
 # Build the main plugin that runs inside the WPEFramework daemon
@@ -84,14 +91,6 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
-include_directories(${PROJECT_SOURCE_DIR}/interface)
-include_directories(${PROJECT_SOURCE_DIR}/service)
-include_directories(${PROJECT_SOURCE_DIR}/../helpers)
-
-install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
-
-
-# Build the implementation that runs out-of-process behind a COM-RPC interface
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     target_sources(${MODULE_NAME} PRIVATE NetworkManagerGnomeProxy.cpp 
@@ -106,9 +105,14 @@ else()
     target_link_libraries(${MODULE_NAME} PRIVATE ${IARMBUS_LIBRARIES})
 endif()
 
-
 target_link_libraries(${MODULE_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
+
+if (USE_RDK_LOGGER)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
+endif (USE_RDK_LOGGER)
+
+install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 
 add_library(${PLUGIN_LEGACY_DEPRECATED_NETWORK} SHARED
         LegacyPlugin_NetworkAPIs.cpp
@@ -120,6 +124,10 @@ target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_NETWORK}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                         )
+
+if (USE_RDK_LOGGER)
+    target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_NETWORK} PRIVATE ${RDKLOGGER_LIBRARIES})
+endif (USE_RDK_LOGGER)
 
 set_target_properties(${PLUGIN_LEGACY_DEPRECATED_NETWORK} PROPERTIES
                                         CXX_STANDARD 11
@@ -137,6 +145,10 @@ target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_WIFI}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                     )
+
+if (USE_RDK_LOGGER)
+    target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
+endif (USE_RDK_LOGGER)
 
 set_target_properties(${PLUGIN_LEGACY_DEPRECATED_WIFI} PROPERTIES
                                         CXX_STANDARD 11

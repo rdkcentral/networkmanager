@@ -399,8 +399,8 @@ namespace WPEFramework
                     return Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS;
                 case WIFI_AUTH_FAILED:
                     return Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED;
-		case WIFI_NO_SSID:
-		    return Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND;
+                case WIFI_NO_SSID:
+                    return Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND;
                 case WIFI_UNKNOWN:
                     return Exchange::INetworkManager::WIFI_STATE_ERROR;
             }
@@ -818,10 +818,10 @@ namespace WPEFramework
 
             strncpy(iarmData.ipversion, ipversion.c_str(), 16);
             iarmData.isSupported = true;
-            NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - Before Calling IARM");
+
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filling the data");
+                NMLOG_TRACE("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filling the data");
                 result.m_ipAddrType     = string(iarmData.ipversion);
                 result.m_autoConfig     = iarmData.autoconfig;
                 result.m_dhcpServer     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);
@@ -829,12 +829,11 @@ namespace WPEFramework
                 result.m_ipAddress      = string(iarmData.ipaddress,MAX_IP_ADDRESS_LEN - 1);
                 if (0 == strcasecmp("ipv4", iarmData.ipversion))
                     result.m_prefix = NetmaskToPrefix(iarmData.netmask);
-		else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                     result.m_prefix = std::atoi(iarmData.netmask);
                 result.m_gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
                 result.m_primaryDns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
                 result.m_secondaryDns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
-                NMLOG_INFO("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filled the data");
                 rc = Core::ERROR_NONE;
             }
             else
@@ -1214,36 +1213,36 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 signalStrength  = ssidInfo.m_signalStrength;
 
                 if (!signalStrength.empty())
-		{
+                {
                     signalStrengthOut = std::stof(signalStrength.c_str());
-		    NMLOG_INFO ("WiFiSignalStrength in dB = %s",signalStrengthOut);
-		}
+                    NMLOG_INFO ("WiFiSignalStrength in dB = %s",signalStrengthOut);
+                }
 
                 if (signalStrengthOut == 0)
-		{
+                {
                     quality = WIFI_SIGNAL_DISCONNECTED;
-		    signalStrength = "0";
-		}
+                    signalStrength = "0";
+                }
                 else if (signalStrengthOut >= signalStrengthThresholdExcellent && signalStrengthOut < 0)
-		{
+                {
                     quality = WIFI_SIGNAL_EXCELLENT;
-		    signalStrength = "100";
-		}
+                    signalStrength = "100";
+                }
                 else if (signalStrengthOut >= signalStrengthThresholdGood && signalStrengthOut < signalStrengthThresholdExcellent)
-		{
+                {
                     quality = WIFI_SIGNAL_GOOD;
-		    signalStrength = "75";
-		}
+                    signalStrength = "75";
+                }
                 else if (signalStrengthOut >= signalStrengthThresholdFair && signalStrengthOut < signalStrengthThresholdGood)
-		{
+                {
                     quality = WIFI_SIGNAL_FAIR;
-		    signalStrength = "50";
-		}
+                    signalStrength = "50";
+                }
                 else
-		{
+                {
                     quality = WIFI_SIGNAL_WEAK;
-		    signalStrength = "25";
-		}
+                    signalStrength = "25";
+                }
 
                 NMLOG_INFO ("GetWiFiSignalStrength success");
                 rc = Core::ERROR_NONE;
