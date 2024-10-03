@@ -19,8 +19,8 @@
 
 #include "NetworkManager.h"
 
-#define LOGINFOMETHOD() { std::string json; parameters.ToString(json); NMLOG_TRACE("params=%s", json.c_str() ); }
-#define LOGTRACEMETHODFIN() { std::string json; response.ToString(json); NMLOG_TRACE("response=%s", json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_DEBUG("%s : params=%s", __FUNCTION__, json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("%s : response=%s", __FUNCTION__,  json.c_str() ); }
 
 using namespace NetworkManagerLogger;
 
@@ -114,7 +114,7 @@ namespace WPEFramework
 
         uint32_t NetworkManager::SetLogLevel (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             uint32_t rc = Core::ERROR_GENERAL;
             LogLevel level = INFO_LEVEL;
@@ -134,13 +134,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetAvailableInterfaces (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IInterfaceDetailsIterator* interfaces = NULL;
@@ -151,7 +151,7 @@ namespace WPEFramework
 
             if (interfaces)
             {
-                NMLOG_TRACE("received response");
+                NMLOG_DEBUG("received response");
                 JsonArray array;
                 Exchange::INetworkManager::InterfaceDetails entry{};
                 while (interfaces->Next(entry) == true) {
@@ -166,17 +166,17 @@ namespace WPEFramework
                 }
 
                 interfaces->Release();
-                NMLOG_TRACE("Sending Success");
+                NMLOG_DEBUG("Sending Success");
                 response["interfaces"] = array;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
             if (_networkManager)
@@ -190,13 +190,13 @@ namespace WPEFramework
                 m_defaultInterface = interface;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface = parameters["interface"].String();
 
@@ -215,13 +215,13 @@ namespace WPEFramework
             { 
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::SetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface = parameters["interface"].String();
             bool enabled = parameters["enabled"].Boolean();
@@ -241,13 +241,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             bool isEnabled = false;
             string interface = parameters["interface"].String();
@@ -268,13 +268,13 @@ namespace WPEFramework
                 response["enabled"] = isEnabled;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetIPSettings (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface = "";
             string ipversion = "";
@@ -316,13 +316,13 @@ namespace WPEFramework
                 response["secondarydns"] = result.m_secondaryDns;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::SetIPSettings(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IPAddressInfo result{};
             string interface = "";
@@ -358,13 +358,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endPoint;
             uint32_t port;
@@ -384,13 +384,13 @@ namespace WPEFramework
                 response["cacheTimeout"] = cacheTimeout;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::SetStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endPoint = parameters["endPoint"].String();
             uint32_t port = parameters["port"].Number();
@@ -406,13 +406,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IStringIterator* endpoints = NULL;
             
@@ -437,20 +437,20 @@ namespace WPEFramework
                     response["success"] = true;
                 }
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::SetConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
             JsonArray array = parameters["endpoints"].Array();
 
             if (0 == array.Length() || 5 < array.Length())
             {
-                NMLOG_TRACE("minimum of 1 to maximum of 5 Urls are allowed");
+                NMLOG_DEBUG("minimum of 1 to maximum of 5 Urls are allowed");
                 return rc;
             }
 
@@ -464,7 +464,7 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_TRACE("Unexpected variant type");
+                    NMLOG_DEBUG("Unexpected variant type");
                     return rc;
                 }
             }
@@ -483,13 +483,13 @@ namespace WPEFramework
             if (endpointsIter)
                 endpointsIter->Release();
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::IsConnectedToInternet(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ipversion = parameters["ipversion"].String();
             Exchange::INetworkManager::InternetStatus result;
@@ -524,13 +524,13 @@ namespace WPEFramework
 
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetCaptivePortalURI(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endPoint;
             if (_networkManager)
@@ -543,17 +543,17 @@ namespace WPEFramework
                 response["uri"] = endPoint;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StartConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             uint32_t interval = parameters["interval"].Number();
 
-            NMLOG_TRACE("connectivity interval = %d", interval);
+            NMLOG_DEBUG("connectivity interval = %d", interval);
             if (_networkManager)
                 rc = _networkManager->StartConnectivityMonitoring(interval);
             else
@@ -563,13 +563,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -581,13 +581,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetPublicIP(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ipAddress{};
             string ipversion = "IPv4";
@@ -617,13 +617,13 @@ namespace WPEFramework
                 m_publicIPAddressType = ipversion;
                 PublishToThunderAboutInternet();
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         void NetworkManager::PublishToThunderAboutInternet()
         {
-            NMLOG_TRACE("No public IP persisted yet; Update the data");
+            NMLOG_DEBUG("No public IP persisted yet; Update the data");
             if (m_publicIPAddress.empty())
             {
                 JsonObject input, output;
@@ -650,9 +650,10 @@ namespace WPEFramework
 
         uint32_t NetworkManager::Ping(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             string result{};
             uint32_t rc = Core::ERROR_GENERAL;
+            LOG_INPARAM();
             if (parameters.HasLabel("endpoint"))
             {
                 string endpoint{};
@@ -687,13 +688,13 @@ namespace WPEFramework
                 reply.FromString(result);
                 response = reply;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::Trace(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string result{};
             const string ipversion      = parameters["ipversion"].String();
@@ -713,13 +714,13 @@ namespace WPEFramework
                 reply["success"] = true;
                 response = reply;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StartWiFiScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             const Exchange::INetworkManager::WiFiFrequency frequency = static_cast <Exchange::INetworkManager::WiFiFrequency> (parameters["frequency"].Number());
 
@@ -732,13 +733,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StopWiFiScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -750,13 +751,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetKnownSSIDs(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             JsonArray ssids;
@@ -781,13 +782,13 @@ namespace WPEFramework
                 response["ssids"] = ssids;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::AddToKnownSSIDs(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
 
@@ -807,13 +808,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::RemoveKnownSSID(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
 
@@ -830,13 +831,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::WiFiConnect(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
 
@@ -870,13 +871,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::WiFiDisconnect(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -888,13 +889,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetConnectedSSID(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
 
@@ -914,13 +915,13 @@ namespace WPEFramework
                 response["noise"] = ssidInfo.m_noise;
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StartWPS(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string wps_pin{};
             Exchange::INetworkManager::WiFiWPS method;
@@ -946,13 +947,13 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::StopWPS(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -964,7 +965,7 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -973,7 +974,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiState state;
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if (_networkManager)
                 rc = _networkManager->GetWifiState(state);
             else
@@ -983,13 +984,13 @@ namespace WPEFramework
                 response["state"] = static_cast <int> (state);
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetWiFiSignalStrength(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
             string signalStrength{};
@@ -1007,13 +1008,13 @@ namespace WPEFramework
                 response["quality"] = static_cast <int> (quality);
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t NetworkManager::GetSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::ISecurityModeIterator* securityModes{};
 
@@ -1036,7 +1037,7 @@ namespace WPEFramework
                 }
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
     }

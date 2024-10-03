@@ -35,7 +35,7 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define LOG_ENTRY_FUNCTION() { NMLOG_TRACE("Entering=%s", __FUNCTION__ ); }
+#define LOG_ENTRY_FUNCTION() { NMLOG_DEBUG("Entering=%s", __FUNCTION__ ); }
 
 namespace WPEFramework
 {

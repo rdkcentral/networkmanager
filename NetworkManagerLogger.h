@@ -30,11 +30,11 @@
 namespace NetworkManagerLogger {
 /**
  * Logging level with an increasing order of refinement
- * (TRACE_LEVEL = Finest logging)
+ * (DEBUG_LEVEL = Finest logging)
  * It is essental to start with 0 and increase w/o gaps as the value
  * can be used for indexing in a mapping table.
  */
-enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, VERBOSE_LEVEL, TRACE_LEVEL};
+enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL};
 
 /**
  * @brief Init logging
@@ -55,8 +55,7 @@ void SetLevel(LogLevel level);
 void logPrint(LogLevel level, const char* file, const char* func, int line, const char* format, ...) __attribute__ ((format (printf, 5, 6)));
 
 
-#define NMLOG_TRACE(FMT, ...)   logPrint(NetworkManagerLogger::TRACE_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
-#define NMLOG_VERBOSE(FMT, ...) logPrint(NetworkManagerLogger::VERBOSE_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
+#define NMLOG_DEBUG(FMT, ...)   logPrint(NetworkManagerLogger::DEBUG_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
 #define NMLOG_INFO(FMT, ...)    logPrint(NetworkManagerLogger::INFO_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
 #define NMLOG_WARNING(FMT, ...) logPrint(NetworkManagerLogger::WARNING_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
 #define NMLOG_ERROR(FMT, ...)   logPrint(NetworkManagerLogger::ERROR_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)

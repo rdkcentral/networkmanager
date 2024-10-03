@@ -763,7 +763,7 @@ namespace WPEFramework
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isInterfaceEnabled, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_TRACE("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isInterfaceEnabled);
+                NMLOG_DEBUG("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isInterfaceEnabled);
                 isEnabled = iarmData.isInterfaceEnabled;
                 rc = Core::ERROR_NONE;
             }
@@ -821,7 +821,6 @@ namespace WPEFramework
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_TRACE("NetworkManagerImplementation::GetIPSettings - IARM Success.. Filling the data");
                 result.m_ipAddrType     = string(iarmData.ipversion);
                 result.m_autoConfig     = iarmData.autoconfig;
                 result.m_dhcpServer     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);

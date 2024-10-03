@@ -66,7 +66,7 @@ namespace WPEFramework
             else
                 NMLOG_ERROR("signalStrength is empty");
 
-            NMLOG_TRACE("SSID = %s Signal Strength %f db", ssid.c_str(), signalStrengthOut);
+            NMLOG_DEBUG("SSID = %s Signal Strength %f db", ssid.c_str(), signalStrengthOut);
             if (signalStrengthOut == 0.0f)
             {
                 quality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
@@ -114,7 +114,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
                 if (_instance != nullptr)
                 {
-                    NMLOG_TRACE("checking WiFi signal strength");
+                    NMLOG_DEBUG("checking WiFi signal strength");
                     getSignalData(ssid, newSignalQuality, signalStrength);
                     if(oldSignalQuality != newSignalQuality)
                     {

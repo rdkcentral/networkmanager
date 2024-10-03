@@ -34,7 +34,7 @@ namespace WPEFramework
             // initialize the NMClient object
             client = nm_client_new(NULL, &error);
             if (client == NULL) {
-                NMLOG_TRACE("Error initializing NMClient: %s", error->message);
+                NMLOG_DEBUG("Error initializing NMClient: %s", error->message);
                 g_error_free(error);
                 return;
             }
@@ -125,7 +125,7 @@ namespace WPEFramework
             interface = ifacePtr;
             if(interface != "eth0" && interface != "wlan0")
             {
-                NMLOG_TRACE("interface name is unknow");
+                NMLOG_DEBUG("interface name is unknow");
                 interface.clear();
             }
             else
@@ -250,7 +250,7 @@ namespace WPEFramework
                 if (g_strcmp0(name, interface.c_str()) == 0) {
                     nm_device_set_managed(device, false);
 
-                    NMLOG_TRACE("Interface %s status set to disabled",
+                    NMLOG_DEBUG("Interface %s status set to disabled",
                             interface.c_str());
                 }
             }
@@ -388,7 +388,7 @@ namespace WPEFramework
                     for (i = 0; i < p->len; i++) {
                         a = static_cast<NMIPAddress*>(p->pdata[i]);
                         result.m_ipAddress      = nm_ip_address_get_address(a);
-                        NMLOG_TRACE("\tinet6 %s/%d\n", nm_ip_address_get_address(a), nm_ip_address_get_prefix(a));
+                        NMLOG_DEBUG("\tinet6 %s/%d\n", nm_ip_address_get_address(a), nm_ip_address_get_prefix(a));
                     }
                     gateway = nm_ip_config_get_gateway(ip6_config);
 
@@ -421,10 +421,10 @@ namespace WPEFramework
 
             // Check if the operation was successful
             if (!nm_client_deactivate_connection_finish(NM_CLIENT(source_object), res, &error)) {
-                NMLOG_TRACE("Deactivating connection failed: %s", error->message);
+                NMLOG_DEBUG("Deactivating connection failed: %s", error->message);
                 g_error_free(error);
             } else {
-                NMLOG_TRACE("Deactivating connection successful");
+                NMLOG_DEBUG("Deactivating connection successful");
             }
         }
 
@@ -434,10 +434,10 @@ namespace WPEFramework
 
             // Check if the operation was successful
             if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
-                NMLOG_TRACE("Activating connection failed: %s", error->message);
+                NMLOG_DEBUG("Activating connection failed: %s", error->message);
                 g_error_free(error);
             } else {
-                NMLOG_TRACE("Activating connection successful");
+                NMLOG_DEBUG("Activating connection successful");
             }
 
             g_main_loop_quit((GMainLoop*)user_data);

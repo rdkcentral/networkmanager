@@ -28,8 +28,8 @@ using namespace WPEFramework::Plugin;
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 
-#define LOGINFOMETHOD() { string json; parameters.ToString(json); NMLOG_TRACE("Legacy params=%s", json.c_str() ); }
-#define LOGTRACEMETHODFIN() { string json; response.ToString(json); NMLOG_TRACE("Legacy response=%s", json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("%s : params=%s", __FUNCTION__, json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("%s : response=%s", __FUNCTION__,  json.c_str() ); }
 
 namespace WPEFramework
 {
@@ -120,7 +120,7 @@ namespace WPEFramework
                             reinterpret_cast<const uint8_t*>(payload.c_str()),
                             token)
                         == Core::ERROR_NONE) {
-                    NMLOG_TRACE("WiFi manager plugin got security token");
+                    NMLOG_DEBUG("WiFi manager plugin got security token");
                 } else {
                     NMLOG_WARNING("WiFi manager plugin failed to get security token");
                 }
@@ -221,7 +221,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StopWPS"), parameters, response);
@@ -233,7 +233,7 @@ namespace WPEFramework
                 response["result"] = string();
             }
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -243,7 +243,7 @@ namespace WPEFramework
             JsonObject tmpParameters;
             tmpParameters["ssid"] = "ssid"; // The input ssid name does not matter at this point in time as there is only one ssid persisted at any given point in time.
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("RemoveKnownSSID"), tmpParameters, response);
@@ -255,13 +255,13 @@ namespace WPEFramework
                 response["result"] = 0;
             }
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
  
         uint32_t WiFiManager::connect(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (m_networkmanager)
@@ -273,7 +273,7 @@ namespace WPEFramework
             {
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -282,7 +282,7 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetConnectedSSID"), parameters, tmpResponse);
@@ -300,7 +300,7 @@ namespace WPEFramework
                 response["frequency"] = tmpResponse["frequency"];
                 response["success"] = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -313,13 +313,13 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::getPairedSSID(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
@@ -339,13 +339,13 @@ namespace WPEFramework
             }
             response["success"] = tmpResponse["success"];
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::getPairedSSIDInfo(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (m_networkmanager)
@@ -353,13 +353,13 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (m_networkmanager)
@@ -367,14 +367,14 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::isPaired (const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject tmpResponse;
 
             rc = getPairedSSID(parameters, tmpResponse);
@@ -392,7 +392,7 @@ namespace WPEFramework
                 }
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -400,7 +400,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("AddToKnownSSIDs"), parameters, response);
@@ -412,7 +412,7 @@ namespace WPEFramework
                 response["result"] = 0;
             }
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -420,7 +420,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("WiFiDisconnect"), parameters, response);
@@ -432,7 +432,7 @@ namespace WPEFramework
                 response["result"] = 0;
             }
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -440,7 +440,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if (parameters.HasLabel("method"))
             {
                 string method = parameters["method"].String();
@@ -470,13 +470,13 @@ namespace WPEFramework
             {
                 response["result"] = string();
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
 
@@ -485,13 +485,13 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t WiFiManager::stopScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (m_networkmanager)
@@ -499,7 +499,7 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -591,7 +591,7 @@ namespace WPEFramework
         /** Event Handling and Publishing */
         void WiFiManager::onWiFiStateChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject legacyResult;
             JsonObject legacyErrorResult;
             uint32_t errorCode;
@@ -621,7 +621,7 @@ namespace WPEFramework
 
         void WiFiManager::onAvailableSSIDs(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             NMLOG_INFO("Posting onAvailableSSIDs");
             if(_gWiFiInstance)
@@ -632,7 +632,7 @@ namespace WPEFramework
 
         void WiFiManager::onWiFiSignalStrengthChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject legacyParams;
             legacyParams["signalStrength"] = parameters["signalQuality"];
             legacyParams["strength"] = parameters["signalLevel"];

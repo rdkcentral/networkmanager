@@ -108,7 +108,7 @@ namespace WPEFramework
                 return(Core::ERROR_GENERAL);
             }
 
-            NMLOG_TRACE("config line : %s", configLine.c_str());
+            NMLOG_DEBUG("config line : %s", configLine.c_str());
 
             Config config;
             if(config.FromString(configLine))
@@ -118,11 +118,11 @@ namespace WPEFramework
                 m_stunPort = config.stun.port.Value();
                 m_stunBindTimeout = config.stun.interval.Value();
 
-                NMLOG_TRACE("config : stun endpoint %s", m_stunEndPoint.c_str());
-                NMLOG_TRACE("config : stun port %d", m_stunPort);
-                NMLOG_TRACE("config : stun interval %d", m_stunBindTimeout);
+                NMLOG_DEBUG("config : stun endpoint %s", m_stunEndPoint.c_str());
+                NMLOG_DEBUG("config : stun port %d", m_stunPort);
+                NMLOG_DEBUG("config : stun interval %d", m_stunBindTimeout);
 
-                NMLOG_TRACE("config : loglevel %d", config.loglevel.Value());
+                NMLOG_DEBUG("config : loglevel %d", config.loglevel.Value());
                 logLevel = static_cast <NMLogging>(config.loglevel.Value());
                 // configure loglevel in libWPEFrameworkNetworkManagerImplementation.so
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(logLevel));
@@ -130,23 +130,23 @@ namespace WPEFramework
                 /* load connectivity monitor endpoints */
                 std::vector<std::string> connectEndpts;
                 if(!config.connectivityConf.endpoint_1.Value().empty()) {
-                    NMLOG_TRACE("config : connectivity enpt 1 %s", config.connectivityConf.endpoint_1.Value().c_str());
+                    NMLOG_DEBUG("config : connectivity enpt 1 %s", config.connectivityConf.endpoint_1.Value().c_str());
                     connectEndpts.push_back(config.connectivityConf.endpoint_1.Value().c_str());
                 }
                 if(!config.connectivityConf.endpoint_2.Value().empty()) {
-                    NMLOG_TRACE("config : connectivity enpt 2 %s", config.connectivityConf.endpoint_2.Value().c_str());
+                    NMLOG_DEBUG("config : connectivity enpt 2 %s", config.connectivityConf.endpoint_2.Value().c_str());
                     connectEndpts.push_back(config.connectivityConf.endpoint_2.Value().c_str());
                 }
                 if(!config.connectivityConf.endpoint_3.Value().empty()) {
-                    NMLOG_TRACE("config : connectivity enpt 3 %s", config.connectivityConf.endpoint_3.Value().c_str());
+                    NMLOG_DEBUG("config : connectivity enpt 3 %s", config.connectivityConf.endpoint_3.Value().c_str());
                     connectEndpts.push_back(config.connectivityConf.endpoint_3.Value().c_str());
                 }
                 if(!config.connectivityConf.endpoint_4.Value().empty()) {
-                    NMLOG_TRACE("config : connectivity enpt 4 %s", config.connectivityConf.endpoint_4.Value().c_str());
+                    NMLOG_DEBUG("config : connectivity enpt 4 %s", config.connectivityConf.endpoint_4.Value().c_str());
                     connectEndpts.push_back(config.connectivityConf.endpoint_4.Value().c_str());
                 }
                 if(!config.connectivityConf.endpoint_5.Value().empty()) {
-                    NMLOG_TRACE("config : connectivity enpt 5 %s", config.connectivityConf.endpoint_5.Value().c_str());
+                    NMLOG_DEBUG("config : connectivity enpt 5 %s", config.connectivityConf.endpoint_5.Value().c_str());
                     connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
                 }
 
@@ -300,7 +300,7 @@ namespace WPEFramework
                 snprintf(cmd, sizeof(cmd), "ping -c %d -W %d '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             
-            NMLOG_TRACE ("The Command is %s", cmd);
+            NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_PING, commandToExecute, response);
 
@@ -321,7 +321,7 @@ namespace WPEFramework
                 snprintf(cmd, 256, "traceroute -w 3 -m 6 -q %d %s 52 2>&1", noOfRequest, endpoint.c_str());
             }
 
-            NMLOG_TRACE ("The Command is %s", cmd);
+            NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_TRACE, commandToExecute, tempResult);
 

@@ -29,8 +29,8 @@ using namespace WPEFramework::Plugin;
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 #define DEFAULT_PING_PACKETS 15
 
-#define LOGINFOMETHOD() { string json; parameters.ToString(json); NMLOG_TRACE("Legacy params=%s", json.c_str() ); }
-#define LOGTRACEMETHODFIN() { string json; response.ToString(json); NMLOG_TRACE("Legacy response=%s", json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("%s : params=%s", __FUNCTION__, json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("%s : response=%s", __FUNCTION__,  json.c_str() ); }
 
 namespace WPEFramework
 {
@@ -123,7 +123,7 @@ namespace WPEFramework
                             reinterpret_cast<const uint8_t*>(payload.c_str()),
                             token)
                         == Core::ERROR_NONE) {
-                    NMLOG_TRACE("Network plugin got security token");
+                    NMLOG_DEBUG("Network plugin got security token");
                 } else {
                     NMLOG_WARNING("Network plugin failed to get security token");
                 }
@@ -278,7 +278,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpResponse;
             JsonArray array;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetAvailableInterfaces"), parameters, tmpResponse);
@@ -303,13 +303,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["interfaces"] = array;
                 response["success"] = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::setStunEndPoint(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
             tmpParameters["endPoint"] = parameters["server"];
@@ -322,7 +322,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -332,7 +332,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             string interface;
             JsonObject tmpParameters;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(caseInsensitiveCompare(parameters["interface"].String(),"WIFI"))
                 interface = "wlan0";
             else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
@@ -348,7 +348,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -357,7 +357,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (m_networkmanager)
                 rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetPrimaryInterface"), parameters, tmpResponse);
@@ -372,7 +372,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                     response["interface"] = "ETHERNET";
                 response["success"] = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -381,7 +381,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
             string interface;
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(caseInsensitiveCompare(parameters["interface"].String(), "WIFI"))
                 tmpParameters["interface"] = "wlan0";
             else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
@@ -392,7 +392,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
 
             return rc;
         }
@@ -402,7 +402,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
             JsonObject tmpParameters;
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             
             if(caseInsensitiveCompare(parameters["interface"].String(), "WIFI"))
                 tmpParameters["interface"] = "wlan0";
@@ -431,7 +431,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["supported"] = true;
                 response["success"] = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -440,7 +440,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             rc = getIPSettings2(parameters, tmpResponse);
 
             if (tmpResponse.HasLabel("ipaddr"))
@@ -451,7 +451,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["success"] = false;
             }
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -462,7 +462,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpParameters;
             size_t index;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             if (parameters.HasLabel("ipversion"))
                 tmpParameters["ipversion"] = parameters["ipversion"];
@@ -518,7 +518,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 }
                 response["success"]      = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -527,7 +527,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             string ipversion = parameters["ipversion"].String();
 
             if (m_networkmanager)
@@ -542,7 +542,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                     response["ipversion"] = ipversion.c_str();
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
         uint32_t Network::getInternetConnectionState(const JsonObject& parameters, JsonObject& response)
@@ -555,7 +555,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpParameters;
             string status;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             string ipversion = parameters["ipversion"].String();
 
             if (m_networkmanager)
@@ -566,8 +566,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             if (Core::ERROR_NONE == rc)
             {
                 status = tmpResponse["status"].String();
-                NMLOG_TRACE("status = %s", status.c_str() );
-                NMLOG_TRACE("tmpResponse[status].String() = %s", tmpResponse["status"].String().c_str() );
+                NMLOG_DEBUG("status = %s", status.c_str() );
+                NMLOG_DEBUG("tmpResponse[status].String() = %s", tmpResponse["status"].String().c_str() );
                 if(status == "LIMITED_INTERNET")
                     response["state"] = static_cast<int>(2);
                 else if(status == "CAPTIVE_PORTAL")
@@ -586,7 +586,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                     response["ipversion"] = ipversion.c_str();
                 response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
         uint32_t Network::doPing(const JsonObject& parameters, JsonObject& response)
@@ -598,7 +598,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpResponse;
             string endpoint{};
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             endpoint = parameters["endpoint"].String();
 
@@ -625,13 +625,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["target"] = parameters["endpoint"];
                 response["guid"] = parameters["guid"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::doTrace(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
             tmpParameters["endpoint"]  = parameters["endpoint"].String();
@@ -643,7 +643,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -655,7 +655,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpParameters;
             JsonObject tmpResponse;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(caseInsensitiveCompare(parameters["iface"].String(), "WIFI"))
                 interface = "wlan0";
             else if(caseInsensitiveCompare(parameters["iface"].String(), "ETHERNET"))
@@ -679,7 +679,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["public_ip"]    = tmpResponse["publicIP"];
                 response["success"]      = tmpResponse["success"];
             }
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -688,7 +688,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpParameters;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             string interface = parameters["interface"].String();
             string newInterface = "";
 
@@ -704,44 +704,44 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
           
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
 
             return rc;
         }
 
         uint32_t Network::setConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             if (m_networkmanager)
                 rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetConnectivityTestEndpoints"), parameters, response);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::startConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             uint32_t interval = parameters["interval"].Number();
 
-            NMLOG_TRACE("connectivity interval = %d", interval);
+            NMLOG_DEBUG("connectivity interval = %d", interval);
 
             if (m_networkmanager)
                 rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StartConnectivityMonitoring"), parameters, response);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::getCaptivePortalURI(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endPoint;
              if (m_networkmanager)
@@ -749,13 +749,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::stopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (m_networkmanager)
@@ -763,14 +763,14 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOGTRACEMETHODFIN();
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::getStbIp(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            LOGTRACEMETHODFIN();
+            LOG_INPARAM();
             JsonObject tmpResponse;
 
             if (m_networkmanager)
@@ -783,13 +783,14 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["ip"]         = tmpResponse["ipaddress"];
                 response["success"]    = true;
             }
+            LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::getSTBIPFamily(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            LOGTRACEMETHODFIN();
+            LOG_INPARAM();
             JsonObject tmpResponse;
             JsonObject tmpParameters;
 
@@ -805,6 +806,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                 response["ip"]         = tmpResponse["ipaddress"];
                 response["success"]    = true;
             }
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -883,7 +885,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
         /** Event Handling and Publishing */
         void Network::ReportonInterfaceStateChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject legacyParams;
             string json;
             string state = parameters["state"].String();
@@ -916,7 +918,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::ReportonActiveInterfaceChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject legacyParams;
             
             legacyParams["oldInterfaceName"] = getInterfaceMapping(parameters["oldInterfaceName"].String());
@@ -930,19 +932,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::ReportonIPAddressChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             JsonObject legacyParams;
             legacyParams["interface"] = getInterfaceMapping(parameters["interface"].String()); 
 
             if (parameters["isIPv6"].Boolean())
             {
                 legacyParams["ip6Address"] = parameters["ipAddress"];
-                legacyParams["ip4Address"] = "";
             }
             else
             {
                 legacyParams["ip4Address"] = parameters["ipAddress"];
-                legacyParams["ip6Address"] = "";
             }
 
             legacyParams["status"] = parameters["status"];
@@ -964,7 +964,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onInterfaceStateChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonInterfaceStateChange(parameters);
 
@@ -973,7 +973,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onActiveInterfaceChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonActiveInterfaceChange(parameters);
             return;
@@ -981,7 +981,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onIPAddressChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonIPAddressChange(parameters);
             return;
@@ -989,7 +989,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onInternetStatusChange(const JsonObject& parameters)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonInternetStatusChange(parameters);
         }

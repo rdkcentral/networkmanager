@@ -167,8 +167,7 @@ namespace WPEFramework
                 LOG_LEVEL_ERROR,
                 LOG_LEVEL_WARNING,
                 LOG_LEVEL_INFO,
-                LOG_LEVEL_VERBOSE,
-                LOG_LEVEL_TRACE
+                LOG_LEVEL_DEBUG
             };
 
            // The state of the interface 
