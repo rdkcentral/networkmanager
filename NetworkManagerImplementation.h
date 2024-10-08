@@ -223,6 +223,7 @@ namespace WPEFramework
             void ReportWiFiStateChangedEvent(const INetworkManager::WiFiState state);
             void ReportWiFiSignalStrengthChangedEvent(const string ssid , const string signalLevel , const WiFiSignalQuality signalQuality);
 
+            void FilterWiFiByFrequency(JsonArray &ssids);
         private:
             void platform_init();
             void retryIarmEventRegistration();
@@ -243,6 +244,7 @@ namespace WPEFramework
         public:
             WiFiSignalStrengthMonitor m_wifiSignalMonitor;
             mutable ConnectivityMonitor connectivityMonitor;
+            static uint32_t currentFrequency;
         };
     }
 }
