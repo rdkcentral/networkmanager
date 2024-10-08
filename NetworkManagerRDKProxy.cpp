@@ -1042,11 +1042,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             memset(&param, 0, sizeof(param));
 
             NMLOG_INFO ("StartWifiScan frequency value :%d",frequency);
-            NetworkManagerImplementation::currentFrequency = WIFI_FREQUENCY_WHATEVER;
-
-            if (frequency != WIFI_FREQUENCY_WHATEVER) {
-                NetworkManagerImplementation::currentFrequency = frequency;
-            }
+            scanForFreq = frequency;
 
             retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getAvailableSSIDsAsync, (void *)&param, sizeof(IARM_Bus_WiFiSrvMgr_SsidList_Param_t));
 
