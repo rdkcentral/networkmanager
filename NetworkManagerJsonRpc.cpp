@@ -769,7 +769,27 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            const Exchange::INetworkManager::WiFiFrequency frequency = static_cast <Exchange::INetworkManager::WiFiFrequency> (parameters["frequency"].Number());
+            Exchange::INetworkManager::WiFiFrequency frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
+
+            string freqString = parameters["frequency"].String();
+
+            NMLOG_INFO("Received frequency string: %s", freqString.c_str());
+
+            if (freqString == "2.4") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_2_4_GHZ;
+            }
+            else if (freqString == "5") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_5_GHZ;
+            }
+            else if (freqString == "6") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_6_GHZ;
+            }
+            else {
+                NMLOG_ERROR("Invalid frequency value received: %s", freqString.c_str());
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
+            }
+
+            NMLOG_INFO("Frequency value mapped to enum: %d", frequency);
 
             if (_networkManager)
                 rc = _networkManager->StartWiFiScan(frequency);

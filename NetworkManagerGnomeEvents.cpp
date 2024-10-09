@@ -597,7 +597,7 @@ namespace WPEFramework
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
-            _instance->ReportAvailableSSIDsEvent(ssidListJson);
+            _instance->ReportAvailableSSIDsEvent(ssidList);
         }
     }
 
