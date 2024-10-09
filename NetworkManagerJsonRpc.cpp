@@ -769,47 +769,39 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            double frequencyValue = 0.0;
             Exchange::INetworkManager::WiFiFrequency frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
 
-            if (parameters.HasLabel("frequency"))
+            string freqString = parameters["frequency"].String();
+
+            NMLOG_INFO("Received frequency string: %s", freqString.c_str());
+
+            if (freqString == "2.4") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_2_4_GHZ;
+            }
+            else if (freqString == "5") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_5_GHZ;
+            }
+            else if (freqString == "6") {
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_6_GHZ;
+            }
+            else {
+                NMLOG_ERROR("Invalid frequency value received: %s", freqString.c_str());
+                frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
+            }
+
+            NMLOG_INFO("Frequency value mapped to enum: %d", frequency);
+
+            if (_networkManager)
+                rc = _networkManager->StartWiFiScan(frequency);
+            else
+                rc = Core::ERROR_UNAVAILABLE;
+
+            if (Core::ERROR_NONE == rc)
             {
-                if (parameters["frequency"].Content() == Core::JSON::Variant::type::NUMBER)
-                    frequencyValue = parameters["frequency"].Number();
-                else if (parameters["frequency"].Content() == Core::JSON::Variant::type::STRING)
-                    frequencyValue = stod(parameters["frequency"].String()); // Use stod converts a string to double, handles decimals
-
-                NMLOG_INFO("Frequency value received: %f", frequencyValue);
-
-               //Map the double value to WiFiFrequency enum
-               if (frequencyValue == 2.4) {
-                   frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_2_4_GHZ;
-               }
-               else if (frequencyValue == 5.0) {
-                   frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_5_GHZ;
-               }
-               else if (frequencyValue == 6.0) {
-                   frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_6_GHZ;
-               }
-               else {
-                   NMLOG_INFO("Invalid frequency value: %f\n", frequencyValue);
-                   frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
-               }
-           }
-
-           NMLOG_INFO("Mapped frequency to enum value: %d", static_cast<Exchange::INetworkManager::WiFiFrequency>(frequency));
-
-           if (_networkManager)
-               rc = _networkManager->StartWiFiScan(static_cast<Exchange::INetworkManager::WiFiFrequency>(frequency));
-           else
-               rc = Core::ERROR_UNAVAILABLE;
-
-           if (Core::ERROR_NONE == rc)
-           {
-               response["success"] = true;
-           }
-           LOG_OUTPARAM();
-           return rc;
+                response["success"] = true;
+            }
+            LOG_OUTPARAM();
+            return rc;
         }
 
         uint32_t NetworkManager::StopWiFiScan(const JsonObject& parameters, JsonObject& response)

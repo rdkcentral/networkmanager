@@ -219,7 +219,7 @@ namespace WPEFramework
             void ReportIPAddressChangedEvent(const string& interface, bool isAcquired, bool isIPv6, const string& ipAddress);
             void ReportActiveInterfaceChangedEvent(const string prevActiveInterface, const string currentActiveinterface);
             void ReportInternetStatusChangedEvent(const InternetStatus oldState, const InternetStatus newstate);
-            void ReportAvailableSSIDsEvent(const string jsonOfWiFiScanResults);
+            void ReportAvailableSSIDsEvent(JsonArray &arrayofWiFiScanResults);
             void ReportWiFiStateChangedEvent(const INetworkManager::WiFiState state);
             void ReportWiFiSignalStrengthChangedEvent(const string ssid , const string signalLevel , const WiFiSignalQuality signalQuality);
 

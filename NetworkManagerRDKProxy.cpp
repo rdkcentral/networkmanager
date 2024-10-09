@@ -333,8 +333,6 @@ typedef struct _IARM_Bus_WiFiSrvMgr_SsidList_Param_t {
 } IARM_Bus_WiFiSrvMgr_SsidList_Param_t;
 
 
-uint32_t NetworkManagerImplementation::currentFrequency = 0;
-
 #define IARM_BUS_NETSRVMGR_API_getInterfaceList             "getInterfaceList"
 #define IARM_BUS_NETSRVMGR_API_getDefaultInterface          "getDefaultInterface"
 #define IARM_BUS_NETSRVMGR_API_setDefaultInterface          "setDefaultInterface"
@@ -500,11 +498,8 @@ namespace WPEFramework
                         }
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
-                        ::_instance->FilterWiFiByFrequency(ssids);
-                        string json;
-                        ssids.ToString(json);
 
-                        ::_instance->ReportAvailableSSIDsEvent(json);
+                        ::_instance->ReportAvailableSSIDsEvent(ssids);
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
                     {
@@ -532,49 +527,6 @@ namespace WPEFramework
             }
             else
                 NMLOG_WARNING("WARNING - cannot handle IARM events without a Network plugin instance!");
-        }
-
-        void NetworkManagerImplementation::FilterWiFiByFrequency(JsonArray &ssids)
-        {
-            JsonArray result;
-
-	    if (NetworkManagerImplementation::currentFrequency != WIFI_FREQUENCY_WHATEVER)
-            {
-                for(int i=0; i<ssids.Length(); i++)
-                {
-                    JsonObject object = ssids[i].Object();
-                    std::string filterValue;
-
-                    switch (NetworkManagerImplementation::currentFrequency) {
-                        case WIFI_FREQUENCY_2_4_GHZ:
-                            filterValue = "2.4";
-                            break;
-                        case WIFI_FREQUENCY_5_GHZ:
-                            filterValue = "5";
-                            break;
-                        case WIFI_FREQUENCY_6_GHZ:
-                            filterValue = "6";
-                            break;
-                        default:
-                            filterValue = "";
-                            break;
-                    }
-
-                    NMLOG_INFO("filtervalue  %s received", filterValue);
-
-                    if(object["frequency"].String() != filterValue)
-                    {
-                        NMLOG_INFO("Frequency filter out %s != %s",  object["frequency"].String().c_str(), filterValue.c_str());
-                        continue;
-                    }
-                    result.Add(object);
-                }
-		ssids = result;
-            }
-            else
-            {
-                NMLOG_INFO("No frequency filter applied (UNKNOWN), returning all SSIDs.");
-            }
         }
 
         void  NetworkManagerImplementation::retryIarmEventRegistration()
