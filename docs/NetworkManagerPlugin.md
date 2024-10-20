@@ -112,8 +112,8 @@ This method takes no parameters.
 | result?.Interfaces[#].type | string | Interface  Type |
 | result?.Interfaces[#].name | string | Interface Name. ex: eth0 or wlan0 |
 | result?.Interfaces[#].mac | string | Interface MAC address |
-| result?.Interfaces[#].isEnabled | boolean | Whether the interface is currently enabled |
-| result?.Interfaces[#].isConnected | boolean | Whether the interface is currently connected |
+| result?.Interfaces[#].enabled | boolean | Whether the interface is currently enabled |
+| result?.Interfaces[#].connected | boolean | Whether the interface is currently connected |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -135,13 +135,13 @@ This method takes no parameters.
     "jsonrpc": "2.0",
     "id": 42,
     "result": {
-        "Interfaces": [
+        "interfaces": [
             {
                 "type": "ETHERNET",
                 "name": "eth0",
                 "mac": "AA:AA:AA:AA:AA:AA",
-                "isEnabled": true,
-                "isConnected": true
+                "enabled": true,
+                "connected": true
             }
         ],
         "success": true
@@ -322,7 +322,7 @@ No Events
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.isEnabled | boolean | Whether the Interface is enabled or disabled |
+| result.enabled | boolean | Whether the Interface is enabled or disabled |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -347,7 +347,7 @@ No Events
     "jsonrpc": "2.0",
     "id": 42,
     "result": {
-        "isEnabled": true,
+        "enabled": true,
         "success": true
     }
 }
@@ -382,7 +382,7 @@ No Events
 | result.ipaddress | string | The IP address |
 | result.prefix | integer | The prefix number |
 | result.gateway | string | The gateway address |
-| result.v6LinkLocal | string | The v6LinkLocal |
+| result.ula | string | The IPv6 Unified Local Address; Empty when IPv4 is requested |
 | result.primarydns | string | The primary DNS address |
 | result.secondarydns | string | The secondary DNS address |
 | result.success | boolean | Whether the request succeeded |
@@ -417,7 +417,7 @@ No Events
         "ipaddress": "192.168.1.101",
         "prefix": 24,
         "gateway": "192.168.1.1",
-        "v6LinkLocal": "192.168.1.1",
+        "ula": "...",
         "primarydns": "192.168.1.1",
         "secondarydns": "192.168.1.2",
         "success": true
@@ -509,10 +509,10 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.endPoint | string | STUN server endPoint |
+| result.endpoint | string | STUN server endpoint |
 | result.port | integer | STUN server port |
-| result.bindTimeout | integer | STUN server bind timeout |
-| result.cacheTimeout | integer | STUN server cache timeout |
+| result.timeout | integer | STUN server bind timeout |
+| result.cacheLifetime | integer | STUN server cache Lifetime |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -534,10 +534,10 @@ This method takes no parameters.
     "jsonrpc": "2.0",
     "id": 42,
     "result": {
-        "endPoint": "stun.l.google.com",
+        "endpoint": "stun.l.google.com",
         "port": 3478,
-        "bindTimeout": 30,
-        "cacheTimeout": 0,
+        "timeout": 30,
+        "cacheLifetime": 0,
         "success": true
     }
 }
@@ -557,10 +557,10 @@ No Events
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.endPoint | string | STUN server endPoint |
+| params.endpoint | string | STUN server endpoint |
 | params.port | integer | STUN server port |
-| params?.bindTimeout | integer | <sup>*(optional)*</sup> STUN server bind timeout |
-| params?.cacheTimeout | integer | <sup>*(optional)*</sup> STUN server cache timeout |
+| params?.timeout | integer | <sup>*(optional)*</sup> STUN server bind timeout |
+| params?.cacheLifetime | integer | <sup>*(optional)*</sup> STUN server cache lifetime |
 
 ### Result
 
@@ -579,10 +579,10 @@ No Events
     "id": 42,
     "method": "org.rdk.NetworkManager.SetStunEndpoint",
     "params": {
-        "endPoint": "stun.l.google.com",
+        "endpoint": "stun.l.google.com",
         "port": 3478,
-        "bindTimeout": 30,
-        "cacheTimeout": 0
+        "timeout": 30,
+        "cacheLifetime": 0
     }
 }
 ```
@@ -722,8 +722,8 @@ No Events
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.isConnectedToInternet | boolean | `true` if internet connectivity is detected, otherwise `false` |
-| result.internetState | integer | The internet state |
+| result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
+| result.state | integer | The internet state |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -748,8 +748,8 @@ No Events
     "jsonrpc": "2.0",
     "id": 42,
     "result": {
-        "isConnectedToInternet": true,
-        "internetState": 4,
+        "connected": true,
+        "state": 3,
         "success": true
     }
 }
@@ -964,7 +964,7 @@ No Events
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
 | params.ipversion | string | either IPv4 or IPv6 |
-| params.noOfRequest | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 3 |
+| params.count | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 3 |
 | params.timeout | integer | Timeout |
 | params.guid | string | The globally unique identifier |
 
@@ -997,7 +997,7 @@ No Events
     "params": {
         "endpoint": "45.57.221.20",
         "ipversion": "IPv4",
-        "noOfRequest": 10,
+        "count": 5,
         "timeout": 30,
         "guid": "..."
     }
@@ -1012,8 +1012,8 @@ No Events
     "id": 42,
     "result": {
         "target": "45.57.221.20",
-        "packetsTransmitted": 10,
-        "packetsReceived": 10,
+        "packetsTransmitted": 5,
+        "packetsReceived": 5,
         "packetLoss": "0.0",
         "tripMin": "61.264",
         "tripAvg": "130.397",
@@ -1099,7 +1099,9 @@ Initiates WiFi scaning. This method supports scanning for specific range of freq
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.frequency | string | The frequency to scan. An empty or `null` value scans all frequencies. If a frequency is specified (2.4 or 5.0), then the results are only returned for matching frequencies |
+| params.frequency | string | <sup>*(optional)*</sup> The frequency to scan. |
+| params.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to scan.  |
+| params.ssids[#] | string |  |
 
 ### Result
 
@@ -1116,10 +1118,7 @@ Initiates WiFi scaning. This method supports scanning for specific range of freq
 {
     "jsonrpc": "2.0",
     "id": 42,
-    "method": "org.rdk.NetworkManager.StartWiFiScan",
-    "params": {
-        "frequency": "..."
-    }
+    "method": "org.rdk.NetworkManager.StartWiFiScan"
 }
 ```
 
@@ -1244,7 +1243,7 @@ No Events
 | params | object |  |
 | params.ssid | string | The paired SSID |
 | params.passphrase | string | The access point password |
-| params.securityMode | integer | The security mode. See `getSupportedSecurityModes` |
+| params.security | integer | The security mode. See `getSupportedSecurityModes` |
 
 ### Result
 
@@ -1265,7 +1264,7 @@ No Events
     "params": {
         "ssid": "123412341234",
         "passphrase": "password",
-        "securityMode": 6
+        "security": 6
     }
 }
 ```
@@ -1352,8 +1351,8 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
 | params | object |  |
 | params.ssid | string | The paired SSID |
 | params.passphrase | string | The access point password |
-| params.securityMode | integer | The security mode. See `getSupportedSecurityModes` |
-| params.persistSSIDInfo | boolean | <sup>*(optional)*</sup> Option to connect to SSID without persisting AccessPoint details (default: *true*; always persist) |
+| params.security   | integer | The security mode. See `getSupportedSecurityModes` |
+| params?.persist | boolean | <sup>*(optional)*</sup> Option to connect to SSID without persisting AccessPoint details (default: *true*; always persist) |
 
 ### Result
 
@@ -1374,8 +1373,8 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
     "params": {
         "ssid": "123412341234",
         "passphrase": "password",
-        "securityMode": 6,
-        "persistSSIDInfo": true
+        "security": 6,
+        "persist": true
     }
 }
 ```
@@ -1459,8 +1458,8 @@ This method takes no parameters.
 | result | object |  |
 | result.ssid | string | The paired SSID |
 | result.bssid | string | The paired BSSID |
-| result.securityMode | string | The security mode. See the `connect` method |
-| result.signalStrength | string | The RSSI value in dBm |
+| result.security | string | The security mode. See the `connect` method |
+| result.strength | string | The RSSI value in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
 | result.noise | string | The average noise strength in dBm |
@@ -1487,8 +1486,8 @@ This method takes no parameters.
     "result": {
         "ssid": "123412341234",
         "bssid": "ff:ff:ff:ff:ff:ff",
-        "securityMode": "5",
-        "signalStrength": "-27.000000",
+        "security": "5",
+        "strength": "-27.000000",
         "frequency": "2.442000",
         "rate": "144.000000",
         "noise": "-121.000000",
@@ -1517,7 +1516,7 @@ If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the ser
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.method | integer | The method used to obtain the pin (must be one of the following: PBC=0, PIN=1, SERIALIZED_PIN=2) |
-| params.wps_pin | string | A valid 8 digit WPS pin number. Use this parameter when the `method` parameter is set to `PIN` |
+| params.pin | string | A valid 8 digit WPS pin number. Use this parameter when the `method` parameter is set to `PIN` |
 
 ### Result
 
@@ -1538,7 +1537,7 @@ If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the ser
     "method": "org.rdk.NetworkManager.StartWPS",
     "params": {
         "method": 1,
-        "wps_pin": "88888888"
+        "pin": "88888888"
     }
 }
 ```
@@ -1621,8 +1620,8 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.ssid | string | The paired SSID |
-| result.signalStrength | string | The RSSI value in dBm |
-| result.quality | integer | Signal strength Quality |
+| result.strength | string | The RSSI value in dBm |
+| result.quality | string | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1645,8 +1644,8 @@ This method takes no parameters.
     "id": 42,
     "result": {
         "ssid": "123412341234",
-        "signalStrength": "-27.000000",
-        "quality": 123,
+        "strength": "-27.000000",
+        "quality": "Excellent",
         "success": true
     }
 }
@@ -1750,7 +1749,7 @@ No Events
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.logLevel | integer | Set Log level to get more information |
+| params.level | integer | Set Log level to get more information |
 
 ### Result
 
@@ -1769,7 +1768,7 @@ No Events
     "id": 42,
     "method": "org.rdk.NetworkManager.SetLogLevel",
     "params": {
-        "logLevel": 1
+        "level": 1
     }
 }
 ```
@@ -1910,8 +1909,8 @@ Triggered when an IP Address is assigned or lost.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params.isIPv6 | boolean | It will be true if the IP address is IPv6 |
-| params.ipAddress | string | The IPv6 or IPv4 address for the interface |
+| params.ipversion | string | It will be IPv4 or IPv6 |
+| params.ipaddress | string | The IPv6 or IPv4 address for the interface |
 | params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') (must be one of the following: *`ACQUIRED`*, *`LOST`*) |
 
 ### Example
@@ -1922,8 +1921,8 @@ Triggered when an IP Address is assigned or lost.
     "method": "client.events.onAddressChange",
     "params": {
         "interface": "wlan0",
-        "isIPv6": false,
-        "ipAddress": "192.168.1.100",
+        "ipversion": "IPv4",
+        "ipaddress": "192.168.1.100",
         "status": "ACQUIRED"
     }
 }
@@ -1939,8 +1938,8 @@ Triggered when the primary/active interface changes, regardless if it's from a s
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.oldInterfaceName | string | The previous interface that was changed |
-| params.newInterfaceName | string | The current interface |
+| params.prevActiveInterface | string | The previous interface that was changed |
+| params.activeInterface | string | The current interface |
 
 ### Example
 
@@ -1949,8 +1948,8 @@ Triggered when the primary/active interface changes, regardless if it's from a s
     "jsonrpc": "2.0",
     "method": "client.events.onActiveInterfaceChange",
     "params": {
-        "oldInterfaceName": "wlan0",
-        "newInterfaceName": "eth0"
+        "prevActiveInterface": "wlan0",
+        "activeInterface": "eth0"
     }
 }
 ```
@@ -1965,8 +1964,8 @@ Triggered when internet connection state changed.The possible internet connectio
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.PrevState | integer | The privious internet connection state |
-| params.PrevStatus | string | The previous internet connection status |
+| params.prevState | integer | The privious internet connection state |
+| params.prevStatus | string | The previous internet connection status |
 | params.state | integer | The internet connection state |
 | params.status | string | The internet connection status |
 
@@ -1977,9 +1976,9 @@ Triggered when internet connection state changed.The possible internet connectio
     "jsonrpc": "2.0",
     "method": "client.events.onInternetStatusChange",
     "params": {
-        "PrevState": 1,
-        "PrevStatus": "NO_INTERNET",
-        "state": 4,
+        "prevState": 0,
+        "prevStatus": "NO_INTERNET",
+        "state": 3,
         "status": "FULLY_CONNECTED"
     }
 }
@@ -1999,7 +1998,7 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | ssid |
 | params.ssids[#].security | integer | security |
-| params.ssids[#].signalStrength | string | signalStrength |
+| params.ssids[#].strength | string | signalStrength |
 | params.ssids[#].frequency | string | frequency |
 
 ### Example
@@ -2013,7 +2012,7 @@ Triggered when scan completes or when scan cancelled.
             {
                 "ssid": "myAP-2.4",
                 "security": 6,
-                "signalStrength": "-27.000000",
+                "strength": "-27.000000",
                 "frequency": "2.442000"
             }
         ]
@@ -2082,8 +2081,8 @@ Triggered when WIFI connection Signal Strength get changed.
     "method": "client.events.onWiFiSignalStrengthChange",
     "params": {
         "ssid": "home-new_123",
-        "signalLevel": "-27.000000",
-        "signalQuality": "Excellent"
+        "strength": "-27.000000",
+        "quality": "Excellent"
     }
 }
 ```
