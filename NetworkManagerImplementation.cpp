@@ -456,6 +456,49 @@ namespace WPEFramework
             return;
         }
 
+        void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
+        {
+            JsonArray result;
+
+            if (scanForFreq != WIFI_FREQUENCY_WHATEVER)
+            {
+                for(int i=0; i<ssids.Length(); i++)
+                {
+                    JsonObject object = ssids[i].Object();
+                    std::string filterValue;
+
+                    switch (scanForFreq) {
+                        case WIFI_FREQUENCY_2_4_GHZ:
+                            filterValue = "2.4";
+                            break;
+                        case WIFI_FREQUENCY_5_GHZ:
+                            filterValue = "5";
+                            break;
+                        case WIFI_FREQUENCY_6_GHZ:
+                            filterValue = "6";
+                            break;
+                        default:
+                            filterValue = "";
+                            break;
+                    }
+
+                    NMLOG_INFO("filtervalue  %s received", filterValue);
+
+                    if(object["frequency"].String() != filterValue)
+                    {
+                        NMLOG_INFO("Frequency filter out %s != %s",  object["frequency"].String().c_str(), filterValue.c_str());
+                        continue;
+                    }
+                    result.Add(object);
+                }
+		ssids = result;
+            }
+            else
+            {
+                NMLOG_INFO("No frequency filter applied (UNKNOWN), returning all SSIDs.");
+            }
+        }
+
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
         uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const
@@ -541,10 +584,17 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportAvailableSSIDsEvent(const string jsonOfWiFiScanResults)
+        void NetworkManagerImplementation::ReportAvailableSSIDsEvent(JsonArray &arrayofWiFiScanResults)
         {
             LOG_ENTRY_FUNCTION();
             _notificationLock.Lock();
+
+            string jsonOfWiFiScanResults;
+
+	    filterScanResults(arrayofWiFiScanResults);
+
+            arrayofWiFiScanResults.ToString(jsonOfWiFiScanResults);
+
             NMLOG_INFO("Posting onAvailableSSIDs result is, %s", jsonOfWiFiScanResults.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onAvailableSSIDs(jsonOfWiFiScanResults);
