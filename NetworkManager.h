@@ -195,6 +195,8 @@ namespace WPEFramework
                     result["state"] = static_cast <int> (state);
                     _parent.Notify("onWiFiStateChange", result);
                     _parent.m_wifiStateCache = state;
+                    if(Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state || Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
+                        _parent.m_primaryInterfaceCache.reset();
                 }
 
                 void onWiFiSignalStrengthChange(const string ssid, const string signalLevel, const Exchange::INetworkManager::WiFiSignalQuality signalQuality) override
