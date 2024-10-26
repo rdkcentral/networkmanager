@@ -6,6 +6,7 @@
 #include "Module.h"
 #include "core/Link.h"
 #include "NetworkManagerTimer.h"
+#include "INetworkManager.h"
 
 namespace WPEFramework {
     namespace Plugin {
@@ -31,8 +32,10 @@ namespace WPEFramework {
             void registerLegacyMethods(void);
             void unregisterLegacyMethods(void);
             void subscribeToEvents(void);
-            static std::string getInterfaceMapping(const std::string &interface);
             void activatePrimaryPlugin();
+            uint32_t internalGetIPSettings(const JsonObject& parameters, JsonObject& response);
+            string getInterfaceNameToType(const string & interface);
+            string getInterfaceTypeToName(const string & interface);
 
             /* Methods */
             uint32_t getInterfaces(const JsonObject& parameters, JsonObject& response);
@@ -84,6 +87,7 @@ namespace WPEFramework {
         private:
             PluginHost::IShell* m_service;
             std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
+            //WPEFramework::Exchange::INetworkManager* m_nwmgr;
             string m_defaultInterface;
             NetworkManagerTimer m_timer;
 

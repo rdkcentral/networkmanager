@@ -18,6 +18,7 @@
 **/
 #include "LegacyPlugin_NetworkAPIs.h"
 #include "NetworkManagerLogger.h"
+#include "NetworkManagerJsonEnum.h"
 
 
 using namespace std;
@@ -29,8 +30,18 @@ using namespace WPEFramework::Plugin;
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 #define DEFAULT_PING_PACKETS 15
 
-#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("%s : params=%s", __FUNCTION__, json.c_str() ); }
-#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("%s : response=%s", __FUNCTION__,  json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
+
+#define returnJson(rc) \
+    { \
+        if (Core::ERROR_NONE == rc)                 \
+            response["success"] = true;             \
+        else                                        \
+            response["success"] = false;            \
+        LOG_OUTPARAM();                             \
+        return Core::ERROR_NONE;                    \
+    }
 
 namespace WPEFramework
 {
@@ -118,18 +129,14 @@ namespace WPEFramework
             auto security = m_service->QueryInterfaceByCallsign<PluginHost::IAuthenticate>("SecurityAgent");
             if (security != nullptr) {
                 string payload = "http://localhost";
-                if (security->CreateToken(
-                            static_cast<uint16_t>(payload.length()),
-                            reinterpret_cast<const uint8_t*>(payload.c_str()),
-                            token)
-                        == Core::ERROR_NONE) {
+                if (security->CreateToken(static_cast<uint16_t>(payload.length()), reinterpret_cast<const uint8_t*>(payload.c_str()), token) == Core::ERROR_NONE) {
                     NMLOG_DEBUG("Network plugin got security token");
                 } else {
                     NMLOG_WARNING("Network plugin failed to get security token");
                 }
                 security->Release();
             } else {
-                NMLOG_INFO("Network plugin: No security agent");
+                NMLOG_DEBUG("Network plugin: No security agent");
             }
 
             string query = "token=" + token;
@@ -138,14 +145,13 @@ namespace WPEFramework
             if (interface != nullptr)
             {
                 PluginHost::IShell::state state = interface->State(); 
-                NMLOG_INFO("Current status of the %s plugin is %d", callsign.c_str(), state);
-
                 if((PluginHost::IShell::state::ACTIVATED  == state) || (PluginHost::IShell::state::ACTIVATION == state))
                 {
                     NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
                 }
                 else
                 {
+                    NMLOG_INFO("Lets attempt to activate the Plugin '%s'", callsign.c_str());
                     activatePrimaryPlugin();
                 }
                 interface->Release();
@@ -155,6 +161,7 @@ namespace WPEFramework
             m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Network"), query);
 
             subscribeToEvents();
+
             return string();
         }
 
@@ -230,7 +237,8 @@ namespace WPEFramework
         }
 
 #define CIDR_NETMASK_IP_LEN 32
-const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
+const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
+                                                     "0.0.0.0",
                                                      "128.0.0.0",
                                                      "192.0.0.0",
                                                      "224.0.0.0",
@@ -275,163 +283,252 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
         uint32_t Network::getInterfaces (const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-            JsonArray array;
-
             LOG_INPARAM();
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetAvailableInterfaces"), parameters, tmpResponse);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            if ((rc == Core::ERROR_NONE) && (tmpResponse["success"].Boolean()))
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
             {
-                const JsonArray& tmpArray = tmpResponse["interfaces"].Array();
-                for (int i=0; i<tmpArray.Length(); i++)
+                Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
+
+                rc = _nwmgr->GetAvailableInterfaces(_interfaces);
+                if (Core::ERROR_NONE == rc)
                 {
-                    JsonObject each;
-                    const JsonObject& arrayEntry = tmpArray[i].Object();
-                    each[_T("interface")] = arrayEntry["type"];
-                    each[_T("macAddress")] = arrayEntry["mac"];
-                    each[_T("enabled")] = arrayEntry["isEnabled"];
-                    each[_T("connected")] = arrayEntry["isConnected"];
+                    if (_interfaces != nullptr)
+                    {
+                        JsonArray array;
+                        Exchange::INetworkManager::InterfaceDetails entry{};
+                        while (_interfaces->Next(entry) == true)
+                        {
+                            JsonObject each;
+                            Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{entry.type};
+                            each["interface"] = type.Data();
+                            each["macAddress"] = entry.mac;
+                            each["enabled"] = entry.enabled;
+                            each["connected"] = entry.connected;
 
-                    array.Add(JsonValue(each));
+                            array.Add(JsonValue(each));
+                        }
+
+                        _interfaces->Release();
+                        response["interfaces"] = array;
+                    }
                 }
-
-                response["interfaces"] = array;
-                response["success"] = tmpResponse["success"];
+                _nwmgr->Release();
             }
-            LOG_OUTPARAM();
-            return rc;
+
+            returnJson(rc);
         }
 
         uint32_t Network::setStunEndPoint(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
-            tmpParameters["endPoint"] = parameters["server"];
-            tmpParameters["port"] = parameters["port"];
-            tmpParameters["bindTimeout"] = parameters["timeout"];
-            tmpParameters["cacheTimeout"] = parameters["cache_timeout"];
+            string endPoint = parameters["server"].String();
+            uint32_t port = parameters["port"].Number();
+            uint32_t bindTimeout = parameters["timeout"].Number();
+            uint32_t cacheTimeout = parameters["cache_timeout"].Number();
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetStunEndpoint"), tmpParameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->SetStunEndpoint(endPoint, port, bindTimeout, cacheTimeout);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::setInterfaceEnabled (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            string interface;
-            JsonObject tmpParameters;
-
             LOG_INPARAM();
-            if(caseInsensitiveCompare(parameters["interface"].String(),"WIFI"))
-                interface = "wlan0";
-            else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
-                interface = "eth0";
-
-            tmpParameters["interface"] = interface;
-            tmpParameters["enabled"]  = parameters["enabled"];
-
-            if (m_networkmanager)
+            uint32_t rc = Core::ERROR_GENERAL;
+            if (parameters.HasLabel("interface") && parameters.HasLabel("enabled"))
             {
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetInterfaceState"), tmpParameters, response);
+                const string givenInterface = parameters["interface"].String();
+                const bool enabled = parameters["enabled"].Boolean();
+                const string interface = getInterfaceTypeToName(givenInterface);
+
+                if ("wlan0" != interface && "eth0" != interface)
+                    rc = Core::ERROR_BAD_REQUEST;
+                else
+                {
+                    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+                    if (_nwmgr)
+                    {
+                        rc = _nwmgr->SetInterfaceState(interface, enabled);
+                        _nwmgr->Release();
+                    }
+                    else
+                        rc = Core::ERROR_UNAVAILABLE;
+                }
             }
             else
-                rc = Core::ERROR_UNAVAILABLE;
+                rc = Core::ERROR_BAD_REQUEST;
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::getDefaultInterface (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-
             LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string interface;
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetPrimaryInterface"), parameters, tmpResponse);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetPrimaryInterface(interface);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                if ("wlan0" == tmpResponse["interface"].String())
-                    response["interface"] = "WIFI";
-                else if("eth0" == tmpResponse["interface"].String())     
-                    response["interface"] = "ETHERNET";
-                response["success"] = tmpResponse["success"];
+                string mappedInterface = getInterfaceNameToType(interface);
+                response["interface"] = mappedInterface;
             }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::setDefaultInterface(const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
-            string interface;
             LOG_INPARAM();
-            if(caseInsensitiveCompare(parameters["interface"].String(), "WIFI"))
-                tmpParameters["interface"] = "wlan0";
-            else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
-                tmpParameters["interface"] = "eth0";
-            
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetPrimaryInterface"), tmpParameters, response);
+            uint32_t rc = Core::ERROR_GENERAL;
+            string givenInterface = parameters["interface"].String();
+            const string interface = getInterfaceTypeToName(givenInterface);
+
+            if ("wlan0" != interface && "eth0" != interface)
+            {
+                rc = Core::ERROR_BAD_REQUEST;
+                return rc;
+            }
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->SetPrimaryInterface(interface);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::setIPSettings(const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-            JsonObject tmpParameters;
             LOG_INPARAM();
-            
-            if(caseInsensitiveCompare(parameters["interface"].String(), "WIFI"))
-                tmpParameters["interface"] = "wlan0";
-            else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
-                tmpParameters["interface"] = "eth0";
-            
-            tmpParameters["ipversion"] = parameters["ipversion"];
-            tmpParameters["autoconfig"] = parameters["autoconfig"];
-            tmpParameters["ipaddress"] = parameters["ipaddr"];
-            auto it = find(begin(CIDR_PREFIXES), end(CIDR_PREFIXES), parameters["netmask"].String());
-            if (it == end(CIDR_PREFIXES))
-                return rc;
-            else
-                tmpParameters["prefix"] = distance(begin(CIDR_PREFIXES), it);
-            tmpParameters["gateway"] = parameters["gateway"];
-            tmpParameters["primarydns"] = parameters["primarydns"];
-            tmpParameters["secondarydns"] = parameters["secondarydns"];
+            uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::IPAddress address{};
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetIPSettings"), tmpParameters, tmpResponse);
+            string givenInterface = "";
+            string interface = "";
+            string ipversion = "";
+
+            if (parameters.HasLabel("interface"))
+            {
+                givenInterface = parameters["interface"].String();
+                interface = getInterfaceTypeToName(givenInterface);
+
+                if ("wlan0" != interface && "eth0" != interface)
+                {
+                    return Core::ERROR_BAD_REQUEST;
+                }
+            }
+            else
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            address.autoconfig = parameters["autoconfig"].Boolean();
+            if (!address.autoconfig)
+            {
+                address.ipaddress      = parameters["ipaddr"].String();
+                address.ipversion      = parameters["ipversion"].String();
+                address.gateway        = parameters["gateway"].String();
+                address.primarydns     = parameters["primarydns"].String();
+                address.secondarydns   = parameters["secondarydns"].String();
+
+                auto it = find(begin(CIDR_PREFIXES), end(CIDR_PREFIXES), parameters["netmask"].String());
+                if (it == end(CIDR_PREFIXES))
+                    return Core::ERROR_BAD_REQUEST;
+                else
+                    address.prefix         = distance(begin(CIDR_PREFIXES), it);
+
+            }
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->SetIPSettings(interface, address);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
+            returnJson(rc);
+        }
+
+        uint32_t Network::internalGetIPSettings(const JsonObject& parameters, JsonObject& response)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            string interface{};
+            string givenInterface{};
+            string ipversion{};
+
+            if (parameters.HasLabel("interface"))
             {
-                response["supported"] = true;
-                response["success"] = tmpResponse["success"];
+                givenInterface = parameters["interface"].String();
+                interface = getInterfaceTypeToName(givenInterface);
+
+                if (!interface.empty() && "wlan0" != interface && "eth0" != interface)
+                {
+                    return Core::ERROR_BAD_REQUEST;
+                }
             }
-            LOG_OUTPARAM();
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                Exchange::INetworkManager::IPAddress address{};
+                rc = _nwmgr->GetIPSettings(interface, ipversion, address);
+                _nwmgr->Release();
+
+                if (Core::ERROR_NONE == rc)
+                {
+                    givenInterface = getInterfaceNameToType(interface);
+
+                    response["interface"]  = givenInterface;
+                    response["ipversion"]  = address.ipversion;
+                    response["autoconfig"] = address.autoconfig;
+                    if (!address.ipaddress.empty())
+                    {
+                        response["ipaddr"]    = address.ipaddress;
+                        if ("IPv4" == address.ipversion)
+                        {
+                            if(address.prefix > CIDR_NETMASK_IP_LEN)
+                            {
+                                rc = Core::ERROR_GENERAL;
+                                return rc;
+                            }
+                            response["netmask"]  = CIDR_PREFIXES[address.prefix];
+                        }
+                        else
+                            response["netmask"]       = address.prefix;
+
+                        response["dhcpserver"]   = address.dhcpserver;
+                        response["gateway"]      = address.gateway;
+                        response["primarydns"]   = address.primarydns;
+                        response["secondarydns"] = address.secondarydns;
+                    }
+                }
+            }
             return rc;
         }
 
@@ -441,285 +538,265 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             JsonObject tmpResponse;
 
             LOG_INPARAM();
-            rc = getIPSettings2(parameters, tmpResponse);
+            rc = internalGetIPSettings(parameters, tmpResponse);
 
-            if (tmpResponse.HasLabel("ipaddr"))
+            if (tmpResponse.HasLabel("ipaddr") && (!tmpResponse["ipaddr"].String().empty()))
                 response = tmpResponse;
             else
             {
                 NMLOG_INFO("IP Address not assigned to the given interface yet");
-                response["success"] = false;
+                rc = Core::ERROR_GENERAL;
             }
-
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::getIPSettings2 (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-            JsonObject tmpParameters;
-            size_t index;
-
             LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
 
-            if (parameters.HasLabel("ipversion"))
-                tmpParameters["ipversion"] = parameters["ipversion"];
-            if (parameters.HasLabel("interface"))
-            {
-                if (caseInsensitiveCompare(parameters["interface"].String(), "WIFI"))
-                    tmpParameters["interface"] = "wlan0";
-                else if(caseInsensitiveCompare(parameters["interface"].String(), "ETHERNET"))
-                    tmpParameters["interface"] = "eth0";
-            }
+            rc = internalGetIPSettings(parameters, response);
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetIPSettings"), tmpParameters, tmpResponse);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            if (Core::ERROR_NONE == rc)
-            {
-                string ipversion = tmpResponse["ipversion"].String();
-
-                if (parameters.HasLabel("interface"))
-                {
-                    response["interface"] = parameters["interface"];
-                }
-                else
-                {
-                    if ("wlan0" == m_defaultInterface)
-                        response["interface"] = "WIFI";
-                    else if("eth0" == m_defaultInterface)
-                        response["interface"] = "ETHERNET";
-                }
-
-                response["autoconfig"]   = tmpResponse["autoconfig"];
-                if(!tmpResponse["ipaddress"].String().empty())
-                {
-                    response["ipversion"]    = tmpResponse["ipversion"];
-                    response["ipaddr"]       = tmpResponse["ipaddress"];
-                    if (caseInsensitiveCompare(ipversion, "IPV4"))
-                    {
-                        index = tmpResponse["prefix"].Number();
-                        if(CIDR_NETMASK_IP_LEN <= index)
-                            return Core::ERROR_GENERAL;
-                        response["netmask"]  = CIDR_PREFIXES[index];
-                    }
-                    else if (caseInsensitiveCompare(ipversion, "IPV6"))
-                    {
-                        response["netmask"]  = tmpResponse["prefix"];
-                    }
-                    response["gateway"]      = tmpResponse["gateway"];
-                    response["dhcpserver"]   = tmpResponse["dhcpserver"];
-                    response["primarydns"]   = tmpResponse["primarydns"];
-                    response["secondarydns"] = tmpResponse["secondarydns"];
-                }
-                response["success"]      = tmpResponse["success"];
-            }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::isConnectedToInternet(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-
             LOG_INPARAM();
-            string ipversion = parameters["ipversion"].String();
+            string ipversion{};
+            Exchange::INetworkManager::InternetStatus status{};
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("IsConnectedToInternet"), parameters, tmpResponse);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
 
-            if (Core::ERROR_NONE == rc)
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr != nullptr)
             {
-                response["connectedToInternet"] = tmpResponse["isConnectedToInternet"];
-                if(caseInsensitiveCompare(ipversion, "IPV4") || caseInsensitiveCompare(ipversion, "IPV6"))
-                    response["ipversion"] = ipversion.c_str();
-                response["success"] = true;
+                rc = _nwmgr->IsConnectedToInternet(ipversion, status);
+                _nwmgr->Release();
+
+                if (Core::ERROR_NONE == rc)
+                {
+                    response["ipversion"] = ipversion;
+                    response["connectedToInternet"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == status);
+                }
             }
-            LOG_OUTPARAM();
-            return rc;
+
+            returnJson(rc);
         }
+
         uint32_t Network::getInternetConnectionState(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            uint32_t rc1 = Core::ERROR_GENERAL;
-            string endPoint;
-            JsonObject tmpResponse;
-            JsonObject captivePortalResponse;
-            JsonObject tmpParameters;
-            string status;
-
             LOG_INPARAM();
-            string ipversion = parameters["ipversion"].String();
+            string ipversion{};
+            Exchange::INetworkManager::InternetStatus status{};
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("IsConnectedToInternet"), parameters, tmpResponse);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
 
-            if (Core::ERROR_NONE == rc)
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr != nullptr)
             {
-                status = tmpResponse["status"].String();
-                NMLOG_DEBUG("status = %s", status.c_str() );
-                NMLOG_DEBUG("tmpResponse[status].String() = %s", tmpResponse["status"].String().c_str() );
-                if(status == "LIMITED_INTERNET")
-                    response["state"] = static_cast<int>(2);
-                else if(status == "CAPTIVE_PORTAL")
-                {
-                    response["state"] = static_cast<int>(1);
-                    rc1 = getCaptivePortalURI(tmpParameters, captivePortalResponse);
-                    if (Core::ERROR_NONE == rc1)
-                        response["uri"] = captivePortalResponse["uri"];
-                }
-                else if(status == "FULLY_CONNECTED")
-                    response["state"] = static_cast<int>(3);
-                else
-                    response["state"] = static_cast<int>(0);
+                rc = _nwmgr->IsConnectedToInternet(ipversion, status);
 
-                if(caseInsensitiveCompare(ipversion, "IPV4") || caseInsensitiveCompare(ipversion, "IPV6"))
-                    response["ipversion"] = ipversion.c_str();
-                response["success"] = true;
+                if (Core::ERROR_NONE == rc)
+                {
+                    response["ipversion"] = ipversion;
+                    response["state"] = JsonValue(status);
+                    if (Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL == status)
+                    {
+                        string uri{};
+                        _nwmgr->GetCaptivePortalURI(uri);
+                        response["URI"] =  uri;
+                    }
+                }
+                _nwmgr->Release();
             }
-            LOG_OUTPARAM();
-            return rc;
+
+            returnJson(rc);
         }
+
         uint32_t Network::doPing(const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            struct in_addr ipv4address;
-            struct in6_addr ipv6address;
-            JsonObject tmpParameters;
-            JsonObject tmpResponse;
-            string endpoint{};
-
             LOG_INPARAM();
+            string result{};
+            string endpoint{};
+            uint32_t rc = Core::ERROR_GENERAL;
+            LOG_INPARAM();
+            if (parameters.HasLabel("endpoint"))
+            {
+                string guid{};
+                string ipversion{"IPv4"};
+                uint32_t noOfRequest = 3;
+                uint16_t timeOutInSeconds = 5;
 
-            endpoint = parameters["endpoint"].String();
+                endpoint = parameters["endpoint"].String();
 
-            if (inet_pton(AF_INET, endpoint.c_str(), &ipv4address) > 0)
-                tmpParameters["ipversion"] = "IPv4";
-            else if (inet_pton(AF_INET6, endpoint.c_str(), &ipv6address) > 0)
-                tmpParameters["ipversion"] = "IPv6";
+                if (parameters.HasLabel("ipversion"))
+                    ipversion = parameters["ipversion"].String();
 
-            if (parameters.HasLabel("packets"))
-                tmpParameters["noOfRequest"] = parameters["packets"];
-            else
-                tmpParameters["noOfRequest"] = DEFAULT_PING_PACKETS;
-            tmpParameters["endpoint"] = parameters["endpoint"];
-            tmpParameters["timeout"] = 5;
-            tmpParameters["guid"] = parameters["guid"];
+                if (parameters.HasLabel("packets"))
+                    noOfRequest  = parameters["packets"].Number();
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(15000, _T("Ping"), tmpParameters, response);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+                if (parameters.HasLabel("guid"))
+                    guid = parameters["guid"].String();
+
+                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+                if (_nwmgr)
+                {
+                    rc = _nwmgr->Ping(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, result);
+                    _nwmgr->Release();
+                }
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+            }
 
             if (Core::ERROR_NONE == rc)
             {
-                response["target"] = parameters["endpoint"];
-                response["guid"] = parameters["guid"];
+                JsonObject reply;
+                reply.FromString(result);
+                response = reply;
+                response["target"] = endpoint;
             }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::doTrace(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
-            tmpParameters["endpoint"]  = parameters["endpoint"].String();
-            tmpParameters["packets"]   = parameters["packets"].Number();
-            tmpParameters["guid"]      = "";
+            if (parameters.HasLabel("endpoint"))
+            {
+                string result{};
+                string ipversion{"IPv4"};
+                const string endpoint = parameters["endpoint"].String();
+                const uint32_t noOfRequest  = parameters["packets"].Number();
+                const string guid           = parameters["guid"].String();
 
-            if(m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(20000, _T("Trace"), tmpParameters, response);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+                if (parameters.HasLabel("ipversion"))
+                    ipversion = parameters["ipversion"].String();
 
-            LOG_OUTPARAM();
-            return rc;
+                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+                if (_nwmgr)
+                {
+                    rc = _nwmgr->Trace(ipversion, endpoint, noOfRequest, guid, result);
+                    _nwmgr->Release();
+                }
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+
+                if (Core::ERROR_NONE == rc)
+                {
+                    JsonObject reply;
+                    reply.FromString(result);
+                    response = reply;
+                    response["target"] = endpoint;
+                }
+            }
+            returnJson(rc);
         }
 
         uint32_t Network::getPublicIP(const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            string interface;
-            string ipversion{"IPv4"};
-            JsonObject tmpParameters;
-            JsonObject tmpResponse;
-
             LOG_INPARAM();
-            if(caseInsensitiveCompare(parameters["iface"].String(), "WIFI"))
-                interface = "wlan0";
-            else if(caseInsensitiveCompare(parameters["iface"].String(), "ETHERNET"))
-                interface = "eth0";
+            uint32_t rc = Core::ERROR_GENERAL;
+            string ipAddress{};
+            string ipversion = "IPv4";
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
 
-             if(parameters["ipv6"].Boolean())
-                ipversion = "IPv6";
-            else
-                ipversion = "IPv4";
-
-            tmpParameters["interface"] = interface;
-            tmpParameters["ipversion"] = ipversion;
-
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetPublicIP"), tmpParameters, tmpResponse);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetPublicIP(ipversion, ipAddress);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["public_ip"]    = tmpResponse["publicIP"];
-                response["success"]      = tmpResponse["success"];
+                response["public_ip"] = ipAddress;
             }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::isInterfaceEnabled (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
-
             LOG_INPARAM();
-            string interface = parameters["interface"].String();
-            string newInterface = "";
+            uint32_t rc = Core::ERROR_GENERAL;
 
-            if(caseInsensitiveCompare(interface, "WIFI"))
-                newInterface = "wlan0";
-            else if(caseInsensitiveCompare(interface, "ETHERNET"))
-                newInterface = "eth0";
+            if (parameters.HasLabel("interface"))
+            {
+                bool enabled;
+                const string givenInterface = parameters["interface"].String();
+                const string interface = getInterfaceTypeToName(givenInterface);
 
-            tmpParameters["interface"] = newInterface;
+                if ("wlan0" != interface && "eth0" != interface)
+                    return Core::ERROR_BAD_REQUEST;
+            
+                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+                if (_nwmgr)
+                {
+                    rc = _nwmgr->GetInterfaceState(interface, enabled);
+                    _nwmgr->Release();
+                }
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetInterfaceState"), tmpParameters, response);
+                if (Core::ERROR_NONE == rc)
+                    response["enabled"] = enabled;
+            }
             else
-                rc = Core::ERROR_UNAVAILABLE;
-          
-            LOG_OUTPARAM();
+                rc = Core::ERROR_BAD_REQUEST;
 
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::setConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("SetConnectivityTestEndpoints"), parameters, response);
+            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
+            JsonArray array = parameters["endpoints"].Array();
+
+            if (0 == array.Length() || 5 < array.Length())
+            {
+                NMLOG_DEBUG("minimum of 1 to maximum of 5 Urls are allowed");
+                returnJson(rc);
+            }
+
+            std::vector<std::string> endpoints;
+            JsonArray::Iterator index(array.Elements());
+            while (index.Next() == true)
+            {
+                if (Core::JSON::Variant::type::STRING == index.Current().Content())
+                {
+                    endpoints.push_back(index.Current().String().c_str());
+                }
+                else
+                {
+                    NMLOG_DEBUG("Unexpected variant type");
+                    returnJson(rc);
+                }
+            }
+            endpointsIter = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(endpoints));
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+                rc = _nwmgr->SetConnectivityTestEndpoints(endpointsIter);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if(_nwmgr)
+                _nwmgr->Release();
+
+            if (endpointsIter)
+                endpointsIter->Release();
+
+            returnJson(rc);
         }
 
         uint32_t Network::startConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
@@ -729,28 +806,37 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             uint32_t interval = parameters["interval"].Number();
 
             NMLOG_DEBUG("connectivity interval = %d", interval);
-
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StartConnectivityMonitoring"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+                rc = _nwmgr->StartConnectivityMonitoring(interval);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if(_nwmgr)
+                _nwmgr->Release();
+
+            returnJson(rc);
         }
 
         uint32_t Network::getCaptivePortalURI(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint;
-             if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetCaptivePortalURI"), parameters, response);
+            string uri;
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetCaptivePortalURI(uri);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if (Core::ERROR_NONE == rc)
+                response["uri"] = uri;
+
+            returnJson(rc);
         }
 
         uint32_t Network::stopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
@@ -758,13 +844,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StopConnectivityMonitoring"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->StopConnectivityMonitoring();
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::getStbIp(const JsonObject& parameters, JsonObject& response)
@@ -773,18 +862,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             LOG_INPARAM();
             JsonObject tmpResponse;
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetIPSettings"), parameters, tmpResponse);
+            rc = internalGetIPSettings(parameters, tmpResponse);
+
+            if ((Core::ERROR_NONE == rc) && tmpResponse.HasLabel("ipaddr"))
+            {
+                response["ip"]         = tmpResponse["ipaddr"];
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["ip"]         = tmpResponse["ipaddress"];
-                response["success"]    = true;
-            }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t Network::getSTBIPFamily(const JsonObject& parameters, JsonObject& response)
@@ -796,18 +883,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
             tmpParameters["ipversion"] = parameters["family"];
 
-            if (m_networkmanager)
-                rc = m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetIPSettings"), tmpParameters, tmpResponse);
+            rc = internalGetIPSettings(tmpParameters, tmpResponse);
+
+            if ((Core::ERROR_NONE == rc) && tmpResponse.HasLabel("ipaddr"))
+            {
+                response["ip"]         = tmpResponse["ipaddr"];
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["ip"]         = tmpResponse["ipaddress"];
-                response["success"]    = true;
-            }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         /** Private */
@@ -864,33 +949,41 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange && m_subsInternetChange)
             {
                 m_timer.stop();
-                NMLOG_INFO("subscriber timer stoped");
+                NMLOG_INFO("All the required events are subscribed; Retry timer stoped");
             }
             else
             {
                 m_timer.start(SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS);
-                NMLOG_INFO("subscriber timer started");
+                NMLOG_INFO("Few required events are yet to be subscribed; Retry timer started");
             }
         }
 
-        string Network::getInterfaceMapping(const string & interface)
+        string Network::getInterfaceNameToType(const string & interface)
         {
             if(interface == "wlan0")
                 return string("WIFI");
             else if(interface == "eth0")
                 return string("ETHERNET");
-            return string(" ");
+            return string("");
+        }
+
+        string Network::getInterfaceTypeToName(const string & interface)
+        {
+            if(interface == "WIFI")
+                return string("wlan0");
+            else if(interface == "ETHERNET")
+                return string("eth0");
+            return string("");
         }
 
         /** Event Handling and Publishing */
         void Network::ReportonInterfaceStateChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             JsonObject legacyParams;
             string json;
             string state = parameters["state"].String();
 
-            legacyParams["interface"] = getInterfaceMapping(parameters["interface"].String()); 
+            legacyParams["interface"] = getInterfaceNameToType(parameters["interface"].String());
 
             /* State check */
             if(state == "INTERFACE_ADDED")
@@ -902,14 +995,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             else if(state == "INTERFACE_LINK_DOWN")
                 legacyParams["status"] = "DISCONNECTED";
 
+            legacyParams.ToString(json);
             if((state == "INTERFACE_ADDED") || (state == "INTERFACE_REMOVED"))
             {
-                NMLOG_INFO("Posting onInterfaceStatusChanged");
+                NMLOG_INFO("Posting onInterfaceStatusChanged as %s", json.c_str());
                 Notify("onInterfaceStatusChanged", legacyParams);
             }
             else if((state == "INTERFACE_LINK_UP") || (state == "INTERFACE_LINK_DOWN"))
             {
-                NMLOG_INFO("Posting onConnectionStatusChanged");
+                NMLOG_INFO("Posting onConnectionStatusChanged as %s", json.c_str());
                 Notify("onConnectionStatusChanged", legacyParams);
             }
 
@@ -918,23 +1012,25 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::ReportonActiveInterfaceChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             JsonObject legacyParams;
             
-            legacyParams["oldInterfaceName"] = getInterfaceMapping(parameters["oldInterfaceName"].String());
-            legacyParams["newInterfaceName"] = getInterfaceMapping(parameters["newInterfaceName"].String());
+            legacyParams["oldInterfaceName"] = getInterfaceNameToType(parameters["oldInterfaceName"].String());
+            legacyParams["newInterfaceName"] = getInterfaceNameToType(parameters["newInterfaceName"].String());
 
             m_defaultInterface = parameters["newInterfaceName"].String();
-            NMLOG_INFO("Posting onDefaultInterfaceChanged");
+
+            string json;
+            legacyParams.ToString(json);
+
+            NMLOG_INFO("Posting onDefaultInterfaceChanged as %s", json.c_str());
             Notify("onDefaultInterfaceChanged", legacyParams);
             return;
         }
 
         void Network::ReportonIPAddressChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             JsonObject legacyParams;
-            legacyParams["interface"] = getInterfaceMapping(parameters["interface"].String()); 
+            legacyParams["interface"] = getInterfaceNameToType(parameters["interface"].String());
 
             if (parameters["isIPv6"].Boolean())
             {
@@ -946,7 +1042,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             }
 
             legacyParams["status"] = parameters["status"];
-            NMLOG_INFO("Posting onIPAddressStatusChanged");
+
+            string json;
+            legacyParams.ToString(json);
+            NMLOG_INFO("Posting onIPAddressStatusChanged as %s", json.c_str());
+
             Notify("onIPAddressStatusChanged", legacyParams);
 
             if ("ACQUIRED" == parameters["status"].String())
@@ -957,14 +1057,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::ReportonInternetStatusChange(const JsonObject& parameters)
         {
-            NMLOG_INFO("Posting onInternetStatusChange");
-            Notify("onInternetStatusChange", parameters);
+            JsonObject legacyParams;
+            string json;
+
+            legacyParams["state"] = parameters["currState"];
+            legacyParams["status"] = parameters["currStatus"];
+            legacyParams.ToString(json);
+
+            NMLOG_INFO("Posting onInternetStatusChanged as, %s", json.c_str());
+            Notify("onInternetStatusChange", legacyParams);
             return;
         }
 
         void Network::onInterfaceStateChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonInterfaceStateChange(parameters);
 
@@ -973,7 +1079,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onActiveInterfaceChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonActiveInterfaceChange(parameters);
             return;
@@ -981,7 +1086,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onIPAddressChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonIPAddressChange(parameters);
             return;
@@ -989,7 +1093,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
         void Network::onInternetStatusChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             if(_gNWInstance)
                 _gNWInstance->ReportonInternetStatusChange(parameters);
         }

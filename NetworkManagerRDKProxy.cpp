@@ -353,7 +353,6 @@ typedef struct _IARM_Bus_WiFiSrvMgr_SsidList_Param_t {
 #define IARM_BUS_WIFI_MGR_API_disconnectSSID                "disconnectSSID"                /**< Disconnect from current SSID */
 #define IARM_BUS_WIFI_MGR_API_getCurrentState               "getCurrentState"               /**< Retrieve current state */
 
-
 namespace WPEFramework
 {
     namespace Plugin
@@ -435,9 +434,9 @@ namespace WPEFramework
                         if(interface == "eth0" || interface == "wlan0")
                         {
                             if (e->status)
-                                ::_instance->ReportInterfaceStateChangedEvent(Exchange::INetworkManager::INTERFACE_ADDED, interface);
+                                ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, interface);
                             else
-                                ::_instance->ReportInterfaceStateChangedEvent(Exchange::INetworkManager::INTERFACE_REMOVED, interface);
+                                ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_REMOVED, interface);
                         }
                         break;
                     }
@@ -448,9 +447,9 @@ namespace WPEFramework
                         NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS :: %s", interface.c_str());
                         if(interface == "eth0" || interface == "wlan0") {
                             if (e->status)
-                                ::_instance->ReportInterfaceStateChangedEvent(Exchange::INetworkManager::INTERFACE_LINK_UP, interface);
+                                ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_LINK_UP, interface);
                             else
-                               ::_instance->ReportInterfaceStateChangedEvent(Exchange::INetworkManager::INTERFACE_LINK_DOWN, interface);
+                               ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_LINK_DOWN, interface);
                         }
                         break;
                     }
@@ -461,7 +460,15 @@ namespace WPEFramework
                         NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS :: %s -- %s", interface.c_str(), e->ip_address);
 
                         if(interface == "eth0" || interface == "wlan0") {
-                            ::_instance->ReportIPAddressChangedEvent(interface, e->acquired, e->is_ipv6, string(e->ip_address));
+                            string ipversion("IPv4");
+                            Exchange::INetworkManager::IPStatus status;
+
+                            if (e->is_ipv6)
+                                ipversion = "IPv6";
+                            if (e->acquired)
+                                status = Exchange::INetworkManager::IP_ACQUIRED;
+
+                            ::_instance->ReportIPAddressChange(interface, ipversion, string(e->ip_address), status);
                         }
                         break;
                     }
@@ -478,7 +485,7 @@ namespace WPEFramework
                         if(newInterface != "eth0" || newInterface != "wlan0")
                             newInterface == ""; /* assigning "null" if the interface is not eth0 or wlan0 */
 
-                        ::_instance->ReportActiveInterfaceChangedEvent(oldInterface, newInterface);
+                        ::_instance->ReportActiveInterfaceChange(oldInterface, newInterface);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs:
@@ -501,7 +508,8 @@ namespace WPEFramework
                         string json;
                         ssids.ToString(json);
 
-                        ::_instance->ReportAvailableSSIDsEvent(json);
+                        ::_instance->ReportAvailableSSIDs(json);
+                        break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
                     {
@@ -509,7 +517,7 @@ namespace WPEFramework
                         Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WIFI_STATE_DISCONNECTED;
                         NMLOG_INFO("Event IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged received; state=%d", e->data.wifiStateChange.state);
                         state = to_wifi_state(e->data.wifiStateChange.state);
-                        ::_instance->ReportWiFiStateChangedEvent(state);
+                        ::_instance->ReportWiFiStateChange(state);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onError:
@@ -517,7 +525,7 @@ namespace WPEFramework
                         IARM_BUS_WiFiSrvMgr_EventData_t* e = (IARM_BUS_WiFiSrvMgr_EventData_t *) data;
                         Exchange::INetworkManager::WiFiState state = errorcode_to_wifi_state(e->data.wifiError.code);
                         NMLOG_INFO("Event IARM_BUS_WIFI_MGR_EVENT_onError received; code=%d", e->data.wifiError.code);
-                        ::_instance->ReportWiFiStateChangedEvent(state);
+                        ::_instance->ReportWiFiStateChange(state);
                         break;
                     }
                     default:
@@ -636,14 +644,14 @@ namespace WPEFramework
                         InterfaceDetails tmp;
                         /* Update the interface as per RDK NetSrvMgr */
                         if ("eth0" == interfaceName)
-                            tmp.m_type = string("ETHERNET");
+                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
                         else if ("wlan0" == interfaceName)
-                            tmp.m_type = string("WIFI");
+                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
 
-                        tmp.m_name         = interfaceName;
-                        tmp.m_mac          = string(list.interfaces[i].mac);
-                        tmp.m_isEnabled    = ((list.interfaces[i].flags & IFF_UP) != 0);
-                        tmp.m_isConnected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
+                        tmp.name         = interfaceName;
+                        tmp.mac          = string(list.interfaces[i].mac);
+                        tmp.enabled    = ((list.interfaces[i].flags & IFF_UP) != 0);
+                        tmp.connected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
                         interfaceList.push_back(tmp);
                     }
                 }
@@ -711,7 +719,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool& enable /* @in */)
+        uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enable /* @in */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -804,7 +812,7 @@ namespace WPEFramework
 
 
         /* @brief Get IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::GetIPSettings(const string& interface /* @in */, const string& ipversion /* @in */, IPAddressInfo& result /* @out */)
+        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& address /* @out */) 
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -815,24 +823,39 @@ namespace WPEFramework
                 strncpy(iarmData.interface, "WIFI", INTERFACE_SIZE);
             else if ("eth0" == interface)
                 strncpy(iarmData.interface, "ETHERNET", INTERFACE_SIZE);
+            else if (!interface.empty())
+            {
+                NMLOG_ERROR("Given interface (%s) is NOT supported\n", interface.c_str());
+                return Core::ERROR_NOT_SUPPORTED;
+            }
 
-            strncpy(iarmData.ipversion, ipversion.c_str(), 16);
+            if (("IPv4" == ipversion) || ("IPv6" == ipversion))
+                sprintf(iarmData.ipversion,"%s", ipversion.c_str());
+
             iarmData.isSupported = true;
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                result.m_ipAddrType     = string(iarmData.ipversion);
-                result.m_autoConfig     = iarmData.autoconfig;
-                result.m_dhcpServer     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);
-                result.m_v6LinkLocal    = "";
-                result.m_ipAddress      = string(iarmData.ipaddress,MAX_IP_ADDRESS_LEN - 1);
+                address.autoconfig     = iarmData.autoconfig;
+                address.dhcpserver     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);
+                address.ula            = string("");
+                address.ipaddress      = string(iarmData.ipaddress,MAX_IP_ADDRESS_LEN - 1);
+                address.gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
+                address.primarydns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
+                address.secondarydns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
                 if (0 == strcasecmp("ipv4", iarmData.ipversion))
-                    result.m_prefix = NetmaskToPrefix(iarmData.netmask);
+                {
+                    address.ipversion = string ("IPv4");
+                    address.prefix = NetmaskToPrefix(iarmData.netmask);
+                }
                 else if (0 == strcasecmp("ipv6", iarmData.ipversion))
-                    result.m_prefix = std::atoi(iarmData.netmask);
-                result.m_gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
-                result.m_primaryDns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
-                result.m_secondaryDns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
+                {
+                    address.ipversion = string ("IPv6");
+                    address.prefix = std::atoi(iarmData.netmask);
+                }
+
+                /* Return the default interface information */
+                interface = string(interface);
                 rc = Core::ERROR_NONE;
             }
             else
@@ -843,8 +866,8 @@ namespace WPEFramework
             return rc;
         }
 
-#define CIDR_NETMASK_IP_LEN 32
-const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
+const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
+                                                     "0.0.0.0",
                                                      "128.0.0.0",
                                                      "192.0.0.0",
                                                      "224.0.0.0",
@@ -880,10 +903,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                                                    };
 
         /* @brief Set IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const string &ipversion /* @in */, const IPAddressInfo& address /* @in */)
+        uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_NONE;
-            if (0 == strcasecmp("ipv4", ipversion.c_str()))
+            if ("IPv4" == address.ipversion)
             {
                 IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = {0};
                 /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
@@ -897,27 +920,28 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
                     rc = Core::ERROR_BAD_REQUEST;
                     return rc;
                 }
-                /* IP version */
-                strncpy(iarmData.ipversion, ipversion.c_str(), 16);
 
-                if (!address.m_autoConfig)
+                /* IP version */
+                sprintf(iarmData.ipversion, "IPv4");
+
+                if (!address.autoconfig)
                 {
                     //Lets validate the prefix Address
-                    if (address.m_prefix >= 32)
+                    if (address.prefix > CIDR_NETMASK_IP_LEN)
                     {
                         rc = Core::ERROR_BAD_REQUEST;
                     }
                     else
                     {
-                        string netmask = CIDR_PREFIXES[address.m_prefix];
+                        string netmask = CIDR_PREFIXES[address.prefix];
 
                         //Lets validate the IP Address
                         struct in_addr tmpIPAddress, tmpGWAddress, tmpNetmask;
                         struct in_addr bcastAddr1, bcastAddr2;
 
-                        if (inet_pton(AF_INET, address.m_ipAddress.c_str(), &tmpIPAddress) == 1 &&
+                        if (inet_pton(AF_INET, address.ipaddress.c_str(), &tmpIPAddress) == 1 &&
                             inet_pton(AF_INET, netmask.c_str(), &tmpNetmask) == 1 &&
-                            inet_pton(AF_INET, address.m_gateway.c_str(), &tmpGWAddress) == 1)
+                            inet_pton(AF_INET, address.gateway.c_str(), &tmpGWAddress) == 1)
                         {
                             bcastAddr1.s_addr = tmpIPAddress.s_addr | ~tmpNetmask.s_addr;
                             bcastAddr2.s_addr = tmpGWAddress.s_addr | ~tmpNetmask.s_addr;
@@ -951,17 +975,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
                         if (Core::ERROR_NONE == rc)
                         {
-                            strncpy(iarmData.ipaddress, address.m_ipAddress.c_str(), 16);
+                            strncpy(iarmData.ipaddress, address.ipaddress.c_str(), 16);
                             strncpy(iarmData.netmask, netmask.c_str(), 16);
-                            strncpy(iarmData.gateway, address.m_gateway.c_str(), 16);
-                            strncpy(iarmData.primarydns, address.m_primaryDns.c_str(), 16);
-                            strncpy(iarmData.secondarydns, address.m_secondaryDns.c_str(), 16);
+                            strncpy(iarmData.gateway, address.gateway.c_str(), 16);
+                            strncpy(iarmData.primarydns, address.primarydns.c_str(), 16);
+                            strncpy(iarmData.secondarydns, address.secondarydns.c_str(), 16);
                         }
                     }
                 }
                 else
                 {
-                    iarmData.autoconfig = address.m_autoConfig;
+                    iarmData.autoconfig = address.autoconfig;
                 }
                 if (Core::ERROR_NONE == rc)
                 {
@@ -986,15 +1010,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(const WiFiFrequency frequency /* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_Bus_WiFiSrvMgr_SsidList_Param_t param;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
-            memset(&param, 0, sizeof(param));
+            (void)ssids;
             (void) frequency;
+
+            memset(&param, 0, sizeof(param));
 
             retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getAvailableSSIDsAsync, (void *)&param, sizeof(IARM_Bus_WiFiSrvMgr_SsidList_Param_t));
 
@@ -1064,9 +1090,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             IARM_Bus_WiFiSrvMgr_Param_t param;
             memset(&param, 0, sizeof(param));
 
-            strncpy(param.data.connect.ssid, ssid.m_ssid.c_str(), SSID_SIZE - 1);
-            strncpy(param.data.connect.passphrase, ssid.m_passphrase.c_str(), PASSPHRASE_BUFF - 1);
-            param.data.connect.security_mode = (SsidSecurity) ssid.m_securityMode;
+            strncpy(param.data.connect.ssid, ssid.ssid.c_str(), SSID_SIZE - 1);
+            strncpy(param.data.connect.passphrase, ssid.passphrase.c_str(), PASSPHRASE_BUFF - 1);
+            param.data.connect.security_mode = (SsidSecurity) ssid.security;
 
             IARM_Result_t retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_saveSSID, (void *)&param, sizeof(param));
             if((retVal == IARM_RESULT_SUCCESS) && param.status)
@@ -1114,20 +1140,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             IARM_Bus_WiFiSrvMgr_Param_t param;
             memset(&param, 0, sizeof(param));
 
-            if(ssid.m_ssid.length() || ssid.m_passphrase.length())
+            if(ssid.ssid.length() || ssid.passphrase.length())
             {
-                ssid.m_ssid.copy(param.data.connect.ssid, sizeof(param.data.connect.ssid) - 1);
-                ssid.m_passphrase.copy(param.data.connect.passphrase, sizeof(param.data.connect.passphrase) - 1);
-                param.data.connect.security_mode = (SsidSecurity)ssid.m_securityMode;
-                if(!ssid.m_identity.empty())
-                    ssid.m_identity.copy(param.data.connect.eapIdentity, sizeof(param.data.connect.eapIdentity) - 1);
-                if(!ssid.m_caCert.empty())
-                    ssid.m_caCert.copy(param.data.connect.carootcert, sizeof(param.data.connect.carootcert) - 1);
-                if(!ssid.m_clientCert.empty())
-                    ssid.m_clientCert.copy(param.data.connect.clientcert, sizeof(param.data.connect.clientcert) - 1);
-                if(!ssid.m_privateKey.empty())
-                    ssid.m_privateKey.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
-                param.data.connect.persistSSIDInfo = ssid.m_persistSSIDInfo;
+                ssid.ssid.copy(param.data.connect.ssid, sizeof(param.data.connect.ssid) - 1);
+                ssid.passphrase.copy(param.data.connect.passphrase, sizeof(param.data.connect.passphrase) - 1);
+                param.data.connect.security_mode = (SsidSecurity)ssid.security;
+                if(!ssid.eap_identity.empty())
+                    ssid.eap_identity.copy(param.data.connect.eapIdentity, sizeof(param.data.connect.eapIdentity) - 1);
+                if(!ssid.ca_cert.empty())
+                    ssid.ca_cert.copy(param.data.connect.carootcert, sizeof(param.data.connect.carootcert) - 1);
+                if(!ssid.client_cert.empty())
+                    ssid.client_cert.copy(param.data.connect.clientcert, sizeof(param.data.connect.clientcert) - 1);
+                if(!ssid.private_key.empty())
+                    ssid.private_key.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
+                param.data.connect.persistSSIDInfo = ssid.persist;
             }
 
             retVal = IARM_Bus_Call( IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_connect, (void *)&param, sizeof(param));
@@ -1181,13 +1207,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
             {
                 auto &connectedSsid = param.data.getConnectedSSID;
 
-                ssidInfo.m_ssid             = string(connectedSsid.ssid);
-                ssidInfo.m_bssid            = string(connectedSsid.bssid);
-                ssidInfo.m_securityMode     = (WIFISecurityMode) connectedSsid.securityMode;
-                ssidInfo.m_signalStrength   = to_string(connectedSsid.signalStrength);
-                ssidInfo.m_frequency        = static_cast<double>(connectedSsid.frequency)/1000.0;
-                ssidInfo.m_rate             = to_string(connectedSsid.rate);
-                ssidInfo.m_noise            = to_string(connectedSsid.noise);
+                ssidInfo.ssid             = string(connectedSsid.ssid);
+                ssidInfo.bssid            = string(connectedSsid.bssid);
+                ssidInfo.security         = (WIFISecurityMode) connectedSsid.securityMode;
+                ssidInfo.strength         = to_string(connectedSsid.signalStrength);
+                ssidInfo.rate             = to_string(connectedSsid.rate);
+                ssidInfo.noise            = to_string(connectedSsid.noise);
+                ssidInfo.frequency        = to_string((double)connectedSsid.frequency/1000);
 
                 NMLOG_INFO ("GetConnectedSSID Success");
                 rc = Core::ERROR_NONE;
@@ -1208,13 +1234,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN] = {
 
             if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo))
             {
-                ssid            = ssidInfo.m_ssid;
-                signalStrength  = ssidInfo.m_signalStrength;
+                ssid            = ssidInfo.ssid;
+                signalStrength  = ssidInfo.strength;
 
                 if (!signalStrength.empty())
                 {
                     signalStrengthOut = std::stof(signalStrength.c_str());
-                    NMLOG_INFO ("WiFiSignalStrength in dB = %s",signalStrengthOut);
+                    NMLOG_INFO ("WiFiSignalStrength in dB = %f",signalStrengthOut);
                 }
 
                 if (signalStrengthOut == 0)

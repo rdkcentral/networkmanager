@@ -70,14 +70,14 @@ namespace WPEFramework
                         if (device)
                         {
                             if(i == 0)        
-                                tmp.m_type = string("WIFI");
+                                tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
                             else
-                                tmp.m_type = string("ETHERNET");
-                            tmp.m_name = interfaces[i].c_str();
-                            tmp.m_mac = nm_device_get_hw_address(device);
+                                tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
+                            tmp.name = interfaces[i].c_str();
+                            tmp.mac = nm_device_get_hw_address(device);
                             state = nm_device_get_state(device);
-                            tmp.m_isEnabled = (state > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
-                            tmp.m_isConnected = (state > NM_DEVICE_STATE_DISCONNECTED) ? true : false;
+                            tmp.enabled = (state > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
+                            tmp.connected = (state > NM_DEVICE_STATE_DISCONNECTED) ? true : false;
                             interfaceList.push_back(tmp);
                             //g_clear_object(&device);
                         }
@@ -194,7 +194,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool& enabled /* @in */)
+        uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
             uint32_t rc = Core::ERROR_NONE;
             if(client == nullptr)
@@ -263,7 +263,7 @@ namespace WPEFramework
         } 
 
         /* @brief Get IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::GetIPSettings(const string& interface /* @in */, const string& ipversion /* @in */, IPAddressInfo& result /* @out */)
+        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */) 
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             NMActiveConnection *conn = NULL;
@@ -361,19 +361,19 @@ namespace WPEFramework
                 dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config,
                                "dhcp_server_identifier");
                 if(!ipversion.empty())
-                    result.m_ipAddrType     = ipversion.c_str();
+                    result.ipversion  = ipversion.c_str();
                 else
-                    result.m_ipAddrType     = "IPv4";
+                    result.ipversion  = "IPv4";
                 if(dhcpserver)
-                    result.m_dhcpServer     = dhcpserver;
-                result.m_v6LinkLocal    = "";
-                result.m_ipAddress      = nm_ip_address_get_address(address);
-                result.m_prefix         = nm_ip_address_get_prefix(address);
-                result.m_gateway        = gateway;
+                    result.dhcpserver = dhcpserver;
+                result.ula            = "";
+                result.ipaddress      = nm_ip_address_get_address(address);
+                result.prefix         = nm_ip_address_get_prefix(address);
+                result.gateway        = gateway;
                 if((*(&dns_arr[0]))!=NULL)
-                    result.m_primaryDns     = *(&dns_arr[0]);
+                    result.primarydns     = *(&dns_arr[0]);
                 if((*(&dns_arr[1]))!=NULL )
-                    result.m_secondaryDns   = *(&dns_arr[1]);
+                    result.secondarydns   = *(&dns_arr[1]);
 
                 rc = Core::ERROR_NONE;
             }
@@ -387,7 +387,7 @@ namespace WPEFramework
                     p = nm_ip_config_get_addresses(ip6_config);
                     for (i = 0; i < p->len; i++) {
                         a = static_cast<NMIPAddress*>(p->pdata[i]);
-                        result.m_ipAddress      = nm_ip_address_get_address(a);
+                        result.ipaddress = nm_ip_address_get_address(a);
                         NMLOG_DEBUG("\tinet6 %s/%d\n", nm_ip_address_get_address(a), nm_ip_address_get_prefix(a));
                     }
                     gateway = nm_ip_config_get_gateway(ip6_config);
@@ -397,16 +397,16 @@ namespace WPEFramework
                     dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
                     dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config,
                                "dhcp_server_identifier");
-                    result.m_ipAddrType     = ipversion.c_str();
+                    result.ipversion = ipversion.c_str();
                     if(dhcpserver)
-                        result.m_dhcpServer     = dhcpserver;
-                    result.m_v6LinkLocal    = "";
-                    result.m_prefix         = 0;
-                    result.m_gateway        = gateway;
+                        result.dhcpserver   = dhcpserver;
+                    result.ula              = "";
+                    result.prefix         = 0;
+                    result.gateway        = gateway;
                     if((*(&dns_arr[0]))!=NULL)
-                    result.m_primaryDns     = *(&dns_arr[0]);
+                    result.primarydns     = *(&dns_arr[0]);
                     if((*(&dns_arr[1]))!=NULL )
-                    result.m_secondaryDns   = *(&dns_arr[1]);
+                    result.secondarydns   = *(&dns_arr[1]);
                 }
                 rc = Core::ERROR_NONE;
             }
@@ -445,7 +445,7 @@ namespace WPEFramework
 
 
         /* @brief Set IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const string &ipversion /* @in */, const IPAddressInfo& address /* @in */)
+        uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             GMainLoop *g_loop;
             g_loop = g_main_loop_new(NULL, FALSE);
@@ -476,9 +476,9 @@ namespace WPEFramework
                     break;
                 }
             }
-            if (!address.m_autoConfig)
+            if (!address.autoconfig)
             {
-                if (nmUtils::caseInsensitiveCompare("IPv4", ipversion))
+                if (nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
                 {
                     NMSettingIPConfig *ip4_config = nm_connection_get_setting_ip4_config(conn);
                     if (ip4_config == NULL) 
@@ -487,15 +487,15 @@ namespace WPEFramework
                     }
                     NMIPAddress *ipAddress;
                     setting = nm_connection_get_setting_by_name(conn, "ipv4");
-                    ipAddress = nm_ip_address_new(AF_INET, address.m_ipAddress.c_str(), address.m_prefix, NULL);
+                    ipAddress = nm_ip_address_new(AF_INET, address.ipaddress.c_str(), address.prefix, NULL);
                     nm_setting_ip_config_clear_addresses(ip4_config);
                     nm_setting_ip_config_add_address(NM_SETTING_IP_CONFIG(setting), ipAddress);
                     nm_setting_ip_config_clear_dns(ip4_config);
-                    nm_setting_ip_config_add_dns(ip4_config, address.m_primaryDns.c_str());
-                    nm_setting_ip_config_add_dns(ip4_config, address.m_secondaryDns.c_str());
+                    nm_setting_ip_config_add_dns(ip4_config, address.primarydns.c_str());
+                    nm_setting_ip_config_add_dns(ip4_config, address.secondarydns.c_str());
 
                     g_object_set(G_OBJECT(ip4_config),
-                            NM_SETTING_IP_CONFIG_GATEWAY, address.m_gateway.c_str(),
+                            NM_SETTING_IP_CONFIG_GATEWAY, address.gateway.c_str(),
                             NM_SETTING_IP_CONFIG_NEVER_DEFAULT,
                             FALSE,
                             NULL);
@@ -509,7 +509,7 @@ namespace WPEFramework
             }
             else
             {
-                if (nmUtils::caseInsensitiveCompare("IPv4", ipversion))
+                if (nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
                 {
                     s_ip4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
                     g_object_set(G_OBJECT(s_ip4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
@@ -547,9 +547,11 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(const WiFiFrequency frequency /* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            (void) ssids;
+
             nmEvent->setwifiScanOptions(true, true);
             if(wifi->wifiScanRequest(frequency))
                 rc = Core::ERROR_NONE;
@@ -606,7 +608,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(ssid.m_ssid.empty() || ssid.m_ssid.size() > 32)
+            if(ssid.ssid.empty() || ssid.ssid.size() > 32)
             {
                 NMLOG_WARNING("ssid is invalied");
                 return rc;
@@ -615,7 +617,7 @@ namespace WPEFramework
             if(!wifi->isWifiScannedRecently())
             {
                 nmEvent->setwifiScanOptions(false, true); // not notify scan result but print logs
-                if(!wifi->wifiScanRequest(Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER, ssid.m_ssid))
+                if(!wifi->wifiScanRequest("", ssid.ssid))
                 {
                     NMLOG_WARNING("scanning failed but try to connect");
                 }
@@ -648,8 +650,8 @@ namespace WPEFramework
             WiFiSSIDInfo ssidInfo;
             if(wifi->wifiConnectedSSIDInfo(ssidInfo))
             {
-                ssid = ssidInfo.m_ssid;
-                signalStrength = ssidInfo.m_signalStrength;
+                ssid = ssidInfo.ssid;
+                signalStrength = ssidInfo.strength;
 
 	            float signalStrengthFloat = 0.0f;
                 if(!signalStrength.empty())

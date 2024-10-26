@@ -35,8 +35,6 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define LOG_ENTRY_FUNCTION() { NMLOG_DEBUG("Entering=%s", __FUNCTION__ ); }
-
 namespace WPEFramework
 {
     namespace Plugin
@@ -152,18 +150,18 @@ namespace WPEFramework
             uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
             /* @brief Enable/Disable the given interface */
-            uint32_t SetInterfaceState(const string& interface/* @in */, const bool& isEnabled/* @in */) override;
+            uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;
             /* @brief Get the state of given interface */
             uint32_t GetInterfaceState(const string& interface/* @in */, bool& isEnabled/* @out */) override;
 
             /* @brief Get IP Address Of the Interface */
-            uint32_t GetIPSettings(const string& interface /* @in */, const string &ipversion /* @in */, IPAddressInfo& result /* @out */) override;
+            uint32_t GetIPSettings(string& interface /* @inout */, const string& ipversion /* @in */, IPAddress& address /* @out */) override;
             /* @brief Set IP Address Of the Interface */
-            uint32_t SetIPSettings(const string& interface /* @in */, const string &ipversion /* @in */, const IPAddressInfo& address /* @in */) override;
+            uint32_t SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */) override;
 
             // WiFi Specific Methods
             /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-            uint32_t StartWiFiScan(const WiFiFrequency frequency /* @in */);
+            uint32_t StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */) override;
             uint32_t StopWiFiScan(void) override;
 
             uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) override;
@@ -188,7 +186,7 @@ namespace WPEFramework
             uint32_t SetConnectivityTestEndpoints(IStringIterator* const endPoints /* @in */) override;
 
             /* @brief Get Internet Connectivty Status */ 
-            uint32_t IsConnectedToInternet(const string &ipversion /* @in */, InternetStatus &result /* @out */) override;
+            uint32_t IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */) override;
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             uint32_t GetCaptivePortalURI(string &endPoints/* @out */) const override;
 
@@ -198,7 +196,7 @@ namespace WPEFramework
             uint32_t StopConnectivityMonitoring(void) const override;
 
             /* @brief Get the Public IP used for external world communication */
-            uint32_t GetPublicIP (const string &ipversion /* @in */,  string& ipAddress /* @out */) override;
+            uint32_t GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */) override;
 
             /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
             uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */) override;
@@ -209,19 +207,20 @@ namespace WPEFramework
             uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const override;
 
             /* @brief Set the network manager plugin log level */
-            uint32_t SetLogLevel(const NMLogging& logLevel /* @in */) override;
+            uint32_t SetLogLevel(const Logging& level /* @in */) override;
+            uint32_t GetLogLevel(Logging& level /* @out */) override;
 
             /* @brief configure network manager plugin */
-            uint32_t Configure(const string& configLine /* @in */, NMLogging& logLevel /* @out */) override;
+            uint32_t Configure(const string& configLine /* @in */) override;
 
             /* Events */
-            void ReportInterfaceStateChangedEvent(INetworkManager::InterfaceState state, string interface);
-            void ReportIPAddressChangedEvent(const string& interface, bool isAcquired, bool isIPv6, const string& ipAddress);
-            void ReportActiveInterfaceChangedEvent(const string prevActiveInterface, const string currentActiveinterface);
-            void ReportInternetStatusChangedEvent(const InternetStatus oldState, const InternetStatus newstate);
-            void ReportAvailableSSIDsEvent(const string jsonOfWiFiScanResults);
-            void ReportWiFiStateChangedEvent(const INetworkManager::WiFiState state);
-            void ReportWiFiSignalStrengthChangedEvent(const string ssid , const string signalLevel , const WiFiSignalQuality signalQuality);
+            void ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
+            void ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
+            void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
+            void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
+            void ReportAvailableSSIDs(const string jsonOfScanResults);
+            void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
+            void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         private:
             void platform_init();

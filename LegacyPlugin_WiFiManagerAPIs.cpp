@@ -18,7 +18,7 @@
 **/
 #include "LegacyPlugin_WiFiManagerAPIs.h"
 #include "NetworkManagerLogger.h"
-#include "INetworkManager.h"
+#include "NetworkManagerJsonEnum.h"
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -28,8 +28,18 @@ using namespace WPEFramework::Plugin;
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 
-#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("%s : params=%s", __FUNCTION__, json.c_str() ); }
-#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("%s : response=%s", __FUNCTION__,  json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
+
+#define returnJson(rc) \
+    { \
+        if (Core::ERROR_NONE == rc)                 \
+            response["success"] = true;             \
+        else                                        \
+            response["success"] = false;            \
+        LOG_OUTPARAM();                             \
+        return rc;                                  \
+    }
 
 namespace WPEFramework
 {
@@ -134,14 +144,13 @@ namespace WPEFramework
             if (interface != nullptr)
             {
                 PluginHost::IShell::state state = interface->State(); 
-                NMLOG_INFO("Current status of the %s plugin is %d", callsign.c_str(), state);
-
                 if((PluginHost::IShell::state::ACTIVATED  == state) || (PluginHost::IShell::state::ACTIVATION == state))
                 {
                     NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
                 }
                 else
                 {
+                    NMLOG_INFO("Lets attempt to activate the Plugin '%s'", callsign.c_str());
                     activatePrimaryPlugin();
                 }
                 interface->Release();
@@ -219,156 +228,218 @@ namespace WPEFramework
 
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOG_INPARAM();
-
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StopWPS"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->StopWPS();
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
-            {
                 response["result"] = string();
-            }
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::clearSSID (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
-            tmpParameters["ssid"] = "ssid"; // The input ssid name does not matter at this point in time as there is only one ssid persisted at any given point in time.
-
             LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string ssid{};
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("RemoveKnownSSID"), tmpParameters, response);
+            ssid = parameters["ssid"].String();
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+               rc = _nwmgr->RemoveKnownSSID(ssid);
+               _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
-            {
                 response["result"] = 0;
-            }
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
  
         uint32_t WiFiManager::connect(const JsonObject& parameters, JsonObject& response)
         {
-            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::WiFiConnectTo ssid{};
+            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("WiFiConnect"), parameters, response);
+            if (parameters.HasLabel("ssid"))
+                ssid.ssid = parameters["ssid"].String();
+            else
+                returnJson(rc);
+
+            if (parameters.HasLabel("passphrase"))
+                ssid.passphrase = parameters["passphrase"].String();
+
+            if (parameters.HasLabel("securityMode"))
+                ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["securityMode"].Number());
+
+            ssid.persist = true;
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->WiFiConnect(ssid);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::getConnectedSSID (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
-
             LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetConnectedSSID"), parameters, tmpResponse);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetConnectedSSID(ssidInfo);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["ssid"] = tmpResponse["ssid"];
-                response["bssid"] = tmpResponse["bssid"];
-                response["rate"] = tmpResponse["rate"];
-                response["noise"] = tmpResponse["noise"];
-                response["security"] = tmpResponse["securityMode"];
-                response["signalStrength"] = tmpResponse["signalStrength"];
-                response["frequency"] = tmpResponse["frequency"];
-                response["success"] = tmpResponse["success"];
+                response["ssid"] = ssidInfo.ssid;
+                response["bssid"] = ssidInfo.bssid;
+                response["rate"] = ssidInfo.rate;
+                response["noise"] = ssidInfo.noise;
+                response["security"] = JsonValue(ssidInfo.security);
+                response["signalStrength"] = ssidInfo.strength;
+                response["frequency"] = ssidInfo.frequency;
             }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::getCurrentState(const JsonObject& parameters, JsonObject& response)
         {
+            Exchange::INetworkManager::WiFiState state;
             uint32_t rc = Core::ERROR_GENERAL;
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetWifiState"), parameters, response);
+            LOG_INPARAM();
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetWifiState(state);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if (Core::ERROR_NONE == rc)
+            {
+                /* Legacy Enums Mapping */
+                if (state >= Exchange::INetworkManager::WiFiState::WIFI_STATE_ERROR)
+                    response["state"] = 6; // 6: FAILED - The device has encountered an unrecoverable error with the Wifi adapter.
+                else if (state > Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED)
+                    response["state"] = 2; // 2: DISCONNECTED - The device is installed and enabled, but not yet connected to a network
+                else
+                    response["state"] = JsonValue(state);
+            }
+
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::getPairedSSID(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpResponse;
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetKnownSSIDs"), parameters, tmpResponse);
+            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetKnownSSIDs(_ssids);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            JsonArray array = tmpResponse["ssids"].Array();
-            if (0 == array.Length())
+            if (Core::ERROR_NONE == rc)
             {
-                response["ssid"] = ""; /* Assigning empty string when paired SSID is not available */
+                if (_ssids != nullptr)
+                {
+                    string _resultItem_{};
+                    while (_ssids->Next(_resultItem_) == true) {
+                        response["ssid"] = _resultItem_;
+                        /* Just take one Entry : 1st Entry */
+                        break;
+                    }
+                    _ssids->Release();
+                }
             }
-            else
-            {
-                response["ssid"] = array[0];
-            }
-            response["success"] = tmpResponse["success"];
-
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::getPairedSSIDInfo(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetConnectedSSID"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetConnectedSSID(ssidInfo);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if (Core::ERROR_NONE == rc)
+            {
+                response["ssid"] = ssidInfo.ssid;
+                response["bssid"] = ssidInfo.bssid;
+            }
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::ISecurityModeIterator* securityModes{};
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("GetSupportedSecurityModes"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->GetSupportedSecurityModes(securityModes);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            if (Core::ERROR_NONE == rc)
+            {
+                if (securityModes != nullptr)
+                {
+                    JsonObject modes{};
+                    Exchange::INetworkManager::WIFISecurityModeInfo _resultItem_{};
+                    while (securityModes->Next(_resultItem_) == true)
+                    {
+                        response.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
+                    }
+                    securityModes->Release();
+                }
+            }
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::isPaired (const JsonObject& parameters, JsonObject& response)
@@ -381,112 +452,113 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                JsonArray array = tmpResponse["ssids"].Array();
-                if (0 == array.Length())
-                {
+                if (tmpResponse.HasLabel("ssid"))
                     response["result"] = 1;
-                }
                 else
-                {
                     response["result"] = 0;
-                }
-                response["success"] = true;
             }
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::saveSSID (const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
+            Exchange::INetworkManager::WiFiConnectTo ssid{};
+            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
 
-            LOG_INPARAM();
-
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("AddToKnownSSIDs"), parameters, response);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            if (Core::ERROR_NONE == rc)
+            if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
-                response["result"] = 0;
+                ssid.ssid            = parameters["ssid"].String();
+                ssid.passphrase      = parameters["passphrase"].String();
+                ssid.security        = static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
+
+                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+                if (_nwmgr)
+                {
+                    rc = _nwmgr->AddToKnownSSIDs(ssid);
+                    _nwmgr->Release();
+                }
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
             }
 
-            LOG_OUTPARAM();
-            return rc;
+            if (Core::ERROR_NONE == rc)
+                response["result"] = 0;
+
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::disconnect (const JsonObject& parameters, JsonObject& response)
         {
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOG_INPARAM();
-
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("WiFiDisconnect"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->WiFiDisconnect();
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
-            {
                 response["result"] = 0;
-            }
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::initiateWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
             LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string wps_pin{};
+            Core::JSON::EnumType<Exchange::INetworkManager::WiFiWPS> method;
+
             if (parameters.HasLabel("method"))
             {
-                string method = parameters["method"].String();
-                if (method == "PBC")
+                if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::STRING)
+                    method.FromString(parameters["method"].String());
+                else if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::NUMBER)
+                    method = static_cast <Exchange::INetworkManager::WiFiWPS> (parameters["method"].Number());
+
+                if ((Exchange::INetworkManager::WIFI_WPS_PIN == method) && parameters.HasLabel("pin"))
                 {
-                    tmpParameters["method"] = 0;
-                }
-                else if (method == "PIN")
-                {
-                    tmpParameters["method"] = 1;
-                    tmpParameters["wps_pin"] = parameters.HasLabel("wps_pin");
-                }
-                else if (method == "SERIALIZED_PIN")
-                {
-                    tmpParameters["method"] = 2;
+                    wps_pin = parameters["pin"].String();
                 }
             }
-            else
-                tmpParameters["method"] = 0;
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StartWPS"), tmpParameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->StartWPS(method, wps_pin);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
-            {
-                response["result"] = string();
-            }
-            LOG_OUTPARAM();
-            return rc;
+                response["result"] = 0;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            JsonObject tmpParameters;
+            string frequency = parameters["frequency"].String();
+            Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StartWiFiScan"), tmpParameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->StartWiFiScan(frequency, ssids);
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t WiFiManager::stopScan(const JsonObject& parameters, JsonObject& response)
@@ -494,13 +566,16 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            if (m_networkmanager)
-                rc =  m_networkmanager->Invoke<JsonObject, JsonObject>(5000, _T("StopWiFiScan"), parameters, response);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (_nwmgr)
+            {
+                rc = _nwmgr->StopWiFiScan();
+                _nwmgr->Release();
+            }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            LOG_OUTPARAM();
-            return rc;
+            returnJson(rc);
         }
 
         /** Private */
@@ -542,58 +617,58 @@ namespace WPEFramework
             if (m_subsWiFiStateChange && m_subsAvailableSSIDs && m_subsWiFiStrengthChange)
             {
                 m_timer.stop();
-                NMLOG_INFO("subscriber timer stoped");
+                NMLOG_INFO("All the required events are subscribed; Retry timer stoped");
             }
             else
             {
                 m_timer.start(SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS);
-                NMLOG_INFO("subscriber timer started");
+                NMLOG_INFO("Few required events are yet to be subscribed; Retry timer started");
             }
         }
 
-         bool WiFiManager::ErrorCodeMapping(const uint32_t ipvalue, uint32_t &opvalue)
-         {
-             bool ret = true;
+        bool WiFiManager::ErrorCodeMapping(const uint32_t ipvalue, uint32_t &opvalue)
+        {
+            bool ret = true;
 
-             switch (ipvalue)
-             {
-                 case Exchange::INetworkManager::WIFI_STATE_SSID_CHANGED:
-                     opvalue = WIFI_SSID_CHANGED;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_CONNECTION_LOST:
-		     opvalue = WIFI_CONNECTION_LOST;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED:
-                     opvalue = WIFI_CONNECTION_FAILED;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED:
-                     opvalue = WIFI_CONNECTION_INTERRUPTED;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS:
-                     opvalue = WIFI_INVALID_CREDENTIALS;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND:
-                     opvalue = WIFI_NO_SSID;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_ERROR:
-                     opvalue = WIFI_UNKNOWN;
-		     break;
-                 case Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED:
-                     opvalue = WIFI_AUTH_FAILED;
-                     break;
-                 default:
-                     ret = false;
-                     break;
-             }
-             return ret;
+            switch (ipvalue)
+            {
+                case Exchange::INetworkManager::WIFI_STATE_SSID_CHANGED:
+                    opvalue = WIFI_SSID_CHANGED;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_CONNECTION_LOST:
+                    opvalue = WIFI_CONNECTION_LOST;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED:
+                    opvalue = WIFI_CONNECTION_FAILED;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED:
+                    opvalue = WIFI_CONNECTION_INTERRUPTED;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS:
+                    opvalue = WIFI_INVALID_CREDENTIALS;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND:
+                    opvalue = WIFI_NO_SSID;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_ERROR:
+                    opvalue = WIFI_UNKNOWN;
+                    break;
+                case Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED:
+                    opvalue = WIFI_AUTH_FAILED;
+                    break;
+                default:
+                    ret = false;
+                    break;
+            }
+            return ret;
         }
 
         /** Event Handling and Publishing */
         void WiFiManager::onWiFiStateChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             JsonObject legacyResult;
             JsonObject legacyErrorResult;
+            string json;
             uint32_t errorCode;
             uint32_t state = parameters["state"].Number();
 
@@ -606,39 +681,53 @@ namespace WPEFramework
                 {
                     legacyErrorResult["code"] = errorCode;
                     NMLOG_INFO("onError with errorcode as, %u",  errorCode);
-                    NMLOG_INFO("Posting onError");
+
+                    legacyErrorResult.ToString(json);
+                    NMLOG_INFO("Posting onError as %s", json.c_str());
+
                     _gWiFiInstance->Notify("onError", legacyErrorResult);
                 }
                 else
                 {
                     NMLOG_INFO("onWiFiStateChange with state as: %u", state);
-                    NMLOG_INFO("Posting onWIFIStateChanged");
+
+                    legacyResult.ToString(json);
+                    NMLOG_INFO("Posting onWIFIStateChanged as %s", json.c_str());
                     _gWiFiInstance->Notify("onWIFIStateChanged", legacyResult);
                 }
             }
+            else
+                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
+
             return;
         }
 
         void WiFiManager::onAvailableSSIDs(const JsonObject& parameters)
         {
-            LOG_INPARAM();
-
-            NMLOG_INFO("Posting onAvailableSSIDs");
+            string json;
+            parameters.ToString(json);
+            NMLOG_INFO("Posting onAvailableSSIDs Event as %s", json.c_str());
             if(_gWiFiInstance)
                 _gWiFiInstance->Notify("onAvailableSSIDs", parameters);
+            else
+                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
 
             return;
         }
 
         void WiFiManager::onWiFiSignalStrengthChange(const JsonObject& parameters)
         {
-            LOG_INPARAM();
             JsonObject legacyParams;
             legacyParams["signalStrength"] = parameters["signalQuality"];
             legacyParams["strength"] = parameters["signalLevel"];
-            NMLOG_INFO("Posting onWifiSignalThresholdChanged");
+
+            string json;
+            legacyParams.ToString(json);
+            NMLOG_INFO("Posting onWifiSignalThresholdChanged as %s", json.c_str());
             if (_gWiFiInstance)
                 _gWiFiInstance->Notify("onWifiSignalThresholdChanged", legacyParams);
+            else
+                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
 
             return;
         }

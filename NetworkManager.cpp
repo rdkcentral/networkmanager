@@ -18,7 +18,6 @@
 **/
 
 #include "NetworkManager.h"
-
 #include <random>
 
 namespace WPEFramework
@@ -43,8 +42,6 @@ namespace WPEFramework
               _networkManager(nullptr),
               _notification(this)
         {
-            // Don't do any work in the constructor - all set up should be done in Initialize
-            m_primaryInterfaceCache = "wlan0";
         }
 
         NetworkManager::~NetworkManager()
@@ -88,10 +85,14 @@ namespace WPEFramework
             if (_networkManager != nullptr)
             {
                 // set the plugin configuration
-                Exchange::INetworkManager::NMLogging _loglevel;
-                _networkManager->Configure(_service->ConfigLine(), _loglevel);
+                Exchange::INetworkManager::Logging _loglevel;
+                _networkManager->Configure(_service->ConfigLine());
+
                 // configure loglevel in libWPEFrameworkNetworkManager.so
+                _networkManager->GetLogLevel(_loglevel);
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
+
+
                 _networkManager->Register(&_notification);
 
                 // Register all custom JSON-RPC methods

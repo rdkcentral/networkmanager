@@ -2,71 +2,90 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: [0.4.0]()**
+**Version: 0.5.0**
 
-A NetworkManager plugin for Thunder framework.
+**Status: :white_circle::white_circle::white_circle:**
+
+org.rdk.NetworkManager interface for Thunder framework.
+
+(Defined by [NetworkManager.json](https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json))
 
 ### Table of Contents
 
-- [Abbreviation, Acronyms and Terms](#head.Abbreviation,_Acronyms_and_Terms)
+- [Introduction](#head.Introduction)
 - [Description](#head.Description)
-- [Configuration](#head.Configuration)
-- [Interfaces](#head.Interfaces)
 - [Methods](#head.Methods)
 - [Notifications](#head.Notifications)
 
-<a name="head.Abbreviation,_Acronyms_and_Terms"></a>
-# Abbreviation, Acronyms and Terms
+<a name="head.Introduction"></a>
+# Introduction
 
-[[Refer to this link](userguide/aat.md)]
+<a name="head.Scope"></a>
+## Scope
+
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.5.0). It includes detailed specification about its methods provided and notifications sent.
+
+<a name="head.Case_Sensitivity"></a>
+## Case Sensitivity
+
+All identifiers of the interfaces described in this document are case-sensitive. Thus, unless stated otherwise, all keywords, entities, properties, relations and actions should be treated as such.
+
+<a name="head.Acronyms,_Abbreviations_and_Terms"></a>
+## Acronyms, Abbreviations and Terms
+
+The table below provides and overview of acronyms used in this document and their definitions.
+
+| Acronym | Description |
+| :-------- | :-------- |
+| <a name="acronym.API">API</a> | Application Programming Interface |
+| <a name="acronym.HTTP">HTTP</a> | Hypertext Transfer Protocol |
+| <a name="acronym.JSON">JSON</a> | JavaScript Object Notation; a data interchange format |
+| <a name="acronym.JSON-RPC">JSON-RPC</a> | A remote procedure call protocol encoded in JSON |
+
+The table below provides and overview of terms and abbreviations used in this document and their definitions.
+
+| Term | Description |
+| :-------- | :-------- |
+| <a name="term.callsign">callsign</a> | The name given to an instance of a plugin. One plugin can be instantiated multiple times, but each instance the instance name, callsign, must be unique. |
+
+<a name="head.References"></a>
+## References
+
+| Ref ID | Description |
+| :-------- | :-------- |
+| <a name="ref.HTTP">[HTTP](http://www.w3.org/Protocols)</a> | HTTP specification |
+| <a name="ref.JSON-RPC">[JSON-RPC](https://www.jsonrpc.org/specification)</a> | JSON-RPC 2.0 specification |
+| <a name="ref.JSON">[JSON](http://www.json.org/)</a> | JSON specification |
+| <a name="ref.Thunder">[Thunder](https://github.com/WebPlatformForEmbedded/Thunder/blob/master/doc/WPE%20-%20API%20-%20WPEFramework.docx)</a> | Thunder API Reference |
 
 <a name="head.Description"></a>
 # Description
 
 A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.
 
- The plugin is designed to be an out-of-process service to be handled by Thunder framework. For more information about the framework refer to [[Thunder](#ref.Thunder)].
-
-<a name="head.Configuration"></a>
-# Configuration
-
-The table below lists configuration options of the plugin.
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| callsign | string | Plugin instance name (default: *org.rdk.NetworkManager*) |
-| classname | string | Class name: *NetworkManager* |
-| locator | string | Library name: *libWPEFrameworkNetworkManager.so* |
-| autostart | boolean | Determines if the plugin shall be started automatically along with the framework |
-
-<a name="head.Interfaces"></a>
-# Interfaces
-
-This plugin implements the following interfaces:
-
-- [NetworkManager.json](https://github.com/rdkcentral/ThunderInterfaces/blob/master/interfaces/NetworkManager.json)
-
 <a name="head.Methods"></a>
 # Methods
 
-The following methods are provided by the org.rdk.NetworkManager plugin:
+The following methods are provided by the org.rdk.NetworkManager interface:
 
 NetworkManager interface methods:
 
 | Method | Description |
 | :-------- | :-------- |
+| [SetLogLevel](#method.SetLogLevel) | Set Log level for more information |
+| [GetLogLevel](#method.GetLogLevel) | Get Log level that is currently used |
 | [GetAvailableInterfaces](#method.GetAvailableInterfaces) | Get device supported list of available interface including their state |
 | [GetPrimaryInterface](#method.GetPrimaryInterface) | Gets the primary/default network interface for the device |
 | [SetPrimaryInterface](#method.SetPrimaryInterface) | Sets the primary/default interface for the device |
-| [SetInterfaceState](#method.SetInterfaceState) | Enable the interface |
-| [GetInterfaceState](#method.GetInterfaceState) | Disable the interface |
+| [SetInterfaceState](#method.SetInterfaceState) | Enable or disable the specified interface |
+| [GetInterfaceState](#method.GetInterfaceState) | Gets the current Status of the specified interface |
 | [GetIPSettings](#method.GetIPSettings) | Gets the IP setting for the given interface |
 | [SetIPSettings](#method.SetIPSettings) | Sets the IP settings for the given interface |
-| [GetStunEndpoint](#method.GetStunEndpoint) | Get the STUN Endpoint that is used to identify public IP of the device |
-| [SetStunEndpoint](#method.SetStunEndpoint) | Set the STUN Endpoint to be used to identify public IP of the device |
+| [GetStunEndpoint](#method.GetStunEndpoint) | Get the STUN endpoint that is used to identify public IP of the device |
+| [SetStunEndpoint](#method.SetStunEndpoint) | Set the STUN endpoint to be used to identify public IP of the device |
 | [GetConnectivityTestEndpoints](#method.GetConnectivityTestEndpoints) | Gets currently used test endpoints |
 | [SetConnectivityTestEndpoints](#method.SetConnectivityTestEndpoints) | This method used to set up to 5 endpoints for a connectivity test |
-| [IsConnectedToInternet](#method.IsConnectedToInternet) | Seeks Whether the device has internet connectivity |
+| [IsConnectedToInternet](#method.IsConnectedToInternet) | Seeks whether the device has internet connectivity |
 | [GetCaptivePortalURI](#method.GetCaptivePortalURI) | Gets the captive portal URI if connected to any captive portal network |
 | [StartConnectivityMonitoring](#method.StartConnectivityMonitoring) | Enable a continuous monitoring of internet connectivity with heart beat interval thats given |
 | [StopConnectivityMonitoring](#method.StopConnectivityMonitoring) | Stops the connectivity monitoring |
@@ -84,20 +103,107 @@ NetworkManager interface methods:
 | [StartWPS](#method.StartWPS) | Initiates a connection using Wifi Protected Setup (WPS) |
 | [StopWPS](#method.StopWPS) | Cancels the in-progress WPS pairing operation |
 | [GetWiFiSignalStrength](#method.GetWiFiSignalStrength) | Get WiFiSignalStrength of connected SSID |
-| [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
-| [SetLogLevel](#method.SetLogLevel) | Set Log level for more information |
-| [GetLogLevel](#method.GetLogLevel) | Gets the Log level thats used |
+| [GetSupportedsecurityModes](#method.GetSupportedsecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
 
+<a name="method.SetLogLevel"></a>
+## *SetLogLevel [<sup>method</sup>](#head.Methods)*
+
+Set Log level for more information. The possible set log level are as follows. 
+* `0`: FATAL  
+* `1`: ERROR  
+* `2`: WARNING  
+* `3`: INFO 
+* `4`: DEBUG 
+.
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.level | integer | Set Log level to get more information |
+
+### Result
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| result | object |  |
+| result.success | boolean | Whether the request succeeded |
+
+### Example
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetLogLevel",
+  "params": {
+    "level": 1
+  }
+}
+```
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
+}
+```
+
+<a name="method.GetLogLevel"></a>
+## *GetLogLevel [<sup>method</sup>](#head.Methods)*
+
+Get Log level that is currently used.
+
+### Parameters
+
+This method takes no parameters.
+
+### Result
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| result | object |  |
+| result.level | integer | Get Log level to get more information |
+| result.success | boolean | Whether the request succeeded |
+
+### Example
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetLogLevel"
+}
+```
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "level": 1,
+    "success": true
+  }
+}
+```
 
 <a name="method.GetAvailableInterfaces"></a>
 ## *GetAvailableInterfaces [<sup>method</sup>](#head.Methods)*
 
 Get device supported list of available interface including their state.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -123,9 +229,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetAvailableInterfaces"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetAvailableInterfaces"
 }
 ```
 
@@ -133,20 +239,20 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "interfaces": [
-            {
-                "type": "ETHERNET",
-                "name": "eth0",
-                "mac": "AA:AA:AA:AA:AA:AA",
-                "enabled": true,
-                "connected": true
-            }
-        ],
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "Interfaces": [
+      {
+        "type": "ETHERNET",
+        "name": "eth0",
+        "mac": "AA:AA:AA:AA:AA:AA",
+        "enabled": true,
+        "connected": true
+      }
+    ],
+    "success": true
+  }
 }
 ```
 
@@ -154,10 +260,6 @@ This method takes no parameters.
 ## *GetPrimaryInterface [<sup>method</sup>](#head.Methods)*
 
 Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`, or an empty value which indicates that there is no default network interface.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -176,9 +278,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetPrimaryInterface"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetPrimaryInterface"
 }
 ```
 
@@ -186,11 +288,11 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "interface": "wlan0"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "interface": "wlan0"
+  }
 }
 ```
 
@@ -199,14 +301,8 @@ This method takes no parameters.
 
 Sets the primary/default interface for the device. This call fails if the interface is not enabled.
 
-### Events
+Also see: [onActiveInterfaceChange](#event.onActiveInterfaceChange), [onInterfaceStateChange](#event.onInterfaceStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when device’s default interface changed. |
-| [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when interface’s state changed |
-| [onAddressChange](#event.onAddressChange) | Triggered when the device connects to router. |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when each IP address is lost or acquired. |
 ### Parameters
 
 | Name | Type | Description |
@@ -227,12 +323,12 @@ Sets the primary/default interface for the device. This call fails if the interf
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetPrimaryInterface",
-    "params": {
-        "interface": "wlan0"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetPrimaryInterface",
+  "params": {
+    "interface": "wlan0"
+  }
 }
 ```
 
@@ -240,32 +336,28 @@ Sets the primary/default interface for the device. This call fails if the interf
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
 <a name="method.SetInterfaceState"></a>
 ## *SetInterfaceState [<sup>method</sup>](#head.Methods)*
 
-Enable or Disable the specified interface.
+Enable or disable the specified interface.
 
-### Events
-
-| Event | Description |
-| :-------- | :-------- |
-| [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when interface’s status changes to enabled or disabled. |
+Also see: [onInterfaceStateChange](#event.onInterfaceStateChange)
 
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface in `GetAvailableInterfaces` |
-| params.enabled | boolean | Set the state of the interface to be Enabled or Disabled |
+| params.interface | string | Enable the specified interface |
+| params.enabled | boolean | Whether the interface must be enabled or disabled |
 
 ### Result
 
@@ -280,13 +372,13 @@ Enable or Disable the specified interface.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetInterfaceState",
-    "params": {
-        "interface": "wlan0",
-        "enabled": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetInterfaceState",
+  "params": {
+    "interface": "wlan0",
+    "enabled": true
+  }
 }
 ```
 
@@ -294,36 +386,32 @@ Enable or Disable the specified interface.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
 <a name="method.GetInterfaceState"></a>
 ## *GetInterfaceState [<sup>method</sup>](#head.Methods)*
 
-Disable the specified interface.
-
-### Events
-
-No Events
+Gets the current Status of the specified interface.
 
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface in `GetAvailableInterfaces` |
+| params.interface | string | Disable the specified interface |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.enabled | boolean | Whether the Interface is enabled or disabled |
+| result.enabled | boolean | Whether the interface is enabled or disabled |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -332,12 +420,12 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetInterfaceState",
-    "params": {
-        "interface": "wlan0"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetInterfaceState",
+  "params": {
+    "interface": "wlan0"
+  }
 }
 ```
 
@@ -345,12 +433,12 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "enabled": true,
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "enabled": true,
+    "success": true
+  }
 }
 ```
 
@@ -359,17 +447,13 @@ No Events
 
 Gets the IP setting for the given interface.
 
-### Events
-
-No Events
-
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface. If this is empty, default interface will be returned |
-| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
+| params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
@@ -377,13 +461,13 @@ No Events
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| result.ipversion | string | either IPv4 or IPv6 |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | result?.dhcpserver | string | <sup>*(optional)*</sup> The DHCP Server address |
 | result.ipaddress | string | The IP address |
 | result.prefix | integer | The prefix number |
 | result.gateway | string | The gateway address |
-| result.ula | string | The IPv6 Unified Local Address; Empty when IPv4 is requested |
+| result.ula | string | The IPv6 Unified Local Address |
 | result.primarydns | string | The primary DNS address |
 | result.secondarydns | string | The secondary DNS address |
 | result.success | boolean | Whether the request succeeded |
@@ -394,13 +478,13 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetIPSettings",
-    "params": {
-        "interface": "wlan0",
-        "ipversion": "IPv4"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetIPSettings",
+  "params": {
+    "interface": "wlan0",
+    "ipversion": "IPv4"
+  }
 }
 ```
 
@@ -408,21 +492,21 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "interface": "wlan0",
-        "ipversion": "IPv4",
-        "autoconfig": true,
-        "dhcpserver": "192.168.1.1",
-        "ipaddress": "192.168.1.101",
-        "prefix": 24,
-        "gateway": "192.168.1.1",
-        "ula": "...",
-        "primarydns": "192.168.1.1",
-        "secondarydns": "192.168.1.2",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "interface": "wlan0",
+    "ipversion": "IPv4",
+    "autoconfig": true,
+    "dhcpserver": "192.168.1.1",
+    "ipaddress": "192.168.1.101",
+    "prefix": 24,
+    "gateway": "192.168.1.1",
+    "ula": "d00:410:2016::",
+    "primarydns": "192.168.1.1",
+    "secondarydns": "192.168.1.2",
+    "success": true
+  }
 }
 ```
 
@@ -431,19 +515,15 @@ No Events
 
 Sets the IP settings for the given interface.
 
-### Events
+Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onAddressChange](#event.onAddressChange) | Triggered when the device connects to router. |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when each IP address is lost or acquired. |
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params.ipversion | string | either IPv4 or IPv6 |
+| params.ipversion | string | Either IPv4 or IPv6 |
 | params.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | params.ipaddress | string | The IP address |
 | params.prefix | integer | The prefix number |
@@ -464,19 +544,19 @@ Sets the IP settings for the given interface.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetIPSettings",
-    "params": {
-        "interface": "wlan0",
-        "ipversion": "IPv4",
-        "autoconfig": true,
-        "ipaddress": "192.168.1.101",
-        "prefix": 24,
-        "gateway": "192.168.1.1",
-        "primarydns": "192.168.1.1",
-        "secondarydns": "192.168.1.2"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetIPSettings",
+  "params": {
+    "interface": "wlan0",
+    "ipversion": "IPv4",
+    "autoconfig": true,
+    "ipaddress": "192.168.1.101",
+    "prefix": 24,
+    "gateway": "192.168.1.1",
+    "primarydns": "192.168.1.1",
+    "secondarydns": "192.168.1.2"
+  }
 }
 ```
 
@@ -484,22 +564,18 @@ Sets the IP settings for the given interface.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
 <a name="method.GetStunEndpoint"></a>
 ## *GetStunEndpoint [<sup>method</sup>](#head.Methods)*
 
-Get the STUN Endpoint that is used to identify public IP of the device.
-
-### Events
-
-No Events
+Get the STUN endpoint that is used to identify public IP of the device.
 
 ### Parameters
 
@@ -510,10 +586,10 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.endpoint | string | STUN server endpoint |
+| result.endpoint | string | The host name or IP address |
 | result.port | integer | STUN server port |
-| result.timeout | integer | STUN server bind timeout |
-| result.cacheLifetime | integer | STUN server cache Lifetime |
+| result.timeout | integer | Timeout |
+| result.cacheLifetime | integer | STUN server cache timeout |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -522,9 +598,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetStunEndpoint"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetStunEndpoint"
 }
 ```
 
@@ -532,36 +608,32 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "endpoint": "stun.l.google.com",
-        "port": 3478,
-        "timeout": 30,
-        "cacheLifetime": 0,
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "endpoint": "45.57.221.20",
+    "port": 3478,
+    "timeout": 30,
+    "cacheLifetime": 0,
+    "success": true
+  }
 }
 ```
 
 <a name="method.SetStunEndpoint"></a>
 ## *SetStunEndpoint [<sup>method</sup>](#head.Methods)*
 
-Set the STUN Endpoint to be used to identify public IP of the device.
-
-### Events
-
-No Events
+Set the STUN endpoint to be used to identify public IP of the device.
 
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.endpoint | string | STUN server endpoint |
+| params.endpoint | string | The host name or IP address |
 | params.port | integer | STUN server port |
-| params?.timeout | integer | <sup>*(optional)*</sup> STUN server bind timeout |
-| params?.cacheLifetime | integer | <sup>*(optional)*</sup> STUN server cache lifetime |
+| params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
+| params?.cacheLifetime | integer | <sup>*(optional)*</sup> STUN server cache timeout |
 
 ### Result
 
@@ -576,15 +648,15 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetStunEndpoint",
-    "params": {
-        "endpoint": "stun.l.google.com",
-        "port": 3478,
-        "timeout": 30,
-        "cacheLifetime": 0
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetStunEndpoint",
+  "params": {
+    "endpoint": "45.57.221.20",
+    "port": 3478,
+    "timeout": 30,
+    "cacheLifetime": 0
+  }
 }
 ```
 
@@ -592,11 +664,11 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -604,10 +676,6 @@ No Events
 ## *GetConnectivityTestEndpoints [<sup>method</sup>](#head.Methods)*
 
 Gets currently used test endpoints. on success list out the connectivity test points connections.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -628,9 +696,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetConnectivityTestEndpoints"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetConnectivityTestEndpoints"
 }
 ```
 
@@ -638,14 +706,14 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "endpoints": [
-            "http://clients3.google.com/generate_204"
-        ],
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "endpoints": [
+      "http://clients3.google.com/generate_204"
+    ],
+    "success": true
+  }
 }
 ```
 
@@ -653,10 +721,6 @@ This method takes no parameters.
 ## *SetConnectivityTestEndpoints [<sup>method</sup>](#head.Methods)*
 
 This method used to set up to 5 endpoints for a connectivity test. Successful connections are verified with HTTP Status code 204 (No Content).
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -679,14 +743,14 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetConnectivityTestEndpoints",
-    "params": {
-        "endpoints": [
-            "http://clients3.google.com/generate_204"
-        ]
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetConnectivityTestEndpoints",
+  "params": {
+    "endpoints": [
+      "http://clients3.google.com/generate_204"
+    ]
+  }
 }
 ```
 
@@ -694,39 +758,35 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
 <a name="method.IsConnectedToInternet"></a>
 ## *IsConnectedToInternet [<sup>method</sup>](#head.Methods)*
 
-Seeks Whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.
-
-### Events
-
-No Events
+Seeks whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.
 
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ipversion | string | either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ipversion | string | either IPv4 or IPv6 |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | The internet state |
-| result.status | integer | The internet status; could be `LIMITED_INTERNET`, `CAPTIVE_PORTAL`, `NO_INTERNET`, `FULLY_CONNECTED` |
+| result.status | string | Internet status |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -735,12 +795,12 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.IsConnectedToInternet",
-    "params": {
-        "ipversion": "IPv4"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.IsConnectedToInternet",
+  "params": {
+    "ipversion": "IPv4"
+  }
 }
 ```
 
@@ -748,15 +808,15 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "ipversion": "IPv4"
-        "connected": true,
-        "state": 3,
-        "status": "FULLY_CONNECTED",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "ipversion": "IPv4",
+    "connected": true,
+    "state": 4,
+    "status": "FULLY_CONNECTED",
+    "success": true
+  }
 }
 ```
 
@@ -764,10 +824,6 @@ No Events
 ## *GetCaptivePortalURI [<sup>method</sup>](#head.Methods)*
 
 Gets the captive portal URI if connected to any captive portal network.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -787,9 +843,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetCaptivePortalURI"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetCaptivePortalURI"
 }
 ```
 
@@ -797,12 +853,12 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "uri": "http://10.0.0.1/captiveportal.jst",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "uri": "http://10.0.0.1/captiveportal.jst",
+    "success": true
+  }
 }
 ```
 
@@ -811,17 +867,14 @@ This method takes no parameters.
 
 Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval.
 
-### Events
+Also see: [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed. |
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interval | number | Interval in sec |
+| params.interval | integer | Interval in sec |
 
 ### Result
 
@@ -836,12 +889,12 @@ Enable a continuous monitoring of internet connectivity with heart beat interval
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StartConnectivityMonitoring",
-    "params": {
-        "interval": 30
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StartConnectivityMonitoring",
+  "params": {
+    "interval": 30
+  }
 }
 ```
 
@@ -849,11 +902,11 @@ Enable a continuous monitoring of internet connectivity with heart beat interval
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -861,10 +914,6 @@ Enable a continuous monitoring of internet connectivity with heart beat interval
 ## *StopConnectivityMonitoring [<sup>method</sup>](#head.Methods)*
 
 Stops the connectivity monitoring.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -883,9 +932,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StopConnectivityMonitoring"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StopConnectivityMonitoring"
 }
 ```
 
@@ -893,11 +942,11 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -906,24 +955,20 @@ This method takes no parameters.
 
 Gets the internet/public IP Address of the device.
 
-### Events
-
-No Events
-
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
-| params | object | it allows empty parameter too |
-| params.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
+| params | object | It allows empty parameter too |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ipaddress | string | Returns an public ip of the device |
-| result.ipversion | string | Returns an ip version of the public ip |
+| result.ipaddress | string | The IP address |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -932,12 +977,12 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetPublicIP",
-    "params": {
-        "ipversion": "IPv4"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetPublicIP",
+  "params": {
+    "ipversion": "IPv4"
+  }
 }
 ```
 
@@ -945,13 +990,13 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "ipaddress": "69.136.49.95",
-        "ipversion": "IPv4"
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "ipaddress": "192.168.1.101",
+    "ipversion": "IPv4",
+    "success": true
+  }
 }
 ```
 
@@ -960,27 +1005,23 @@ No Events
 
 Pings the specified endpoint with the specified number of packets.
 
-### Events
-
-No Events
-
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
-| params.ipversion | string | either IPv4 or IPv6 |
-| params.count | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 3 |
-| params.timeout | integer | Timeout |
-| params.guid | string | The globally unique identifier |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 3 |
+| params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
+| params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.target | string | The target IP address |
+| result.endpoint | string | The host name or IP address |
 | result.packetsTransmitted | integer | The number of packets sent |
 | result.packetsReceived | integer | The number of packets received |
 | result.packetLoss | string | The number of packets lost |
@@ -998,16 +1039,16 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.Ping",
-    "params": {
-        "endpoint": "45.57.221.20",
-        "ipversion": "IPv4",
-        "count": 5,
-        "timeout": 30,
-        "guid": "..."
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.Ping",
+  "params": {
+    "endpoint": "45.57.221.20",
+    "ipversion": "IPv4",
+    "count": 10,
+    "timeout": 30,
+    "guid": "..."
+  }
 }
 ```
 
@@ -1015,21 +1056,21 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "target": "45.57.221.20",
-        "packetsTransmitted": 5,
-        "packetsReceived": 5,
-        "packetLoss": "0.0",
-        "tripMin": "61.264",
-        "tripAvg": "130.397",
-        "tripMax": "230.832",
-        "tripStdDev": "80.919",
-        "error": "...",
-        "guid": "...",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "endpoint": "45.57.221.20",
+    "packetsTransmitted": 10,
+    "packetsReceived": 10,
+    "packetLoss": "0.0",
+    "tripMin": "61.264",
+    "tripAvg": "130.397",
+    "tripMax": "230.832",
+    "tripStdDev": "80.919",
+    "error": "...",
+    "guid": "...",
+    "success": true
+  }
 }
 ```
 
@@ -1038,27 +1079,24 @@ No Events
 
 Traces the specified endpoint with the specified number of packets using `traceroute`.
 
-### Events
-
-No Events
-
 ### Parameters
 
-| Name            | Type    | Description |
-| :--------       | :-------- | :-------- |
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ipversion| string  | <sup>*(optional)*</sup> The host name or IP address |
-| params.endpoint | string  | The host name or IP address |
-| params.packets  | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 5 |
-| params.guid     | string  | <sup>*(optional)*</sup> The globally unique identifier |
+| params.endpoint | string | The host name or IP address |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params?.packets | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 5 |
+| params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.target | string | The target IP address |
-| result.results | string | The results from `traceroute` |
+| result.endpoint | string | The host name or IP address |
+| result.results | string | The response of traceroute |
+| result.guid | string | The globally unique identifier |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1067,13 +1105,15 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.Trace",
-    "params": {
-        "endpoint": "45.57.221.20",
-        "packets": 5
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.Trace",
+  "params": {
+    "endpoint": "45.57.221.20",
+    "ipversion": "IPv4",
+    "packets": 10,
+    "guid": "..."
+  }
 }
 ```
 
@@ -1081,13 +1121,14 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "target": "45.57.221.20",
-        "success": true,
-        "results": "<<<traceroute command results>>>"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "endpoint": "45.57.221.20",
+    "results": "...",
+    "guid": "...",
+    "success": true
+  }
 }
 ```
 
@@ -1096,19 +1137,16 @@ No Events
 
 Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. It publishes 'onAvailableSSIDs' event upon completion.
 
-### Events
+Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when list of SSIDs is available after the scan completes. |
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.frequency | string | <sup>*(optional)*</sup> The frequency to scan. |
-| params.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to scan.  |
-| params.ssids[#] | string |  |
+| params?.frequency | string | <sup>*(optional)*</sup> The frequency to scan. An empty or `null` value scans all frequencies. If a frequency is specified (2.4 or 5.0), then the results are only returned for matching frequencies |
+| params?.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to be scanned |
+| params?.ssids[#] | string | <sup>*(optional)*</sup>  |
 
 ### Result
 
@@ -1123,9 +1161,15 @@ Initiates WiFi scaning. This method supports scanning for specific range of freq
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StartWiFiScan"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StartWiFiScan",
+  "params": {
+    "frequency": "...",
+    "ssids": [
+      "Xfinity Mobile"
+    ]
+  }
 }
 ```
 
@@ -1133,11 +1177,11 @@ Initiates WiFi scaning. This method supports scanning for specific range of freq
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1145,10 +1189,6 @@ Initiates WiFi scaning. This method supports scanning for specific range of freq
 ## *StopWiFiScan [<sup>method</sup>](#head.Methods)*
 
 Stops WiFi scanning. Any discovered SSIDs from the call to the `StartWiFiScan` method up to the point where this method is called are still returned as event.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -1167,9 +1207,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StopWiFiScan"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StopWiFiScan"
 }
 ```
 
@@ -1177,11 +1217,11 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1189,10 +1229,6 @@ This method takes no parameters.
 ## *GetKnownSSIDs [<sup>method</sup>](#head.Methods)*
 
 Gets list of saved SSIDs. This method returns all the SSIDs that are saved as array.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -1213,9 +1249,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetKnownSSIDs"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetKnownSSIDs"
 }
 ```
 
@@ -1223,14 +1259,14 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "ssids": [
-            "Xfinity_Guest"
-        ],
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "ssids": [
+      "Xfinity_Guest"
+    ],
+    "success": true
+  }
 }
 ```
 
@@ -1239,10 +1275,6 @@ This method takes no parameters.
 
 Saves the SSID, passphrase, and security mode for upcoming and future sessions. This method only adds to the persistent memory; does not disconnect from currently connected SSID.
 
-### Events
-
-No Events
-
 ### Parameters
 
 | Name | Type | Description |
@@ -1250,7 +1282,7 @@ No Events
 | params | object |  |
 | params.ssid | string | The paired SSID |
 | params.passphrase | string | The access point password |
-| params.security | integer | The security mode. See `getSupportedSecurityModes` |
+| params.security | integer | The security mode. See `getSupportedsecurityModes` |
 
 ### Result
 
@@ -1265,14 +1297,14 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.AddToKnownSSIDs",
-    "params": {
-        "ssid": "123412341234",
-        "passphrase": "password",
-        "security": 6
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.AddToKnownSSIDs",
+  "params": {
+    "ssid": "123412341234",
+    "passphrase": "password",
+    "security": 6
+  }
 }
 ```
 
@@ -1280,11 +1312,11 @@ No Events
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1293,13 +1325,8 @@ No Events
 
 Remove given SSID from saved SSIDs. This method just removes from the list and of the list is having only one entry thats being removed, it will initiate a disconnect.
 
-### Events
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWiFiStateChange](#event.onWiFiStateChange) | Triggered when Wifi state changes to DISCONNECTED |
-| [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 ### Parameters
 
 | Name | Type | Description |
@@ -1320,12 +1347,12 @@ Remove given SSID from saved SSIDs. This method just removes from the list and o
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.RemoveKnownSSID",
-    "params": {
-        "ssid": "123412341234"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.RemoveKnownSSID",
+  "params": {
+    "ssid": "123412341234"
+  }
 }
 ```
 
@@ -1333,11 +1360,11 @@ Remove given SSID from saved SSIDs. This method just removes from the list and o
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1346,11 +1373,8 @@ Remove given SSID from saved SSIDs. This method just removes from the list and o
 
 Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. When called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
 
-### Events
+Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWiFiStateChange](#event.onWiFiStateChange) | Triggered when Wifi state changes to CONNECTING, CONNECTED . |
 ### Parameters
 
 | Name | Type | Description |
@@ -1358,8 +1382,17 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
 | params | object |  |
 | params.ssid | string | The paired SSID |
 | params.passphrase | string | The access point password |
-| params.security   | integer | The security mode. See `getSupportedSecurityModes` |
-| params?.persist | boolean | <sup>*(optional)*</sup> Option to connect to SSID without persisting AccessPoint details (default: *true*; always persist) |
+| params.security | integer | The security mode. See `getSupportedsecurityModes` |
+| params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
+| params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
+| params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
+| params?.private_key_passwd | string | <sup>*(optional)*</sup> The private_key_passwd to be used for EAP |
+| params?.eap | string | <sup>*(optional)*</sup> The EAP type to be used |
+| params?.eap_identity | string | <sup>*(optional)*</sup> The identity to be used for EAP |
+| params?.eap_password | string | <sup>*(optional)*</sup> The eap_password to be used for EAP |
+| params?.eap_phase1 | string | <sup>*(optional)*</sup> The eap_phase1 to be used for EAP |
+| params?.eap_phase2 | string | <sup>*(optional)*</sup> The eap_phase2 to be used for EAP |
+| params?.persist | boolean | <sup>*(optional)*</sup>  To persist the SSID across reboots; similar to auto connect |
 
 ### Result
 
@@ -1374,15 +1407,24 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.WiFiConnect",
-    "params": {
-        "ssid": "123412341234",
-        "passphrase": "password",
-        "security": 6,
-        "persist": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.WiFiConnect",
+  "params": {
+    "ssid": "123412341234",
+    "passphrase": "password",
+    "security": 6,
+    "ca_cert": "...",
+    "client_cert": "...",
+    "private_key": "...",
+    "private_key_passwd": "...",
+    "eap": "TLS",
+    "eap_identity": "...",
+    "eap_password": "...",
+    "eap_phase1": "...",
+    "eap_phase2": "...",
+    "persist": true
+  }
 }
 ```
 
@@ -1390,11 +1432,11 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1403,13 +1445,8 @@ Initiates request to connect to the specified SSID with the given passphrase. Pa
 
 Disconnects from the currently connected SSID. A event will be posted upon completion.
 
-### Events
+Also see: [onWIFIStateChange](#event.onWIFIStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWIFIStateChange](#event.onWIFIStateChange) | Triggered when Wifi state changes to DISCONNECTED (only if currently connected). |
-| [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 ### Parameters
 
 This method takes no parameters.
@@ -1427,9 +1464,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.WiFiDisconnect"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.WiFiDisconnect"
 }
 ```
 
@@ -1437,11 +1474,11 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1449,10 +1486,6 @@ This method takes no parameters.
 ## *GetConnectedSSID [<sup>method</sup>](#head.Methods)*
 
 Returns the connected SSID information.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -1478,9 +1511,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetConnectedSSID"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetConnectedSSID"
 }
 ```
 
@@ -1488,18 +1521,18 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "ssid": "123412341234",
-        "bssid": "ff:ff:ff:ff:ff:ff",
-        "security": "5",
-        "strength": "-27.000000",
-        "frequency": "2.442000",
-        "rate": "144.000000",
-        "noise": "-121.000000",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "ssid": "123412341234",
+    "bssid": "ff:ff:ff:ff:ff:ff",
+    "security": "5",
+    "strength": "-27.000000",
+    "frequency": "2.442000",
+    "rate": "144.000000",
+    "noise": "-121.000000",
+    "success": true
+  }
 }
 ```
 
@@ -1510,20 +1543,15 @@ Initiates a connection using Wifi Protected Setup (WPS). An existing connection 
 
 If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the serialized pin using the Manufacturer (MFR) API. If the `method` parameter is set to `PIN`, then RDK use the pin supplied as part of the request. If the `method` parameter is set to `PBC`, then RDK uses Push Button Configuration (PBC) to obtain the pin.
 
-### Events
+Also see: [onWIFIStateChange](#event.onWIFIStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWIFIStateChange](#event.onWIFIStateChange) | Triggered when Wifi state changes to DISCONNECTED (only if currently connected), CONNECTING, CONNECTED. |
-| [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
-| [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 ### Parameters
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.method | integer | The method used to obtain the pin (must be one of the following: PBC=0, PIN=1, SERIALIZED_PIN=2) |
-| params.pin | string | A valid 8 digit WPS pin number. Use this parameter when the `method` parameter is set to `PIN` |
+| params.method | string | The method used to obtain the pin (must be one of the following: PBC=0, PIN=1, SERIALIZED_PIN=2) |
+| params?.pin | string | <sup>*(optional)*</sup> A valid 8 digit WPS pin number. Use this parameter when the `method` parameter is set to `PIN` |
 
 ### Result
 
@@ -1539,13 +1567,13 @@ If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the ser
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StartWPS",
-    "params": {
-        "method": 1,
-        "pin": "88888888"
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StartWPS",
+  "params": {
+    "method": "PIN",
+    "pin": "88888888"
+  }
 }
 ```
 
@@ -1553,12 +1581,12 @@ If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the ser
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "pin": "88888888",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "pin": "88888888",
+    "success": true
+  }
 }
 ```
 
@@ -1567,11 +1595,8 @@ If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the ser
 
 Cancels the in-progress WPS pairing operation. The operation forcefully stops the in-progress pairing attempt and aborts the current scan. WPS pairing must be in-progress for the operation to succeed.
 
-### Events
+Also see: [onWIFIStateChange](#event.onWIFIStateChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWIFIStateChange](#event.onWIFIStateChange) | Triggered when Wifi state changes to DISCONNECTED. |
 ### Parameters
 
 This method takes no parameters.
@@ -1589,9 +1614,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.StopWPS"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.StopWPS"
 }
 ```
 
@@ -1599,11 +1624,11 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
 }
 ```
 
@@ -1612,11 +1637,8 @@ This method takes no parameters.
 
 Get WiFiSignalStrength of connected SSID.
 
-### Events
+Also see: [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange)
 
-| Event | Description |
-| :-------- | :-------- |
-| [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange) | Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak. |
 ### Parameters
 
 This method takes no parameters.
@@ -1628,7 +1650,7 @@ This method takes no parameters.
 | result | object |  |
 | result.ssid | string | The paired SSID |
 | result.strength | string | The RSSI value in dBm |
-| result.quality | string | Signal strength Quality |
+| result.quality | integer | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1637,9 +1659,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetWiFiSignalStrength"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetWiFiSignalStrength"
 }
 ```
 
@@ -1647,25 +1669,21 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "ssid": "123412341234",
-        "strength": "-27.000000",
-        "quality": "Excellent",
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "ssid": "123412341234",
+    "strength": "-27.000000",
+    "quality": 123,
+    "success": true
+  }
 }
 ```
 
-<a name="method.GetSupportedSecurityModes"></a>
-## *GetSupportedSecurityModes [<sup>method</sup>](#head.Methods)*
+<a name="method.GetSupportedsecurityModes"></a>
+## *GetSupportedsecurityModes [<sup>method</sup>](#head.Methods)*
 
 Returns the Wifi security modes that the device supports.
-
-### Events
-
-No Events
 
 ### Parameters
 
@@ -1700,9 +1718,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetSupportedSecurityModes"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetSupportedsecurityModes"
 }
 ```
 
@@ -1710,160 +1728,50 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "security_modes": {
-            "NET_WIFI_SECURITY_NONE": 0,
-            "NET_WIFI_SECURITY_WEP_64": 1,
-            "NET_WIFI_SECURITY_WEP_128": 2,
-            "NET_WIFI_SECURITY_WPA_PSK_TKIP": 3,
-            "NET_WIFI_SECURITY_WPA_PSK_AES": 4,
-            "NET_WIFI_SECURITY_WPA2_PSK_TKIP": 5,
-            "NET_WIFI_SECURITY_WPA2_PSK_AES": 6,
-            "NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP": 7,
-            "NET_WIFI_SECURITY_WPA_ENTERPRISE_AES": 8,
-            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP": 9,
-            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES": 10,
-            "NET_WIFI_SECURITY_WPA_WPA2_PSK": 11,
-            "NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE": 12,
-            "NET_WIFI_SECURITY_WPA3_PSK_AES": 13,
-            "NET_WIFI_SECURITY_WPA3_SAE": 14
-        },
-        "success": true
-    }
-}
-```
-
-<a name="method.SetLogLevel"></a>
-## *SetLogLevel [<sup>method</sup>](#head.Methods)*
-
-Set Log level for more information. The possible set log level are as follows. 
-* `0`: FATAL  
-* `1`: ERROR  
-* `2`: WARN
-* `3`: INFO 
-* `4`: DEBUG
-.
-
-### Events
-
-No Events
-
-### Parameters
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| params | object |  |
-| params.level | integer | Set Log level to get more information |
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.SetLogLevel",
-    "params": {
-        "level": 1
-    }
-}
-```
-
-#### Response
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "success": true
-    }
-}
-```
-
-<a name="method.GetLogLevel"></a>
-## *GetLogLevel [<sup>method</sup>](#head.Methods)*
-
-Gets the log level. It could be either of the below
-* `0`: FATAL
-* `1`: ERROR
-* `2`: WARN
-* `3`: INFO
-* `4`: DEBUG
-
-### Events
-
-No Events
-
-### Parameters
-
-This method takes no parameters.
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.level | integer | The Log level |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetLogLevel",
-}
-```
-
-#### Response
-
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "level": 3
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "security_modes": {
+      "NET_WIFI_SECURITY_NONE": 0,
+      "NET_WIFI_SECURITY_WEP_64": 1,
+      "NET_WIFI_SECURITY_WEP_128": 2,
+      "NET_WIFI_SECURITY_WPA_PSK_TKIP": 3,
+      "NET_WIFI_SECURITY_WPA_PSK_AES": 4,
+      "NET_WIFI_SECURITY_WPA2_PSK_TKIP": 5,
+      "NET_WIFI_SECURITY_WPA2_PSK_AES": 6,
+      "NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP": 7,
+      "NET_WIFI_SECURITY_WPA_ENTERPRISE_AES": 8,
+      "NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP": 9,
+      "NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES": 10,
+      "NET_WIFI_SECURITY_WPA_WPA2_PSK": 11,
+      "NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE": 12,
+      "NET_WIFI_SECURITY_WPA3_PSK_AES": 13,
+      "NET_WIFI_SECURITY_WPA3_SAE": 14
+    },
+    "success": true
+  }
 }
 ```
 
 <a name="method.GetWifiState"></a>
 ## *GetWifiState [<sup>method</sup>](#head.Methods)*
 
-Returns the current Wifi State. The possible Wifi states are as follows.
-* `0`: UNINSTALLED - The device was in an installed state and was uninstalled; or, the device does not have a Wifi radio installed 
-* `1`: DISABLED - The device is installed but not yet enabled
-* `2`: DISCONNECTED - The device is installed and enabled, but not yet connected to a network
-* `3`: PAIRING - The device is in the process of pairing, but not yet connected to a network
-* `4`: CONNECTING - The device is attempting to connect to a network
-* `5`: CONNECTED - The device is successfully connected to a network
-* `6`: SSID_NOT_FOUND - The requested SSID to connect is not found
-* `7`: SSID_CHANGED - The device connected SSID is changed
-* `8`: CONNECTION_LOST - The device network connection is lost
-* `9`: CONNECTION_FAILED - The device network connection got failed
-* `10`: CONNECTION_INTERRUPTED - The device connection is interrupted
-* `11`: INVALID_CREDENTIALS - The credentials provided to connect is not valid
-* `12`: AUTHENTICATION_FAILED - Authentication process as a whole could not be successfully completed
-* `13`: ERROR - The device has encountered an unrecoverable error with the Wifi adapter
-
-### Events
-
-No Events
+Returns the current Wifi State. The possible Wifi states are as follows.  
+**Wifi States**  
+* `0`: UNINSTALLED - The device was in an installed state and was uninstalled; or, the device does not have a Wifi radio installed   
+* `1`: DISABLED - The device is installed but not yet enabled  
+* `2`: DISCONNECTED - The device is installed and enabled, but not yet connected to a network  
+* `3`: PAIRING - The device is in the process of pairing, but not yet connected to a network  
+* `4`: CONNECTING - The device is attempting to connect to a network  
+* `5`: CONNECTED - The device is successfully connected to a network  
+* `6`: SSID_NOT_FOUND - The requested SSID to connect is not found 
+* `7`: SSID_CHANGED - The device connected SSID is changed 
+* `8`: CONNECTION_LOST - The device network connection is lost 
+* `9`: CONNECTION_FAILED - The device connection got failed 
+* `10`: CONNECTION_INTERRUPTED - The device connection is interrupted 
+* `11`: INVALID_CREDENTIALS - The credentials provided to connect is not valid 
+* `12`: AUTHENTICATION_FAILED - Authentication process as a whole could not be successfully completed 
+* `13`: ERROR - The device has encountered an unrecoverable error with the Wifi adapter.
 
 ### Parameters
 
@@ -1874,7 +1782,7 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.state | integer | The Wifi operational state |
+| result.state | integer | The internet state |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1883,9 +1791,9 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "method": "org.rdk.NetworkManager.GetWifiState"
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.GetWifiState"
 }
 ```
 
@@ -1893,21 +1801,21 @@ This method takes no parameters.
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "id": 42,
-    "result": {
-        "state": 2,
-        "success": true
-    }
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "state": 4,
+    "success": true
+  }
 }
 ```
 
 <a name="head.Notifications"></a>
 # Notifications
 
-Notifications are autonomous events, triggered by the internals of the implementation, and broadcasted via JSON-RPC to all registered observers. Refer to [[Thunder](#ref.Thunder)] for information on how to register for a notification.
+Notifications are autonomous events triggered by the internals of the implementation and broadcasted via JSON-RPC to all registered observers. Refer to [[Thunder](#ref.Thunder)] for information on how to register for a notification.
 
-The following events are provided by the org.rdk.NetworkManager plugin:
+The following events are provided by the org.rdk.NetworkManager interface:
 
 NetworkManager interface events:
 
@@ -1920,7 +1828,6 @@ NetworkManager interface events:
 | [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when scan completes or when scan cancelled |
 | [onWiFiStateChange](#event.onWiFiStateChange) | Triggered when WIFI connection state get changed |
 | [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange) | Triggered when WIFI connection Signal Strength get changed |
-
 
 <a name="event.onInterfaceStateChange"></a>
 ## *onInterfaceStateChange [<sup>event</sup>](#head.Notifications)*
@@ -1946,12 +1853,12 @@ Triggered when an interface state is changed. The possible states are
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onInterfaceStateChange",
-    "params": {
-        "interface": "wlan0",
-        "state": "INTERFACE_ADDED"
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onInterfaceStateChange",
+  "params": {
+    "interface": "wlan0",
+    "state": "INTERFACE_ADDED"
+  }
 }
 ```
 
@@ -1966,22 +1873,22 @@ Triggered when an IP Address is assigned or lost.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params.ipversion | string | It will be IPv4 or IPv6 |
-| params.ipaddress | string | The IPv6 or IPv4 address for the interface |
-| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') (must be one of the following: *`ACQUIRED`*, *`LOST`*) |
+| params.ipaddress | string | The IP address |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') |
 
 ### Example
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onAddressChange",
-    "params": {
-        "interface": "wlan0",
-        "ipversion": "IPv4",
-        "ipaddress": "192.168.1.100",
-        "status": "ACQUIRED"
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onAddressChange",
+  "params": {
+    "interface": "wlan0",
+    "ipaddress": "192.168.1.101",
+    "ipversion": "IPv4",
+    "status": "ACQUIRED"
+  }
 }
 ```
 
@@ -2002,12 +1909,12 @@ Triggered when the primary/active interface changes, regardless if it's from a s
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onActiveInterfaceChange",
-    "params": {
-        "prevActiveInterface": "wlan0",
-        "activeInterface": "eth0"
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onActiveInterfaceChange",
+  "params": {
+    "prevActiveInterface": "wlan0",
+    "activeInterface": "eth0"
+  }
 }
 ```
 
@@ -2030,14 +1937,14 @@ Triggered when internet connection state changed.The possible internet connectio
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onInternetStatusChange",
-    "params": {
-        "prevState": 0,
-        "prevStatus": "NO_INTERNET",
-        "state": 3,
-        "status": "FULLY_CONNECTED"
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onInternetStatusChange",
+  "params": {
+    "prevState": 1,
+    "prevStatus": "NO_INTERNET",
+    "state": 4,
+    "status": "FULLY_CONNECTED"
+  }
 }
 ```
 
@@ -2053,27 +1960,27 @@ Triggered when scan completes or when scan cancelled.
 | params | object |  |
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
-| params.ssids[#].ssid | string | ssid |
-| params.ssids[#].security | integer | security |
-| params.ssids[#].strength | string | signalStrength |
-| params.ssids[#].frequency | string | frequency |
+| params.ssids[#].ssid | string | Ssid |
+| params.ssids[#].security | integer | Security |
+| params.ssids[#].strength | string | Strength |
+| params.ssids[#].frequency | string | Frequency |
 
 ### Example
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onAvailableSSIDs",
-    "params": {
-        "ssids": [
-            {
-                "ssid": "myAP-2.4",
-                "security": 6,
-                "strength": "-27.000000",
-                "frequency": "2.442000"
-            }
-        ]
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onAvailableSSIDs",
+  "params": {
+    "ssids": [
+      {
+        "ssid": "myAP-2.4",
+        "security": 6,
+        "strength": "-27.000000",
+        "frequency": "2.442000"
+      }
+    ]
+  }
 }
 ```
 
@@ -2102,17 +2009,17 @@ Triggered when WIFI connection state get changed. The possible states are,
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.state | integer | onWiFiStateChange |
+| params.state | integer | OnWiFiStateChange |
 
 ### Example
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onWiFiStateChange",
-    "params": {
-        "state": 5
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onWiFiStateChange",
+  "params": {
+    "state": 5
+  }
 }
 ```
 
@@ -2127,20 +2034,20 @@ Triggered when WIFI connection Signal Strength get changed.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.ssid | string | Signal Strength changed SSID |
-| params.signalLevel | string | Signal Strength |
-| params.signalQuality | string | Signal quality |
+| params.strength | string | Signal Strength |
+| params.quality | string | Signal quality |
 
 ### Example
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "client.events.onWiFiSignalStrengthChange",
-    "params": {
-        "ssid": "home-new_123",
-        "strength": "-27.000000",
-        "quality": "Excellent"
-    }
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onWiFiSignalStrengthChange",
+  "params": {
+    "ssid": "home-new_123",
+    "strength": "-27.000000",
+    "quality": "Excellent"
+  }
 }
 ```
 

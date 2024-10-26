@@ -120,7 +120,7 @@ namespace WPEFramework
                     {
                         NMLOG_INFO("Notifying WiFiSignalStrengthChangedEvent %s", signalStrength.c_str());
                         oldSignalQuality = newSignalQuality;
-                        _instance->ReportWiFiSignalStrengthChangedEvent(ssid, signalStrength, newSignalQuality);
+                        _instance->ReportWiFiSignalStrengthChange(ssid, signalStrength, newSignalQuality);
                     }
 
                     if(newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED)

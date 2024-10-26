@@ -191,48 +191,31 @@ namespace WPEFramework
                 if(size<=32)
                 {
                     std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                    wifiInfo.m_ssid = ssidTmp;
-                    NMLOG_INFO("ssid: %s", wifiInfo.m_ssid.c_str());
+                    wifiInfo.ssid = ssidTmp;
+                    NMLOG_INFO("ssid: %s", wifiInfo.ssid.c_str());
                 }
                 else
                 {
                     NMLOG_ERROR("Invallied ssid length Error");
-                    wifiInfo.m_ssid.clear();
+                    wifiInfo.ssid.clear();
                     return;
                 }
             }
             else
             {
-                wifiInfo.m_ssid = "-----";
-                NMLOG_DEBUG("ssid: %s", wifiInfo.m_ssid.c_str());
+                wifiInfo.ssid = "-----";
+                NMLOG_DEBUG("ssid: %s", wifiInfo.ssid.c_str());
             }
 
-            wifiInfo.m_bssid = (hwaddr != nullptr) ? hwaddr : "-----";
-            NMLOG_DEBUG("bssid: %s", wifiInfo.m_bssid.c_str());
-
-            if (freq >= 2400 && freq < 5000) {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_2_4_GHZ;
-                NMLOG_DEBUG("freq: WIFI_FREQUENCY_2_4_GHZ");
-            }
-            else if (freq >= 5000 && freq < 6000) {
-                wifiInfo.m_frequency =  Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_5_GHZ;
-                NMLOG_DEBUG("freq: WIFI_FREQUENCY_5_GHZ");
-            }
-            else if (freq >= 6000) {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_6_GHZ;
-                NMLOG_DEBUG("freq: WIFI_FREQUENCY_6_GHZ");
-            }
-            else {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
-                NMLOG_DEBUG("freq: No available !");
-            }
-
-            wifiInfo.m_rate = std::to_string(bitrate);
-            NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.m_rate.c_str());
+            wifiInfo.bssid = (hwaddr != nullptr) ? hwaddr : "-----";
+            NMLOG_DEBUG("bssid: %s", wifiInfo.bssid.c_str());
+            wifiInfo.frequency = std::to_string((double)freq/1000);
+            wifiInfo.rate = std::to_string(bitrate);
+            NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
-            wifiInfo.m_signalStrength = std::to_string(static_cast<u_int8_t>(strength));
-            NMLOG_DEBUG("sterngth: %s %%", wifiInfo.m_signalStrength.c_str());
-            wifiInfo.m_securityMode = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
+            wifiInfo.strength = std::to_string(static_cast<u_int8_t>(strength));
+            NMLOG_DEBUG("sterngth: %s %%", wifiInfo.strength.c_str());
+            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
             NMLOG_DEBUG("security %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
         }
@@ -401,8 +384,8 @@ namespace WPEFramework
 
         bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo wifiData)
         {
-            const char *ssid_in = wifiData.m_ssid.c_str();
-            const char* password_in = wifiData.m_passphrase.c_str();
+            const char *ssid_in = wifiData.ssid.c_str();
+            const char* password_in = wifiData.passphrase.c_str();
             NMAccessPoint *AccessPoint = NULL;
             GPtrArray *allaps = NULL;
             const char *conName = ssid_in;
@@ -542,19 +525,19 @@ namespace WPEFramework
                 GError *error = NULL;
                 NMLOG_INFO("Ap securtity mode is 802.1X");
 
-                NMLOG_DEBUG("802.1x Identity : %s", wifiData.m_identity.c_str());
-                NMLOG_DEBUG("802.1x CA cert path : %s", wifiData.m_caCert.c_str());
-                NMLOG_DEBUG("802.1x Client cert path : %s", wifiData.m_clientCert.c_str());
-                NMLOG_DEBUG("802.1x Private key path : %s", wifiData.m_privateKey.c_str());
-                NMLOG_DEBUG("802.1x Private key psswd : %s", wifiData.m_privateKeyPasswd.c_str());
+                NMLOG_DEBUG("802.1x Identity : %s", wifiData.eap_identity.c_str());
+                NMLOG_DEBUG("802.1x CA cert path : %s", wifiData.ca_cert.c_str());
+                NMLOG_DEBUG("802.1x Client cert path : %s", wifiData.client_cert.c_str());
+                NMLOG_DEBUG("802.1x Private key path : %s", wifiData.private_key.c_str());
+                NMLOG_DEBUG("802.1x Private key psswd : %s", wifiData.private_key_passwd.c_str());
 
                 s8021X = (NMSetting8021x *) nm_setting_802_1x_new();
                 nm_connection_add_setting(connection, NM_SETTING(s8021X));
 
-                g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, wifiData.m_identity.c_str(), NULL);
+                g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, wifiData.eap_identity.c_str(), NULL);
                 nm_setting_802_1x_add_eap_method(s8021X, "tls");
-                if(!wifiData.m_caCert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
-                                            wifiData.m_caCert.c_str(),
+                if(!wifiData.ca_cert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
+                                            wifiData.ca_cert.c_str(),
                                             NM_SETTING_802_1X_CK_SCHEME_PATH,
                                             NULL,
                                             &error))
@@ -564,8 +547,8 @@ namespace WPEFramework
                     return false;
                 }
 
-                if(!wifiData.m_clientCert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
-                                            wifiData.m_clientCert.c_str(),
+                if(!wifiData.client_cert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
+                                            wifiData.client_cert.c_str(),
                                             NM_SETTING_802_1X_CK_SCHEME_PATH,
                                             NULL,
                                             &error))
@@ -575,9 +558,9 @@ namespace WPEFramework
                     return false;
                 }
 
-                if(!wifiData.m_privateKey.empty() && !nm_setting_802_1x_set_private_key(s8021X,
-                                                wifiData.m_privateKey.c_str(),
-                                                wifiData.m_privateKeyPasswd.c_str(),
+                if(!wifiData.private_key.empty() && !nm_setting_802_1x_set_private_key(s8021X,
+                                                wifiData.private_key.c_str(),
+                                                wifiData.private_key_passwd.c_str(),
                                                 NM_SETTING_802_1X_CK_SCHEME_PATH,
                                                 NULL,
                                                 &error))
@@ -687,20 +670,20 @@ namespace WPEFramework
                     NM_SETTING_CONNECTION_UUID,
                     uuid,
                     NM_SETTING_CONNECTION_ID,
-                    ssidinfo.m_ssid.c_str(),
+                    ssidinfo.ssid.c_str(),
                     NM_SETTING_CONNECTION_TYPE,
                     "802-11-wireless",
                     NULL);
             NMConnection *connection = nm_simple_connection_new();
             nm_connection_add_setting(connection, NM_SETTING(nmConnSec));
             nmSettingsWifi = (NMSettingWireless *)nm_setting_wireless_new();
-            GString *ssidStr = g_string_new(ssidinfo.m_ssid.c_str());
+            GString *ssidStr = g_string_new(ssidinfo.ssid.c_str());
             g_object_set(G_OBJECT(nmSettingsWifi), NM_SETTING_WIRELESS_SSID, ssidStr, NULL);
             
             nm_connection_add_setting(connection, NM_SETTING(nmSettingsWifi));
             nmSettingsWifiSec = (NMSettingWirelessSecurity *)nm_setting_wireless_security_new();
             // TODO chek different securtity mode and portocol and add settings
-            switch(ssidinfo.m_securityMode)
+            switch(ssidinfo.security)
             {
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK:
@@ -710,8 +693,8 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
                 {
                         g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
-                        if(!ssidinfo.m_passphrase.empty())
-                            g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.m_passphrase.c_str(), NULL);
+                        if(!ssidinfo.passphrase.empty())
+                            g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
                     break;
                 }
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
@@ -858,7 +841,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->loop);
         }
 
-        bool wifiManager::wifiScanRequest(const Exchange::INetworkManager::WiFiFrequency frequency, std::string ssidReq)
+        bool wifiManager::wifiScanRequest(std::string frequency, std::string ssidReq)
         {
             if(!createClientNewConnection())
                 return false;

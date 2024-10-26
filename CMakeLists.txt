@@ -34,6 +34,9 @@ set(PLUGIN_NETWORKMANAGER_STARTUPORDER "55" CACHE STRING "To configure startup o
 set(PLUGIN_LEGACY_NW_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy Network plugin")
 set(PLUGIN_LEGACY_WIFI_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy WiFi plugin")
 
+set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To configure startup order of Legacy WiFi plugin")
+add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
+
 if(ENABLE_GNOME_NETWORKMANAGER)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBNM REQUIRED libnm)
@@ -45,6 +48,7 @@ endif ()
 message("Setup ProxyStub for INetworkManager.h")
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 find_package(ProxyStubGenerator REQUIRED)
+find_package(JsonGenerator REQUIRED)
 
 set(ProxyStubGenerator_DIR ${CMAKE_SYSROOT}${CMAKE_INSTALL_PREFIX}/tools/cmake ${ProxyStubGenerator_DIR})
 
@@ -54,6 +58,9 @@ endif()
 
 message("The Search path is, ${GENERATOR_SEARCH_PATH}")
 ProxyStubGenerator(INPUT "${CMAKE_CURRENT_SOURCE_DIR}" OUTDIR "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH})
+
+set(JSON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/NetworkManager.json")
+JsonGenerator(CODE INPUT ${JSON_FILE} OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH} CPPIFDIR "${CMAKE_CURRENT_SOURCE_DIR}" DOCS)
 
 file(GLOB PROXY_STUB_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/generated/ProxyStubs*.cpp")
 

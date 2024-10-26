@@ -63,6 +63,18 @@ namespace NetworkManagerLogger {
     }
 #endif
 
+    const char* trimPath(const char* s)
+    {
+      if (!s)
+        return s;
+
+      const char* t = strrchr(s, (int) '/');
+      if (t) t++;
+      if (!t) t = s;
+
+      return t;
+    }
+
     const char* methodName(const std::string& prettyFunction)
     {
         size_t colons = prettyFunction.find("::");
@@ -104,6 +116,7 @@ namespace NetworkManagerLogger {
         const char* levelMap[] = {"Fatal", "Error", "Warn", "Info", "Debug"};
         struct timeval tv;
         struct tm* lt;
+        const char* fileName = trimPath(file);
 
         if (gDefaultLogLevel < level)
             return;
@@ -111,7 +124,7 @@ namespace NetworkManagerLogger {
         gettimeofday(&tv, NULL);
         lt = localtime(&tv.tv_sec);
 
-        printf("%.2d:%.2d:%.2d.%.6lld [%-5s] [PID=%d] [TID=%d] %s : %s\n", lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, levelMap[level], getpid(), gettid(), func, formattedLog);
+        printf("%.2d:%.2d:%.2d.%.6lld [%-5s] [PID=%d] [TID=%d] [%s +%d] %s : %s\n", lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, levelMap[level], getpid(), gettid(), fileName, line, func, formattedLog);
         fflush(stdout);
 #endif
     }
@@ -124,4 +137,14 @@ namespace NetworkManagerLogger {
         // TODO : Inform RDKLogger to change the log level
 #endif
     }
+
+    void GetLevel(LogLevel& level)
+    {
+        level = gDefaultLogLevel;
+        NMLOG_INFO("NetworkManager logLevel:%d", level);
+#ifdef USE_RDK_LOGGER
+        // TODO : Inform RDKLogger to change the log level
+#endif
+    }
+
 } // namespace NetworkManagerLogger

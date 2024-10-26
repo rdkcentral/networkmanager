@@ -491,7 +491,7 @@ namespace WPEFramework
         if(oldIface != newIface)
         {
             if(_instance != nullptr)
-                _instance->ReportActiveInterfaceChangedEvent(oldIface, newIface);
+                _instance->ReportActiveInterfaceChange(oldIface, newIface);
             NMLOG_INFO("old interface - %s new interface - %s", oldIface.c_str(), newIface.c_str());
             oldIface = newIface;
         }
@@ -525,16 +525,16 @@ namespace WPEFramework
         }
         NMLOG_DEBUG("%s interface state changed - %s", iface.c_str(), state.c_str());
         if(_instance != nullptr && (iface == _nmEventInstance->nmEvents.ifnameWlan0 || iface == _nmEventInstance->nmEvents.ifnameEth0))
-            _instance->ReportInterfaceStateChangedEvent(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
+            _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
     }
 
     void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state)
     {
         if(_instance != nullptr)
-            _instance->ReportWiFiStateChangedEvent(static_cast<Exchange::INetworkManager::WiFiState>(state));
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
     }
 
-    void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acqired, bool isIPv6)
+    void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)
     {
         static std::map<std::string, std::string> ipv6Map;
         static std::map<std::string, std::string> ipv4Map;
@@ -563,9 +563,13 @@ namespace WPEFramework
                 ipv4Map[iface] = ipAddress;
         }
 
+        Exchange::INetworkManager::IPStatus ipStatus{};
+        if (acquired)
+            ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
+
         if(_instance != nullptr)
-            _instance->ReportIPAddressChangedEvent(iface, acqired, true, ipAddress);
-        NMLOG_INFO("iface:%s - ipaddress:%s - %s - isIPv6:%s", iface.c_str(), ipAddress.c_str(), acqired?"acquired":"lost", isIPv6?"true":"false");
+            _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
+        NMLOG_INFO("iface:%s - ipaddress:%s - %s - isIPv6:%s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"true":"false");
     }
 
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
@@ -597,7 +601,7 @@ namespace WPEFramework
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
-            _instance->ReportAvailableSSIDsEvent(ssidListJson);
+            _instance->ReportAvailableSSIDs(ssidListJson);
         }
     }
 

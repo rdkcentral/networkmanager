@@ -100,7 +100,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::Configure(const string& configLine /* @in */, NMLogging& logLevel /* @out */)
+        uint32_t NetworkManagerImplementation::Configure(const string& configLine /* @in */)
         {
             if(configLine.empty())
             {
@@ -123,9 +123,7 @@ namespace WPEFramework
                 NMLOG_DEBUG("config : stun interval %d", m_stunBindTimeout);
 
                 NMLOG_DEBUG("config : loglevel %d", config.loglevel.Value());
-                logLevel = static_cast <NMLogging>(config.loglevel.Value());
-                // configure loglevel in libWPEFrameworkNetworkManagerImplementation.so
-                NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(logLevel));
+                NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
 
                 /* load connectivity monitor endpoints */
                 std::vector<std::string> connectEndpts;
@@ -150,7 +148,19 @@ namespace WPEFramework
                     connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
                 }
 
-                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                /* check whether the endpoint is already loaded from Cache; if Yes, do not use the one from configuration */
+                if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+                {
+                    NMLOG_INFO("config : Use the connectivity endpoint from config");
+                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                }
+                else if (connectEndpts.size() < 1)
+                {
+                    std::vector<std::string> backup;
+                    NMLOG_INFO("config : Connectivity endpoints are empty in config; use the default");
+                    backup.push_back("http://clients3.google.com/generate_204");
+                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                }
             }
             else
                 NMLOG_ERROR("Plugin configuration read error !");
@@ -211,7 +221,7 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-        uint32_t NetworkManagerImplementation::IsConnectedToInternet(const string &ipversion /* @in */, InternetStatus &result /* @out */)
+        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @in */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             nsm_internetState isconnected;
@@ -230,6 +240,11 @@ namespace WPEFramework
                 result = INTERNET_LIMITED;
             else
                 result = INTERNET_NOT_AVAILABLE;
+
+            if (NSM_IPRESOLVE_V6 == tmpVersion)
+                ipversion = "IPv6";
+            else
+                ipversion = "IPv4";
 
             return Core::ERROR_NONE;
         }
@@ -263,15 +278,16 @@ namespace WPEFramework
         }
 
         /* @brief Get the Public IP used for external world communication */
-        uint32_t NetworkManagerImplementation::GetPublicIP (const string &ipversion /* @in */,  string& ipAddress /* @out */)
+        uint32_t NetworkManagerImplementation::GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             stun::bind_result result;
-            bool isIPv6 = (0 == strcasecmp("IPv6", ipversion.c_str()));
+            bool isIPv6 = (ipversion == "IPv6");
+
             stun::protocol  proto (isIPv6 ? stun::protocol::af_inet6  : stun::protocol::af_inet);
             if(stunClient.bind(m_stunEndPoint, m_stunPort, m_defaultInterface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
             {
-                ipAddress = result.public_ip;
+                ipaddress = result.public_ip;
                 return Core::ERROR_NONE;
             }
             else
@@ -281,9 +297,19 @@ namespace WPEFramework
         }
 
         /* @brief Set the network manager plugin log level */
-        uint32_t NetworkManagerImplementation::SetLogLevel(const NMLogging& logLevel /* @in */)
+        uint32_t NetworkManagerImplementation::SetLogLevel(const Logging& level /* @in */)
         {
-            NetworkManagerLogger::SetLevel((LogLevel)logLevel);
+            NetworkManagerLogger::SetLevel((LogLevel)level);
+            return Core::ERROR_NONE;
+        }
+
+        /* @brief Get the network manager plugin log level */
+        uint32_t NetworkManagerImplementation::GetLogLevel(Logging& level /* @out */)
+        {
+            LogLevel inLevel;
+            NetworkManagerLogger::GetLevel(inLevel);
+
+            level = static_cast<Logging>(inLevel);
             return Core::ERROR_NONE;
         }
 
@@ -291,6 +317,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
         {   
             char cmd[100] = "";
+            string tempResult = "";
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
             {   
                 snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
@@ -302,7 +329,12 @@ namespace WPEFramework
             
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
-            executeExternally(NETMGR_PING, commandToExecute, response);
+            executeExternally(NETMGR_PING, commandToExecute, tempResult);
+
+            JsonObject temp;
+            temp.FromString(tempResult);
+            temp["endpoint"] = endpoint;
+            temp.ToString(response);
 
             return Core::ERROR_NONE;
         }
@@ -326,7 +358,7 @@ namespace WPEFramework
             executeExternally(NETMGR_TRACE, commandToExecute, tempResult);
 
             JsonObject temp;
-            temp["target"] = endpoint;
+            temp["endpoint"] = endpoint;
             temp["results"] = tempResult;
             temp.ToString(response);
 
@@ -485,7 +517,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        void NetworkManagerImplementation::ReportInterfaceStateChangedEvent(INetworkManager::InterfaceState state, string interface)
+        void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
             LOG_ENTRY_FUNCTION();
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state) {
@@ -494,7 +526,6 @@ namespace WPEFramework
                 connectivityMonitor.startConnectivityMonitor(false);
             }
 
-            NMLOG_INFO("Posting onInterfaceStateChange %s", interface.c_str());
             _notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
                 callback->onInterfaceStateChange(state, interface);
@@ -502,26 +533,8 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportIPAddressChangedEvent(const string& interface, bool isAcquired, bool isIPv6, const string& ipAddress)
+        void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
-            LOG_ENTRY_FUNCTION();
-            if (isAcquired) {
-                // Start the connectivity monitor with 'true' to indicate the interface is up.
-                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
-                connectivityMonitor.startConnectivityMonitor(true);
-            }
-
-            NMLOG_INFO("Posting onIPAddressChange %s", ipAddress.c_str());
-            _notificationLock.Lock();
-            for (const auto callback : _notificationCallbacks) {
-                callback->onIPAddressChange(interface, isAcquired, isIPv6, ipAddress);
-            }
-            _notificationLock.Unlock();
-        }
-
-        void NetworkManagerImplementation::ReportActiveInterfaceChangedEvent(const string prevActiveInterface, const string currentActiveinterface)
-        {
-            LOG_ENTRY_FUNCTION();
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
             _notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
@@ -530,20 +543,35 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChangedEvent(const InternetStatus oldState, const InternetStatus newstate)
+        void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
         {
             LOG_ENTRY_FUNCTION();
-            NMLOG_INFO("Posting onInternetStatusChange");
+            if (Exchange::INetworkManager::IP_ACQUIRED == status) {
+                // Start the connectivity monitor with 'true' to indicate the interface is up.
+                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
+                connectivityMonitor.startConnectivityMonitor(true);
+            }
+
+            NMLOG_INFO("Posting onIPAddressChange %s", ipaddress.c_str());
             _notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
-                callback->onInternetStatusChange(oldState, newstate);
+                callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportAvailableSSIDsEvent(const string jsonOfWiFiScanResults)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
         {
-            LOG_ENTRY_FUNCTION();
+            NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+            _notificationLock.Lock();
+            for (const auto callback : _notificationCallbacks) {
+                callback->onInternetStatusChange(prevState, currState);
+            }
+            _notificationLock.Unlock();
+        }
+
+        void NetworkManagerImplementation::ReportAvailableSSIDs(const string jsonOfWiFiScanResults)
+        {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onAvailableSSIDs result is, %s", jsonOfWiFiScanResults.c_str());
             for (const auto callback : _notificationCallbacks) {
@@ -552,9 +580,8 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiStateChangedEvent(const INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
-            LOG_ENTRY_FUNCTION();
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
                 m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
@@ -567,13 +594,12 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChangedEvent(const string ssid, const string signalLevel, const WiFiSignalQuality signalQuality)
+        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
-            LOG_ENTRY_FUNCTION();
             NMLOG_INFO("Posting onWiFiSignalStrengthChange");
             _notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiSignalStrengthChange(ssid, signalLevel, signalQuality);
+                callback->onWiFiSignalStrengthChange(ssid, strength, quality);
                 
             }
             _notificationLock.Unlock();
