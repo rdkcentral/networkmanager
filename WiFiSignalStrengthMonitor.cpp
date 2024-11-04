@@ -27,7 +27,7 @@ namespace WPEFramework
             FILE *fp = popen(command, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s \n",command);
+                NMLOG_ERROR("Failed in getting output from command %s",command);
                 return keystr;
             }
 

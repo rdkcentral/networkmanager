@@ -723,7 +723,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            NMLOG_INFO("Entry to %s", __FUNCTION__);
 
             if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
@@ -764,7 +764,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            NMLOG_INFO("Entry to %s", __FUNCTION__);
 
             if (parameters.HasLabel("ssid"))
                 ssid.ssid = parameters["ssid"].String();

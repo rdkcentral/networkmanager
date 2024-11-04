@@ -825,7 +825,7 @@ namespace WPEFramework
                 strncpy(iarmData.interface, "ETHERNET", INTERFACE_SIZE);
             else if (!interface.empty())
             {
-                NMLOG_ERROR("Given interface (%s) is NOT supported\n", interface.c_str());
+                NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
                 return Core::ERROR_NOT_SUPPORTED;
             }
 

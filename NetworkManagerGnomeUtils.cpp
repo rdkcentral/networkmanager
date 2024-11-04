@@ -17,86 +17,104 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        static const char* ifnameEth = "eth0";
-        static const char* ifnameWlan = "wlan0";
+        static std::string m_ethifname = "eth0";
+        static std::string m_wlanifname = "wlan0";
 
-       uint8_t nmUtils::wifiSecurityModeFromAp(guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
-       {
-            uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
-            if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
-            }
-            else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP40) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP40)) )
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_64;
-            }
-            else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP104) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP104)) )
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_128;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_PAIR_TKIP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_TKIP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_PAIR_CCMP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_CCMP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
-            }
-            else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE;
-            }
-            else if(rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_GROUP_CCMP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_CCMP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_GROUP_TKIP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_TKIP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP;
-            }
-            else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
-            }
-            else
-                NMLOG_WARNING("security mode not defined (flag: %d, wpaFlags: %d, rsnFlags: %d)", flags, wpaFlags, rsnFlags);
-            return security;
-       }
+        const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}
+        const char* nmUtils::ethIface() {return m_ethifname.c_str();}
 
-        std::string nmUtils::getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
+        NMDeviceState nmUtils::ifaceState(NMClient *client, const char* interface)
         {
-            switch(flags)
-            {
-                case NM_802_11_AP_FLAGS_NONE:
-                    NMLOG_DEBUG("ap type : point has no special capabilities");
-                    break;
-                case NM_802_11_AP_FLAGS_PRIVACY:
-                    NMLOG_DEBUG("ap type : access point requires authentication and encryption");
-                    break;
-                case NM_802_11_AP_FLAGS_WPS:
-                    NMLOG_DEBUG("ap type : access point supports some WPS method");
-                    break;
-                case NM_802_11_AP_FLAGS_WPS_PBC:
-                    NMLOG_DEBUG("ap type : access point supports push-button WPS");
-                    break;
-                case NM_802_11_AP_FLAGS_WPS_PIN:
-                    NMLOG_DEBUG("ap type : access point supports PIN-based WPS");
-                    break;
-                default:
-                    NMLOG_ERROR("ap type : 802.11 flags unknown!");
+            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+            NMDevice *device = NULL;
+            if(client == NULL)
+                return deviceState;
+
+            device = nm_client_get_device_by_iface(client, interface);
+            if (device == NULL) {
+                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface);
+                return deviceState;
             }
 
-            std::string securityStr;
+            deviceState = nm_device_get_state(device);
+            return deviceState;
+        }
 
-            if (!(flags & NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags != NM_802_11_AP_SEC_NONE) && (rsnFlags != NM_802_11_AP_SEC_NONE))
+        uint8_t nmUtils::wifiSecurityModeFromAp(guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
+        {
+                uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
+                if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
+                else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP40) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP40)) )
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_64;
+                else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP104) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP104)) )
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_128;
+                else if((wpaFlags & NM_802_11_AP_SEC_PAIR_TKIP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_TKIP))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP;
+                else if((wpaFlags & NM_802_11_AP_SEC_PAIR_CCMP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_CCMP))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
+                else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE;
+                else if(rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK;
+                else if((wpaFlags & NM_802_11_AP_SEC_GROUP_CCMP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_CCMP))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                else if((wpaFlags & NM_802_11_AP_SEC_GROUP_TKIP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_TKIP))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP;
+                else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
+                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
+                else
+                    NMLOG_WARNING("security mode not defined (flag: %d, wpaFlags: %d, rsnFlags: %d)", flags, wpaFlags, rsnFlags);
+                return security;
+        }
+
+        // Function to convert percentage (0-100) to dBm string
+        const char* nmUtils::convertPercentageToSignalStrengtStr(int percentage) {
+
+            if (percentage <= 0 || percentage > 100) {
+                return "";
+            }
+
+           /*
+            * -30 dBm to -50 dBm: Excellent signal strength.
+            * -50 dBm to -60 dBm: Very good signal strength.
+            * -60 dBm to -70 dBm: Good signal strength; acceptable for basic internet browsing.
+            * -70 dBm to -80 dBm: Weak signal; performance may degrade, slower speeds, and possible dropouts.
+            * -80 dBm to -90 dBm: Very poor signal; likely unusable or highly unreliable.
+            *  Below -90 dBm: Disconnected or too weak to establish a stable connection.
+            */
+
+            // dBm range: -30 dBm (strong) to -90 dBm (weak)
+            const int max_dBm = -30;
+            const int min_dBm = -90;
+            int dBm_value = max_dBm + ((min_dBm - max_dBm) * (100 - percentage)) / 100;
+            static char result[8]={0};
+            snprintf(result, sizeof(result), "%d", dBm_value);
+            return result;
+        }
+
+        std::string nmUtils::getSecurityModeString(guint32 flag, guint32 wpaFlags, guint32 rsnFlags)
+        {
+            std::string securityStr = "[AP type: ";
+            if (flag == NM_802_11_AP_FLAGS_NONE)
+                securityStr += "NONE ";
+            else
+            {
+                if ((flag & NM_802_11_AP_FLAGS_PRIVACY) != 0)
+                    securityStr += "PRIVACY ";
+                if ((flag & NM_802_11_AP_FLAGS_WPS) != 0)
+                    securityStr += "WPS ";
+                if ((flag & NM_802_11_AP_FLAGS_WPS_PBC) != 0)
+                    securityStr += "WPS_PBC ";
+                if ((flag & NM_802_11_AP_FLAGS_WPS_PIN) != 0)
+                    securityStr += "WPS_PIN ";
+            }
+            securityStr += "] ";
+
+            if (!(flag & NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags != NM_802_11_AP_SEC_NONE) && (rsnFlags != NM_802_11_AP_SEC_NONE))
                 securityStr += ("Encrypted: ");
 
-            if ((flags & NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE)
+            if ((flag & NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE)
                 && (rsnFlags == NM_802_11_AP_SEC_NONE))
                 securityStr += ("WEP ");
             if (wpaFlags != NM_802_11_AP_SEC_NONE)
@@ -124,7 +142,7 @@ namespace WPEFramework
             }
 
             uint32_t flags[2] = { wpaFlags, rsnFlags };
-            securityStr += "[ WPA Flags: ";
+            securityStr += "[WPA: ";
             
             for (int i = 0; i < 2; ++i)
             {
@@ -158,10 +176,10 @@ namespace WPEFramework
                     securityStr += "wpa-eap-suite-b-192 ";
                 
                 if (i == 0) {
-                    securityStr += "] [ RSN Flags: ";
+                    securityStr += "] [RSN: ";
                 }
             }
-            securityStr +="]";
+            securityStr +="] ";
             return securityStr;
         }
 
@@ -263,22 +281,11 @@ namespace WPEFramework
             return upperStr1 == upperStr2;
         }
 
-        bool nmUtils::GetInterfacesName(std::string &wifiIfname ,std::string &ethIfname)
+        bool nmUtils::getInterfacesName()
         {
             std::string line;
-            static bool fileParsingCompleted = false;
-            static std::string m_wifiIfname;
-            static std::string m_ethIfname; // cached interface name
-            wifiIfname.clear();
-            ethIfname.clear();
-            if(fileParsingCompleted)
-            {
-                if(!m_wifiIfname.empty())
-                    wifiIfname = m_wifiIfname;
-                if(!m_ethIfname.empty())
-                    ethIfname = m_ethIfname;
-                return true;
-            }
+            std::string wifiIfname;
+            std::string ethIfname; // cached interface name
 
             std::ifstream file("/etc/device.properties");
             if (!file.is_open()) {
@@ -308,9 +315,9 @@ namespace WPEFramework
                 NMLOG_FATAL("Could not find any interface name in /etc/device.properties");
                 return false;
             }
-            m_wifiIfname = wifiIfname;
-            m_ethIfname = ethIfname;
-            fileParsingCompleted = true;
+            m_wlanifname = wifiIfname;
+            m_ethifname = ethIfname;
+            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s", m_ethifname.c_str(), m_wlanifname.c_str());
             return true;
         }
     }   // Plugin

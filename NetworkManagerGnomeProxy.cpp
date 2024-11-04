@@ -31,14 +31,23 @@ namespace WPEFramework
         {
             ::_instance = this;
             GError *error = NULL;
+            
             // initialize the NMClient object
             client = nm_client_new(NULL, &error);
             if (client == NULL) {
-                NMLOG_DEBUG("Error initializing NMClient: %s", error->message);
+                NMLOG_FATAL("Error initializing NMClient: %s", error->message);
                 g_error_free(error);
                 return;
             }
 
+            nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
+            NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+            if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
+                m_defaultInterface = nmUtils::ethIface();
+            else
+                m_defaultInterface = nmUtils::wlanIface();
+
+            NMLOG_INFO("default interface is %s",  m_defaultInterface.c_str());
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
@@ -47,47 +56,59 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            NMDeviceType type;
-            NMDeviceState state;
-            NMDevice *device = NULL;
-            static std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
+            uint32_t rc = Core::ERROR_GENERAL;
+            std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(interfaceList.empty())
+            if(client == nullptr) {
+                NMLOG_FATAL("client connection null:");
+                return Core::ERROR_GENERAL;
+            }
+
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            if (devices == NULL) {
+                NMLOG_ERROR("Failed to get device list.");
+                return Core::ERROR_GENERAL;
+            }
+
+            for (guint j = 0; j < devices->len; j++)
             {
-                std::string interfaces[2];
-                if(!nmUtils::GetInterfacesName(interfaces[0], interfaces[1]))
+                NMDevice *device = NM_DEVICE(devices->pdata[j]);
+                if(device != NULL)
                 {
-                    NMLOG_WARNING("GetInterface Name Error !");
-                    return Core::ERROR_GENERAL;
-                }
-                for (size_t i = 0; i < 2; i++)
-                {
-                    if(!interfaces[i].empty())
+                    const char* ifacePtr =  nm_device_get_iface(device);
+                    if(ifacePtr == nullptr)
+                        continue;
+                    std::string ifaceStr = ifacePtr;
+                    if(ifaceStr == wifiname || ifaceStr == ethname) // only wifi and ethenet taking
                     {
-                        Exchange::INetworkManager::InterfaceDetails tmp;
-                        device = nm_client_get_device_by_iface(client, interfaces[i].c_str());
-                        if (device)
-                        {
-                            if(i == 0)        
-                                tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
-                            else
-                                tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
-                            tmp.name = interfaces[i].c_str();
-                            tmp.mac = nm_device_get_hw_address(device);
-                            state = nm_device_get_state(device);
-                            tmp.enabled = (state > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
-                            tmp.connected = (state > NM_DEVICE_STATE_DISCONNECTED) ? true : false;
-                            interfaceList.push_back(tmp);
-                            //g_clear_object(&device);
+                        NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+                        Exchange::INetworkManager::InterfaceDetails interface;
+                        if(ifaceStr == wifiname) {
+                            interface.type = INTERFACE_TYPE_WIFI;
+                            interface.name = wifiname;
                         }
+                        if(ifaceStr == ethname) {
+                            interface.type = INTERFACE_TYPE_ETHERNET;
+                            interface.name = ethname;
+                        }
+                        interface.mac = nm_device_get_hw_address(device);
+                        deviceState = nm_device_get_state(device);
+                        interface.enabled = (deviceState > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
+                        if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING){
+                            interface.connected = true;
+                            m_defaultInterface = interface.name;
+                        }
+                        else
+                            interface.connected = false;
+                        interfaceList.push_back(interface);
+                        rc = Core::ERROR_NONE;
                     }
                 }
             }
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
-            rc = Core::ERROR_NONE;
             return rc;
         }
 
@@ -98,6 +119,8 @@ namespace WPEFramework
             GError *error = NULL;
             NMActiveConnection *activeConn = NULL;
             NMRemoteConnection *remoteConn = NULL;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
+
             if(client == nullptr)
             {
                 NMLOG_WARNING("client connection null:");
@@ -106,26 +129,35 @@ namespace WPEFramework
 
             activeConn = nm_client_get_primary_connection(client);
             if (activeConn == NULL) {
-                NMLOG_ERROR("No active activeConn Interface found");
-                return Core::ERROR_GENERAL;
+                NMLOG_WARNING("no active activeConn Interface found");
+                NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+                /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
+                if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
+                    m_defaultInterface = interface = ethname;
+                else
+                    m_defaultInterface = interface = wifiname; // default is wifi
+                return Core::ERROR_NONE;
             }
+
             remoteConn = nm_active_connection_get_connection(activeConn);
             if(remoteConn == NULL)
             {
-                NMLOG_WARNING("remote connection error");
+                NMLOG_ERROR("remote connection error");
                 return Core::ERROR_GENERAL;
             }
-            interface.clear();
+
             const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
             if(ifacePtr == NULL)
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 return Core::ERROR_GENERAL;
             }
+
             interface = ifacePtr;
-            if(interface != "eth0" && interface != "wlan0")
+            m_defaultInterface = interface;
+            if(interface != wifiname && interface != ethname)
             {
-                NMLOG_DEBUG("interface name is unknow");
+                NMLOG_ERROR("primary interface is not eth/wlan");
                 interface.clear();
             }
             else
@@ -138,30 +170,26 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
+
             if(client == nullptr)
             {
                 NMLOG_WARNING("client connection null:");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            std::string iface = "eth0";
-            std::string eth, wifi;
-            if(!nmUtils::GetInterfacesName(wifi, eth))
+            if(interface.empty() || (wifiname != interface && ethname != interface))
             {
-                NMLOG_WARNING("GetInterface Name Error !");
+                NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
                 return Core::ERROR_GENERAL;
             }
 
-            else if(interface == "wlan0" || nmUtils::caseInsensitiveCompare(interface,"WIFI"))
-                iface = wifi;
-            else if(interface == "eth0" || nmUtils::caseInsensitiveCompare(interface,"ETHERNET"))
-                iface = eth;
-
-            NMDevice *device = nm_client_get_device_by_iface(client, iface.c_str());
+            NMDevice *device = nm_client_get_device_by_iface(client, interface.c_str());
             if (device == NULL) {
-                NMLOG_WARNING("no interface found ");
+                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
+
             const GPtrArray *connections = nm_client_get_connections(client);
             NMConnection *conn = NULL;
             NMSettingConnection *settings;
@@ -171,7 +199,7 @@ namespace WPEFramework
                 settings = nm_connection_get_setting_connection(connection);
 
                 /* Check if the interface name matches */
-                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), iface.c_str()) == 0) {
+                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
                     conn = connection;
                     break;
                 }
@@ -196,71 +224,103 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
-            uint32_t rc = Core::ERROR_NONE;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
+
             if(client == nullptr)
             {
                 NMLOG_WARNING("client connection null:");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            std::string iface = "eth0";
-            std::string eth, wifi;
-            if(!nmUtils::GetInterfacesName(wifi, eth))
+            if(interface.empty() || (wifiname != interface && ethname != interface))
             {
-                NMLOG_WARNING("GetInterface Name Error !");
+                NMLOG_ERROR("interface: %s; not valied", interface.c_str()!=nullptr? interface.c_str():"empty");
                 return Core::ERROR_GENERAL;
             }
 
-            else if(interface == "wlan0" || nmUtils::caseInsensitiveCompare(interface,"WIFI"))
-                iface = wifi;
-            else if(interface == "eth0" || nmUtils::caseInsensitiveCompare(interface,"ETHERNET"))
-                iface = eth;
-
-            const GPtrArray *devices = nm_client_get_devices(client);
-            NMDevice *device = NULL;
-
-            for (guint i = 0; i < devices->len; ++i) {
-                device = NM_DEVICE(g_ptr_array_index(devices, i));
-                const char *name = nm_device_get_iface(device);
-                if (g_strcmp0(name, iface.c_str()) == 0) {
-                    nm_device_set_managed(device, enabled);
-                    NMLOG_INFO("Interface %s status set to %s", iface.c_str(), enabled ? "Enabled" : "Disabled");
-                }
+            NMDevice *device = nm_client_get_device_by_iface(client, interface.c_str());
+            if (device == NULL) {
+                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
+                return Core::ERROR_GENERAL;
             }
 
-            // if(device)
-            //     g_clear_object(&device);
-            return rc;
+            nm_device_set_managed(device, enabled);
+            NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+            return Core::ERROR_NONE;
         }
 
         uint32_t NetworkManagerImplementation::GetInterfaceState(const string& interface/* @in */, bool& isEnabled /* @out */)
         {
-            uint32_t rc = Core::ERROR_NONE;
-#if 0 //FIXME
-            const GPtrArray *devices = nm_client_get_devices(client);
-            NMDevice *device = NULL;
+            isEnabled = false;
+            bool isIfaceFound = false;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            for (guint i = 0; i < devices->len; ++i) {
-                device = NM_DEVICE(g_ptr_array_index(devices, i));
+            if(client == nullptr)
+            {
+                NMLOG_WARNING("client connection null:");
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
 
-                // Get the device details
-                const char *name = nm_device_get_iface(device);
+            if(interface.empty() || (wifiname != interface && ethname != interface))
+            {
+                NMLOG_ERROR("interface: %s; not valied", interface.c_str()!=nullptr? interface.c_str():"empty");
+                return Core::ERROR_GENERAL;
+            }
 
-                // Check if the device name matches
-                if (g_strcmp0(name, interface.c_str()) == 0) {
-                    nm_device_set_managed(device, false);
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            if (devices == NULL) {
+                NMLOG_ERROR("Failed to get device list.");
+                return Core::ERROR_GENERAL;
+            }
 
-                    NMLOG_DEBUG("Interface %s status set to disabled",
-                            interface.c_str());
+            for (guint j = 0; j < devices->len; j++)
+            {
+                NMDevice *device = NM_DEVICE(devices->pdata[j]);
+                if(device != NULL)
+                {
+                    const char* iface = nm_device_get_iface(device);
+                    if(iface != NULL)
+                    {
+                        std::string ifaceStr;
+                        ifaceStr.assign(iface);
+                        NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+                        if(ifaceStr == interface)
+                        {
+                            isIfaceFound = true;
+                            deviceState = nm_device_get_state(device);
+                            isEnabled = (deviceState > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
+                            NMLOG_INFO("%s : %s", ifaceStr.c_str(), isEnabled?"enabled":"disabled");
+                            break;
+                        }
+                    }
                 }
             }
- 
-            // Cleanup
-            if(device)
-                g_clear_object(&device);
-#endif
-            return rc;
-        } 
+
+            if(isIfaceFound)
+                return Core::ERROR_NONE;
+            else
+                NMLOG_ERROR("%s : not found", interface.c_str());
+            return Core::ERROR_GENERAL;
+        }
+
+        bool static isAutoConnectEnabled(NMActiveConnection* activeConn)
+        {
+            NMConnection *connection = NM_CONNECTION(nm_active_connection_get_connection(activeConn));
+            if(connection == NULL)
+                return false;
+
+            NMSettingIPConfig *ipConfig = nm_connection_get_setting_ip4_config(connection);
+            if(ipConfig)
+            {
+                const char* ipConfMethod = nm_setting_ip_config_get_method (ipConfig);
+                if(ipConfMethod != NULL && g_strcmp0(ipConfMethod, "auto") == 0)
+                    return true;
+                else
+                    NMLOG_WARNING("ip configuration: %s", ipConfMethod != NULL? ipConfMethod: "null");
+            }
+
+            return false;
+        }
 
         /* @brief Get IP Address Of the Interface */
         uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */) 
@@ -270,13 +330,14 @@ namespace WPEFramework
             NMIPConfig *ip4_config = NULL;
             NMIPConfig *ip6_config = NULL;
             const gchar *gateway = NULL;
-            char **dns_arr = NULL;
+            char **dnsArr = NULL;
             NMDhcpConfig *dhcp4_config = NULL;
             NMDhcpConfig *dhcp6_config = NULL;
             const char* dhcpserver;
             NMSettingConnection *settings;
-            NMIPAddress *address = NULL;
             NMDevice *device = NULL;
+
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(client == nullptr)
             {
@@ -284,134 +345,165 @@ namespace WPEFramework
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            std::string iface = "eth0";
-            std::string ethIface, wifiIface;
-            if(!nmUtils::GetInterfacesName(wifiIface, ethIface))
+            if(interface.empty() || interface == "null")
             {
-                NMLOG_WARNING("GetInterface Name Error !");
+                if(Core::ERROR_NONE != GetPrimaryInterface(interface))
+                {
+                    NMLOG_WARNING("default interface get failed");
+                    return Core::ERROR_NONE;
+                }
+                if(interface.empty())
+                {
+                    NMLOG_DEBUG("default interface return empty default is wlan0");
+                    interface = wifiname;
+                }
+            }
+            else if(wifiname != interface && ethname != interface)
+            {
+                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
 
-            else if(interface == "wlan0" || nmUtils::caseInsensitiveCompare(interface,"WIFI"))
-                iface = wifiIface;
-            else if(interface == "eth0" || nmUtils::caseInsensitiveCompare(interface,"ETHERNET"))
-                iface = ethIface;
-            else
-            {
-                if(Core::ERROR_NONE != GetPrimaryInterface(iface))
-                {
-                    NMLOG_WARNING("interface is not specified and default interface get failed");
-                    return Core::ERROR_GENERAL;
-                }
-            }
-
-            device = nm_client_get_device_by_iface(client, iface.c_str());
+            device = nm_client_get_device_by_iface(client, interface.c_str());
             if (device == NULL) {
-                NMLOG_WARNING("no interface found / wifi not connected no ip found");
+                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
 
             NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
             deviceState = nm_device_get_state(device);
-            if(deviceState != NM_DEVICE_STATE_ACTIVATED)
+            if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
             {
-                NMLOG_WARNING("device state is not activated state: (%d)", deviceState);
+                NMLOG_WARNING("Device state is not a valid state: (%d)", deviceState);
                 return Core::ERROR_GENERAL;
             }
 
             if(ipversion.empty())
-                NMLOG_WARNING("ipversion is empty default value IPV4");
+                NMLOG_WARNING("ipversion is empty default value IPv4");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
             {
-                NMLOG_WARNING("nm_client_get_active_connections error");
+                NMLOG_WARNING("no active connection; ip is not assigned to interface");
                 return Core::ERROR_GENERAL;
             }
-            for (guint i = 0; i < connections->len; i++){
+
+            for (guint i = 0; i < connections->len; i++)
+            {
                 NMActiveConnection *connection = NM_ACTIVE_CONNECTION(connections->pdata[i]);
+                if (connection == nullptr)
+                    continue;
                 settings = nm_connection_get_setting_connection(NM_CONNECTION(nm_active_connection_get_connection(connection)));
 
-                /* Check if the interface name matches */
-                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), iface.c_str()) == 0) {
+                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
                     conn = connection;
                     break;
                 }
             }
+
             if (conn == NULL) {
-                NMLOG_ERROR("no active connection found");
+                NMLOG_WARNING("no active connection on %s interface", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty()||nmUtils::caseInsensitiveCompare(ipversion,"IPV4"))
+            result.autoconfig = isAutoConnectEnabled(conn);
+            if(ipversion.empty() || ipversion == "null" || nmUtils::caseInsensitiveCompare(ipversion, "IPV4")) // default ipversion ipv4
             {
                 ip4_config = nm_active_connection_get_ip4_config(conn);
+                NMIPAddress *ipAddr = NULL;
+                std::string ipStr;
                 if (ip4_config != NULL) {
-                    const GPtrArray *p; 
-                    int              i;
-                    p = nm_ip_config_get_addresses(ip4_config);
-                    for (i = 0; i < p->len; i++) {
-                        address = static_cast<NMIPAddress*>(p->pdata[i]);
+                    const GPtrArray *ipByte;
+                    ipByte = nm_ip_config_get_addresses(ip4_config);
+                    for (int i = 0; i < ipByte->len; i++) {
+                        ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
+                        {
+                            result.ipaddress = nm_ip_address_get_address(ipAddr);
+                            result.prefix = nm_ip_address_get_prefix(ipAddr);
+                            NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
+                            result.ipversion = "IPv4"; // if null add as default
+                        }
                     }
                     gateway = nm_ip_config_get_gateway(ip4_config);
-                }   
-                dns_arr =   (char **)nm_ip_config_get_nameservers(ip4_config);
+                }
 
+                dnsArr = (char **)nm_ip_config_get_nameservers(ip4_config);
                 dhcp4_config = nm_active_connection_get_dhcp4_config(conn);
-                dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config,
-                               "dhcp_server_identifier");
-                if(!ipversion.empty())
-                    result.ipversion  = ipversion.c_str();
-                else
-                    result.ipversion  = "IPv4";
+                if(dhcp4_config)
+                    dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config, "dhcp_server_identifier");
                 if(dhcpserver)
                     result.dhcpserver = dhcpserver;
-                result.ula            = "";
-                result.ipaddress      = nm_ip_address_get_address(address);
-                result.prefix         = nm_ip_address_get_prefix(address);
-                result.gateway        = gateway;
-                if((*(&dns_arr[0]))!=NULL)
-                    result.primarydns     = *(&dns_arr[0]);
-                if((*(&dns_arr[1]))!=NULL )
-                    result.secondarydns   = *(&dns_arr[1]);
+                result.ula = "";
+                if(gateway)
+                    result.gateway = gateway;
+                if((*(&dnsArr[0]))!=NULL)
+                    result.primarydns     = *(&dnsArr[0]);
+                if((*(&dnsArr[1]))!=NULL )
+                    result.secondarydns   = *(&dnsArr[1]);
 
                 rc = Core::ERROR_NONE;
             }
-            else if(nmUtils::caseInsensitiveCompare(ipversion,"IPV6"))
+            else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
             {
-                NMIPAddress *a;
+                result.ipversion = ipversion.c_str();
+                NMIPAddress *ipAddr = nullptr;
                 ip6_config = nm_active_connection_get_ip6_config(conn);
-                if (ip6_config != NULL) {
-                    const GPtrArray *p; 
-                    int              i;
-                    p = nm_ip_config_get_addresses(ip6_config);
-                    for (i = 0; i < p->len; i++) {
-                        a = static_cast<NMIPAddress*>(p->pdata[i]);
-                        result.ipaddress = nm_ip_address_get_address(a);
-                        NMLOG_DEBUG("\tinet6 %s/%d\n", nm_ip_address_get_address(a), nm_ip_address_get_prefix(a));
+                if(ip6_config == nullptr)
+                {
+                    NMLOG_WARNING("no ipv6 config found");
+                    rc = Core::ERROR_GENERAL;
+                }
+                else
+                {
+                    std::string ipStr;
+                    const GPtrArray *ipArray = nullptr; 
+                    ipArray = nm_ip_config_get_addresses(ip6_config);
+                    for (int i = 0; i < ipArray->len; i++)
+                    {
+                        ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
+                        {
+                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0) {
+                                result.ula = ipStr;
+                                NMLOG_INFO("link-local ip: %s", result.ula.c_str());
+                            }
+                            else {
+                                result.prefix = nm_ip_address_get_prefix(ipAddr);
+                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
+                                    result.ipaddress = ipStr;
+                                NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                            }
+                        }
                     }
-                    gateway = nm_ip_config_get_gateway(ip6_config);
 
-                    dns_arr =   (char **)nm_ip_config_get_nameservers(ip6_config);
+                    gateway = nm_ip_config_get_gateway(ip6_config);
+                    if(gateway)
+                        result.gateway= gateway;
+                    dnsArr = (char **)nm_ip_config_get_nameservers(ip6_config);
+                    if((*(&dnsArr[0]))!= NULL)
+                        result.primarydns = *(&dnsArr[0]);
+                    if((*(&dnsArr[1]))!=NULL )
+                        result.secondarydns = *(&dnsArr[1]);
 
                     dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
-                    dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config,
-                               "dhcp_server_identifier");
-                    result.ipversion = ipversion.c_str();
-                    if(dhcpserver)
-                        result.dhcpserver   = dhcpserver;
-                    result.ula              = "";
-                    result.prefix         = 0;
-                    result.gateway        = gateway;
-                    if((*(&dns_arr[0]))!=NULL)
-                    result.primarydns     = *(&dns_arr[0]);
-                    if((*(&dns_arr[1]))!=NULL )
-                    result.secondarydns   = *(&dns_arr[1]);
+                    if(dhcp6_config)
+                    {
+                        dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config, "dhcp_server_identifier");
+                        if(dhcpserver) {
+                            result.dhcpserver = dhcpserver;
+                        }
+                    }
+                    result.ipversion = "IPv6";
+                    rc = Core::ERROR_NONE;
                 }
-                rc = Core::ERROR_NONE;
             }
             else
-                NMLOG_WARNING("ipversion is not IPV4 orIPV6");
+                NMLOG_WARNING("ipversion error IPv4/IPv6");
             return rc;
         }
 
@@ -503,7 +595,7 @@ namespace WPEFramework
                 else
                 {
                     //FIXME : Add IPv6 support here
-                    printf("Setting IPv6 is not supported at this point in time. This is just a place holder\n");
+                    NMLOG_WARNING("Setting IPv6 is not supported at this point in time. This is just a place holder");
                     rc = Core::ERROR_NOT_SUPPORTED;
                 }
             }
@@ -592,6 +684,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
+            NMLOG_WARNING("ssid security %d", ssid.security);
             if(wifi->addToKnownSSIDs(ssid))
                 rc = Core::ERROR_NONE;
             return rc;
@@ -613,15 +706,17 @@ namespace WPEFramework
                 NMLOG_WARNING("ssid is invalied");
                 return rc;
             }
-            // Check the last scanning time and if it exceeds 10 sec do a rescanning
+
+           //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
             {
-                nmEvent->setwifiScanOptions(false, true); // not notify scan result but print logs
-                if(!wifi->wifiScanRequest("", ssid.ssid))
+                nmEvent->setwifiScanOptions(false, false);
+                if(!wifi->wifiScanRequest())
                 {
                     NMLOG_WARNING("scanning failed but try to connect");
                 }
             }
+
             if(wifi->wifiConnect(ssid))
                 rc = Core::ERROR_NONE;
             return rc;

@@ -28,6 +28,7 @@
 #include "INetworkManager.h"
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
+#include "NetworkManagerImplementation.h"
 
 using namespace std;
 namespace WPEFramework
@@ -48,6 +49,7 @@ namespace WPEFramework
     };
     namespace Plugin
     {
+        extern NetworkManagerImplementation* _instance;
 
         wifiManager::wifiManager() : client(nullptr), loop(nullptr), createNewConnection(false) {
             NMLOG_INFO("wifiManager");
@@ -131,9 +133,14 @@ namespace WPEFramework
                 return wifiDevice;
             }
 
-            for (guint j = 0; j < devices->len; j++) {
+            for (guint j = 0; j < devices->len; j++)
+            {
                 NMDevice *device = NM_DEVICE(devices->pdata[j]);
-                if (nm_device_get_device_type(device) == NM_DEVICE_TYPE_WIFI)
+                const char* interface = nm_device_get_iface(device);
+                if(interface == nullptr)
+                    continue;
+                std::string iface = interface;
+                if (iface == nmUtils::wlanIface())
                 {
                     wifiDevice = device;
                     //NMLOG_DEBUG("Wireless Device found ifce : %s !", nm_device_get_iface (wifiDevice));
@@ -228,7 +235,7 @@ namespace WPEFramework
             wifiInfo.rate = std::to_string(bitrate);
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
-            wifiInfo.strength = std::to_string(static_cast<u_int8_t>(strength));
+            wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
             NMLOG_DEBUG("sterngth: %s %%", wifiInfo.strength.c_str());
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
             NMLOG_DEBUG("security %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
@@ -248,7 +255,7 @@ namespace WPEFramework
 
             NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
             if(activeAP == NULL) {
-                NMLOG_ERROR("No active access point found !");
+                NMLOG_DEBUG("No active access point found !");
                 return false;
             }
             else
@@ -269,7 +276,7 @@ namespace WPEFramework
 
             NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
             if(activeAP == NULL) {
-                NMLOG_ERROR("No active access point found !");
+                NMLOG_DEBUG("No active access point found !");
                 return false;
             }
             else
@@ -309,39 +316,39 @@ namespace WPEFramework
 
             NMDevice *wifiNMDevice = getNmDevice();
             if(wifiNMDevice == NULL) {
-                NMLOG_DEBUG("NMDeviceWifi NULL !");
+                NMLOG_ERROR("NMDeviceWifi NULL !");
                 return false;
             }
 
             nm_device_disconnect_async(wifiNMDevice, NULL, wifiDisconnectCb, this);
             wait(loop);
-            NMLOG_DEBUG("Exit");
             return isSuccess;
         }
 
-        static NMAccessPoint *checkSSIDAvailable(NMDevice *device, const GPtrArray *aps, const char *ssid)
+        static NMAccessPoint *checkSSIDAvailable(NMDevice *device, const char *ssid)
         {
-            NMAccessPoint   *AccessPoint = NULL;
+            NMAccessPoint *AccessPoint = NULL;
+            const GPtrArray *aps = NULL;
+            if(ssid == NULL)
+                return NULL;
+
             aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(device));
             for (guint i = 0; i < aps->len; i++)
             {
-                NMAccessPoint *candidate_ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
-                if (ssid)
+                NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
+                GBytes *ssidGBytes;
+                ssidGBytes = nm_access_point_get_ssid(ap);
+                if (!ssidGBytes)
+                    continue;
+                gsize size;
+                const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidGBytes, &size));
+                std::string ssidstr(reinterpret_cast<const char *>(ssidData), size);
+                //g_bytes_unref(ssidGBytes);
+                // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
+                if (strcmp(ssid, ssidstr.c_str()) == 0)
                 {
-                    GBytes *ssidGBytes;
-                    ssidGBytes = nm_access_point_get_ssid(candidate_ap);
-                    if (!ssidGBytes)
-                        continue;
-                    gsize size;
-                    const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidGBytes, &size));
-                    std::string ssidstr(reinterpret_cast<const char *>(ssidData), size);
-                    //g_bytes_unref(ssidGBytes);
-                   // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
-                    if (strcmp(ssid, ssidstr.c_str()) == 0)
-                    {
-                        AccessPoint = candidate_ap;
-                        break;
-                    }
+                    AccessPoint = ap;
+                    break;
                 }
             }
 
@@ -376,6 +383,24 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->loop);
         }
 
+        static void removeKnownSSIDCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMRemoteConnection *connection = NM_REMOTE_CONNECTION(client);
+            if (!nm_remote_connection_delete_finish(connection, result, &error)) {
+                NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
+                _wifiManager->isSuccess = false;
+            }
+            else
+            {
+                NMLOG_INFO ("RemoveKnownSSID is success");
+                _wifiManager->isSuccess = true;
+            }
+
+            _wifiManager->quit(NULL);
+        }
+
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
         {
             NMRemoteConnection        *remote_con = NM_REMOTE_CONNECTION(rmObject);
@@ -397,307 +422,34 @@ namespace WPEFramework
                 _wifiManager->client, NM_CONNECTION(remote_con), _wifiManager->wifidevice, _wifiManager->objectPath, NULL, wifiConnectCb, _wifiManager);
         }
 
-        bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo wifiData)
+        static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection)
         {
-            const char *ssid_in = wifiData.ssid.c_str();
-            const char* password_in = wifiData.passphrase.c_str();
-            NMAccessPoint *AccessPoint = NULL;
-            GPtrArray *allaps = NULL;
-            const char *conName = ssid_in;
-            NMConnection *connection = NULL;
-            NMSettingConnection  *sConnection = NULL;
-            NMSetting8021x *s8021X = NULL;
-            NMSettingWireless *sWireless = NULL;
-            NMSettingWirelessSecurity *sSecurity = NULL;
-            NM80211ApFlags apFlags;
-            NM80211ApSecurityFlags apWpaFlags;
-            NM80211ApSecurityFlags apRsnFlags;
-            const char  *ifname     = NULL;
-            const GPtrArray  *availableConnections;
-            bool SSIDmatch = false;
-            Exchange::INetworkManager::WiFiSSIDInfo apinfo;
-
-            if(!createClientNewConnection())
-                return false;
-
-            if (strlen(ssid_in) > 32)
+            if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
             {
-                NMLOG_WARNING("ssid length grater than 32");
+                NMLOG_WARNING("ssid name is missing or invalied");
                 return false;
             }
-
-            NMDevice *device = NULL;
-            device = getNmDevice();
-            if(device == NULL)
-                return false;
-            wifidevice = device;
-
-            std::string activeSSID;
-            if(getConnectedSSID(NM_DEVICE_WIFI(wifidevice), activeSSID))
-            {
-                if(strcmp(ssid_in, activeSSID.c_str()) == 0)
-                {
-                    NMLOG_WARNING("ssid already connected !");
-                    return true;
-                }
-                else
-                {
-                    NMLOG_WARNING("wifi already connected with %s AP", activeSSID.c_str());
-                }
-            }
-            //NMLOG_DEBUG("Wireless Device found ifce : %s !", ifname = nm_device_get_iface(device));
-            AccessPoint = checkSSIDAvailable(device, allaps, ssid_in);
-            // TODO Scann hidden ssid also for lnf
-            if(AccessPoint == NULL) {
-                NMLOG_WARNING("No network with SSID '%s' found !", ssid_in);
-                // TODO send SSID NO AVAILABLE event
-                return false;
-            }
-
-            getApInfo(AccessPoint, apinfo);
-
-            availableConnections = nm_device_get_available_connections(device);
-            for (guint i = 0; i < availableConnections->len; i++)
-            {
-                NMConnection *currentConnection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
-                const char   *id = nm_connection_get_id(NM_CONNECTION(currentConnection));
-
-                if (conName) {
-                    if (!id || strcmp(id, conName))
-                        continue;
-
-                    SSIDmatch = TRUE;
-                }
-
-                if (nm_access_point_connection_valid(AccessPoint, NM_CONNECTION(currentConnection))) {
-                    connection = g_object_ref(currentConnection);
-                    NMLOG_DEBUG("Connection '%s' exists !", conName);
-                    break;
-                }
-            }
-
-            if (SSIDmatch && !connection)
-            {
-                NMLOG_ERROR("Connection '%s' exists but properties don't match", conName);
-                //TODO Remove Connection
-                return false;
-            }
-
-            if (!connection)
-            {
-                NMLOG_DEBUG("creating new connection '%s' ", conName);
-                connection = nm_simple_connection_new();
-                if (conName) {
-                    sConnection = (NMSettingConnection *) nm_setting_connection_new();
-                    nm_connection_add_setting(connection, NM_SETTING(sConnection));
-                    const char *uuid = nm_utils_uuid_generate();;
-
-                    g_object_set(G_OBJECT(sConnection),
-                        NM_SETTING_CONNECTION_UUID,
-                        uuid,
-                        NM_SETTING_CONNECTION_ID,
-                        conName,
-                        NM_SETTING_CONNECTION_TYPE,
-                        "802-11-wireless",
-                        NULL);
-                }
-
-                sWireless = (NMSettingWireless *)nm_setting_wireless_new();
-                GBytes *ssid = g_bytes_new(ssid_in, strlen(ssid_in));
-                g_object_set(G_OBJECT(sWireless),
-                    NM_SETTING_WIRELESS_SSID,
-                    ssid,
-                    NULL);
-                //g_bytes_unref(ssid);
-               /* For lnf network need to include
-                *
-                * 'bssid' parameter is used to restrict the connection only to the BSSID
-                *  g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
-                *  g_object_set(s_wifi, NM_SETTING_WIRELESS_SSID, ssid, NM_SETTING_WIRELESS_HIDDEN, hidden, NULL);
-                */
-                nm_connection_add_setting(connection, NM_SETTING(sWireless));
-            }
-
-            apFlags = nm_access_point_get_flags(AccessPoint);
-            apWpaFlags = nm_access_point_get_wpa_flags(AccessPoint);
-            apRsnFlags = nm_access_point_get_rsn_flags(AccessPoint);
-
-            // check ap flag ty securti we supporting
-            if(apFlags != NM_802_11_AP_FLAGS_NONE && strlen(password_in) < 1 && !(apFlags & NM_802_11_AP_FLAGS_WPS))
-            {
-                NMLOG_ERROR("This ap(%s) security need password please add password!", ssid_in);
-                return false;
-            }
-
-            if ( (apRsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (apRsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM)) {
-
-                NMLOG_ERROR("Ap wifi security OWE");
-                return false;
-            }
-
-            if( (apWpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X) || (apRsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X) )
-            {
-                GError *error = NULL;
-                NMLOG_INFO("Ap securtity mode is 802.1X");
-
-                NMLOG_DEBUG("802.1x Identity : %s", wifiData.eap_identity.c_str());
-                NMLOG_DEBUG("802.1x CA cert path : %s", wifiData.ca_cert.c_str());
-                NMLOG_DEBUG("802.1x Client cert path : %s", wifiData.client_cert.c_str());
-                NMLOG_DEBUG("802.1x Private key path : %s", wifiData.private_key.c_str());
-                NMLOG_DEBUG("802.1x Private key psswd : %s", wifiData.private_key_passwd.c_str());
-
-                s8021X = (NMSetting8021x *) nm_setting_802_1x_new();
-                nm_connection_add_setting(connection, NM_SETTING(s8021X));
-
-                g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, wifiData.eap_identity.c_str(), NULL);
-                nm_setting_802_1x_add_eap_method(s8021X, "tls");
-                if(!wifiData.ca_cert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
-                                            wifiData.ca_cert.c_str(),
-                                            NM_SETTING_802_1X_CK_SCHEME_PATH,
-                                            NULL,
-                                            &error))
-                {
-                    NMLOG_ERROR("ca certificate add failed: %s", error->message);
-                    g_error_free(error);
-                    return false;
-                }
-
-                if(!wifiData.client_cert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
-                                            wifiData.client_cert.c_str(),
-                                            NM_SETTING_802_1X_CK_SCHEME_PATH,
-                                            NULL,
-                                            &error))
-                {
-                    NMLOG_ERROR("client certificate add failed: %s", error->message);
-                    g_error_free(error);
-                    return false;
-                }
-
-                if(!wifiData.private_key.empty() && !nm_setting_802_1x_set_private_key(s8021X,
-                                                wifiData.private_key.c_str(),
-                                                wifiData.private_key_passwd.c_str(),
-                                                NM_SETTING_802_1X_CK_SCHEME_PATH,
-                                                NULL,
-                                                &error))
-                {
-                    NMLOG_ERROR("client private key add failed: %s", error->message);
-                    g_error_free(error);
-                    return false;
-                }
-
-                sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
-                nm_connection_add_setting(connection, NM_SETTING(sSecurity));
-                g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-eap", NULL);
-            }
-            else if ((apFlags & NM_802_11_AP_FLAGS_PRIVACY) || (apWpaFlags != NM_802_11_AP_SEC_NONE )|| (apRsnFlags != NM_802_11_AP_SEC_NONE )) 
-            {
-                NMLOG_INFO("%s ap securtity mode (%s) supported !", ssid_in, nmUtils::getSecurityModeString(apFlags,apWpaFlags,apRsnFlags).c_str());
-
-                if (password_in) 
-                {
-                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
-                    nm_connection_add_setting(connection, NM_SETTING(sSecurity));
-
-                    if (apWpaFlags == NM_802_11_AP_SEC_NONE && apRsnFlags == NM_802_11_AP_SEC_NONE)
-                    {
-                        nm_setting_wireless_security_set_wep_key(sSecurity, 0, password_in);
-                        NMLOG_ERROR("wifi security WEP mode not supported ! need to add wep-key-type");
-                        return false;
-                    }
-                    else if ((apWpaFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) 
-                            || (apRsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) || (apRsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) {
-
-                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
-                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_PSK, password_in, NULL);
-                    }
-                }
-                else
-                {
-                    NMLOG_ERROR("This AccessPoint(%s) need password please add password!", ssid_in);
-                    return false;
-                }
-            }
-            else
-            {
-                /* for open network every flag value will be zero */
-                if (apFlags == NM_802_11_AP_FLAGS_NONE && apWpaFlags == NM_802_11_AP_SEC_NONE && apRsnFlags == NM_802_11_AP_SEC_NONE) {
-                    NMLOG_INFO("open network no password requied");
-                }
-                else {
-                    NMLOG_ERROR("wifi security mode not supported !");
-                    return false;
-                }
-            }
-
-            objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
-            GVariant *nmDbusConnection = nm_connection_to_dbus(connection, NM_CONNECTION_SERIALIZE_ALL);
-            if (NM_IS_REMOTE_CONNECTION(connection))
-            {
-                nm_remote_connection_update2(NM_REMOTE_CONNECTION(connection),
-                                            nmDbusConnection,
-                                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // autoconnect right away
-                                            NULL,
-                                            NULL,
-                                            wifiConnectionUpdate,
-                                            this);
-            }
-            else
-            {
-                createNewConnection = true;
-                nm_client_add_and_activate_connection_async(client, connection, device, objectPath, NULL, wifiConnectCb, this);
-            }
-
-            wait(loop);
-            return isSuccess;
-        }
-
-        static void addToKnownSSIDsCb(GObject *client, GAsyncResult *result, gpointer user_data)
-        {
-
-            GError *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            //NMRemoteConnection *connection = NM_REMOTE_CONNECTION(s);
-            if (!nm_client_add_connection_finish(NM_CLIENT(client), result, &error)) {
-                NMLOG_ERROR ("AddToKnownSSIDs Failed");
-                _wifiManager->isSuccess = false;
-            }
-            else
-            {
-                NMLOG_DEBUG ("AddToKnownSSIDs is success");
-                _wifiManager->isSuccess = true;
-            }
-
-            g_main_loop_quit(_wifiManager->loop);
-        }
-
-        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo)
-        {
-            if(!createClientNewConnection())
-                return false;
-
-            NMSettingWirelessSecurity *nmSettingsWifiSec;
-            NMSettingWireless *nmSettingsWifi;
+            /* Build up the 'connection' Setting */
+            NMSettingConnection  *sConnection = (NMSettingConnection *) nm_setting_connection_new();
             const char *uuid = nm_utils_uuid_generate();
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuid, NULL); // uuid
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_ID, ssidinfo.ssid.c_str(), NULL); // connection id = ssid
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, "wlan0", NULL); // interface name
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-11-wireless", NULL); // type 802.11wireless
+            nm_connection_add_setting(m_connection, NM_SETTING(sConnection));
 
-            nmSettingsWifiSec = (NMSettingWirelessSecurity *)nm_setting_wireless_security_new();
-            NMSettingConnection *nmConnSec =  (NMSettingConnection *)nm_setting_connection_new();
-            g_object_set(G_OBJECT(nmConnSec),
-                    NM_SETTING_CONNECTION_UUID,
-                    uuid,
-                    NM_SETTING_CONNECTION_ID,
-                    ssidinfo.ssid.c_str(),
-                    NM_SETTING_CONNECTION_TYPE,
-                    "802-11-wireless",
-                    NULL);
-            NMConnection *connection = nm_simple_connection_new();
-            nm_connection_add_setting(connection, NM_SETTING(nmConnSec));
-            nmSettingsWifi = (NMSettingWireless *)nm_setting_wireless_new();
-            GString *ssidStr = g_string_new(ssidinfo.ssid.c_str());
-            g_object_set(G_OBJECT(nmSettingsWifi), NM_SETTING_WIRELESS_SSID, ssidStr, NULL);
-            
-            nm_connection_add_setting(connection, NM_SETTING(nmSettingsWifi));
-            nmSettingsWifiSec = (NMSettingWirelessSecurity *)nm_setting_wireless_security_new();
-            // TODO chek different securtity mode and portocol and add settings
+            /* Build up the '802-11-wireless-security' settings */
+            NMSettingWireless *sWireless = NULL;
+            sWireless = (NMSettingWireless *)nm_setting_wireless_new();
+            nm_connection_add_setting(m_connection, NM_SETTING(sWireless));
+            GBytes *ssid = g_bytes_new(ssidinfo.ssid.c_str(), strlen(ssidinfo.ssid.c_str()));
+            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_SSID, ssid, NULL); // ssid in Gbyte
+            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MODE, NM_SETTING_WIRELESS_MODE_INFRA, NULL); // infra mode
+            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
+            // 'bssid' parameter is used to restrict the connection only to the BSSID
+            // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
+
+            NMSettingWirelessSecurity *sSecurity = NULL;
             switch(ssidinfo.security)
             {
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
@@ -707,94 +459,367 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
                 {
-                        g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
-                        if(!ssidinfo.passphrase.empty())
-                            g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
+                    if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
+                    {
+                        NMLOG_WARNING("password legth should be > 8");
+                        return false;
+                    }
+
+                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
+                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE == ssidinfo.security)
+                    {
+                        NMLOG_INFO("key-mgmt: %s", "sae");
+                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"sae", NULL);
+                    }
+                    else
+                    {
+                        NMLOG_INFO("key-mgmt: %s", "wpa-psk");
+                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
+                    }
+                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_AUTH_ALG, "open", NULL);
+                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
+                    break;
+                }
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_TKIP:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_AES:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_TKIP:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_AES:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE:
+                {
+                    NMSetting8021x *s8021X = NULL;
+                    GError *error = NULL;
+
+                    NMLOG_INFO("key-mgmt: %s", "802.1X");
+                    NMLOG_DEBUG("802.1x Identity : %s", ssidinfo.eap_identity.c_str());
+                    NMLOG_DEBUG("802.1x CA cert path : %s", ssidinfo.ca_cert.c_str());
+                    NMLOG_DEBUG("802.1x Client cert path : %s", ssidinfo.client_cert.c_str());
+                    NMLOG_DEBUG("802.1x Private key path : %s", ssidinfo.private_key.c_str());
+                    NMLOG_DEBUG("802.1x Private key psswd : %s", ssidinfo.private_key_passwd.c_str());
+
+                    s8021X = (NMSetting8021x *) nm_setting_802_1x_new();
+                    nm_connection_add_setting(m_connection, NM_SETTING(s8021X));
+                    g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, ssidinfo.eap_identity.c_str(), NULL);
+                    nm_setting_802_1x_add_eap_method(s8021X, "tls");
+                    if(!ssidinfo.ca_cert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
+                                                ssidinfo.ca_cert.c_str(),
+                                                NM_SETTING_802_1X_CK_SCHEME_PATH,
+                                                NULL,
+                                                &error))
+                    {
+                        NMLOG_ERROR("ca certificate add failed: %s", error->message);
+                        g_error_free(error);
+                        return false;
+                    }
+
+                    if(!ssidinfo.client_cert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
+                                                ssidinfo.client_cert.c_str(),
+                                                NM_SETTING_802_1X_CK_SCHEME_PATH,
+                                                NULL,
+                                                &error))
+                    {
+                        NMLOG_ERROR("client certificate add failed: %s", error->message);
+                        g_error_free(error);
+                        return false;
+                    }
+
+                    if(!ssidinfo.private_key.empty() && !nm_setting_802_1x_set_private_key(s8021X,
+                                                    ssidinfo.private_key.c_str(),
+                                                    ssidinfo.private_key_passwd.c_str(),
+                                                    NM_SETTING_802_1X_CK_SCHEME_PATH,
+                                                    NULL,
+                                                    &error))
+                    {
+                        NMLOG_ERROR("client private key add failed: %s", error->message);
+                        g_error_free(error);
+                        return false;
+                    }
+
+                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
+                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-eap", NULL);
                     break;
                 }
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
-                     NMLOG_INFO("open wifi network configuration");
-                     break;
+                {
+                    NMLOG_INFO("key-mgmt: %s", "none");
+                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
+                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"none", NULL);
+                    NMLOG_WARNING("open wifi network configuration");
+                    break;
+                }
                 default:
                 {
-                    NMLOG_WARNING("connection wifi securtity type not supported");
+                    NMLOG_ERROR("wifi securtity type not supported %d", ssidinfo.security);
                     return false;
                 }
             }
 
-            nm_connection_add_setting(connection, NM_SETTING(nmSettingsWifiSec));
-            nm_client_add_connection_async(client, connection, true, NULL, addToKnownSSIDsCb, this);
-            //wait(loop);
-            // TODO change to GmainLoooprun
-            g_main_loop_unref(loop);
+            /* Build up the 'ipv4' Setting */
+            NMSettingIP4Config *sIpv4Conf = (NMSettingIP4Config *) nm_setting_ip4_config_new();
+            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
+
+            /* Build up the 'ipv6' Setting */
+            NMSettingIP6Config *sIpv6Conf = (NMSettingIP6Config *) nm_setting_ip6_config_new();
+            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
+            return true;
+        }
+
+        bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo)
+        {
+            NMAccessPoint *AccessPoint = NULL;
+            NMConnection *m_connection = NULL;
+            const GPtrArray  *availableConnections;
+            bool SSIDmatch = false;
+            isSuccess = false;
+
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *device = getNmDevice();
+            if(device == NULL)
+                return false;
+
+            std::string activeSSID;
+            if(getConnectedSSID(NM_DEVICE_WIFI(device), activeSSID))
+            {
+                if(ssidInfo.ssid == activeSSID)
+                {
+                    NMLOG_INFO("ssid already connected !");
+                    return true;
+                }
+                else
+                    NMLOG_DEBUG("wifi already connected with %s AP", activeSSID.c_str());
+            }
+
+            AccessPoint = checkSSIDAvailable(device, ssidInfo.ssid.c_str());
+            if(AccessPoint == NULL) {
+                NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                return false;
+            }
+
+            Exchange::INetworkManager::WiFiSSIDInfo apinfo;
+            getApInfo(AccessPoint, apinfo);
+
+            availableConnections = nm_device_get_available_connections(device);
+            for (guint i = 0; i < availableConnections->len; i++)
+            {
+                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
+                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                if (connId != NULL && strcmp(connId, ssidInfo.ssid.c_str()) == 0)
+                {
+                    if (nm_access_point_connection_valid(AccessPoint, NM_CONNECTION(connection))) {
+                        m_connection = g_object_ref(connection);
+                        NMLOG_DEBUG("connection '%s' exists !", ssidInfo.ssid.c_str());
+                        if (m_connection == NULL)
+                        {
+                            NMLOG_ERROR("m_connection == NULL smothing went worng");
+                            return false;
+                        }
+                        break;
+                    }
+                    else
+                    {
+                        if (NM_IS_REMOTE_CONNECTION(connection))
+                        {
+                            /* 
+                             * libnm reuses the existing connection if new settings match the AP properties;
+                             * remove the old one because now only one connection per SSID is supported. 
+                             */
+                            NMLOG_WARNING(" '%s' connection exist but properties miss match; deleting...", ssidInfo.ssid.c_str());
+                            nm_remote_connection_delete_async(NM_REMOTE_CONNECTION(connection),
+                                                        NULL,
+                                                        removeKnownSSIDCb,
+                                                        this);
+                        }
+                    }
+                }
+            }
+
+            if (NM_IS_REMOTE_CONNECTION(m_connection))
+            {
+                if(!connectionBuilder(ssidInfo, m_connection))
+                {
+                    NMLOG_ERROR("connection builder failed");
+                    return false;
+                }
+                GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
+                                            connSettings,
+                                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // block auto connect becuse manualy activate 
+                                            NULL,
+                                            NULL,
+                                            wifiConnectionUpdate,
+                                            this);
+            }
+            else
+            {
+                NMLOG_DEBUG("creating new connection '%s' ", ssidInfo.ssid.c_str());
+                m_connection = nm_simple_connection_new();
+                objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if(!connectionBuilder(ssidInfo, m_connection))
+                {
+                    NMLOG_ERROR("connection builder failed");
+                    return false;
+                }
+                createNewConnection = true;
+                nm_client_add_and_activate_connection_async(client, m_connection, device, objectPath, NULL, wifiConnectCb, this);
+            }
+
+            wait(loop);
             return isSuccess;
         }
 
-        static void removeKnownSSIDCb(GObject *client, GAsyncResult *result, gpointer user_data)
+         static void addToKnownSSIDsUpdateCb(GObject *rmObject, GAsyncResult *res, gpointer user_data)
+        {
+            NMRemoteConnection *remote_con = NM_REMOTE_CONNECTION(rmObject);
+            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            GVariant *ret = NULL;
+            GError *error = NULL;
+
+            ret = nm_remote_connection_update2_finish(remote_con, res, &error);
+
+            if (!ret) {
+                NMLOG_ERROR("Error: %s.", error->message);
+                g_error_free(error);
+                _wifiManager->isSuccess = false;
+                NMLOG_ERROR("AddToKnownSSIDs failed");
+            }
+            else
+            {
+                _wifiManager->isSuccess = true;
+                NMLOG_INFO("AddToKnownSSIDs success");
+            }
+            _wifiManager->quit(NULL);
+        }
+
+        static void addToKnownSSIDsCb(GObject *client, GAsyncResult *result, gpointer user_data)
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            NMRemoteConnection *connection = NM_REMOTE_CONNECTION(client);
-            if (!nm_remote_connection_delete_finish(connection, result, &error)) {
-                NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
+            GVariant **outResult = NULL;
+            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, outResult, &error)) {
+                NMLOG_ERROR("AddToKnownSSIDs Failed");
                 _wifiManager->isSuccess = false;
             }
             else
             {
-                NMLOG_INFO ("RemoveKnownSSID is success");
+                NMLOG_INFO("AddToKnownSSIDs success");
                 _wifiManager->isSuccess = true;
             }
 
             g_main_loop_quit(_wifiManager->loop);
         }
 
+        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo)
+        {
+            isSuccess = false;
+            NMConnection *m_connection = NULL;
+
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *device = getNmDevice();
+            if(device == NULL)
+                return false;
+
+            const GPtrArray  *availableConnections = nm_device_get_available_connections(device);
+            for (guint i = 0; i < availableConnections->len; i++)
+            {
+                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
+                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                if (connId != NULL && strcmp(connId, ssidinfo.ssid.c_str()) == 0)
+                {
+                    m_connection = g_object_ref(connection);
+                }
+            }
+
+            if (NM_IS_REMOTE_CONNECTION(m_connection))
+            {
+                if(!connectionBuilder(ssidinfo, m_connection))
+                {
+                    NMLOG_ERROR("connection builder failed");
+                    return false;
+                }
+                NMLOG_DEBUG("update exsisting connection '%s' ", ssidinfo.ssid.c_str());
+                GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
+                                            connSettings,
+                                            NM_SETTINGS_UPDATE2_FLAG_TO_DISK,
+                                            NULL,
+                                            NULL,
+                                            addToKnownSSIDsUpdateCb,
+                                            this);
+            }
+            else
+            {
+                NMLOG_DEBUG("creating new connection '%s' ", ssidinfo.ssid.c_str());
+                m_connection = nm_simple_connection_new();
+                if(!connectionBuilder(ssidinfo, m_connection))
+                {
+                    NMLOG_ERROR("connection builder failed");
+                    return false;
+                }
+                createNewConnection = true;
+                GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                nm_client_add_connection2(client,
+                                        connSettings,
+                                        NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
+                                        NULL, TRUE, NULL,
+                                        addToKnownSSIDsCb, this);
+            }
+            wait(loop);
+            return isSuccess;
+        }
+
         bool wifiManager::removeKnownSSID(const string& ssid)
         {
+            NMConnection *m_connection = NULL;
+            isSuccess = false;
 
             if(!createClientNewConnection())
                 return false;
 
             if(ssid.empty())
-                return false;
-            isSuccess = false;
-
-            NMRemoteConnection* remoteConnection;
-            const GPtrArray* connections = nm_client_get_connections(client);
-
-            for (guint i = 0; i < connections->len; i++)
             {
-                remoteConnection = NM_REMOTE_CONNECTION(connections->pdata[i]);
-                NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
-                if (NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                NMLOG_ERROR("ssid is empty");
+                return false;
+            }
+
+            const GPtrArray  *allconnections = nm_client_get_connections(client);
+            for (guint i = 0; i < allconnections->len; i++)
+            {
+                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
+                if (!NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                    continue; // if not wireless connection skipt
+                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                if(connId == NULL)
+                    continue;
+                NMLOG_DEBUG("wireless connection '%s'", connId);
+                if (strcmp(connId, ssid.c_str()) == 0)
                 {
-                    GBytes *ssidBytes = nm_setting_wireless_get_ssid(nm_connection_get_setting_wireless(connection));
-                    if (ssidBytes)
+                    m_connection = g_object_ref(connection);
+                    if (NM_IS_REMOTE_CONNECTION(m_connection))
                     {
-                        gsize ssidSize;
-                        const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidBytes, &ssidSize));
-                        std::string ssidstr(reinterpret_cast<const char *>(ssidData), ssidSize);
-                        if (ssid == ssidstr)
-                        {
-                            //nm_remote_connection_delete_async(remoteConnection, NULL, removeKnownSSIDCb, this);
-                            // TODO add async
-                            GError *error = NULL;
-                            nm_remote_connection_delete(remoteConnection, NULL, &error);
-                            if (error)
-                            {
-                                NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
-                                g_error_free(error);
-                            }
-                            else
-                            {
-                                NMLOG_INFO("RemoveKnownSSID is success %s", ssid.c_str());
-                                isSuccess = true;
-                            }
-                            break; // if remove all connection with same ssid not to break
-                        }
+                        NMLOG_INFO("deleting '%s' connection...", ssid.c_str());
+                        nm_remote_connection_delete_async(NM_REMOTE_CONNECTION(m_connection),
+                                                    NULL,
+                                                    removeKnownSSIDCb,
+                                                    this);
                     }
+                    wait(loop);
+                    break; // multiple connection with same name not handiled
                 }
             }
-    
+
+            if(!m_connection)
+                NMLOG_INFO("'%s' no such connection profile", ssid.c_str());
+
             return isSuccess;
         }
 
@@ -856,7 +881,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->loop);
         }
 
-        bool wifiManager::wifiScanRequest(std::string frequency, std::string ssidReq)
+        bool wifiManager::wifiScanRequest(std::string ssidReq)
         {
             if(!createClientNewConnection())
                 return false;
@@ -866,7 +891,7 @@ namespace WPEFramework
                 return false;
             }
             isSuccess = false;
-            if(!ssidReq.empty())
+            if(!ssidReq.empty() && ssidReq != "null")
             {
                 NMLOG_INFO("staring wifi scanning .. %s", ssidReq.c_str());
                 GVariantBuilder builder, array_builder;
@@ -877,7 +902,6 @@ namespace WPEFramework
                                     g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssidReq.c_str(), ssidReq.length(), 1)
                                     );
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
-                g_variant_builder_add(&builder, "{sv}", "hidden", g_variant_new_boolean(TRUE));
                 options = g_variant_builder_end(&builder);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
             }
