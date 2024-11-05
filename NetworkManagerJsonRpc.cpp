@@ -303,13 +303,16 @@ namespace WPEFramework
                 response["interface"]    = interface;
                 response["ipversion"]    = address.ipversion;
                 response["autoconfig"]   = address.autoconfig;
-                response["ipaddress"]    = address.ipaddress;
-                response["prefix"]       = address.prefix;
-                response["ula"]          = address.ula;
-                response["dhcpserver"]   = address.dhcpserver;
-                response["gateway"]      = address.gateway;
-                response["primarydns"]   = address.primarydns;
-                response["secondarydns"] = address.secondarydns;
+                if (!address.ipaddress.empty())
+                {
+                    response["ipaddress"]    = address.ipaddress;
+                    response["prefix"]       = address.prefix;
+                    response["ula"]          = address.ula;
+                    response["dhcpserver"]   = address.dhcpserver;
+                    response["gateway"]      = address.gateway;
+                    response["primarydns"]   = address.primarydns;
+                    response["secondarydns"] = address.secondarydns;
+                }
             }
             returnJson(rc);
         }

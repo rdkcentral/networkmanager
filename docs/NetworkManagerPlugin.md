@@ -214,13 +214,13 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result?.Interfaces | array | <sup>*(optional)*</sup> An interface |
-| result?.Interfaces[#] | object | <sup>*(optional)*</sup>  |
-| result?.Interfaces[#].type | string | Interface  Type |
-| result?.Interfaces[#].name | string | Interface Name. ex: eth0 or wlan0 |
-| result?.Interfaces[#].mac | string | Interface MAC address |
-| result?.Interfaces[#].enabled | boolean | Whether the interface is currently enabled |
-| result?.Interfaces[#].connected | boolean | Whether the interface is currently connected |
+| result.interfaces | array | An interface details |
+| result.interfaces[#] | object |  |
+| result.interfaces[#].type | string | Interface  Type |
+| result.interfaces[#].name | string | Interface Name. ex: eth0 or wlan0 |
+| result.interfaces[#].mac | string | Interface MAC address |
+| result.interfaces[#].enabled | boolean | Whether the interface is currently enabled |
+| result.interfaces[#].connected | boolean | Whether the interface is currently connected |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -242,7 +242,7 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "Interfaces": [
+    "interfaces": [
       {
         "type": "ETHERNET",
         "name": "eth0",

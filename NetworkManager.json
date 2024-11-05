@@ -196,8 +196,8 @@
             "result": {
                 "type": "object",
                 "properties": {
-                    "Interfaces": {
-                        "summary": "An interface",
+                    "interfaces": {
+                        "summary": "An interface details",
                         "type":"array",
                         "items": {
                             "type":"object",
@@ -372,7 +372,9 @@
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
                     }
-                }
+                },
+                "required": [
+                ]
             },
             "result": {
                 "type": "object",
@@ -910,7 +912,9 @@
                             "example": "Xfinity Mobile"
                         }
                     }
-                }
+                },
+                "required": [
+                ]
             },
             "result": {
                   "type": "object",

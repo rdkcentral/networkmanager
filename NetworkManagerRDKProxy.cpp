@@ -837,12 +837,12 @@ namespace WPEFramework
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
                 address.autoconfig     = iarmData.autoconfig;
-                address.dhcpserver     = string(iarmData.dhcpserver,MAX_IP_ADDRESS_LEN - 1);
+                address.dhcpserver     = string(iarmData.dhcpserver);
                 address.ula            = string("");
-                address.ipaddress      = string(iarmData.ipaddress,MAX_IP_ADDRESS_LEN - 1);
-                address.gateway        = string(iarmData.gateway,MAX_IP_ADDRESS_LEN - 1);
-                address.primarydns     = string(iarmData.primarydns,MAX_IP_ADDRESS_LEN - 1);
-                address.secondarydns   = string(iarmData.secondarydns,MAX_IP_ADDRESS_LEN - 1);
+                address.ipaddress      = string(iarmData.ipaddress);
+                address.gateway        = string(iarmData.gateway);
+                address.primarydns     = string(iarmData.primarydns);
+                address.secondarydns   = string(iarmData.secondarydns);
                 if (0 == strcasecmp("ipv4", iarmData.ipversion))
                 {
                     address.ipversion = string ("IPv4");
