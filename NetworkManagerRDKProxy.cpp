@@ -855,7 +855,17 @@ namespace WPEFramework
                 }
 
                 /* Return the default interface information */
-                interface = string(interface);
+                if (interface.empty())
+                {
+                    string tmpInterface = string(iarmData.interface);
+                    if ("ETHERNET" == tmpInterface)
+                        interface = "eth0";
+                    else if ("WIFI" == tmpInterface)
+                        interface = "wlan0";
+                    else
+                        rc = Core::ERROR_BAD_REQUEST;
+                }
+
                 rc = Core::ERROR_NONE;
             }
             else
