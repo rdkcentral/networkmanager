@@ -505,10 +505,8 @@ namespace WPEFramework
                         }
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
-                        string json;
-                        ssids.ToString(json);
 
-                        ::_instance->ReportAvailableSSIDs(json);
+                        ::_instance->ReportAvailableSSIDs(ssids);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
@@ -1017,8 +1015,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             IARM_Bus_WiFiSrvMgr_SsidList_Param_t param;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
-            (void)ssids;
-            (void) frequency;
+            if(ssids)
+            {
+                string tmpssidlist{};
+                while (ssids->Next(tmpssidlist) == true)
+                {
+                    scanForSsidslist.push_back(tmpssidlist);
+                }
+            }
+
+            scanForFreq = frequency;
 
             memset(&param, 0, sizeof(param));
 

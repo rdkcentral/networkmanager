@@ -664,8 +664,30 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency = parameters["frequency"].String();
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
+            string frequency = parameters["frequency"].String();
+            std::vector<std::string> tmpssidslist;
+
+            if (parameters.HasLabel("ssid"))
+            {
+                JsonArray array = parameters["ssids"].Array();
+                JsonArray::Iterator index(array.Elements());
+                while (index.Next() == true)
+                {
+                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
+                    {
+                        tmpssidslist.push_back(index.Current().String().c_str());
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Unexpected variant type");
+                        return rc;
+                    }
+                }
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+            }
+
+            NMLOG_INFO("Received frequency string : %s", frequency.c_str());
 
             if (_networkManager)
                 rc = _networkManager->StartWiFiScan(frequency, ssids);
