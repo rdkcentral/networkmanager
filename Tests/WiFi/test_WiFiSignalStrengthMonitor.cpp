@@ -18,11 +18,11 @@ namespace WPEFramework
    namespace Plugin
     {
        NetworkManagerImplementation* _instance;
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChangedEvent(const string ssid, const string signalLevel, const WiFiSignalQuality signalQuality)
+        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const WiFiSignalQuality quality)
        {
             return;
         }
-        void NetworkManagerImplementation::ReportInternetStatusChangedEvent(const InternetStatus oldState, const InternetStatus newstate)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const InternetStatus prevState, const InternetStatus currState)
         {
             return;
         }
