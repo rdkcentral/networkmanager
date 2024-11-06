@@ -1,5 +1,4 @@
 #include "WiFiSignalStrengthMonitor.h"
-#include "NetworkManagerImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
 #include <gtest/gtest.h>
