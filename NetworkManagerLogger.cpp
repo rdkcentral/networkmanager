@@ -34,7 +34,46 @@
 #endif
 
 namespace NetworkManagerLogger {
-    static LogLevel gDefaultLogLevel = TRACE_LEVEL;
+    static LogLevel gDefaultLogLevel = INFO_LEVEL;
+
+
+#ifdef USE_RDK_LOGGER
+    rdk_LogLevel mapTordkLogLevel(LogLevel level)
+    {
+      rdk_LogLevel rdklevel = RDK_LOG_INFO;
+      switch (level)
+      {
+        case FATAL_LEVEL:
+          rdklevel = RDK_LOG_FATAL;
+          break;
+        case ERROR_LEVEL:
+          rdklevel = RDK_LOG_ERROR;
+          break;
+        case WARNING_LEVEL:
+          rdklevel = RDK_LOG_WARN;
+          break;
+        case INFO_LEVEL:
+          rdklevel = RDK_LOG_INFO;
+          break;
+        case DEBUG_LEVEL:
+          rdklevel = RDK_LOG_DEBUG;
+          break;
+      }
+      return rdklevel;
+    }
+#endif
+
+    const char* trimPath(const char* s)
+    {
+      if (!s)
+        return s;
+
+      const char* t = strrchr(s, (int) '/');
+      if (t) t++;
+      if (!t) t = s;
+
+      return t;
+    }
 
     const char* methodName(const std::string& prettyFunction)
     {
@@ -72,11 +111,12 @@ namespace NetworkManagerLogger {
         }
         formattedLog[kFormatMessageSize - 1] = '\0';
 #ifdef USE_RDK_LOGGER
-        RDK_LOG((int)level, "LOG.RDK.NETSRVMGER", "%s\n", formattedLog);
+        RDK_LOG(mapTordkLogLevel(level), "LOG.RDK.NWMGR", "%s\n", formattedLog);
 #else
-        const char* levelMap[] = {"Fatal", "Error", "Warning", "Info", "Verbose", "Trace"};
+        const char* levelMap[] = {"Fatal", "Error", "Warn", "Info", "Debug"};
         struct timeval tv;
         struct tm* lt;
+        const char* fileName = trimPath(file);
 
         if (gDefaultLogLevel < level)
             return;
@@ -84,7 +124,7 @@ namespace NetworkManagerLogger {
         gettimeofday(&tv, NULL);
         lt = localtime(&tv.tv_sec);
 
-        printf("%.2d:%.2d:%.2d.%.6lld %-10s %s:%d : %s\n", lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, levelMap[level], basename(file), line, formattedLog);
+        printf("%.2d:%.2d:%.2d.%.6lld [%-5s] [PID=%d] [TID=%d] [%s +%d] %s : %s\n", lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, levelMap[level], getpid(), gettid(), fileName, line, func, formattedLog);
         fflush(stdout);
 #endif
     }
@@ -97,4 +137,14 @@ namespace NetworkManagerLogger {
         // TODO : Inform RDKLogger to change the log level
 #endif
     }
+
+    void GetLevel(LogLevel& level)
+    {
+        level = gDefaultLogLevel;
+        NMLOG_INFO("NetworkManager logLevel:%d", level);
+#ifdef USE_RDK_LOGGER
+        // TODO : Inform RDKLogger to change the log level
+#endif
+    }
+
 } // namespace NetworkManagerLogger

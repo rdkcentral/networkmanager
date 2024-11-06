@@ -80,7 +80,7 @@ namespace WPEFramework
             }
             NMDeviceStateReason reason = nm_device_get_state_reason(device);
             std::string wifiState;
-           // NMLOG_TRACE("\033[0;31m NMDeviceStateReason %d \033[0m",reason);
+           // NMLOG_DEBUG("\033[0;31m NMDeviceStateReason %d \033[0m",reason);
             switch (reason)
             {
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_AVAILABLE:
@@ -157,7 +157,7 @@ namespace WPEFramework
                     }
                 }
             }
-            NMLOG_TRACE("wifi state: %s", wifiState.c_str());
+            NMLOG_DEBUG("wifi state: %s", wifiState.c_str());
         }
         else if(ifname == nmEvents->ifnameEth0)
         {
@@ -185,7 +185,7 @@ namespace WPEFramework
             }
         }
 
-        NMLOG_TRACE("%s state: (%d)", ifname.c_str(), deviceState);
+        NMLOG_DEBUG("%s state: (%d)", ifname.c_str(), deviceState);
 
     }
 
@@ -295,7 +295,7 @@ namespace WPEFramework
             }
         }
         else
-            NMLOG_TRACE("device error null");
+            NMLOG_DEBUG("device error null");
     } 
 
     static void deviceRemovedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
@@ -330,7 +330,7 @@ namespace WPEFramework
             NMLOG_WARNING("internet connection down");
             break;
         case NM_STATE_CONNECTED_GLOBAL:
-            NMLOG_TRACE("global internet connection success");
+            NMLOG_DEBUG("global internet connection success");
             break;
         default:
             break;
@@ -393,7 +393,7 @@ namespace WPEFramework
                     }
                 }
                 else
-                    NMLOG_TRACE("device type not eth/wifi");
+                    NMLOG_DEBUG("device type not eth/wifi");
             }
         }
 
@@ -405,7 +405,7 @@ namespace WPEFramework
 
     bool GnomeNetworkManagerEvents::startNetworkMangerEventMonitor()
     {
-        NMLOG_TRACE("starting gnome event monitor");
+        NMLOG_DEBUG("starting gnome event monitor");
         if (NULL == nmEvents.client) {
             NMLOG_ERROR("Client Connection NULL DBUS event Failed!");
             return false;
@@ -452,7 +452,7 @@ namespace WPEFramework
 
     GnomeNetworkManagerEvents::GnomeNetworkManagerEvents()
     {
-        NMLOG_TRACE("GnomeNetworkManagerEvents");
+        NMLOG_DEBUG("GnomeNetworkManagerEvents");
         std::string wifiInterface = "wlan0", ethernetInterface = "eth0";
         if(!nmUtils::GetInterfacesName(wifiInterface, ethernetInterface))
         {
@@ -491,7 +491,7 @@ namespace WPEFramework
         if(oldIface != newIface)
         {
             if(_instance != nullptr)
-                _instance->ReportActiveInterfaceChangedEvent(oldIface, newIface);
+                _instance->ReportActiveInterfaceChange(oldIface, newIface);
             NMLOG_INFO("old interface - %s new interface - %s", oldIface.c_str(), newIface.c_str());
             oldIface = newIface;
         }
@@ -523,18 +523,18 @@ namespace WPEFramework
             default:
                 state = "Unknown";
         }
-        NMLOG_TRACE("%s interface state changed - %s", iface.c_str(), state.c_str());
+        NMLOG_DEBUG("%s interface state changed - %s", iface.c_str(), state.c_str());
         if(_instance != nullptr && (iface == _nmEventInstance->nmEvents.ifnameWlan0 || iface == _nmEventInstance->nmEvents.ifnameEth0))
-            _instance->ReportInterfaceStateChangedEvent(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
+            _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
     }
 
     void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state)
     {
         if(_instance != nullptr)
-            _instance->ReportWiFiStateChangedEvent(static_cast<Exchange::INetworkManager::WiFiState>(state));
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
     }
 
-    void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acqired, bool isIPv6)
+    void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)
     {
         static std::map<std::string, std::string> ipv6Map;
         static std::map<std::string, std::string> ipv4Map;
@@ -563,14 +563,18 @@ namespace WPEFramework
                 ipv4Map[iface] = ipAddress;
         }
 
+        Exchange::INetworkManager::IPStatus ipStatus{};
+        if (acquired)
+            ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
+
         if(_instance != nullptr)
-            _instance->ReportIPAddressChangedEvent(iface, acqired, true, ipAddress);
-        NMLOG_INFO("iface:%s - ipaddress:%s - %s - isIPv6:%s", iface.c_str(), ipAddress.c_str(), acqired?"acquired":"lost", isIPv6?"true":"false");
+            _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
+        NMLOG_INFO("iface:%s - ipaddress:%s - %s - isIPv6:%s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"true":"false");
     }
 
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
     {
-        NMLOG_TRACE("wifi scanning completed ...");
+        NMLOG_DEBUG("wifi scanning completed ...");
         if(!NM_IS_DEVICE_WIFI(wifiDevice))
         {
             NMLOG_ERROR("Not a wifi object ");
@@ -592,12 +596,12 @@ namespace WPEFramework
         if(_nmEventInstance->debugLogs) {
             _nmEventInstance->debugLogs = false;
             NMLOG_INFO("Number of Access Points Available = %d", static_cast<int>(accessPoints->len));
-            NMLOG_TRACE("Scanned APIs are  = %s",ssidListJson.c_str());
+            NMLOG_DEBUG("Scanned APIs are  = %s",ssidListJson.c_str());
         }
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
-            _instance->ReportAvailableSSIDsEvent(ssidListJson);
+            _instance->ReportAvailableSSIDs(ssidListJson);
         }
     }
 
@@ -606,7 +610,7 @@ namespace WPEFramework
         doScanNotify.store(doNotify);
         if(!doScanNotify)
         {
-            NMLOG_TRACE("stop periodic wifi scan result notify");
+            NMLOG_DEBUG("stop periodic wifi scan result notify");
         }
         debugLogs = enableLogs;
     }

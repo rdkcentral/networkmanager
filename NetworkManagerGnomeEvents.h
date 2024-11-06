@@ -43,11 +43,11 @@ namespace WPEFramework
     {
 
     public:
-        static void onInterfaceStateChangeCb(uint8_t newState, std::string iface); // ReportInterfaceStateChangedEvent
-        static void onAddressChangeCb(std::string iface, std::string ipAddress, bool acqired, bool isIPv6); // ReportIPAddressChangedEvent
-        static void onActiveInterfaceChangeCb(std::string newInterface); // ReportActiveInterfaceChangedEvent
-        static void onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData); // ReportAvailableSSIDsEvent
-        static void onWIFIStateChanged(uint8_t state); // ReportWiFiStateChangedEvent
+        static void onInterfaceStateChangeCb(uint8_t newState, std::string iface); // ReportInterfaceStateChange
+        static void onAddressChangeCb(std::string iface, std::string ipAddress, bool acqired, bool isIPv6); // ReportIPAddressChange
+        static void onActiveInterfaceChangeCb(std::string newInterface); // ReportActiveInterfaceChange
+        static void onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData); // ReportAvailableSSIDs
+        static void onWIFIStateChanged(uint8_t state); // ReportWiFiStateChange
 
     public:
         static GnomeNetworkManagerEvents* getInstance();

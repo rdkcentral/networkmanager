@@ -18,9 +18,22 @@
 **/
 
 #include "NetworkManager.h"
+#include "INetworkManager.h"
+#include "NetworkManagerJsonEnum.h"
 
-#define LOGINFOMETHOD() { std::string json; parameters.ToString(json); NMLOG_TRACE("params=%s", json.c_str() ); }
-#define LOGTRACEMETHODFIN() { std::string json; response.ToString(json); NMLOG_TRACE("response=%s", json.c_str() ); }
+#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
+#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
+
+#define returnJson(rc) \
+    { \
+        if (Core::ERROR_NONE == rc)                 \
+            response["success"] = true;             \
+        else                                        \
+            response["success"] = false;            \
+        LOG_OUTPARAM();                             \
+        return Core::ERROR_NONE;                    \
+    }
+
 
 using namespace NetworkManagerLogger;
 
@@ -39,6 +52,7 @@ namespace WPEFramework
          */
         void NetworkManager::RegisterAllMethods()
         {
+            Register("GetLogLevel",                       &NetworkManager::GetLogLevel, this);
             Register("SetLogLevel",                       &NetworkManager::SetLogLevel, this);
             Register("GetAvailableInterfaces",            &NetworkManager::GetAvailableInterfaces, this);
             Register("GetPrimaryInterface",               &NetworkManager::GetPrimaryInterface, this);
@@ -114,71 +128,82 @@ namespace WPEFramework
 
         uint32_t NetworkManager::SetLogLevel (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
 
             uint32_t rc = Core::ERROR_GENERAL;
             LogLevel level = INFO_LEVEL;
-            if (parameters.HasLabel("logLevel"))
+            if (parameters.HasLabel("level"))
             {
-                level = static_cast <LogLevel> (parameters["logLevel"].Number());
+                level = static_cast <LogLevel> (parameters["level"].Number());
 
                 NetworkManagerLogger::SetLevel(level);
 
-                const Exchange::INetworkManager::NMLogging log = static_cast <Exchange::INetworkManager::NMLogging> (level);
+                const Exchange::INetworkManager::Logging log = static_cast <Exchange::INetworkManager::Logging> (level);
                 if (_networkManager)
                     rc = _networkManager->SetLogLevel(log);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
             }
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
+        }
+
+        uint32_t NetworkManager::GetLogLevel (const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+
+            uint32_t rc = Core::ERROR_NONE;
+            LogLevel level = INFO_LEVEL;
+            NetworkManagerLogger::GetLevel(level);
+            response["level"] = static_cast <uint8_t>(level);
+
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetAvailableInterfaces (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
-
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::IInterfaceDetailsIterator* interfaces = NULL;
+
+            Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
+
             if (_networkManager)
-                rc = _networkManager->GetAvailableInterfaces(interfaces);
+                rc = _networkManager->GetAvailableInterfaces(_interfaces);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (interfaces)
+            if (Core::ERROR_NONE == rc)
             {
-                NMLOG_TRACE("received response");
-                JsonArray array;
-                Exchange::INetworkManager::InterfaceDetails entry{};
-                while (interfaces->Next(entry) == true) {
-                    JsonObject each;
-                    each[_T("type")] = entry.m_type;
-                    each[_T("name")] = entry.m_name;
-                    each[_T("mac")] = entry.m_mac;
-                    each[_T("isEnabled")] = entry.m_isEnabled;
-                    each[_T("isConnected")] = entry.m_isConnected;
+                if (_interfaces != nullptr)
+                {
+                    JsonArray array;
+                    Exchange::INetworkManager::InterfaceDetails entry{};
+                    while (_interfaces->Next(entry) == true)
+                    {
+                        JsonObject each;
+                        Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{entry.type};
+                        each["type"] = type.Data();
+                        each["name"] = entry.name;
+                        each["mac"] = entry.mac;
+                        each["enabled"] = entry.enabled;
+                        each["connected"] = entry.connected;
 
-                    array.Add(JsonValue(each));
+                        array.Add(JsonValue(each));
+                    }
+
+                    _interfaces->Release();
+                    response["interfaces"] = array;
                 }
-
-                interfaces->Release();
-                NMLOG_TRACE("Sending Success");
-                response["interfaces"] = array;
-                response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
+
             if (_networkManager)
                 rc = _networkManager->GetPrimaryInterface(interface);
             else
@@ -187,16 +212,13 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
             {
                 response["interface"] = interface;      
-                m_defaultInterface = interface;
-                response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface = parameters["interface"].String();
 
@@ -211,211 +233,172 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            { 
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::SetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string interface = parameters["interface"].String();
-            bool enabled = parameters["enabled"].Boolean();
-
-            if ("wlan0" != interface && "eth0" != interface)
+            if (parameters.HasLabel("interface") && parameters.HasLabel("enabled"))
             {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
+                const string interface = parameters["interface"].String();
+                const bool enabled = parameters["enabled"].Boolean();
 
-            if (_networkManager)
-                rc = _networkManager->SetInterfaceState(interface, enabled);
+                if ("wlan0" != interface && "eth0" != interface)
+                    rc = Core::ERROR_BAD_REQUEST;
+                else if (_networkManager)
+                    rc = _networkManager->SetInterfaceState(interface, enabled);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+            }
             else
-                rc = Core::ERROR_UNAVAILABLE;
+                rc = Core::ERROR_BAD_REQUEST;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            bool isEnabled = false;
-            string interface = parameters["interface"].String();
 
-            if ("wlan0" != interface && "eth0" != interface)
+            if (parameters.HasLabel("interface"))
             {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
+                const string interface = parameters["interface"].String();
+                bool enabled;
 
-            if (_networkManager)
-                rc = _networkManager->GetInterfaceState(interface, isEnabled);
+                if ("wlan0" != interface && "eth0" != interface)
+                    rc = Core::ERROR_BAD_REQUEST;
+                else if (_networkManager)
+                    rc = _networkManager->SetInterfaceState(interface, enabled);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+
+                if (Core::ERROR_NONE == rc)
+                    response["enabled"] = enabled;
+            }
             else
-                rc = Core::ERROR_UNAVAILABLE;
+                rc = Core::ERROR_BAD_REQUEST;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["enabled"] = isEnabled;
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetIPSettings (const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string interface = "";
-            string ipversion = "";
-            Exchange::INetworkManager::IPAddressInfo result{};
+            Exchange::INetworkManager::IPAddress address{};
 
-            if (parameters.HasLabel("interface"))
-                interface = parameters["interface"].String();
-            if (parameters.HasLabel("ipversion"))
-                ipversion = parameters["ipversion"].String();
-
-            if (!interface.empty() && ("wlan0" != interface) && ("eth0" != interface))
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
+            string interface = parameters["interface"].String();
+            string ipversion = parameters["ipversion"].String();
 
             if (_networkManager)
-                rc = _networkManager->GetIPSettings(interface, ipversion, result);
+                rc = _networkManager->GetIPSettings(interface, ipversion, address);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["interface"] = interface;
-
-                if (strcasecmp (result.m_ipAddrType.c_str(), "IPv4") == 0)
-                    result.m_ipAddrType = "IPv4";
-                else if (strcasecmp (result.m_ipAddrType.c_str(), "IPv6") == 0)
-                    result.m_ipAddrType = "IPv6";
-                response["ipversion"] = result.m_ipAddrType;
-                response["autoconfig"]   = result.m_autoConfig;
-                response["ipaddress"]    = result.m_ipAddress;
-                response["prefix"]       = result.m_prefix;    
-                response["gateway"]      = result.m_gateway;
-                response["dhcpserver"]   = result.m_dhcpServer;
-                if(!result.m_v6LinkLocal.empty())
-                    response["v6LinkLocal"] = result.m_v6LinkLocal;
-                response["primarydns"]   = result.m_primaryDns; 
-                response["secondarydns"] = result.m_secondaryDns;
-                response["success"] = true;
+                response["interface"]    = interface;
+                response["ipversion"]    = address.ipversion;
+                response["autoconfig"]   = address.autoconfig;
+                if (!address.ipaddress.empty())
+                {
+                    response["ipaddress"]    = address.ipaddress;
+                    response["prefix"]       = address.prefix;
+                    response["ula"]          = address.ula;
+                    response["dhcpserver"]   = address.dhcpserver;
+                    response["gateway"]      = address.gateway;
+                    response["primarydns"]   = address.primarydns;
+                    response["secondarydns"] = address.secondarydns;
+                }
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::SetIPSettings(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::IPAddressInfo result{};
+            Exchange::INetworkManager::IPAddress address{};
+
             string interface = "";
             string ipversion = "";
 
             if (parameters.HasLabel("interface"))
                 interface = parameters["interface"].String();
-            if (parameters.HasLabel("ipversion"))
-                ipversion = parameters["ipversion"].String();
-
-            if ("wlan0" != interface && "eth0" != interface)
+            else
             {
                 rc = Core::ERROR_BAD_REQUEST;
                 return rc;
             }
 
-            result.m_autoConfig = parameters["autoconfig"].Boolean();
-            if (!result.m_autoConfig)
+            address.autoconfig = parameters["autoconfig"].Boolean();
+            if (!address.autoconfig)
             {
-                result.m_ipAddress      = parameters["ipaddress"];
-                result.m_prefix         = parameters["prefix"].Number();
-                result.m_gateway        = parameters["gateway"];
-                result.m_primaryDns     = parameters["primarydns"];
-                result.m_secondaryDns   = parameters["secondarydns"];
+                address.ipaddress      = parameters["ipaddress"].String();
+                address.ipversion      = parameters["ipversion"].String();
+                address.prefix         = parameters["prefix"].Number();
+                address.gateway        = parameters["gateway"].String();
+                address.primarydns     = parameters["primarydns"].String();
+                address.secondarydns   = parameters["secondarydns"].String();
             }
 
             if (_networkManager)
-                rc = _networkManager->SetIPSettings(interface, ipversion, result);
+                rc = _networkManager->SetIPSettings(interface, address);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endPoint;
             uint32_t port;
-            uint32_t bindTimeout;
-            uint32_t cacheTimeout;
+            uint32_t timeout;
+            uint32_t cacheLifetime;
 
             if (_networkManager)
-                rc = _networkManager->GetStunEndpoint(endPoint, port, bindTimeout, cacheTimeout);
+                rc = _networkManager->GetStunEndpoint(endPoint, port, timeout, cacheLifetime);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["endPoint"] = endPoint;
+                response["endpoint"] = endPoint;
                 response["port"] = port;
-                response["bindTimeout"] = bindTimeout;
-                response["cacheTimeout"] = cacheTimeout;
-                response["success"] = true;
+                response["timeout"] = timeout;
+                response["cacheLifetime"] = cacheLifetime;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::SetStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint = parameters["endPoint"].String();
+            string endPoint = parameters["endpoint"].String();
             uint32_t port = parameters["port"].Number();
-            uint32_t bindTimeout = parameters["bindTimeout"].Number();
-            uint32_t cacheTimeout = parameters["cacheTimeout"].Number();
+            uint32_t bindTimeout = parameters["timeout"].Number();
+            uint32_t cacheTimeout = parameters["cacheLifetime"].Number();
 
             if (_networkManager)
                 rc = _networkManager->SetStunEndpoint(endPoint, port, bindTimeout, cacheTimeout);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IStringIterator* endpoints = NULL;
-            
 
             if (_networkManager)
                 rc = _networkManager->GetConnectivityTestEndpoints(endpoints);
@@ -427,31 +410,27 @@ namespace WPEFramework
                 if (endpoints)
                 {
                     JsonArray array;
-                    string endPoint{};
-                    while (endpoints->Next(endPoint) == true)
-                    {
-                        array.Add(endPoint);
-                    }
+                    string entry{};
+                    while (endpoints->Next(entry) == true) { array.Add(entry); }
+
                     endpoints->Release();
                     response["endpoints"] = array;
-                    response["success"] = true;
                 }
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::SetConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
             JsonArray array = parameters["endpoints"].Array();
 
             if (0 == array.Length() || 5 < array.Length())
             {
-                NMLOG_TRACE("minimum of 1 to maximum of 5 Urls are allowed");
-                return rc;
+                NMLOG_DEBUG("minimum of 1 to maximum of 5 Urls are allowed");
+                returnJson(rc);
             }
 
             std::vector<std::string> endpoints;
@@ -464,8 +443,8 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_TRACE("Unexpected variant type");
-                    return rc;
+                    NMLOG_DEBUG("Unexpected variant type");
+                    returnJson(rc);
                 }
             }
             endpointsIter = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(endpoints));
@@ -475,21 +454,15 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-
             if (endpointsIter)
                 endpointsIter->Release();
 
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::IsConnectedToInternet(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ipversion = parameters["ipversion"].String();
             Exchange::INetworkManager::InternetStatus result;
@@ -502,74 +475,49 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                response["isConnectedToInternet"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result);
-                response["internetState"] = static_cast <int> (result);
-                switch (result)
-                {
-                case Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED:
-                    response["status"] = string("LIMITED_INTERNET");
-                    break;
-                case Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL:
-                    response["status"] = string("CAPTIVE_PORTAL");
-                    break;
-                case Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED:
-                    response["status"] = string("FULLY_CONNECTED");
-                    // when fully connected to internet set Network subsystem
-                    //setInternetSubsystem();
-                    break;
-                default:
-                    response["status"] = string("NO_INTERNET");
-                    break;
-                }
-
-                response["success"] = true;
+                Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> status(result);
+                response["ipversion"] = ipversion;
+                response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result);
+                response["state"] = JsonValue(status);
+                response["status"] = status.Data();
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetCaptivePortalURI(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint;
+            string uri;
             if (_networkManager)
-                rc = _networkManager->GetCaptivePortalURI(endPoint);
+                rc = _networkManager->GetCaptivePortalURI(uri);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
-            {
-                response["uri"] = endPoint;
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+                response["uri"] = uri;
+
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StartConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             uint32_t interval = parameters["interval"].Number();
 
-            NMLOG_TRACE("connectivity interval = %d", interval);
+            NMLOG_DEBUG("connectivity interval = %d", interval);
             if (_networkManager)
                 rc = _networkManager->StartConnectivityMonitoring(interval);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -577,17 +525,12 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetPublicIP(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ipAddress{};
             string ipversion = "IPv4";
@@ -609,21 +552,19 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                response["publicIP"] = ipAddress;
+                response["ipaddress"] = ipAddress;
                 response["ipversion"] = ipversion;
-                response["success"] = true;
 
                 m_publicIPAddress = ipAddress;
                 m_publicIPAddressType = ipversion;
                 PublishToThunderAboutInternet();
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         void NetworkManager::PublishToThunderAboutInternet()
         {
-            NMLOG_TRACE("No public IP persisted yet; Update the data");
+            NMLOG_DEBUG("No public IP persisted yet; Update the data");
             if (m_publicIPAddress.empty())
             {
                 JsonObject input, output;
@@ -650,12 +591,13 @@ namespace WPEFramework
 
         uint32_t NetworkManager::Ping(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             string result{};
+            string endpoint{};
             uint32_t rc = Core::ERROR_GENERAL;
+            LOG_INPARAM();
             if (parameters.HasLabel("endpoint"))
             {
-                string endpoint{};
                 string guid{};
                 string ipversion{"IPv4"};
                 uint32_t noOfRequest = 3;
@@ -666,8 +608,8 @@ namespace WPEFramework
                 if (parameters.HasLabel("ipversion"))
                     ipversion = parameters["ipversion"].String();
 
-                if (parameters.HasLabel("noOfRequest"))
-                    noOfRequest  = parameters["noOfRequest"].Number();
+                if (parameters.HasLabel("count"))
+                    noOfRequest  = parameters["count"].Number();
 
                 if (parameters.HasLabel("timeout"))
                     timeOutInSeconds  = parameters["timeout"].Number();
@@ -687,58 +629,55 @@ namespace WPEFramework
                 reply.FromString(result);
                 response = reply;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::Trace(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string result{};
-            const string ipversion      = parameters["ipversion"].String();
-            const string endpoint       = parameters["endpoint"].String();
-            const uint32_t noOfRequest  = parameters["packets"].Number();
-            const string guid           = parameters["guid"].String();
-
-            if (_networkManager)
-                rc = _networkManager->Trace(ipversion, endpoint, noOfRequest, guid, result);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            if (Core::ERROR_NONE == rc)
+        
+            if (parameters.HasLabel("endpoint"))
             {
-                JsonObject reply;
-                reply.FromString(result);
-                reply["success"] = true;
-                response = reply;
+                const string ipversion      = parameters["ipversion"].String();
+                const string endpoint       = parameters["endpoint"].String();
+                const uint32_t noOfRequest  = parameters["packets"].Number();
+                const string guid           = parameters["guid"].String();
+
+                if (_networkManager)
+                    rc = _networkManager->Trace(ipversion, endpoint, noOfRequest, guid, result);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+
+                if (Core::ERROR_NONE == rc)
+                {
+                    JsonObject reply;
+                    reply.FromString(result);
+                    response = reply;
+                }
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StartWiFiScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            const Exchange::INetworkManager::WiFiFrequency frequency = static_cast <Exchange::INetworkManager::WiFiFrequency> (parameters["frequency"].Number());
+            string frequency = parameters["frequency"].String();
+            Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
             if (_networkManager)
-                rc = _networkManager->StartWiFiScan(frequency);
+                rc = _networkManager->StartWiFiScan(frequency, ssids);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StopWiFiScan(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -746,20 +685,14 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetKnownSSIDs(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            JsonArray ssids;
             ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
 
             if (_networkManager)
@@ -767,35 +700,30 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                ASSERT(_ssids != nullptr);
-
                 if (_ssids != nullptr)
                 {
+                    JsonArray ssids;
                     string _resultItem_{};
-                    while (_ssids->Next(_resultItem_) == true)
-                    {
-                        ssids.Add() = _resultItem_;
-                    }
+                    while (_ssids->Next(_resultItem_) == true) { ssids.Add() = _resultItem_; }
                     _ssids->Release();
+
+                    response["ssids"] = ssids;
                 }
-                response["ssids"] = ssids;
-                response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::AddToKnownSSIDs(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
+            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
 
             if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
-                ssid.m_ssid            = parameters["ssid"].String();
-                ssid.m_passphrase      = parameters["passphrase"].String();
-                ssid.m_securityMode    = static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["securityMode"].Number());
+                ssid.ssid            = parameters["ssid"].String();
+                ssid.passphrase      = parameters["passphrase"].String();
+                ssid.security        = static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
 
                 if (_networkManager)
                     rc = _networkManager->AddToKnownSSIDs(ssid);
@@ -803,17 +731,12 @@ namespace WPEFramework
                     rc = Core::ERROR_UNAVAILABLE;
             }
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::RemoveKnownSSID(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
 
@@ -825,58 +748,58 @@ namespace WPEFramework
                 else
                     rc = Core::ERROR_UNAVAILABLE;
             }
+            else
+                rc = Core::ERROR_BAD_REQUEST;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::WiFiConnect(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
+            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
 
             if (parameters.HasLabel("ssid"))
-                ssid.m_ssid            = parameters["ssid"].String();
-            if (parameters.HasLabel("passphrase"))
-                ssid.m_passphrase      = parameters["passphrase"].String();
-            if (parameters.HasLabel("securityMode"))
-                ssid.m_securityMode    = static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["securityMode"].Number());
-            //TODO Check Security modes
-            if (parameters.HasLabel("identity"))
-            ssid.m_identity              = parameters["identity"].String();
-            if (parameters.HasLabel("caCert"))
-            ssid.m_caCert                = parameters["caCert"].String();
-            if (parameters.HasLabel("clientCert"))
-            ssid.m_clientCert            = parameters["clientCert"].String();
-            if (parameters.HasLabel("privateKey"))
-            ssid.m_privateKey            = parameters["privateKey"].String();
-            if (parameters.HasLabel("privateKeyPasswd"))
-            ssid.m_privateKeyPasswd      = parameters["privateKeyPasswd"].String();
-            if (parameters.HasLabel("persistSSIDInfo"))
-                ssid.m_persistSSIDInfo   = parameters["persistSSIDInfo"].Boolean();
+                ssid.ssid = parameters["ssid"].String();
             else
-                ssid.m_persistSSIDInfo   = true;
+                returnJson(rc);
+
+            if (parameters.HasLabel("passphrase"))
+                ssid.passphrase = parameters["passphrase"].String();
+
+            if (parameters.HasLabel("security"))
+                ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
+
+            // Check Security modes
+            if (parameters.HasLabel("eap"))
+                ssid.eap = parameters["eap"].String();
+            if (parameters.HasLabel("eap_identity"))
+                ssid.eap_identity = parameters["eap_identity"].String();
+            if (parameters.HasLabel("ca_cert"))
+                ssid.ca_cert = parameters["ca_cert"].String();
+            if (parameters.HasLabel("client_cert"))
+                ssid.client_cert = parameters["client_cert"].String();
+            if (parameters.HasLabel("private_key"))
+                ssid.private_key = parameters["private_key"].String();
+            if (parameters.HasLabel("private_key_passwd"))
+                ssid.private_key_passwd = parameters["private_key_passwd"].String();
+            if (parameters.HasLabel("persist"))
+                ssid.persist = parameters["persist"].Boolean();
+            else
+                ssid.persist = true;
+
             if (_networkManager)
                 rc = _networkManager->WiFiConnect(ssid);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::WiFiDisconnect(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -884,17 +807,12 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetConnectedSSID(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
 
@@ -905,36 +823,35 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                response["ssid"] = ssidInfo.m_ssid;
-                response["bssid"] = ssidInfo.m_bssid;
-                response["securityMode"] = static_cast <int> (ssidInfo.m_securityMode);
-                response["signalStrength"] = ssidInfo.m_signalStrength;
-                response["frequency"] = ssidInfo.m_frequency;
-                response["rate"] = ssidInfo.m_rate;
-                response["noise"] = ssidInfo.m_noise;
-                response["success"] = true;
+                response["ssid"] = ssidInfo.ssid;
+                response["bssid"] = ssidInfo.bssid;
+                response["security"] = JsonValue(ssidInfo.security);
+                response["strength"] = ssidInfo.strength;
+                response["frequency"] = ssidInfo.frequency;
+                response["rate"] = ssidInfo.rate;
+                response["noise"] = ssidInfo.noise;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StartWPS(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string wps_pin{};
-            Exchange::INetworkManager::WiFiWPS method;
+            Core::JSON::EnumType<Exchange::INetworkManager::WiFiWPS> method;
 
             if (parameters.HasLabel("method"))
             {
-                method = static_cast <Exchange::INetworkManager::WiFiWPS> (parameters["method"].Number());
-            }
-            else
-                method = Exchange::INetworkManager::WIFI_WPS_PBC;
+                if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::STRING)
+                    method.FromString(parameters["method"].String());
+                else if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::NUMBER)
+                    method = static_cast <Exchange::INetworkManager::WiFiWPS> (parameters["method"].Number());
 
-            if ((Exchange::INetworkManager::WIFI_WPS_PIN == method) && parameters.HasLabel("wps_pin"))
-            {
-                wps_pin = parameters["wps_pin"].String();
+                if ((Exchange::INetworkManager::WIFI_WPS_PIN == method) && parameters.HasLabel("pin"))
+                {
+                    wps_pin = parameters["pin"].String();
+                }
             }
 
             if (_networkManager)
@@ -942,17 +859,12 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::StopWPS(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             if (_networkManager)
@@ -960,12 +872,7 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                response["success"] = true;
-            }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetWifiState(const JsonObject& parameters, JsonObject& response)
@@ -973,27 +880,29 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiState state;
             uint32_t rc = Core::ERROR_GENERAL;
 
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             if (_networkManager)
                 rc = _networkManager->GetWifiState(state);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
             if (Core::ERROR_NONE == rc)
             {
-                response["state"] = static_cast <int> (state);
-                response["success"] = true;
+                Core::JSON::EnumType<Exchange::INetworkManager::WiFiState> iState{state};
+                response["state"] = JsonValue(state);
+                response["status"] = iState.Data();
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetWiFiSignalStrength(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
             string signalStrength{};
-            Exchange::INetworkManager::WiFiSignalQuality quality;
+            Exchange::INetworkManager::WiFiSignalQuality quality{};
 
             if (_networkManager)
                 rc = _networkManager->GetWiFiSignalStrength(ssid, signalStrength, quality);
@@ -1002,18 +911,17 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
+                Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
                 response["ssid"] = ssid;
-                response["signalStrength"] = signalStrength;
-                response["quality"] = static_cast <int> (quality);
-                response["success"] = true;
+                response["strength"] = signalStrength;
+                response["quality"] = iquality.Data();
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
         }
 
         uint32_t NetworkManager::GetSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
-            LOGINFOMETHOD();
+            LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::ISecurityModeIterator* securityModes{};
 
@@ -1030,14 +938,95 @@ namespace WPEFramework
                     Exchange::INetworkManager::WIFISecurityModeInfo _resultItem_{};
                     while (securityModes->Next(_resultItem_) == true)
                     {
-                        response.Set(_resultItem_.m_securityModeText.c_str(), JsonValue(_resultItem_.m_securityMode));
+                        response.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
                     }
                     securityModes->Release();
                 }
-                response["success"] = true;
             }
-            LOGTRACEMETHODFIN();
-            return rc;
+            returnJson(rc);
+        }
+
+        void NetworkManager::onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
+        {
+            Core::JSON::EnumType<Exchange::INetworkManager::InterfaceState> iState{state};
+            JsonObject parameters;
+            parameters["state"] = JsonValue(state);
+            parameters["status"] = iState.Data();
+            parameters["interface"] = interface;
+
+            LOG_INPARAM();
+            Notify(_T("onInterfaceStateChange"), parameters);
+        }
+
+        void NetworkManager::onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
+        {
+            JsonObject parameters;
+            parameters["prevActiveInterface"] = prevActiveInterface;
+            parameters["currentActiveInterface"] = currentActiveinterface;
+
+            LOG_INPARAM();
+            Notify(_T("onActiveInterfaceChange"), parameters);
+        }
+
+        void NetworkManager::onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
+        {
+            Core::JSON::EnumType<Exchange::INetworkManager::IPStatus> iStatus{status};
+            JsonObject parameters;
+            parameters["interface"] = interface;
+            parameters["ipversion"] = ipversion;
+            parameters["ipaddress"] = ipaddress;
+            parameters["status"] = iStatus.Data();
+
+            LOG_INPARAM();
+            Notify(_T("onIPAddressChange"), parameters);
+        }
+
+        void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        {
+            JsonObject parameters;
+            Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> prevStatus(prevState);
+            Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> currStatus(currState);
+            parameters["prevState"] = JsonValue(prevState);
+            parameters["prevStatus"] = prevStatus.Data();
+            parameters["state"] = JsonValue(currState);
+            parameters["status"] = currStatus.Data();
+
+            LOG_INPARAM();
+            Notify(_T("onInternetStatusChange"), parameters);
+        }
+
+        void NetworkManager::onAvailableSSIDs(const string jsonOfScanResults)
+        {
+            JsonObject parameters;
+            JsonArray scanResults;
+            scanResults.FromString(jsonOfScanResults);
+            parameters["ssids"] = scanResults;
+
+            LOG_INPARAM();
+            Notify(_T("onAvailableSSIDs"), parameters);
+        }
+
+        void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        {
+            JsonObject parameters;
+            Core::JSON::EnumType<Exchange::INetworkManager::WiFiState> iState{state};
+            parameters["state"] = JsonValue(state);
+            parameters["status"] = iState.Data();
+
+            LOG_INPARAM();
+            Notify(_T("onWiFiStateChange"), parameters);
+        }
+
+        void NetworkManager::onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        {
+            Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
+            JsonObject parameters;
+            parameters["ssid"] = ssid;
+            parameters["strength"] = strength;
+            parameters["quality"] = iquality.Data();
+
+            LOG_INPARAM();
+            Notify(_T("onWiFiSignalStrengthChange"), parameters);
         }
     }
 }

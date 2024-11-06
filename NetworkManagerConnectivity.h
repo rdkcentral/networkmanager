@@ -118,7 +118,7 @@ namespace WPEFramework
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
             bool isConnectedToInternet(nsm_ipversion ipversion);
-            nsm_internetState getInternetState(nsm_ipversion ipversion);
+            nsm_internetState getInternetState(nsm_ipversion& ipversion);
             std::string getCaptivePortalURI();
 
         private:

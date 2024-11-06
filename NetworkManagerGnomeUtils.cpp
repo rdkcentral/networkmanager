@@ -73,19 +73,19 @@ namespace WPEFramework
             switch(flags)
             {
                 case NM_802_11_AP_FLAGS_NONE:
-                    NMLOG_TRACE("ap type : point has no special capabilities");
+                    NMLOG_DEBUG("ap type : point has no special capabilities");
                     break;
                 case NM_802_11_AP_FLAGS_PRIVACY:
-                    NMLOG_TRACE("ap type : access point requires authentication and encryption");
+                    NMLOG_DEBUG("ap type : access point requires authentication and encryption");
                     break;
                 case NM_802_11_AP_FLAGS_WPS:
-                    NMLOG_TRACE("ap type : access point supports some WPS method");
+                    NMLOG_DEBUG("ap type : access point supports some WPS method");
                     break;
                 case NM_802_11_AP_FLAGS_WPS_PBC:
-                    NMLOG_TRACE("ap type : access point supports push-button WPS");
+                    NMLOG_DEBUG("ap type : access point supports push-button WPS");
                     break;
                 case NM_802_11_AP_FLAGS_WPS_PIN:
-                    NMLOG_TRACE("ap type : access point supports PIN-based WPS");
+                    NMLOG_DEBUG("ap type : access point supports PIN-based WPS");
                     break;
                 default:
                     NMLOG_ERROR("ap type : 802.11 flags unknown!");

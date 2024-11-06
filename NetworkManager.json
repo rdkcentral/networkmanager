@@ -1,19 +1,22 @@
 {
-    "$schema": "https://raw.githubusercontent.com/rdkcentral/rdkservices/main/Tools/json_generator/schemas/interface.schema.json",
+    "$schema": "interface.schema.json",
     "jsonrpc": "2.0",
     "info": {
         "title": "NetworkManager Plugin",
         "class": "NetworkManager",
         "callsign": "org.rdk.NetworkManager",
         "locator": "libWPEFrameworkNetworkManager.so",
-        "status": "production",
+        "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
-        "version": "0.3.0"
-    },
-    "common": {
-        "$ref": "../../common/common.json"
+        "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json",
+        "version": "0.5.0"
     },
     "definitions": {
+        "success": {
+            "summary": "Whether the request succeeded",
+            "type": "boolean",
+            "example": "true"
+        },
         "interface": {
             "summary": "An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface",
             "type": "string",
@@ -44,10 +47,10 @@
             "type": "integer",
             "example": 24
         },
-        "v6LinkLocal": {
-            "summary": "The v6LinkLocal",
+        "ula": {
+            "summary": "The IPv6 Unified Local Address",
             "type": "string",
-            "example": "192.168.1.1"
+            "example": "d00:410:2016::"
         },
         "gateway": {
             "summary": "The gateway address",
@@ -69,28 +72,18 @@
             "type": "integer",
             "example": "3478"
         },
-        "endPoint":{
-            "summary": "STUN server endPoint",
-            "type": "string",
-            "example": "stun.l.google.com"
-        },
         "endpoint":{
             "summary": "The host name or IP address",
             "type": "string",
             "example": "45.57.221.20"
         },
-        "bindTimeout":{
-            "summary": "STUN server bind timeout",
-            "type": "integer",
-            "example": "30"
-        },
-        "cacheTimeout":{
+        "cacheLifetime":{
             "summary": "STUN server cache timeout",
             "type": "integer",
             "example": "0"
         },
         "state": {
-            "summary": "The internet state",
+            "summary": "The given State",
             "type": "integer",
             "example": 4
         },
@@ -99,8 +92,13 @@
             "type": "string",
             "example": ""
         },
-        "noOfRequest": {
-            "summary": "The number of packets to send. Default is 15.",
+        "count": {
+            "summary": "The number of requests to send. Default is 3.",
+            "type": "integer",
+            "example": 10
+        },
+        "packets": {
+            "summary": "The number of packets to send. Default is 5.",
             "type": "integer",
             "example": 10
         },
@@ -124,12 +122,12 @@
             "type": "string",
             "example": "password"
         },
-        "securityMode": {
-            "summary": "The security mode. See `getSupportedSecurityModes`.",
+        "security": {
+            "summary": "The security mode. See `getSupportedsecurityModes`.",
             "type": "integer",
             "example": 6
         },
-        "signalStrength":{
+        "strength":{
             "summary": "The RSSI value in dBm",
             "type": "string",
             "example": "-27.000000"
@@ -143,21 +141,63 @@
             "summary": "Error string of scan failure",
             "type": "string",
             "example": ""
-        },
-        "empty_string": {
-            "summary": "Not supported",
-            "type": "string",
-            "example": ""
         }
     },
     "methods": {
+        "SetLogLevel":{
+            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: DEBUG \n",
+            "params": {
+                "type": "object",
+                "properties": {
+                     "level": {
+                        "summary": "Set Log level to get more information",
+                        "type": "integer",
+                        "example": 1
+                    }
+                },
+                "required": [
+                    "level"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        },
+        "GetLogLevel":{
+            "summary": "Get Log level that is currently used.",
+            "result": {
+                "type": "object",
+                "properties": {
+                     "level": {
+                        "summary": "Get Log level to get more information",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "level",
+                    "success"
+                ]
+            }
+        },
         "GetAvailableInterfaces":{
             "summary": "Get device supported list of available interface including their state.",
             "result": {
                 "type": "object",
                 "properties": {
-                    "Interfaces": {
-                        "summary": "An interface",
+                    "interfaces": {
+                        "summary": "An interface details",
                         "type":"array",
                         "items": {
                             "type":"object",
@@ -177,12 +217,12 @@
                                     "type": "string",
                                     "example": "AA:AA:AA:AA:AA:AA"
                                 },
-                                "isEnabled":{
+                                "enabled":{
                                     "summary": "Whether the interface is currently enabled",
                                     "type": "boolean",
                                     "example": true
                                 },
-                                "isConnected":{
+                                "connected":{
                                     "summary": "Whether the interface is currently connected",
                                     "type": "boolean",
                                     "example": true
@@ -192,13 +232,13 @@
                                 "type",
                                 "name",
                                 "mac",
-                                "isEnabled",
-                                "isConnected"
+                                "enabled",
+                                "connected"
                             ]
                         }
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -208,7 +248,7 @@
             }
         },
         "GetPrimaryInterface": {
-            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`, or an empty value which indicates that there is no default network interface.",
+            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`.",
             "result": {
                 "type": "object",
                 "properties": {
@@ -241,7 +281,84 @@
                 ]
             },
             "result": {
-                "$ref": "#/common/result"
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        },
+        "SetInterfaceState":{
+            "summary": "Enable or disable the specified interface",
+            "events":{
+                "onInterfaceStateChange" : "Triggered when interface’s status changes to enabled."
+            },
+            "params": {
+                "type": "object",
+                "properties": {
+                     "interface": {
+                        "summary": "Enable the specified interface",
+                        "type": "string",
+                        "example": "wlan0"
+                    },
+                    "enabled":{
+                        "summary": "Whether the interface must be enabled or disabled",
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "required": [
+                    "interface",
+                    "enabled"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        },
+        "GetInterfaceState":{
+            "summary": "Gets the current Status of the specified interface",
+            "params": {
+                "type": "object",
+                "properties": {
+                     "interface": {
+                        "summary": "Disable the specified interface",
+                        "type": "string",
+                        "example": "wlan0"
+                    }
+                },
+                "required": [
+                    "interface"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "enabled":{
+                        "summary": "Whether the interface is enabled or disabled",
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "enabled",
+                    "success"
+                ]
             }
         },
         "GetIPSettings":{
@@ -257,7 +374,6 @@
                     }
                 },
                 "required": [
-                    "interface"
                 ]
             },
             "result": {
@@ -284,8 +400,8 @@
                     "gateway": {
                         "$ref": "#/definitions/gateway"
                     },
-                    "v6LinkLocal": {
-                        "$ref": "#/definitions/v6LinkLocal"
+                    "ula": {
+                        "$ref": "#/definitions/ula"
                     },
                     "primarydns": {
                         "$ref": "#/definitions/primarydns"
@@ -294,7 +410,7 @@
                         "$ref": "#/definitions/secondarydns"
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -303,7 +419,7 @@
                     "autoconfig",
                     "ipaddress",
                     "prefix",
-                    "v6LinkLocal",
+                    "ula",
                     "gateway",
                     "primarydns",
                     "secondarydns",
@@ -360,7 +476,7 @@
                 "type": "object",
                 "properties": {
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -369,55 +485,55 @@
             }
         },
         "GetStunEndpoint": {
-            "summary": "Get the STUN Endpoint that is used to identify public IP of the device.",
+            "summary": "Get the STUN endpoint that is used to identify public IP of the device.",
             "result": {
                 "type": "object",
                 "properties": {
-                    "endPoint": {
-                        "$ref": "#/definitions/endPoint"
+                    "endpoint": {
+                        "$ref": "#/definitions/endpoint"
                     },
                     "port": {
                         "$ref": "#/definitions/port"
                     },
-                    "bindTimeout": {
-                        "$ref": "#/definitions/bindTimeout"
+                    "timeout": {
+                        "$ref": "#/definitions/timeout"
                     },
-                    "cacheTimeout": {
-                        "$ref": "#/definitions/cacheTimeout"
+                    "cacheLifetime": {
+                        "$ref": "#/definitions/cacheLifetime"
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "endPoint",
+                    "endpoint",
                     "port",
-                    "bindTimeout",
-                    "cacheTimeout",
+                    "timeout",
+                    "cacheLifetime",
                     "success"
                 ]
             }
         },
         "SetStunEndpoint":{
-            "summary": "Set the STUN Endpoint to be used to identify public IP of the device.",
+            "summary": "Set the STUN endpoint to be used to identify public IP of the device.",
             "params": {
                 "type":"object",
                 "properties": {
-                    "endPoint": {
-                        "$ref": "#/definitions/endPoint"
+                    "endpoint": {
+                        "$ref": "#/definitions/endpoint"
                     },
                     "port": {
                         "$ref": "#/definitions/port"
                     },
-                    "bindTimeout": {
-                        "$ref": "#/definitions/bindTimeout"
+                    "timeout": {
+                        "$ref": "#/definitions/timeout"
                     },
-                    "cacheTimeout": {
-                        "$ref": "#/definitions/cacheTimeout"
+                    "cacheLifetime": {
+                        "$ref": "#/definitions/cacheLifetime"
                     }
                 },
                 "required": [
-                    "endPoint",
+                    "endpoint",
                     "port"
                 ]
             },
@@ -425,13 +541,9 @@
                 "type": "object",
                 "properties": {
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
-               },
-                "required": [
-                    "public_ip",
-                    "success"
-                ]
+                }
             }
         },
         "GetConnectivityTestEndpoints":{
@@ -448,7 +560,7 @@
                         }
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -476,37 +588,59 @@
                 ]
             },
             "result": {
-                "$ref": "#/common/result"
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
             }
         },
         "IsConnectedToInternet":{
-            "summary": "Seeks Whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.",
+            "summary": "Seeks whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.",
             "params": {
                 "type":"object",
                 "properties": {
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
                     }
-                }
+                },
+                "required": [
+                ]
             },
             "result": {
                 "type": "object",
                 "properties": {
-                    "isConnectedToInternet": {
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
+                    },
+                    "connected": {
                         "summary": "`true` if internet connectivity is detected, otherwise `false`",
                         "type": "boolean",
                         "example": true
                     },
-                    "internetState": {
-                        "$ref": "#/definitions/state"
+                    "state": {
+                        "summary": "Internet state",
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "status": {
+                        "summary": "Internet status",
+                        "type": "string",
+                        "example": "FULLY_CONNECTED"
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "isConnectedToInternet",
-                    "internetState",
+                    "ipversion",
+                    "connected",
+                    "state",
+                    "status",
                     "success"
                 ]
             }
@@ -522,7 +656,7 @@
                         "example": "http://10.0.0.1/captiveportal.jst"
                     },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -532,7 +666,7 @@
             }
         },
         "StartConnectivityMonitoring":{
-            "summary": "Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval.",
+            "summary": "Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval. When the interval is not passed, it will be 60s by default.",
             "events":{
                  "onInternetStatusChange" : "Triggered when internet connection state changed."
             },
@@ -546,14 +680,13 @@
                     }
                 },
                 "required": [
-                    "interval"
                 ]
             },
             "result": {
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -567,7 +700,7 @@
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -575,7 +708,7 @@
                 ]
             }
         },
-         "GetPublicIP":{
+        "GetPublicIP":{
             "summary": "Gets the internet/public IP Address of the device.",
             "params": {
                 "type":"object",
@@ -586,23 +719,24 @@
                     }
                 },
                 "required": [
-                    "ipversion"
                 ]
             },
             "result": {
                 "type": "object",
                 "properties": {
-                    "publicIP":{
-                        "summary": "Returns an public ip of the device",
-                        "type":"string",
-                        "example": "69.136.49.95"
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
+                    },
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "publicIP",
+                    "ipaddress",
+                    "ipversion",
                     "success"
                 ]
             }
@@ -618,8 +752,8 @@
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
                     },
-                    "noOfRequest": {
-                        "$ref": "#/definitions/noOfRequest"
+                    "count": {
+                        "$ref": "#/definitions/count"
                     },
                     "timeout": {
                         "$ref": "#/definitions/timeout"
@@ -630,19 +764,14 @@
                 },
                 "required": [
                     "endpoint",
-                    "ipversion",
-                    "noOfRequest",
-                    "timeout",
-                    "guid"
+                    "ipversion"
                 ]
             },
             "result": {
                 "type": "object",
                 "properties": {
-                    "target": {
-                        "summary": "The target IP address",
-                        "type": "string",
-                        "example": "45.57.221.20"
+                    "endpoint":{
+                        "$ref": "#/definitions/endpoint"
                     },
                     "packetsTransmitted": {
                         "summary": "The number of packets sent",
@@ -690,11 +819,11 @@
                         "example": "..."
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "target",
+                    "endpoint",
                     "packetsTransmitted",
                     "packetsReceived",
                     "packetLoss",
@@ -722,8 +851,8 @@
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
                     },
-                    "noOfRequest": {
-                        "$ref": "#/definitions/noOfRequest"
+                    "packets": {
+                        "$ref": "#/definitions/packets"
                     },
                     "guid": {
                         "$ref": "#/definitions/guid"
@@ -731,85 +860,39 @@
                 },
                 "required": [
                     "endpoint",
-                    "ipversion",
-                    "noOfRequest",
-                    "guid"
+                    "ipversion"
                 ]
             },
             "result": {
                 "type": "object",
                 "properties": {
-                    "target": {
-                        "summary": "The target IP address",
-                        "type": "string",
-                        "example": "45.57.221.20"
+                    "endpoint":{
+                        "$ref": "#/definitions/endpoint"                       
                     },
-                    "packetsTransmitted": {
-                        "summary": "The number of packets sent",
-                        "type": "integer",
-                        "example": 10
-                    },
-                    "packetsReceived": {
-                        "summary": "The number of packets received",
-                        "type": "integer",
-                        "example": 10
-                    },
-                    "packetLoss": {
-                        "summary": "The number of packets lost",
-                        "type": "string",
-                        "example": "0.0"
-                    },
-                    "tripMin": {
-                        "summary": "The minimum amount of time to receive the packets",
-                        "type": "string",
-                        "example": "61.264"
-                    },
-                    "tripAvg": {
-                        "summary": "The average time to receive the packets",
-                        "type": "string",
-                        "example": "130.397"
-                    },
-                    "tripMax": {
-                        "summary": "The maximum amount of time to receive the packets",
-                        "type": "string",
-                        "example": "230.832"
-                    },
-                    "tripStdDev": {
-                        "summary": "The standard deviation for the trip",
-                        "type": "string",
-                        "example": "80.919"
-                    },
-                    "error": {
-                        "summary": "An error message",
+                   "results": {
+                        "summary": "The response of traceroute",
                         "type": "string",
                         "example": "..."
-                    },
+                   },
                     "guid": {
                         "summary": "The globally unique identifier",
                         "type": "string",
                         "example": "..."
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "target",
-                    "packetsTransmitted",
-                    "packetsReceived",
-                    "packetLoss",
-                    "tripMin",
-                    "tripAvg",
-                    "tripMax",
-                    "tripStdDev",
-                    "error",
+                    "endpoint",
+                    "results",
                     "guid",
                     "success"
                 ]
             }
         },
         "StartWiFiScan":{
-            "summary": "Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. It publishes 'onAvailableSSIDs' event upon completion.",
+            "summary": "Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.",
             "events": {
                 "onAvailableSSIDs" : "Triggered when list of SSIDs is available after the scan completes."
             },
@@ -817,20 +900,27 @@
                 "type": "object",
                 "properties": {
                     "frequency": {
-                        "summary": "The frequency to scan. An empty or `null` value scans all frequencies. If a frequency is specified (2.4 or 5.0), then the results are only returned for matching frequencies.",
+                        "summary": "The frequency to scan. An empty or `null` value scans all frequencies.",
                         "type": "string",
-                        "example": ""
+                        "example": "5"
+                    },
+                    "ssids": {
+                        "summary": "The list of SSIDs to be scanned.",
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "example": "Xfinity Mobile"
+                        }
                     }
                 },
                 "required": [
-                    "frequency"
                 ]
             },
             "result": {
                   "type": "object",
                   "properties": {
                      "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -841,7 +931,15 @@
         "StopWiFiScan":{
             "summary": "Stops WiFi scanning. Any discovered SSIDs from the call to the `StartWiFiScan` method up to the point where this method is called are still returned as event.",
             "result": {
-                "$ref": "#/common/result"
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
             }
         },
         "GetKnownSSIDs":{
@@ -858,7 +956,7 @@
                         }
                     },
                     "success": {
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -878,21 +976,21 @@
                     "passphrase": {
                         "$ref": "#/definitions/passphrase"
                     },
-                    "securityMode": {
-                        "$ref": "#/definitions/securityMode"
+                    "security": {
+                        "$ref": "#/definitions/security"
                     }
                 },
                 "required": [
                     "ssid",
                     "passphrase",
-                    "securityMode"
+                    "security"
                 ]
             },
             "result": {
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -901,7 +999,7 @@
             }
         },
         "RemoveKnownSSID":{
-            "summary": "Remove given SSID from saved SSIDs. This method just removes from the list and of the list is having only one entry thats being removed, it will initiate a disconnect.",
+            "summary": "Remove given SSID from saved SSIDs. This method just removes an entry from the list and of the list is having only one entry thats being removed, it will initiate a disconnect.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to DISCONNECTED",
                 "onAddressChange" : "Triggered when an IP Address is assigned or lost",
@@ -922,7 +1020,7 @@
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -944,18 +1042,76 @@
                     "passphrase": {
                         "$ref": "#/definitions/passphrase"
                     },
-                    "securityMode": {
-                        "$ref": "#/definitions/securityMode"
+                    "security": {
+                        "$ref": "#/definitions/security"
+                    },
+                    "ca_cert": {
+                        "summary": "The ca_cert to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "client_cert": {
+                        "summary": "The client_cert to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "private_key": {
+                        "summary": "The private_key to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "private_key_passwd": {
+                        "summary": "The private_key_passwd to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "eap": {
+                        "summary": "The EAP type to be used",
+                        "type": "string",
+                        "example": "TLS"
+                    },
+                    "eap_identity": {
+                        "summary": "The identity to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "eap_password": {
+                        "summary": "The eap_password to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "eap_phase1": {
+                        "summary": "The eap_phase1 to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "eap_phase2": {
+                        "summary": "The eap_phase2 to be used for EAP",
+                        "type": "string",
+                        "example": "..."
+                    },
+                    "persist": {
+                        "summary": " To persist the SSID across reboots; similar to auto connect",
+                        "type": "boolean",
+                        "example": true
                     }
                 },
                 "required": [
                     "ssid",
                     "passphrase",
-                    "securityMode"
+                    "security"
                 ]
             },
             "result": {
-                "$ref": "#/common/result"
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
             }
         },
         "WiFiDisconnect":{
@@ -969,7 +1125,7 @@
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -988,13 +1144,13 @@
                     "bssid": {
                         "$ref": "#/definitions/bssid"
                     },
-                    "securityMode":{
+                    "security":{
                         "summary": "The security mode. See the `connect` method",
                         "type": "string",
                         "example": "5"
                     },
-                    "signalStrength": {
-                        "$ref": "#/definitions/signalStrength"
+                    "strength": {
+                        "$ref": "#/definitions/strength"
                     },
                     "frequency": {
                         "$ref": "#/definitions/frequency"
@@ -1010,7 +1166,7 @@
                         "example": "-121.000000"
                     },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -1018,8 +1174,8 @@
                     "bssid",
                     "rate",
                     "noise",
-                    "securityMode",
-                    "signalStrength",
+                    "security",
+                    "strength",
                     "frequency",
                     "success"
                 ]
@@ -1037,18 +1193,17 @@
                 "properties": {
                     "method": {
                         "summary": "The method used to obtain the pin (must be one of the following: PBC=0, PIN=1, SERIALIZED_PIN=2)",
-                        "type": "integer",
-                        "example": 1
+                        "type": "string",
+                        "example": "PIN"
                     },
-                    "wps_pin": {
+                    "pin": {
                         "summary": "A valid 8 digit WPS pin number. Use this parameter when the `method` parameter is set to `PIN`.",
                         "type": "string",
                         "example": "88888888"
                     }
                 },
                 "required": [
-                    "method",
-                    "wps_pin"
+                    "method"
                 ]
             },
             "result": {
@@ -1060,7 +1215,7 @@
                         "example": "88888888"
                     },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -1078,7 +1233,7 @@
                 "type": "object",
                 "properties": {
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -1097,8 +1252,8 @@
                     "ssid": {
                         "$ref": "#/definitions/ssid"
                     },
-                    "signalStrength": {
-                        "$ref": "#/definitions/signalStrength"
+                    "strength": {
+                        "$ref": "#/definitions/strength"
                     },
                     "quality":{
                         "summary": "Signal strength Quality",
@@ -1106,18 +1261,18 @@
                         "example": 123
                     },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
                     "ssid",
-                    "signalStrength",
+                    "strength",
                     "quality",
                     "success"
                 ]
             }
         },
-        "GetSupportedSecurityModes":{
+        "GetSupportedsecurityModes":{
             "summary": "Returns the Wifi security modes that the device supports.",
             "result": {
                 "type": "object",
@@ -1190,7 +1345,7 @@
                         "required": []
                     },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
@@ -1199,107 +1354,26 @@
                 ]
             }
         },
-        "SetLogLevel":{
-            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: VERBOSE \n* `5`: TRACE \n",
-            "params": {
-                "type": "object",
-                "properties": {
-                     "loglevel": {
-                        "summary": "Set Log level to get more information",
-                        "type": "integer",
-                        "example": 1
-                    }
-                },
-                "required": [
-                    "loglevel"
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "$ref": "#/common/success"
-                    }
-                },
-                "required": [
-                    "success"
-                ]
-            }
-        },
-        "EnableInterface":{
-            "summary": "Enable the specified interface",
-            "events":{
-                "onInterfaceStateChange" : "Triggered when interface’s status changes to enabled."
-            },
-            "params": {
-                "type": "object",
-                "properties": {
-                     "interface": {
-                        "summary": "Enable the specified interface",
-                        "type": "string",
-                        "example": "wlan0"
-                    }
-                },
-                "required": [
-                    "interface"
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "$ref": "#/common/success"
-                    }
-                },
-                "required": [
-                    "success"
-                ]
-            }
-        },
-        "DisableInterface":{
-            "summary": "Disable the specified interface",
-            "events":{
-                "onInterfaceStateChange" : "Triggered when interface’s status changes to disabled."
-            },
-            "params": {
-                "type": "object",
-                "properties": {
-                     "interface": {
-                        "summary": "Disable the specified interface",
-                        "type": "string",
-                        "example": "wlan0"
-                    }
-                },
-                "required": [
-                    "interface"
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "$ref": "#/common/success"
-                    }
-                },
-                "required": [
-                    "success"
-                ]
-            }
-        },
         "GetWifiState": {
-            "summary": "Returns the current Wifi State. The possible Wifi states are as follows.  \n**Wifi States**  \n* `0`: UNINSTALLED - The device was in an installed state and was uninstalled; or, the device does not have a Wifi radio installed   \n* `1`: DISABLED - The device is installed but not yet enabled  \n* `2`: DISCONNECTED - The device is installed and enabled, but not yet connected to a network  \n* `3`: PAIRING - The device is in the process of pairing, but not yet connected to a network  \n* `4`: CONNECTING - The device is attempting to connect to a network  \n* `5`: CONNECTED - The device is successfully connected to a network  \n* `6`: SSID_NOT_FOUND - The requested SSID to connect is not found \n* `7`: SSID_CHANGED - The device connected SSID is changed \n* `8`: CONNECTION_LOST - The device network connection is lost \n* `9`: CONNECTION_FAILED - The device connection got failed \n* `10`: CONNECTION_INTERRUPTED - The device connection is interrupted \n* `11`: INVALID_CREDENTIALS - The credentials provided to connect is not valid \n* `12`: AUTHENTICATION_FAILED - Authentication process as a whole could not be successfully completed \n* `13`: ERROR - The device has encountered an unrecoverable error with the Wifi adapter.",
+            "summary": "Returns the current Wifi State. The possible Wifi states are as follows.  \n**Wifi States**  \n* `0`: WIFI_STATE_UNINSTALLED - The device was in an installed state and was uninstalled; or, the device does not have a Wifi radio installed   \n* `1`: WIFI_STATE_DISABLED - The device is installed but not yet enabled  \n* `2`: WIFI_STATE_DISCONNECTED - The device is installed and enabled, but not yet connected to a network  \n* `3`: WIFI_STATE_PAIRING - The device is in the process of pairing, but not yet connected to a network  \n* `4`: WIFI_STATE_CONNECTING - The device is attempting to connect to a network  \n* `5`: WIFI_STATE_CONNECTED - The device is successfully connected to a network  \n* `6`: WIFI_STATE_SSID_NOT_FOUND - The requested SSID to connect is not found \n* `7`: WIFI_STATE_SSID_CHANGED - The device connected SSID is changed \n* `8`: WIFI_STATE_CONNECTION_LOST - The device network connection is lost \n* `9`: WIFI_STATE_CONNECTION_FAILED - The device connection got failed \n* `10`: WIFI_STATE_CONNECTION_INTERRUPTED - The device connection is interrupted \n* `11`: WIFI_STATE_INVALID_CREDENTIALS - The credentials provided to connect is not valid \n* `12`: WIFI_STATE_AUTHENTICATION_FAILED - Authentication process as a whole could not be successfully completed \n* `13`: WIFI_STATE_ERROR - The device has encountered an unrecoverable error with the Wifi adapter.",
             "result": {
                 "type": "object",
                 "properties": {
                     "state": {
                         "$ref": "#/definitions/state"
                     },
+                    "status": {
+                        "summary": "WiFi status",
+                        "type": "string",
+                        "example": "WIFI_STATE_CONNECTED"
+                    },
                     "success":{
-                        "$ref": "#/common/success"
+                        "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
                     "state",
+                    "status",
                     "success"
                 ]
             }
@@ -1317,13 +1391,19 @@
                     },
                     "state":{
                         "summary": "Current state of the interface",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "status":{
+                        "summary": "Current status of the interface",
                         "type": "string",
-                        "example": "INTERFACE_ADDED"
+                        "example": "INTERFACE_LINK_UP"
                     }
                 },
                 "required": [
                     "interface",
-                    "state"
+                    "state",
+                    "status"
                 ]
             }
         },
@@ -1335,15 +1415,11 @@
                     "interface":{
                         "$ref": "#/definitions/interface" 
                     },
-                    "isIPv6":{
-                        "summary": "It will be true if the IP address is IPv6",
-                        "type": "boolean",
-                        "example": false 
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
                     },
-                    "ipAddress":{
-                        "summary": "The IPv6 or IPv4 address for the interface",
-                        "type": "string",
-                        "example": "192.168.1.100" 
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
                     },
                     "status":{
                         "summary": "Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST')",
@@ -1357,8 +1433,8 @@
                 },
                 "required": [
                     "interface",
-                    "isIPv6",
-                    "ipAddress",
+                    "ipaddress",
+                    "ipversion",
                     "status"
                 ]
             }
@@ -1368,20 +1444,20 @@
             "params": {
                 "type": "object",
                 "properties": {
-                    "oldInterfaceName":{
+                    "prevActiveInterface":{
                         "summary": "The previous interface that was changed",
                         "type": "string",
                         "example": "wlan0" 
                     },
-                    "newInterfaceName":{
+                    "activeInterface":{
                         "summary": "The current interface",
                         "type": "string",
                         "example": "eth0" 
                     }
                 },
                 "required": [
-                    "oldInterfaceName",
-                    "newInterfaceName"
+                    "prevActiveInterface",
+                    "activeInterface"
                 ]
             }
         },
@@ -1390,12 +1466,12 @@
             "params": {
                 "type": "object",
                 "properties": {
-                    "PrevState":{
+                    "prevState":{
                         "summary": "The privious internet connection state",
                         "type": "integer",
                         "example": 1
                     },
-                    "PrevStatus":{
+                    "prevStatus":{
                         "summary": "The previous internet connection status",
                         "type": "string",
                         "example": "NO_INTERNET"
@@ -1412,8 +1488,8 @@
                     }
                 },
                 "required": [
-                    "PrevState",
-                    "PrevStatus",
+                    "prevState",
+                    "prevStatus",
                     "state",
                     "status"
                 ]
@@ -1440,8 +1516,8 @@
                                     "type": "integer",
                                     "example": 6
                                 },
-                                "signalStrength":{
-                                    "summary": "signalStrength",
+                                "strength":{
+                                    "summary": "strength",
                                     "type": "string",
                                     "example": "-27.000000"
                                 },
@@ -1454,7 +1530,7 @@
                             "required": [
                                 "ssid",
                                 "security",
-                                "signalStrength",
+                                "strength",
                                 "frequency"
                             ]
                         }
@@ -1463,18 +1539,24 @@
             }
         },
         "onWiFiStateChange":{
-            "summary": "Triggered when WIFI connection state get changed. The possible states are, \n * '0' - 'WIFI_STATE_UNINSTALLED' \n * '1' - 'WIFI_STATE_DISABLED' \n * '2' - 'WIFI_STATE_DISCONNECTED' \n * '3' - 'WIFI_STATE_PAIRING' \n * '4' - 'WIFI_STATE_CONNECTING' \n * '5' - 'WIFI_STATE_CONNECTED' \n * '6' - 'WIFI_STATE_SSID_NOT_FOUND' \n * '7' - 'WIFI_STATE_SSID_CHANGED' \n * '8' - 'WIFI_STATE_CONNECTION_LOST' \n * '9' - 'WIFI_STATE_CONNECTION_FAILED' \n * '10'- 'WIFI_STATE_CONNECTION_INTERRUPTED' \n * '11' - 'WIFI_STATE_INVALID_CREDENTIALS' \n * '12' - 'WIFI_STATE_AUTHENTICATION_FAILED' \n * '13' - 'WIFI_STATE_ERROR' \n",
+            "summary": "Triggered when WIFI connection state get changed. The possible states are defined in `GetWifiState()`",
             "params": {
                 "type": "object",
                 "properties": {
                     "state":{
-                        "summary": "onWiFiStateChange",
+                        "summary": "WiFi State",
                         "type": "integer",
                         "example": "5"	
+                    },
+                    "status": {
+                        "summary": "WiFi status",
+                        "type": "string",
+                        "example": "WIFI_STATE_CONNECTED"
                     }
                 },
                 "required": [
-                    "state"
+                    "state",
+                    "status"
                 ]
             }
         },
@@ -1488,7 +1570,7 @@
                         "type": "string",
                         "example": "home-new_123"	
                     },
-                    "signalStrength":{
+                    "strength":{
                         "summary": "Signal Strength",
                         "type": "string",
                         "example": "-27.000000"	
@@ -1501,7 +1583,7 @@
                 },
                 "required": [
                     "ssid",
-                    "signalStrength",
+                    "strength",
                     "quality"
                 ]
             }

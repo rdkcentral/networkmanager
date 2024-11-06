@@ -21,13 +21,12 @@
 
 #include "Module.h"
 
-// Include the interface we created
-//#include <interfaces/INetworkManager.h>
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
 
 #include <string>
 #include <atomic>
+#include <mutex>
 
 namespace WPEFramework
 {
@@ -52,59 +51,6 @@ namespace WPEFramework
                 Notification() = delete;
                 Notification(const Notification &) = delete;
                 Notification &operator=(const Notification &) = delete;
-                string InterfaceStateToString(Exchange::INetworkManager::InterfaceState event)
-                {
-                    switch (event)
-                    {
-                        case Exchange::INetworkManager::INTERFACE_ADDED:
-                            return "INTERFACE_ADDED";
-                        case Exchange::INetworkManager::INTERFACE_LINK_UP:
-                            return "INTERFACE_LINK_UP";
-                        case Exchange::INetworkManager::INTERFACE_LINK_DOWN:
-                            return "INTERFACE_LINK_DOWN";
-                        case Exchange::INetworkManager::INTERFACE_ACQUIRING_IP:
-                            return "INTERFACE_ACQUIRING_IP";
-                        case Exchange::INetworkManager::INTERFACE_REMOVED:
-                            return "INTERFACE_REMOVED";
-                        case Exchange::INetworkManager::INTERFACE_DISABLED:
-                            return "INTERFACE_DISABLED";
-                    }
-                    return "";
-                }
-
-                string WiFiSignalQualityToString(Exchange::INetworkManager::WiFiSignalQuality quality)
-                {
-                    switch (quality)
-                    {
-                        case Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED:
-                            return "Disconnected";
-                        case Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_WEAK:
-                            return "Weak";
-                        case Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_FAIR:
-                            return "Fair";
-                        case Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_GOOD:
-                            return "Good";
-                        case Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT:
-                            return "Excellent";
-                    }
-                    return "";
-                }
-
-                string InternetStatusToString(const Exchange::INetworkManager::InternetStatus internetStatus)
-                {
-                    switch (internetStatus)
-                    {
-                        case Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED:
-                            return "LIMITED_INTERNET";
-                        case Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL:
-                            return "CAPTIVE_PORTAL";
-                        case Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED:
-                            return "FULLY_CONNECTED";
-                        default:
-                            return "NO_INTERNET";
-                    }
-                    return "";
-                }
 
             public:
                 explicit Notification(NetworkManager *parent)
@@ -117,83 +63,40 @@ namespace WPEFramework
                 }
 
             public:
-                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState event, const string interface) override
-                {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject params;
-                    params["interface"] = interface;
-                    params["state"] = InterfaceStateToString(event);
-                    _parent.Notify("onInterfaceStateChange", params);
-                }
 
-                void onIPAddressChange(const string interface, const bool isAcquired, const bool isIPv6, const string ipAddress) override
+                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject params;
-                    params["status"] = string (isAcquired ? "ACQUIRED" : "LOST");
-                    params["interface"] = interface;
-                    params["ipAddress"] = ipAddress;
-                    params["isIPv6"] = isIPv6;
-                    _parent.Notify("onIPAddressChange", params);
+                    _parent.onInterfaceStateChange(state, interface);
                 }
 
                 void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject params;
-                    params["oldInterfaceName"] = prevActiveInterface;
-                    params["newInterfaceName"] = currentActiveinterface;
-                    _parent.Notify("onActiveInterfaceChange", params);
-
+                    _parent.onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus oldState, const Exchange::INetworkManager::InternetStatus newstate) override
+                void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject params;
-
-                    params["state"] = static_cast <int> (newstate);;
-                    params["status"] = InternetStatusToString(newstate);
-                    params["prevState"] = static_cast <int> (oldState);
-                    params["prevStatus"] = InternetStatusToString(oldState);
-
-                    _parent.Notify("onInternetStatusChange", params);
-
-                    if (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == newstate)
-                    {
-                        NMLOG_INFO("Notify Thunder ISubsystem internet");
-                        _parent.PublishToThunderAboutInternet();
-                    }
+                    _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
                 }
 
-                // WiFi Notifications that other processes can subscribe to
-                void onAvailableSSIDs(const string jsonOfWiFiScanResults) override
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonArray scanResults;
-                    JsonObject result;
-                    scanResults.FromString(jsonOfWiFiScanResults);
-                    result["ssids"] = scanResults;
-                    _parent.Notify("onAvailableSSIDs", result);
+                    _parent.onInternetStatusChange(prevState, currState);
+                }
 
+                void onAvailableSSIDs(const string jsonOfScanResults) override
+                {
+                    _parent.onAvailableSSIDs(jsonOfScanResults);
                 }
 
                 void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject result;
-                    result["state"] = static_cast <int> (state);
-                    _parent.Notify("onWiFiStateChange", result);
+                    _parent.onWiFiStateChange(state);
                 }
 
-                void onWiFiSignalStrengthChange(const string ssid, const string signalLevel, const Exchange::INetworkManager::WiFiSignalQuality signalQuality) override
+                void onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
-                    NMLOG_INFO("%s", __FUNCTION__);
-                    JsonObject result;
-                    result["ssid"] = ssid;
-                    result["signalQuality"] = WiFiSignalQualityToString(signalQuality);
-                    result["signalLevel"] = signalLevel;
-                    _parent.Notify("onWiFiSignalStrengthChange", result);
+                    _parent.onWiFiSignalStrengthChange(ssid, strength, quality);
                 }
 
                 // The activated/deactived methods are part of the RPC::IRemoteConnection::INotification
@@ -264,7 +167,53 @@ namespace WPEFramework
                 return (m_publicIPAddress.empty() == true ? PluginHost::ISubSystem::IInternet::UNKNOWN : (m_publicIPAddressType == "IPV6" ? PluginHost::ISubSystem::IInternet::IPV6 : PluginHost::ISubSystem::IInternet::IPV4));
             }
             void PublishToThunderAboutInternet();
+            /* Class to store and manage cached data */
+            template<typename CacheValue>
+            class Cache {
+            public:
+                Cache() : is_set(false) {}
 
+                Cache& operator=(const CacheValue& value) {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    this->value = value;
+                    is_set.store(true);
+                    return *this;
+                }
+
+                Cache& operator=(CacheValue&& value) {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    this->value = std::move(value);
+                    is_set.store(true);
+                    return *this;
+                }
+
+                bool isSet() const {
+                    return is_set.load();
+                }
+
+                void reset() {
+                    is_set.store(false);
+                }
+
+                const CacheValue& getValue() const {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    return value;
+                }
+
+                CacheValue& getValue() {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    return value;
+                }
+
+            private:
+                CacheValue value;
+                std::atomic<bool> is_set;
+                mutable std::mutex mutex;
+            };
+
+            // cached varibales
+            Cache<Exchange::INetworkManager::IPAddress> m_ipv4AddressCache;
+            Cache<Exchange::INetworkManager::IPAddress> m_ipv6AddressCache;
         private:
             // Notification/event handlers
             // Clean up when we're told to deactivate
@@ -276,6 +225,7 @@ namespace WPEFramework
 
             // JSON-RPC methods (take JSON in, spit JSON back out)
             uint32_t SetLogLevel (const JsonObject& parameters, JsonObject& response);
+            uint32_t GetLogLevel (const JsonObject& parameters, JsonObject& response);
             uint32_t GetAvailableInterfaces (const JsonObject& parameters, JsonObject& response);
             uint32_t GetPrimaryInterface (const JsonObject& parameters, JsonObject& response);
             uint32_t SetPrimaryInterface (const JsonObject& parameters, JsonObject& response);
@@ -308,6 +258,14 @@ namespace WPEFramework
             uint32_t GetWiFiSignalStrength(const JsonObject& parameters, JsonObject& response);
             uint32_t GetSupportedSecurityModes(const JsonObject& parameters, JsonObject& response);
 
+            void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
+            void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
+            void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
+            void onAvailableSSIDs(const string jsonOfScanResults);
+            void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
+            void onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
+
         private:
             uint32_t _connectionId;
             PluginHost::IShell *_service;
@@ -315,7 +273,6 @@ namespace WPEFramework
             Exchange::INetworkManager *_networkManager;
             Core::Sink<Notification> _notification;
             string m_publicIPAddress;
-            string m_defaultInterface;
             string m_publicIPAddressType;
         };
     }

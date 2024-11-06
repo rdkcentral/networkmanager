@@ -13,9 +13,8 @@ The documentation for legacy [Network](https://github.com/rdkcentral/rdkservices
 
 ## Release ##
 There are 2 active branches namely `develop` and `main`. As the name conveys, `develop` branch is for active development and for contributions.
-The Plugin workflow verifies every PR and also the team verifies the plugin on the RPi and RDK Device
+The Plugin workflow verifies every PR and also the team verifies the plugin on the RPi and RDK Device. The verified changes are taken to `main` branch and releases will be made from there
 
 ## Questions? ##
-If you have any questions or concerns reach out to [Jacob Gladish](mailto:Jacob_Gladish@cable.comcast.com)
- and [Karunakaran Amirthalingam](mailto:karunakaran_amirthalingam@comcast.com). 
+If you have any questions or concerns reach out to [Jacob Gladish](mailto:Jacob_Gladish@cable.comcast.com) and [Karunakaran Amirthalingam](mailto:karunakaran_amirthalingam@comcast.com). 
 

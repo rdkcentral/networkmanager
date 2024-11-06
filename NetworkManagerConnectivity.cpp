@@ -151,7 +151,6 @@ namespace WPEFramework
             curl_easy_setopt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
             if(!headReq)
             {
-               // NMLOG_TRACE("curlopt get request");
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
                 curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
@@ -159,12 +158,12 @@ namespace WPEFramework
             curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
             if ((ipversion == CURL_IPRESOLVE_V4) || (ipversion == CURL_IPRESOLVE_V6))
             {
-                NMLOG_INFO("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"ipv4 only":"ipv6 only", headReq? "HEAD":"GET");
+                NMLOG_DEBUG("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"ipv4 only":"ipv6 only", headReq? "HEAD":"GET");
                 curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, ipversion);
             }
             else
             {
-                NMLOG_INFO("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
+                NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
             }
             if(curlVerboseEnabled())
                 curl_easy_setopt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
@@ -198,10 +197,9 @@ namespace WPEFramework
                 if (CURLE_OK == msg->data.result) {
                     if (curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &response_code) == CURLE_OK)
                     {
-                        //NMLOG_TRACE("endpoint = <%s> http response code <%d>", endpoint, static_cast<int>(response_code));
                         if (HttpStatus_302_Found == response_code) {
                             if ( (curl_easy_getinfo(msg->easy_handle, CURLINFO_REDIRECT_URL, &url) == CURLE_OK) && url != nullptr) {
-                                NMLOG_TRACE("captive portal found !!!");
+                                NMLOG_INFO("captive portal found !!!");
                                 captivePortalURI = url;
                             }
                         }
@@ -239,7 +237,7 @@ namespace WPEFramework
         }
 
         if(curlVerboseEnabled()) {
-            NMLOG_TRACE("endpoints count = %d response count %d, handles = %d, deadline = %ld, time_now = %ld, time_earlier = %ld",
+            NMLOG_DEBUG("endpoints count = %d response count %d, handles = %d, deadline = %ld, time_now = %ld, time_earlier = %ld",
                 static_cast<int>(endpoints.size()), static_cast<int>(http_responses.size()), handles, deadline, time_now, time_earlier);
         }
 
@@ -323,8 +321,6 @@ namespace WPEFramework
             setConnectivityMonitorEndpoints(cachedEndPnt);
             NMLOG_WARNING("cached connectivity endpoints loaded ..");
         }
-        else
-            connectivityMonitorEndpt.push_back("http://clients3.google.com/generate_204");
 
         doContinuousMonitor = false;
         doConnectivityMonitor = false;
@@ -388,7 +384,7 @@ namespace WPEFramework
         return false;
     }
 
-    nsm_internetState ConnectivityMonitor::getInternetState(nsm_ipversion ipversion)
+    nsm_internetState ConnectivityMonitor::getInternetState(nsm_ipversion& ipversion)
     {
         nsm_internetState internetState = nsm_internetState::UNKNOWN;
         // If monitor connectivity is running take the cache value
@@ -397,16 +393,20 @@ namespace WPEFramework
                                            && gIpv4InternetState != nsm_internetState::UNKNOWN ) {
             NMLOG_WARNING("Reading Ipv4 internet state cached value %s", getInternetStateString(gIpv4InternetState));
             internetState = gIpv4InternetState;
+            ipversion = NSM_IPRESOLVE_V4;
         }
         else if ( doContinuousMonitor && (nsm_ipversion::NSM_IPRESOLVE_V6 == ipversion || nsm_ipversion::NSM_IPRESOLVE_WHATEVER == ipversion)
                                            && gIpv6InternetState != nsm_internetState::UNKNOWN ) {
             NMLOG_WARNING("Reading Ipv6 internet state cached value %s", getInternetStateString(gIpv6InternetState));
             internetState = gIpv6InternetState;
+            ipversion = NSM_IPRESOLVE_V6;
         }
         else
         {
             TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, NMCONNECTIVITY_CURL_GET_REQUEST, ipversion);
             internetState = testInternet.getInternetState();
+            // TODO : Lets not hard code here.
+            ipversion = NSM_IPRESOLVE_V4;
         }
         return internetState;
     }
@@ -481,7 +481,7 @@ namespace WPEFramework
         if (doConnectivityMonitor)
         {
             cvConnectivityMonitor.notify_one();
-            NMLOG_TRACE("trigger connectivity monitor thread");
+            NMLOG_DEBUG("trigger connectivity monitor thread");
             return true;
         }
 
@@ -507,7 +507,7 @@ namespace WPEFramework
         {
             Exchange::INetworkManager::InternetStatus oldState = static_cast<Exchange::INetworkManager::InternetStatus>(gInternetState.load());
             Exchange::INetworkManager::InternetStatus newState = static_cast<Exchange::INetworkManager::InternetStatus>(newInternetState);
-            _instance->ReportInternetStatusChangedEvent(oldState , newState);
+            _instance->ReportInternetStatusChange(oldState , newState);
             gInternetState = newInternetState;
         }
         else
@@ -526,7 +526,7 @@ namespace WPEFramework
         {
             if(doConnectivityMonitor)
             {
-                NMLOG_TRACE("connectivity monitor running so skiping ccm check");
+                NMLOG_DEBUG("connectivity monitor running so skiping ccm check");
                 gIpv4InternetState = UNKNOWN;
                 gIpv6InternetState = UNKNOWN;
                 std::unique_lock<std::mutex> lock(connMutex);
@@ -621,7 +621,7 @@ namespace WPEFramework
 
         gIpv4InternetState = UNKNOWN;
         gIpv6InternetState = UNKNOWN;
-        NMLOG_TRACE("continous connectivity monitor exit");
+        NMLOG_DEBUG("continous connectivity monitor exit");
     }
 
     void ConnectivityMonitor::connectivityMonitorFunction()
@@ -720,7 +720,7 @@ namespace WPEFramework
 
         if(!doContinuousMonitor)
             gInternetState = nsm_internetState::UNKNOWN; // no continous monitor running reset to unknow
-        NMLOG_TRACE("initial connectivity monitor exit");
+        NMLOG_DEBUG("initial connectivity monitor exit");
     }
 
     } // namespace Plugin

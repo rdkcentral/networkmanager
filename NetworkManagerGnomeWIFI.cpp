@@ -121,7 +121,7 @@ namespace WPEFramework
                 if (nm_device_get_device_type(device) == NM_DEVICE_TYPE_WIFI)
                 {
                     wifiDevice = device;
-                    //NMLOG_TRACE("Wireless Device found ifce : %s !", nm_device_get_iface (wifiDevice));
+                    //NMLOG_DEBUG("Wireless Device found ifce : %s !", nm_device_get_iface (wifiDevice));
                     break;
                 }
             }
@@ -191,50 +191,33 @@ namespace WPEFramework
                 if(size<=32)
                 {
                     std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                    wifiInfo.m_ssid = ssidTmp;
-                    NMLOG_INFO("ssid: %s", wifiInfo.m_ssid.c_str());
+                    wifiInfo.ssid = ssidTmp;
+                    NMLOG_INFO("ssid: %s", wifiInfo.ssid.c_str());
                 }
                 else
                 {
                     NMLOG_ERROR("Invallied ssid length Error");
-                    wifiInfo.m_ssid.clear();
+                    wifiInfo.ssid.clear();
                     return;
                 }
             }
             else
             {
-                wifiInfo.m_ssid = "-----";
-                NMLOG_TRACE("ssid: %s", wifiInfo.m_ssid.c_str());
+                wifiInfo.ssid = "-----";
+                NMLOG_DEBUG("ssid: %s", wifiInfo.ssid.c_str());
             }
 
-            wifiInfo.m_bssid = (hwaddr != nullptr) ? hwaddr : "-----";
-            NMLOG_TRACE("bssid: %s", wifiInfo.m_bssid.c_str());
-
-            if (freq >= 2400 && freq < 5000) {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_2_4_GHZ;
-                NMLOG_TRACE("freq: WIFI_FREQUENCY_2_4_GHZ");
-            }
-            else if (freq >= 5000 && freq < 6000) {
-                wifiInfo.m_frequency =  Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_5_GHZ;
-                NMLOG_TRACE("freq: WIFI_FREQUENCY_5_GHZ");
-            }
-            else if (freq >= 6000) {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_6_GHZ;
-                NMLOG_TRACE("freq: WIFI_FREQUENCY_6_GHZ");
-            }
-            else {
-                wifiInfo.m_frequency = Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER;
-                NMLOG_TRACE("freq: No available !");
-            }
-
-            wifiInfo.m_rate = std::to_string(bitrate);
-            NMLOG_TRACE("bitrate : %s kbit/s", wifiInfo.m_rate.c_str());
+            wifiInfo.bssid = (hwaddr != nullptr) ? hwaddr : "-----";
+            NMLOG_DEBUG("bssid: %s", wifiInfo.bssid.c_str());
+            wifiInfo.frequency = std::to_string((double)freq/1000);
+            wifiInfo.rate = std::to_string(bitrate);
+            NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
-            wifiInfo.m_signalStrength = std::to_string(static_cast<u_int8_t>(strength));
-            NMLOG_TRACE("sterngth: %s %%", wifiInfo.m_signalStrength.c_str());
-            wifiInfo.m_securityMode = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
-            NMLOG_TRACE("security %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
-            NMLOG_TRACE("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
+            wifiInfo.strength = std::to_string(static_cast<u_int8_t>(strength));
+            NMLOG_DEBUG("sterngth: %s %%", wifiInfo.strength.c_str());
+            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
+            NMLOG_DEBUG("security %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
+            NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
         }
 
         bool wifiManager::isWifiConnected()
@@ -244,7 +227,7 @@ namespace WPEFramework
 
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_TRACE("NMDeviceWifi * NULL !");
+                NMLOG_DEBUG("NMDeviceWifi * NULL !");
                 return false;
             }
 
@@ -254,7 +237,7 @@ namespace WPEFramework
                 return false;
             }
             else
-                NMLOG_TRACE("active access point found !");
+                NMLOG_DEBUG("active access point found !");
             return true;
         }
 
@@ -265,7 +248,7 @@ namespace WPEFramework
 
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_TRACE("NMDeviceWifi * NULL !");
+                NMLOG_DEBUG("NMDeviceWifi * NULL !");
                 return false;
             }
 
@@ -275,7 +258,7 @@ namespace WPEFramework
                 return false;
             }
             else
-                NMLOG_TRACE("active access point found !");
+                NMLOG_DEBUG("active access point found !");
 
             getApInfo(activeAP, ssidinfo);
             return true;
@@ -287,7 +270,7 @@ namespace WPEFramework
             GError       *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
 
-            NMLOG_TRACE("Disconnecting... ");
+            NMLOG_DEBUG("Disconnecting... ");
             _wifiManager->isSuccess = true;
             if (!nm_device_disconnect_finish(device, result, &error)) {
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
@@ -311,13 +294,13 @@ namespace WPEFramework
 
             NMDevice *wifiNMDevice = getNmDevice();
             if(wifiNMDevice == NULL) {
-                NMLOG_TRACE("NMDeviceWifi NULL !");
+                NMLOG_DEBUG("NMDeviceWifi NULL !");
                 return false;
             }
 
             nm_device_disconnect_async(wifiNMDevice, NULL, wifiDisconnectCb, this);
             wait(loop);
-            NMLOG_TRACE("Exit");
+            NMLOG_DEBUG("Exit");
             return isSuccess;
         }
 
@@ -338,7 +321,7 @@ namespace WPEFramework
                     const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidGBytes, &size));
                     std::string ssidstr(reinterpret_cast<const char *>(ssidData), size);
                     //g_bytes_unref(ssidGBytes);
-                   // NMLOG_TRACE("ssid <  %s  >", ssidstr.c_str());
+                   // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
                     if (strcmp(ssid, ssidstr.c_str()) == 0)
                     {
                         AccessPoint = candidate_ap;
@@ -356,12 +339,12 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
 
             if (_wifiManager->createNewConnection) {
-                NMLOG_TRACE("nm_client_add_and_activate_connection_finish");
+                NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
                 nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->client), result, &error);
                  _wifiManager->isSuccess = true;
             }
             else {
-                NMLOG_TRACE("nm_client_activate_connection_finish ");
+                NMLOG_DEBUG("nm_client_activate_connection_finish ");
                 nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->client), result, &error);
                  _wifiManager->isSuccess = true;
             }
@@ -401,8 +384,8 @@ namespace WPEFramework
 
         bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo wifiData)
         {
-            const char *ssid_in = wifiData.m_ssid.c_str();
-            const char* password_in = wifiData.m_passphrase.c_str();
+            const char *ssid_in = wifiData.ssid.c_str();
+            const char* password_in = wifiData.passphrase.c_str();
             NMAccessPoint *AccessPoint = NULL;
             GPtrArray *allaps = NULL;
             const char *conName = ssid_in;
@@ -447,7 +430,7 @@ namespace WPEFramework
                     NMLOG_WARNING("wifi already connected with %s AP", activeSSID.c_str());
                 }
             }
-            //NMLOG_TRACE("Wireless Device found ifce : %s !", ifname = nm_device_get_iface(device));
+            //NMLOG_DEBUG("Wireless Device found ifce : %s !", ifname = nm_device_get_iface(device));
             AccessPoint = checkSSIDAvailable(device, allaps, ssid_in);
             // TODO Scann hidden ssid also for lnf
             if(AccessPoint == NULL) {
@@ -473,7 +456,7 @@ namespace WPEFramework
 
                 if (nm_access_point_connection_valid(AccessPoint, NM_CONNECTION(currentConnection))) {
                     connection = g_object_ref(currentConnection);
-                    NMLOG_TRACE("Connection '%s' exists !", conName);
+                    NMLOG_DEBUG("Connection '%s' exists !", conName);
                     break;
                 }
             }
@@ -487,7 +470,7 @@ namespace WPEFramework
 
             if (!connection)
             {
-                NMLOG_TRACE("creating new connection '%s' ", conName);
+                NMLOG_DEBUG("creating new connection '%s' ", conName);
                 connection = nm_simple_connection_new();
                 if (conName) {
                     sConnection = (NMSettingConnection *) nm_setting_connection_new();
@@ -542,19 +525,19 @@ namespace WPEFramework
                 GError *error = NULL;
                 NMLOG_INFO("Ap securtity mode is 802.1X");
 
-                NMLOG_TRACE("802.1x Identity : %s", wifiData.m_identity.c_str());
-                NMLOG_TRACE("802.1x CA cert path : %s", wifiData.m_caCert.c_str());
-                NMLOG_TRACE("802.1x Client cert path : %s", wifiData.m_clientCert.c_str());
-                NMLOG_TRACE("802.1x Private key path : %s", wifiData.m_privateKey.c_str());
-                NMLOG_TRACE("802.1x Private key psswd : %s", wifiData.m_privateKeyPasswd.c_str());
+                NMLOG_DEBUG("802.1x Identity : %s", wifiData.eap_identity.c_str());
+                NMLOG_DEBUG("802.1x CA cert path : %s", wifiData.ca_cert.c_str());
+                NMLOG_DEBUG("802.1x Client cert path : %s", wifiData.client_cert.c_str());
+                NMLOG_DEBUG("802.1x Private key path : %s", wifiData.private_key.c_str());
+                NMLOG_DEBUG("802.1x Private key psswd : %s", wifiData.private_key_passwd.c_str());
 
                 s8021X = (NMSetting8021x *) nm_setting_802_1x_new();
                 nm_connection_add_setting(connection, NM_SETTING(s8021X));
 
-                g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, wifiData.m_identity.c_str(), NULL);
+                g_object_set(s8021X, NM_SETTING_802_1X_IDENTITY, wifiData.eap_identity.c_str(), NULL);
                 nm_setting_802_1x_add_eap_method(s8021X, "tls");
-                if(!wifiData.m_caCert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
-                                            wifiData.m_caCert.c_str(),
+                if(!wifiData.ca_cert.empty() && !nm_setting_802_1x_set_ca_cert(s8021X,
+                                            wifiData.ca_cert.c_str(),
                                             NM_SETTING_802_1X_CK_SCHEME_PATH,
                                             NULL,
                                             &error))
@@ -564,8 +547,8 @@ namespace WPEFramework
                     return false;
                 }
 
-                if(!wifiData.m_clientCert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
-                                            wifiData.m_clientCert.c_str(),
+                if(!wifiData.client_cert.empty() && !nm_setting_802_1x_set_client_cert(s8021X,
+                                            wifiData.client_cert.c_str(),
                                             NM_SETTING_802_1X_CK_SCHEME_PATH,
                                             NULL,
                                             &error))
@@ -575,9 +558,9 @@ namespace WPEFramework
                     return false;
                 }
 
-                if(!wifiData.m_privateKey.empty() && !nm_setting_802_1x_set_private_key(s8021X,
-                                                wifiData.m_privateKey.c_str(),
-                                                wifiData.m_privateKeyPasswd.c_str(),
+                if(!wifiData.private_key.empty() && !nm_setting_802_1x_set_private_key(s8021X,
+                                                wifiData.private_key.c_str(),
+                                                wifiData.private_key_passwd.c_str(),
                                                 NM_SETTING_802_1X_CK_SCHEME_PATH,
                                                 NULL,
                                                 &error))
@@ -665,7 +648,7 @@ namespace WPEFramework
             }
             else
             {
-                NMLOG_TRACE ("AddToKnownSSIDs is success");
+                NMLOG_DEBUG ("AddToKnownSSIDs is success");
                 _wifiManager->isSuccess = true;
             }
 
@@ -687,20 +670,20 @@ namespace WPEFramework
                     NM_SETTING_CONNECTION_UUID,
                     uuid,
                     NM_SETTING_CONNECTION_ID,
-                    ssidinfo.m_ssid.c_str(),
+                    ssidinfo.ssid.c_str(),
                     NM_SETTING_CONNECTION_TYPE,
                     "802-11-wireless",
                     NULL);
             NMConnection *connection = nm_simple_connection_new();
             nm_connection_add_setting(connection, NM_SETTING(nmConnSec));
             nmSettingsWifi = (NMSettingWireless *)nm_setting_wireless_new();
-            GString *ssidStr = g_string_new(ssidinfo.m_ssid.c_str());
+            GString *ssidStr = g_string_new(ssidinfo.ssid.c_str());
             g_object_set(G_OBJECT(nmSettingsWifi), NM_SETTING_WIRELESS_SSID, ssidStr, NULL);
             
             nm_connection_add_setting(connection, NM_SETTING(nmSettingsWifi));
             nmSettingsWifiSec = (NMSettingWirelessSecurity *)nm_setting_wireless_security_new();
             // TODO chek different securtity mode and portocol and add settings
-            switch(ssidinfo.m_securityMode)
+            switch(ssidinfo.security)
             {
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK:
@@ -710,8 +693,8 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
                 {
                         g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
-                        if(!ssidinfo.m_passphrase.empty())
-                            g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.m_passphrase.c_str(), NULL);
+                        if(!ssidinfo.passphrase.empty())
+                            g_object_set(G_OBJECT(nmSettingsWifiSec), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
                     break;
                 }
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
@@ -829,7 +812,7 @@ namespace WPEFramework
             }
             if (!ssids.empty())
             {
-                NMLOG_TRACE("known wifi connections are %s", ssidPrint.c_str());
+                NMLOG_DEBUG("known wifi connections are %s", ssidPrint.c_str());
                 return true;
             }
 
@@ -841,7 +824,7 @@ namespace WPEFramework
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             if(nm_device_wifi_request_scan_finish(NM_DEVICE_WIFI(object), result, &error)) {
-                 NMLOG_TRACE("Scanning success");
+                 NMLOG_DEBUG("Scanning success");
                  _wifiManager->isSuccess = true;
             }
             else
@@ -858,13 +841,13 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->loop);
         }
 
-        bool wifiManager::wifiScanRequest(const Exchange::INetworkManager::WiFiFrequency frequency, std::string ssidReq)
+        bool wifiManager::wifiScanRequest(std::string frequency, std::string ssidReq)
         {
             if(!createClientNewConnection())
                 return false;
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_TRACE("NMDeviceWifi * NULL !");
+                NMLOG_DEBUG("NMDeviceWifi * NULL !");
                 return false;
             }
             isSuccess = false;
@@ -884,7 +867,7 @@ namespace WPEFramework
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
             }
             else {
-                NMLOG_TRACE("staring normal wifi scanning");
+                NMLOG_DEBUG("staring normal wifi scanning");
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
             }
             wait(loop);
@@ -911,14 +894,14 @@ namespace WPEFramework
             gint64 current_time_in_msec = nm_utils_get_timestamp_msec();
             gint64 time_difference_in_seconds = (current_time_in_msec - last_scan_time) / 1000;
 
-            NMLOG_TRACE("Current time in milliseconds: %" G_GINT64_FORMAT, current_time_in_msec);
-            NMLOG_TRACE("Last scan time in milliseconds: %" G_GINT64_FORMAT, last_scan_time);
-            NMLOG_TRACE("Time difference in seconds: %" G_GINT64_FORMAT, time_difference_in_seconds);
+            NMLOG_DEBUG("Current time in milliseconds: %" G_GINT64_FORMAT, current_time_in_msec);
+            NMLOG_DEBUG("Last scan time in milliseconds: %" G_GINT64_FORMAT, last_scan_time);
+            NMLOG_DEBUG("Time difference in seconds: %" G_GINT64_FORMAT, time_difference_in_seconds);
 
             if (time_difference_in_seconds <= timelimitInSec) {
                 return true;
             }
-            NMLOG_TRACE("Last Wi-Fi scan exceeded time limit.");
+            NMLOG_DEBUG("Last Wi-Fi scan exceeded time limit.");
         return false;
     }
 

@@ -14,7 +14,18 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
-* For more details, refer to [versioning](https://github.com/rdkcentral/rdkservices#versioning) section under Main README.
+## [0.4.0] - 2024-10-04
+### Added
+- Added RDKLogger Integration
+- Fixed Legacy Network API for getIPSetting2
+- Includes critical bug fixes 
+
+## [0.3.0] - 2024-09-16
+### Added
+- Gnome Network Manager support
+- Fixed the missing Error events
+- Fixed activation & subscription flow
+- Includes bug fixes
 
 ## [0.2.0] - 2024-05-27
 ### Added
