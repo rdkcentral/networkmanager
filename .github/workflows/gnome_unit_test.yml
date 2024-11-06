@@ -2,9 +2,9 @@ name: gnome_unit_test
 
 on:
   push:
-    branches: [ main, develop, 'release/**']
+    branches: [ main, develop, Test]
   pull_request:
-    branches: [ main, develop, 'release/**']
+    branches: [ main, develop, Test]
 
 env:
   THUNDER_REF: "R4.4.1"
