@@ -13,6 +13,17 @@ jobs:
   unit-tests:
     name: Build and run unit tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [ gcc, clang ]
+        coverage: [ with-coverage, without-coverage ]
+        exclude:
+          - compiler: clang
+            coverage: with-coverage
+          - compiler: clang
+            coverage: without-coverage
+          - compiler: gcc
+            coverage: without-coverage
 
     steps:
       - name: Configure cache
@@ -32,7 +43,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev ninja-build
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
 
       - name: Configure Python
         uses: actions/setup-python@v4
@@ -90,6 +101,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: networkmanager
+          
+      - name: Set clang toolchain
+        if: ${{ matrix.compiler == 'clang' }}
+        run: echo "TOOLCHAIN_FILE=${{github.workspace}}/networkmanager/Tests/clang.cmake" >> $GITHUB_ENV
+
+      - name: Set gcc/with-coverage toolchain
+        if: ${{ matrix.compiler == 'gcc' && matrix.coverage == 'with-coverage' && !env.ACT }}
+        run: echo "TOOLCHAIN_FILE=${{github.workspace}}/networkmanager/Tests/gcc-with-coverage.cmake" >> $GITHUB_ENV    
 
       - name: Build networkmanager with Gnome Proxy
         run: >
@@ -99,7 +118,41 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DCMAKE_CXX_FLAGS="
+          -fprofile-arcs
+          -ftest-coverage"
           -DENABLE_GNOME_NETWORKMANAGER=ON
+          -DENABLE_UNIT_TESTING=ON
           &&
           cmake --build build/GnomeNetworkmanager --target install -j8
 
+
+      - name: Run unit tests without valgrind
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          wifiTest
+          
+      - name: Generate coverage
+        if: ${{ matrix.coverage == 'with-coverage' && !env.ACT }}
+        run: >
+          cp ${{github.workspace}}/networkmanager/Tests/WiFi/.lcovrc_l1 ~/.lcovrc
+          &&
+          lcov -c
+          -o coverage.info
+          -d build/GnomeNetworkmanager
+          &&
+          lcov
+          -r coverage.info
+          '/usr/include/*'
+          '*/build/GnomeNetworkmanager/_deps/*'
+          '*/install/usr/include/*'
+          '*/Tests/headers/*'
+          '*/Tests/mocks/*'
+          '*/Tests/WiFi/*'
+          -o filtered_coverage.info
+          &&
+          genhtml
+          -o coverage
+          -t "wifisignalstrengthmonitor coverage"
+          filtered_coverage.info
