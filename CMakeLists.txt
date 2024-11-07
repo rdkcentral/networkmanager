@@ -17,7 +17,7 @@ set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 include(CmakeHelperFunctions)
 
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
-option(ENABLE_UNIT_TESTING "Enable unit tests" ON)
+option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 
 
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
