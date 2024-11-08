@@ -846,6 +846,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            scanWifiDevice = wifiDevice;
             if(wifiDevice == NULL) {
                 NMLOG_DEBUG("NMDeviceWifi * NULL !");
                 return false;
@@ -902,9 +903,57 @@ namespace WPEFramework
                 return true;
             }
             NMLOG_DEBUG("Last Wi-Fi scan exceeded time limit.");
-        return false;
-    }
+            return false;
+        }
 
+        void wifiManager::Dispatch()
+        {
+            const GPtrArray *aps;
+            int count = 1, wpsConnected = 0;
+            if(!createClientNewConnection())
+                return;
+
+            sleep(10);
+            do{
+                wifiScanRequest(Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER);
+                aps = nm_device_wifi_get_access_points(scanWifiDevice);
+                for (guint i = 0; i < aps->len; i++) {
+                    NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
+
+                    guint32 flags = nm_access_point_get_flags(ap);
+
+                    NMLOG_INFO("AP Flags: 0x%x\n", flags);
+
+                    if (flags & NM_802_11_AP_FLAGS_WPS_PBC) {
+                        Exchange::INetworkManager::WiFiConnectTo wifiData;
+                        GBytes *ssid;
+                        ssid = nm_access_point_get_ssid(ap);
+                        gsize size;
+                        const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                        std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
+                        wifiData.m_ssid = ssidTmp.c_str();
+                        NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
+                        if(_instance->wifiConnect(wifiData))
+                            wpsConnected = 1;
+                        break;
+                    }
+                }
+                sleep(3);
+                count++;
+            }while(count <= 3 && !wpsConnected);
+            NMLOG_INFO("Completed scanning and wpsconnect status = %d", wpsConnected);
+        }
+
+        bool wifiManager::initiateWPS()
+        {
+            Core::IWorkerPool::Instance().Submit(Job::Create(this));
+            return true;
+        }
+
+        bool wifiManager::cancelWPS()
+        {
+            return true;
+        }
 
     } // namespace Plugin
 } // namespace WPEFramework
