@@ -1034,11 +1034,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             if (parameters["isIPv6"].Boolean())
             {
-                legacyParams["ip6Address"] = parameters["ipAddress"];
+                legacyParams["ip6Address"] = parameters["ipaddress"];
             }
             else
             {
-                legacyParams["ip4Address"] = parameters["ipAddress"];
+                legacyParams["ip4Address"] = parameters["ipaddress"];
             }
 
             legacyParams["status"] = parameters["status"];
