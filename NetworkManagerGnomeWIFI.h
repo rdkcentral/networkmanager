@@ -35,43 +35,6 @@ namespace WPEFramework
     {
         class wifiManager
         {
-            class EXTERNAL Job : public Core::IDispatch {
-        protected:
-             Job(wifiManager *nm)
-                : _nm(nm){
-                if (_nm != nullptr) {
-                    _nm->AddRef();
-                }
-            }
-
-       public:
-            Job() = delete;
-            Job(const Job&) = delete;
-            Job& operator=(const Job&) = delete;
-            ~Job() {
-                if (_nm != nullptr) {
-                    _nm->Release();
-                }
-            }
-
-       public:
-            static Core::ProxyType<Core::IDispatch> Create(wifiManager *nm) {
-#ifndef USE_THUNDER_R4
-                return (Core::proxy_cast<Core::IDispatch>(Core::ProxyType<Job>::Create(nm)));
-#else
-                return (Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create(nm)));
-#endif
-            }
-
-            virtual void Dispatch() {
-                _nm->wpsPBCThread();
-            }
-
-        private:
-            wifiManager *_nm;
-
-        };
-
         public:
             static wifiManager* getInstance()
             {
@@ -114,7 +77,6 @@ namespace WPEFramework
             void operator=(wifiManager const&) = delete;
 
             bool createClientNewConnection();
-            void wpsPBCThread();
 
         public:
             NMClient *client;
@@ -126,7 +88,6 @@ namespace WPEFramework
             GSource *source;
             guint wifiDeviceStateGsignal = 0;
             bool isSuccess = false;
-            friend class Job;
         };
     }   // Plugin
 }   // WPEFramework

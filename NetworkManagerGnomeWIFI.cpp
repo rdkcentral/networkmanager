@@ -29,8 +29,23 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
 
+using namespace std;
 namespace WPEFramework
 {
+    class Job : public Core::IDispatch {
+    public:
+        Job(function<void()> work)
+        : _work(work)
+        {
+        }
+        void Dispatch() override
+        {
+            _work();
+        }
+
+    private:
+        function<void()> _work;
+    };
     namespace Plugin
     {
 
@@ -508,7 +523,7 @@ namespace WPEFramework
             apRsnFlags = nm_access_point_get_rsn_flags(AccessPoint);
 
             // check ap flag ty securti we supporting
-            if(apFlags != NM_802_11_AP_FLAGS_NONE && strlen(password_in) < 1 )
+            if(apFlags != NM_802_11_AP_FLAGS_NONE && strlen(password_in) < 1 && !(apFlags & NM_802_11_AP_FLAGS_WPS))
             {
                 NMLOG_ERROR("This ap(%s) security need password please add password!", ssid_in);
                 return false;
@@ -905,8 +920,9 @@ namespace WPEFramework
             return false;
         }
 
-        void wifiManager::wpsPBCThread()
+        bool wifiManager::initiateWPS()
         {
+            Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
             const GPtrArray *aps;
             int count = 1, wpsConnected = 0;
             if(!createClientNewConnection())
@@ -932,7 +948,7 @@ namespace WPEFramework
                         std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
                         wifiData.m_ssid = ssidTmp.c_str();
                         NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
-                        if(_instance->wifiConnect(wifiData))
+                        if(wifiConnect(wifiData))
                             wpsConnected = 1;
                         break;
                     }
@@ -941,11 +957,7 @@ namespace WPEFramework
                 count++;
             }while(count <= 3 && !wpsConnected);
             NMLOG_INFO("Completed scanning and wpsconnect status = %d", wpsConnected);
-        }
-
-        bool wifiManager::initiateWPS()
-        {
-            Core::IWorkerPool::Instance().Submit(Job::Create(this));
+            })));
             return true;
         }
 
