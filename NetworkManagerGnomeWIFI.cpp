@@ -846,6 +846,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            scanWifiDevice = wifiDevice;
             if(wifiDevice == NULL) {
                 NMLOG_DEBUG("NMDeviceWifi * NULL !");
                 return false;
