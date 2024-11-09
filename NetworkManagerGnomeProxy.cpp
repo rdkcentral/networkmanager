@@ -689,7 +689,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_NONE;
             if(wifi->initiateWPS())
-                NMLOG_INFO ("startWPS success")
+                NMLOG_INFO ("startWPS success");
             else
                 rc = Core::ERROR_RPC_CALL_FAILED;
             return rc;
@@ -699,7 +699,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_NONE;
             if(wifi->cancelWPS())
-                NMLOG_INFO ("cancelWPS success")
+                NMLOG_INFO ("cancelWPS success");
             else
                 rc = Core::ERROR_RPC_CALL_FAILED;
             return rc;
