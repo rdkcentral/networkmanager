@@ -928,32 +928,35 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return;
 
-            sleep(10);
+            sleep(10); /* As we will get the ap info with NM_802_11_AP_FLAGS_WPS_PBC set after pressing the PBC button.
+                          So we are waiting for 10 seconds here*/
             do{
-                wifiScanRequest(Exchange::INetworkManager::WiFiFrequency::WIFI_FREQUENCY_WHATEVER);
-                aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(getNmDevice()));
-                for (guint i = 0; i < aps->len; i++) {
-                    NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
+                if(wifiScanRequest(""))
+                {
+                    aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(getNmDevice()));
+                    for (guint i = 0; i < aps->len; i++) {
+                        NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
 
-                    guint32 flags = nm_access_point_get_flags(ap);
+                        guint32 flags = nm_access_point_get_flags(ap);
 
-                    NMLOG_INFO("AP Flags: 0x%x\n", flags);
+                        NMLOG_INFO("AP Flags: 0x%x\n", flags);
 
-                    if (flags & NM_802_11_AP_FLAGS_WPS_PBC) {
-                        Exchange::INetworkManager::WiFiConnectTo wifiData;
-                        GBytes *ssid;
-                        ssid = nm_access_point_get_ssid(ap);
-                        gsize size;
-                        const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
-                        std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                        wifiData.m_ssid = ssidTmp.c_str();
-                        NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
-                        if(wifiConnect(wifiData))
-                            wpsConnected = 1;
-                        break;
+                        if (flags & NM_802_11_AP_FLAGS_WPS_PBC) {
+                            Exchange::INetworkManager::WiFiConnectTo wifiData;
+                            GBytes *ssid;
+                            ssid = nm_access_point_get_ssid(ap);
+                            gsize size;
+                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                            std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
+                            wifiData.ssid = ssidTmp.c_str();
+                            NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
+                            if(wifiConnect(wifiData))
+                                wpsConnected = 1;
+                            break;
+                        }
                     }
                 }
-                sleep(3);
+                sleep(3); /* Waiting time between successive scan */
                 count++;
             }while(count <= 3 && !wpsConnected);
             NMLOG_INFO("Completed scanning and wpsconnect status = %d", wpsConnected);
