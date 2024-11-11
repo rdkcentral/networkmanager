@@ -664,28 +664,30 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::IStringIterator* ssids = NULL;
-            string frequency = parameters["frequency"].String();
-            std::vector<std::string> tmpssidslist;
 
-            if (parameters.HasLabel("ssid"))
+	    if (parameters.HasLabel("frequency"))
+                string frequency = parameters["frequency"].String();
+
+	    if (parameters.HasLabel("ssid"))
+                JsonArray array = parameters["ssid"].Array();
+
+	    Exchange::INetworkManager::IStringIterator* ssids = NULL;
+	    std::vector<std::string> tmpssidslist;
+
+	    JsonArray::Iterator index(array.Elements());
+            while (index.Next() == true)
             {
-                JsonArray array = parameters["ssids"].Array();
-                JsonArray::Iterator index(array.Elements());
-                while (index.Next() == true)
+                if (Core::JSON::Variant::type::STRING == index.Current().Content())
                 {
-                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
-                    {
-                        tmpssidslist.push_back(index.Current().String().c_str());
-                    }
-                    else
-                    {
-                        NMLOG_DEBUG("Unexpected variant type");
-                        return rc;
-                    }
+                    tmpssidslist.push_back(index.Current().String().c_str());
                 }
-                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+                else
+                {
+                    NMLOG_DEBUG("Unexpected variant type");
+                    returnJson(rc);
+                }
             }
+            ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
 
             NMLOG_INFO("Received frequency string : %s", frequency.c_str());
 
@@ -693,6 +695,10 @@ namespace WPEFramework
                 rc = _networkManager->StartWiFiScan(frequency, ssids);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            if (ssids)
+                ssids->Release();
+
 
             returnJson(rc);
         }

@@ -492,21 +492,11 @@ namespace WPEFramework
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
         {
             JsonArray result;
-            std::unordered_set<std::string> scanForSsidsSet(scanForSsidslist.begin(), scanForSsidslist.end());
+	    if (scanForSsidslist)
+                std::unordered_set<std::string> scanForSsidsSet(scanForSsidslist.begin(), scanForSsidslist.end());
 
-            if (scanForSsidsSet.empty() && scanForFreq.empty())
+            if ((scanForSsidslist && !scanForSsidslist->empty()) || (scanForFreq && !scanForFreq->empty())) {
             {
-                NMLOG_INFO("No SSID or frequency filters applied. Returning all available SSIDs");
-                return;
-            }
-            else
-            {
-                if (!isValidFrequency(scanForFreq))
-                {
-                    NMLOG_INFO("Invalid frequency passed: %s\n", scanForFreq.c_str());
-                    NMLOG_INFO("Valid frequencies are 2.4, 5, and 6. Skipping frequency filter \n");
-                }
-
                 for (int i = 0; i < ssids.Length(); i++)
                 {
                     JsonObject object = ssids[i].Object();
@@ -514,7 +504,7 @@ namespace WPEFramework
                     std::string frequency = object["frequency"].String();
 
                     bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
-                    bool freqMatches = scanForFreq.empty() || scanForFreq == frequency;
+                    bool freqMatches = scanForFreq.empty() || (isValidFrequency(scanForFreq) && scanForFreq == frequency);
 
                     if (ssidMatches && freqMatches)
                     {
