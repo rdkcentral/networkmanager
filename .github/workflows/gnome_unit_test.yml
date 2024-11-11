@@ -118,9 +118,7 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          -DCMAKE_CXX_FLAGS="
-          -fprofile-arcs
-          -ftest-coverage"
+          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_UNIT_TESTING=ON
           &&
