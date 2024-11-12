@@ -391,10 +391,12 @@ namespace WPEFramework
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
+                        ip4ChangedCb(ipv4Config, NULL, device); // posting event if interface already connected
                         g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
                     }
 
                     if (ipv6Config) {
+                        ip6ChangedCb(ipv6Config, NULL, device);
                         g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                     }
 
@@ -565,15 +567,14 @@ namespace WPEFramework
             {
                 ipAddress = ipv6Map[iface];
                 ipv6Map[iface].clear();
-                if(ipAddress.empty())
-                    return; // empty ip address not posting event
             }
             else
             {
                 ipAddress = ipv4Map[iface];
                 ipv4Map[iface].clear();
             }
-
+            if(ipAddress.empty())
+                return; // empty ip address not posting event
         }
 
         Exchange::INetworkManager::IPStatus ipStatus{};

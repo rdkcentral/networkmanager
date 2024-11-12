@@ -94,7 +94,7 @@ namespace WPEFramework
                         }
                         interface.mac = nm_device_get_hw_address(device);
                         deviceState = nm_device_get_state(device);
-                        interface.enabled = (deviceState > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
+                        interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
                         if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING){
                             interface.connected = true;
                             m_defaultInterface = interface.name;
