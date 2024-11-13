@@ -687,13 +687,21 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            uint32_t rc = Core::ERROR_NONE;
+            if(wifi->initiateWPS())
+                NMLOG_INFO ("startWPS success");
+            else
+                rc = Core::ERROR_RPC_CALL_FAILED;
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            uint32_t rc = Core::ERROR_NONE;
+            if(wifi->cancelWPS())
+                NMLOG_INFO ("cancelWPS success");
+            else
+                rc = Core::ERROR_RPC_CALL_FAILED;
             return rc;
         }
 

@@ -29,8 +29,23 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
 
+using namespace std;
 namespace WPEFramework
 {
+    class Job : public Core::IDispatch {
+    public:
+        Job(function<void()> work)
+        : _work(work)
+        {
+        }
+        void Dispatch() override
+        {
+            _work();
+        }
+
+    private:
+        function<void()> _work;
+    };
     namespace Plugin
     {
 
@@ -508,7 +523,7 @@ namespace WPEFramework
             apRsnFlags = nm_access_point_get_rsn_flags(AccessPoint);
 
             // check ap flag ty securti we supporting
-            if(apFlags != NM_802_11_AP_FLAGS_NONE && strlen(password_in) < 1 )
+            if(apFlags != NM_802_11_AP_FLAGS_NONE && strlen(password_in) < 1 && !(apFlags & NM_802_11_AP_FLAGS_WPS))
             {
                 NMLOG_ERROR("This ap(%s) security need password please add password!", ssid_in);
                 return false;
@@ -902,9 +917,57 @@ namespace WPEFramework
                 return true;
             }
             NMLOG_DEBUG("Last Wi-Fi scan exceeded time limit.");
-        return false;
-    }
+            return false;
+        }
 
+        bool wifiManager::initiateWPS()
+        {
+            Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
+            const GPtrArray *aps;
+            int count = 1, wpsConnected = 0;
+            if(!createClientNewConnection())
+                return;
+
+            sleep(10); /* As we will get the ap info with NM_802_11_AP_FLAGS_WPS_PBC set after pressing the PBC button.
+                          So we are waiting for 10 seconds here*/
+            do{
+                if(wifiScanRequest(""))
+                {
+                    aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(getNmDevice()));
+                    for (guint i = 0; i < aps->len; i++) {
+                        NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
+
+                        guint32 flags = nm_access_point_get_flags(ap);
+
+                        NMLOG_INFO("AP Flags: 0x%x\n", flags);
+
+                        if (flags & NM_802_11_AP_FLAGS_WPS_PBC) {
+                            Exchange::INetworkManager::WiFiConnectTo wifiData;
+                            GBytes *ssid;
+                            ssid = nm_access_point_get_ssid(ap);
+                            gsize size;
+                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                            std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
+                            wifiData.ssid = ssidTmp.c_str();
+                            NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
+                            if(wifiConnect(wifiData))
+                                wpsConnected = 1;
+                            break;
+                        }
+                    }
+                }
+                sleep(3); /* Waiting time between successive scan */
+                count++;
+            }while(count <= 3 && !wpsConnected);
+            NMLOG_INFO("Completed scanning and wpsconnect status = %d", wpsConnected);
+            })));
+            return true;
+        }
+
+        bool wifiManager::cancelWPS()
+        {
+            return true;
+        }
 
     } // namespace Plugin
 } // namespace WPEFramework

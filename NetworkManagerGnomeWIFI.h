@@ -53,6 +53,8 @@ namespace WPEFramework
             bool removeKnownSSID(const string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
+            bool initiateWPS();
+            bool cancelWPS();
         private:
             NMDevice *getNmDevice();
 
