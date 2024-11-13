@@ -546,32 +546,34 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
+            string frequency{};
+            Exchange::INetworkManager::IStringIterator* ssids = NULL;
+
 
             if (parameters.HasLabel("frequency"))
-                string frequency = parameters["frequency"].String();
+                frequency = parameters["frequency"].String();
+                NMLOG_INFO("Received frequency string : %s", frequency.c_str());
 
             if (parameters.HasLabel("ssid"))
-                JsonArray array = parameters["ssid"].Array();
-
-            Exchange::INetworkManager::IStringIterator* ssids = NULL;
-            std::vector<std::string> tmpssidslist;
-
-            JsonArray::Iterator index(array.Elements());
-            while (index.Next() == true)
             {
-                if (Core::JSON::Variant::type::STRING == index.Current().Content())
-                {
-                    tmpssidslist.push_back(index.Current().String().c_str());
-                }
-                else
-                {
-                    NMLOG_DEBUG("Unexpected variant type");
-                    returnJson(rc);
-                }
-            }
-            ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+                JsonArray array = parameters["ssid"].Array();
+                std::vector<std::string> tmpssidslist;
 
-            NMLOG_INFO("Received frequency string : %s", frequency.c_str());
+                JsonArray::Iterator index(array.Elements());
+                while (index.Next() == true)
+                {
+                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
+                    {
+                        tmpssidslist.push_back(index.Current().String().c_str());
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Unexpected variant type");
+                        returnJson(rc);
+                    }
+                }
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)

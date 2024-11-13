@@ -555,7 +555,7 @@ namespace WPEFramework
                 string tmpssidlist{};
                 while (ssids->Next(tmpssidlist) == true)
                 {
-                    scanForSsidslist.push_back(tmpssidlist);
+                    scanForSsidslist.push_back(tmpssidlist.c_str());
                 }
             }
 

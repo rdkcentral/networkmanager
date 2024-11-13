@@ -492,10 +492,9 @@ namespace WPEFramework
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
         {
             JsonArray result;
-	    if (scanForSsidslist)
-                std::unordered_set<std::string> scanForSsidsSet(scanForSsidslist.begin(), scanForSsidslist.end());
+            std::unordered_set<std::string> scanForSsidsSet(scanForSsidslist.begin(), scanForSsidslist.end());
 
-            if ((scanForSsidslist && !scanForSsidslist->empty()) || (scanForFreq && !scanForFreq->empty())) {
+            if (!scanForSsidslist.empty() && !scanForFreq.empty())
             {
                 for (int i = 0; i < ssids.Length(); i++)
                 {

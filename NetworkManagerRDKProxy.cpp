@@ -1030,7 +1030,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 string tmpssidlist{};
                 while (ssids->Next(tmpssidlist) == true)
                 {
-                    scanForSsidslist.push_back(tmpssidlist);
+                    scanForSsidslist.push_back(tmpssidlist.c_str());
 		    NMLOG_INFO("SSID added to scanForSsidslist: %s", tmpssidlist.c_str());
                 }
             }
