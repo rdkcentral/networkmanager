@@ -1031,11 +1031,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 while (ssids->Next(tmpssidlist) == true)
                 {
                     scanForSsidslist.push_back(tmpssidlist.c_str());
-		    NMLOG_INFO("SSID added to scanForSsidslist: %s", tmpssidlist.c_str());
+		    NMLOG_INFO("SSID added to scanForSsidslist: %s", scanForSsidslist.c_str());
                 }
             }
 
-            scanForFreq = frequency;
+            if (frequency.empty())
+            {
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+                scanForFreq.clear();
+            }
+            else
+            {
+                scanForFreq = frequency;
+                NMLOG_INFO("Frequency set for scanning: %s", scanForFreq.c_str());
+            }
 
             memset(&param, 0, sizeof(param));
 

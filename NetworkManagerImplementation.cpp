@@ -494,32 +494,32 @@ namespace WPEFramework
             JsonArray result;
             std::unordered_set<std::string> scanForSsidsSet(scanForSsidslist.begin(), scanForSsidslist.end());
 
-            if (!scanForSsidslist.empty() && !scanForFreq.empty())
+            NMLOG_INFO("User Provided Frequency: %s\n", scanForFreq.c_str());
+
+            for (int i = 0; i < ssids.Length(); i++)
             {
-                for (int i = 0; i < ssids.Length(); i++)
+                JsonObject object = ssids[i].Object();
+                string ssid = object["ssid"].String();
+                string frequency = object["frequency"].String();
+
+                //Debug to  print log
+                NMLOG_INFO("Processing SSID: %s, Frequency: %s\n", ssid.c_str(), frequency.c_str());
+
+                bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
+                bool freqMatches = scanFreq == frequency;
+
+                if (ssidMatches && freqMatches)
                 {
-                    JsonObject object = ssids[i].Object();
-                    std::string ssid = object["ssid"].String();
-                    std::string frequency = object["frequency"].String();
-
-                    bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
-                    bool freqMatches = scanForFreq.empty() || (isValidFrequency(scanForFreq) && scanForFreq == frequency);
-
-                    if (ssidMatches && freqMatches)
-                    {
-                        result.Add(object);
-                        NMLOG_INFO("SSID filtered ( match found): %s \n", ssid.c_str());
-                        NMLOG_INFO("Frequency filtered ( match found) %s \n", frequency.c_str());
-                    }
-                    else
-                    {
-                        NMLOG_INFO("SSID filter out %s(no match found)\n", ssid.c_str());
-                        NMLOG_INFO("Frequency filtered ( match found) %s \n", frequency.c_str());
-                    }
+                    result.Add(object);
+                    NMLOG_INFO("Match found: SSID = %s, Frequency = %s\n", ssid.c_str(), frequency.c_str());
                 }
-                ssids = result;
-                NMLOG_INFO("Filtered %d SSIDs.", ssids.Length());
+                else
+                {
+                    NMLOG_INFO("No match: SSID = %s, Frequency = %s\n", ssid.c_str(), frequency.c_str());
+                }
             }
+            ssids = result;
+            NMLOG_INFO("Filtered %d SSIDs.", ssids.Length());
         }
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */

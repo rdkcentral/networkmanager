@@ -244,12 +244,12 @@ namespace WPEFramework
             string scanForFreq;
             std::vector<std::string> scanForSsidslist;
 
-	    bool isValidFrequency(const std::string& freq)
+/*	    bool isValidFrequency(const std::string& freq)
 	    {
                 std::unordered_set<std::string> validFrequencies = {"2.4", "5", "6"};
 		return validFrequencies.find(freq) != validFrequencies.end();
             }
-
+*/
 	public:
             WiFiSignalStrengthMonitor m_wifiSignalMonitor;
             mutable ConnectivityMonitor connectivityMonitor;

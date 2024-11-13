@@ -678,10 +678,14 @@ namespace WPEFramework
                 frequency = parameters["frequency"].String();
                 NMLOG_INFO("Received frequency string : %s", frequency.c_str());
 	    }
-
-	    if (parameters.HasLabel("ssid"))
+	    else
 	    {
-                JsonArray array = parameters["ssid"].Array();
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+            }
+
+	    if (parameters.HasLabel("ssids"))
+	    {
+                JsonArray array = parameters["ssids"].Array();
                 std::vector<std::string> tmpssidslist;
 	        JsonArray::Iterator index(array.Elements());
 
@@ -693,12 +697,16 @@ namespace WPEFramework
                     }
                     else
                     {
-                        NMLOG_DEBUG("Unexpected variant type");
+                        NMLOG_DEBUG("Unexpected variant type in SSID array.");
                         returnJson(rc);
                     }
                 }
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
 	    }
+            else
+            {
+                NMLOG_INFO("No SSIDs provided. Proceeding without SSID filtering.");
+            }
 
             if (_networkManager)
                 rc = _networkManager->StartWiFiScan(frequency, ssids);
