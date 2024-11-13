@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-set(WIFI_TEST "wifiTest")
+set(UNIT_TEST "tests")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -13,19 +13,20 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(googletest)
-add_executable(${WIFI_TEST}
-  Tests/WiFi/test_WiFiSignalStrengthMonitor.cpp
+add_executable(${UNIT_TEST}
+  Tests/unittest/test_WiFiSignalStrengthMonitor.cpp
   WiFiSignalStrengthMonitor.cpp
   NetworkManagerLogger.cpp
   NetworkManagerConnectivity.cpp
 )
-set_target_properties(${WIFI_TEST} PROPERTIES
+set_target_properties(${UNIT_TEST} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
 )
-target_compile_options(${WIFI_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
+target_compile_options(${UNIT_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 
-target_include_directories(${WIFI_TEST} PRIVATE
+target_include_directories(${UNIT_TEST} PRIVATE
     ${GLIB_INCLUDE_DIRS}
     ${LIBNM_INCLUDE_DIRS}
     ${GIO_INCLUDE_DIRS}
@@ -36,7 +37,7 @@ target_include_directories(${WIFI_TEST} PRIVATE
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
 
-target_link_libraries(${WIFI_TEST} PRIVATE gmock_main ${NAMESPACE}Core::${NAMESPACE}Core ${GLIB_LIBRARIES} ${GIO_LIBRARIES} ${LIBNM_LIBRARIES} ${CURL_LIBRARIES})
-target_include_directories(${WIFI_TEST} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) 
-install(TARGETS ${WIFI_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+target_link_libraries(${UNIT_TEST} PRIVATE gmock_main ${NAMESPACE}Core::${NAMESPACE}Core ${GLIB_LIBRARIES} ${GIO_LIBRARIES} ${LIBNM_LIBRARIES} ${CURL_LIBRARIES})
+target_include_directories(${UNIT_TEST} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) 
+install(TARGETS ${UNIT_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
