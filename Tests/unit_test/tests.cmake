@@ -14,7 +14,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 add_executable(${UNIT_TEST}
-  Tests/unittest/test_WiFiSignalStrengthMonitor.cpp
+  Tests/unit_test/test_WiFiSignalStrengthMonitor.cpp
   WiFiSignalStrengthMonitor.cpp
   NetworkManagerLogger.cpp
   NetworkManagerConnectivity.cpp
