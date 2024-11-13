@@ -2,6 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <stdlib.h>
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerImplementation.h"
 #include "WiFiSignalStrengthMonitor.h"
