@@ -17,6 +17,8 @@ set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 include(CmakeHelperFunctions)
 
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
+option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
+
 
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
@@ -166,4 +168,8 @@ install(TARGETS ${PLUGIN_LEGACY_DEPRECATED_WIFI} DESTINATION ${CMAKE_INSTALL_PRE
 write_config()
 write_config(PLUGINS LegacyPlugin_NetworkAPIs CLASSNAME Network LOCATOR lib${PLUGIN_LEGACY_DEPRECATED_NETWORK}.so)
 write_config(PLUGINS LegacyPlugin_WiFiManagerAPIs CLASSNAME WiFiManager LOCATOR lib${PLUGIN_LEGACY_DEPRECATED_WIFI}.so)
+
+if(ENABLE_UNIT_TESTING)
+    include(Tests/unit_test/tests.cmake)
+endif(ENABLE_UNIT_TESTING)
 
