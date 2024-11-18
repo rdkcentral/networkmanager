@@ -47,7 +47,7 @@ namespace WPEFramework
         const char *connectionTyp = NULL;
         primaryConn = nm_client_get_primary_connection(client);
         nmEvents->activeConn = primaryConn;
-        std::string newIface ="unknow";
+        std::string newIface ="unknown";
         if (primaryConn)
         {
             activeConnId = nm_active_connection_get_id(primaryConn);
