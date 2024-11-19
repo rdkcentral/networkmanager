@@ -55,6 +55,7 @@ namespace WPEFramework
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
             bool initiateWPS();
             bool cancelWPS();
+            bool setInterfaceState(std::string interface, bool enabled);
         private:
             NMDevice *getNmDevice();
 

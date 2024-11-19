@@ -216,20 +216,20 @@ namespace WPEFramework
                 ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
                 string ssidString(ssidStr);
                 ssidObj["ssid"] = ssidString;
+                strength = nm_access_point_get_strength(ap);
+                apFreq   = nm_access_point_get_frequency(ap);
+                flags    = nm_access_point_get_flags(ap);
+                wpaFlags = nm_access_point_get_wpa_flags(ap);
+                rsnFlags = nm_access_point_get_rsn_flags(ap);
+                freq = nmUtils::wifiFrequencyFromAp(apFreq);
+                security = nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags);
+
+                ssidObj["security"] = security;
+                ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
+                ssidObj["frequency"] = freq;
             }
             else
-                ssidObj["ssid"] = "---"; // hidden ssid TODO modify
-            strength = nm_access_point_get_strength(ap);
-            apFreq   = nm_access_point_get_frequency(ap);
-            flags    = nm_access_point_get_flags(ap);
-            wpaFlags = nm_access_point_get_wpa_flags(ap);
-            rsnFlags = nm_access_point_get_rsn_flags(ap);
-            freq = nmUtils::wifiFrequencyFromAp(apFreq);
-            security = nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags);
-
-            ssidObj["security"] = security;
-            ssidObj["signalStrength"] = strength;
-            ssidObj["frequency"] = freq;
+                NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
 
             return ssidObj;
        }

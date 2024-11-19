@@ -236,7 +236,7 @@ namespace WPEFramework
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
-            NMLOG_DEBUG("sterngth: %s %%", wifiInfo.strength.c_str());
+            NMLOG_DEBUG("sterngth: %s dbm", wifiInfo.strength.c_str());
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
             NMLOG_DEBUG("security %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
@@ -249,13 +249,13 @@ namespace WPEFramework
 
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_DEBUG("NMDeviceWifi * NULL !");
+                NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
 
             NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
             if(activeAP == NULL) {
-                NMLOG_DEBUG("No active access point found !");
+                NMLOG_INFO("No active access point found !");
                 return false;
             }
             else
@@ -270,7 +270,7 @@ namespace WPEFramework
 
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_DEBUG("NMDeviceWifi * NULL !");
+                NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
 
@@ -286,7 +286,7 @@ namespace WPEFramework
             return true;
         }
 
-        static void wifiDisconnectCb(GObject *object, GAsyncResult *result, gpointer user_data)
+        static void disconnectCb(GObject *object, GAsyncResult *result, gpointer user_data)
         {
             NMDevice     *device = NM_DEVICE(object);
             GError       *error = NULL;
@@ -316,11 +316,11 @@ namespace WPEFramework
 
             NMDevice *wifiNMDevice = getNmDevice();
             if(wifiNMDevice == NULL) {
-                NMLOG_ERROR("NMDeviceWifi NULL !");
-                return false;
+                NMLOG_WARNING("wifi state is unmanaged !");
+                return true;
             }
 
-            nm_device_disconnect_async(wifiNMDevice, NULL, wifiDisconnectCb, this);
+            nm_device_disconnect_async(wifiNMDevice, NULL, disconnectCb, this);
             wait(loop);
             return isSuccess;
         }
@@ -887,7 +887,7 @@ namespace WPEFramework
                 return false;
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
             if(wifiDevice == NULL) {
-                NMLOG_DEBUG("NMDeviceWifi * NULL !");
+                NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
             isSuccess = false;
@@ -991,6 +991,84 @@ namespace WPEFramework
         bool wifiManager::cancelWPS()
         {
             return true;
+        }
+
+        static void deviceManagedCb(GObject *object, GAsyncResult *result, gpointer user_data)
+        {
+            wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
+            GError *error = nullptr;
+
+            if (!nm_client_dbus_set_property_finish(NM_CLIENT(object), result, &error)) {
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    g_error_free(error);
+                    return;
+                }
+
+                NMLOG_ERROR("Failed to set Managed property: %s", error->message);
+                g_error_free(error);
+                _wifiManager->isSuccess = false;
+            } else {
+                NMLOG_DEBUG("Successfully set Managed property.");
+                _wifiManager->isSuccess = true;
+            }
+
+            _wifiManager->quit(nullptr);
+        }
+
+        bool wifiManager::setInterfaceState(std::string interface, bool enabled)
+        {
+            isSuccess = false;
+            NMDevice *device = nullptr;
+
+            if (!createClientNewConnection())
+                return false;
+
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            if (devices == nullptr) {
+                NMLOG_ERROR("Failed to get device list.");
+                return isSuccess;
+            }
+
+            for (guint j = 0; j < devices->len; j++) {
+                device = NM_DEVICE(devices->pdata[j]);
+                const char *ifaceStr = nm_device_get_iface(device);
+                if (ifaceStr == nullptr)
+                    continue;
+                if (interface == ifaceStr) {
+                    // NMLOG_DEBUG("Device found: %s", interface.c_str());
+                    break;
+                } else {
+                    device = nullptr;
+                }
+            }
+
+            if (device == nullptr)
+                return false;
+
+            NMDeviceState deviceState = nm_device_get_state(device);
+
+            if (enabled) {
+                NMLOG_DEBUG("Enabling interface...");
+                if (deviceState >= NM_DEVICE_STATE_DISCONNECTED) // already enabled
+                    return true;
+            } else {
+                NMLOG_DEBUG("Disabling interface...");
+                if (deviceState <= NM_DEVICE_STATE_UNMANAGED) // already disabled
+                    return true;
+                else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
+                    nm_device_disconnect_async(device, nullptr, disconnectCb, this);
+                    wait(loop);
+                    sleep(1); // to remove the connection
+                }
+            }
+
+            const char *objectPath = nm_object_get_path(NM_OBJECT(device));
+            GVariant *value = g_variant_new_boolean(enabled);
+
+            nm_client_dbus_set_property( client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
+                                                                    value, -1, nullptr, deviceManagedCb, this);
+            wait(loop);
+            return isSuccess;
         }
 
     } // namespace Plugin
