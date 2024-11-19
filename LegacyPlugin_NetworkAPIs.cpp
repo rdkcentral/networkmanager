@@ -1014,10 +1014,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             JsonObject legacyParams;
             
-            legacyParams["oldInterfaceName"] = getInterfaceNameToType(parameters["oldInterfaceName"].String());
-            legacyParams["newInterfaceName"] = getInterfaceNameToType(parameters["newInterfaceName"].String());
+            legacyParams["oldInterfaceName"] = getInterfaceNameToType(parameters["prevActiveInterface"].String());
+            legacyParams["newInterfaceName"] = getInterfaceNameToType(parameters["currentActiveInterface"].String());
 
-            m_defaultInterface = parameters["newInterfaceName"].String();
+            m_defaultInterface = parameters["currentActiveInterface"].String();
 
             string json;
             legacyParams.ToString(json);
@@ -1032,7 +1032,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             JsonObject legacyParams;
             legacyParams["interface"] = getInterfaceNameToType(parameters["interface"].String());
 
-            if (parameters["isIPv6"].Boolean())
+            if (parameters["ipversion"].String() == "IPv6")
             {
                 legacyParams["ip6Address"] = parameters["ipaddress"];
             }
@@ -1049,8 +1049,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             Notify("onIPAddressStatusChanged", legacyParams);
 
-            if ("ACQUIRED" == parameters["status"].String())
-                m_defaultInterface = parameters["interface"].String();
+            // if ("ACQUIRED" == parameters["status"].String())
+            //     m_defaultInterface = parameters["interface"].String();
 
             return;
         }

@@ -697,7 +697,7 @@ namespace WPEFramework
                 }
             }
             else
-                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
+                NMLOG_WARNING("Ignoring %s", __FUNCTION__);
 
             return;
         }
@@ -710,7 +710,7 @@ namespace WPEFramework
             if(_gWiFiInstance)
                 _gWiFiInstance->Notify("onAvailableSSIDs", parameters);
             else
-                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
+                NMLOG_WARNING("Ignoring %s", __FUNCTION__);
 
             return;
         }
@@ -718,8 +718,8 @@ namespace WPEFramework
         void WiFiManager::onWiFiSignalStrengthChange(const JsonObject& parameters)
         {
             JsonObject legacyParams;
-            legacyParams["signalStrength"] = parameters["signalQuality"];
-            legacyParams["strength"] = parameters["signalLevel"];
+            legacyParams["signalStrength"] = parameters["strength"];
+            legacyParams["strength"] = parameters["quality"];
 
             string json;
             legacyParams.ToString(json);
@@ -727,7 +727,7 @@ namespace WPEFramework
             if (_gWiFiInstance)
                 _gWiFiInstance->Notify("onWifiSignalThresholdChanged", legacyParams);
             else
-                NMLOG_WARNING("Ignoring %s\n", __FUNCTION__);
+                NMLOG_WARNING("Ignoring %s", __FUNCTION__);
 
             return;
         }
