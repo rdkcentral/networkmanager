@@ -271,7 +271,7 @@ namespace WPEFramework
                 if ("wlan0" != interface && "eth0" != interface)
                     rc = Core::ERROR_BAD_REQUEST;
                 else if (_networkManager)
-                    rc = _networkManager->SetInterfaceState(interface, enabled);
+                    rc = _networkManager->GetInterfaceState(interface, enabled);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
 
