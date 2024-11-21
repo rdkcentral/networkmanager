@@ -542,12 +542,65 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
+       string trim(const string& str)
+       {
+           size_t first = str.find_first_not_of(" \t");
+           size_t last = str.find_last_not_of(" \t");
+           return (first == std::string::npos) ? "" : str.substr(first, last - first + 1);
+       }
+
+       vector<string> split(const string& input, char delimiter)
+       {
+           vector<string> result;
+           stringstream ss(input);
+           string item;
+
+           while (getline(ss, item, delimiter))
+           {
+               result.push_back(item);
+           }
+           return result;
+       }
+
+
+	uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency = parameters["frequency"].String();
+            string frequency{};
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
+
+
+            if (parameters.HasLabel("frequency"))
+            {
+                frequency = parameters["frequency"].String();
+                NMLOG_INFO("Received frequency string : %s", frequency.c_str());
+            }
+            else
+            {
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+            }
+
+            if (parameters.HasLabel("ssid"))
+            {
+                vector<string> tmpssidslist;
+                string tmpssids = parameters["ssid"].String();
+
+                NMLOG_INFO("Provided SSID value : %s", tmpssids.c_str());
+
+                vector<string> rawSSIDs = split(tmpssids, ',');
+
+                for (const auto& ssid : rawSSIDs)
+                {
+                    tmpssidslist.push_back(trim(ssid));
+                }
+                NMLOG_INFO("Processed SSID list with %zu entries", tmpssidslist.size());
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+            }
+            else
+            {
+                NMLOG_INFO("No SSIDs provided. Proceeding without SSID filtering.");
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
@@ -557,6 +610,9 @@ namespace WPEFramework
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            if (ssids)
+                ssids->Release();
 
             returnJson(rc);
         }

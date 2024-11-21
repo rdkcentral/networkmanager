@@ -218,7 +218,7 @@ namespace WPEFramework
             void ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
             void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
-            void ReportAvailableSSIDs(const string jsonOfScanResults);
+            void ReportAvailableSSIDs(JsonArray &arrayofWiFiScanResults);
             void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
             void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
@@ -227,6 +227,7 @@ namespace WPEFramework
             void retryIarmEventRegistration();
             void threadEventRegistration();
             void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
+            void filterScanResults(JsonArray &ssids);
 
         private:
             std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
@@ -239,7 +240,10 @@ namespace WPEFramework
             uint16_t m_stunBindTimeout;
             uint16_t m_stunCacheTimeout;
             std::thread m_registrationThread;
-        public:
+            string scanForFreq;
+            std::vector<std::string> scanForSsidslist;
+
+	public:
             WiFiSignalStrengthMonitor m_wifiSignalMonitor;
             mutable ConnectivityMonitor connectivityMonitor;
         };

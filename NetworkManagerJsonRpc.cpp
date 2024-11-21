@@ -670,13 +670,52 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency = parameters["frequency"].String();
-            Exchange::INetworkManager::IStringIterator* ssids = NULL;
+	    string frequency{};
+	    Exchange::INetworkManager::IStringIterator* ssids = NULL;
+
+	    if (parameters.HasLabel("frequency"))
+            {
+                frequency = parameters["frequency"].String();
+                NMLOG_INFO("Received frequency string : %s", frequency.c_str());
+            }
+            else
+            {
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+            }
+
+            if (parameters.HasLabel("ssids"))
+            {
+                JsonArray array = parameters["ssids"].Array();
+                std::vector<std::string> tmpssidslist;
+	        JsonArray::Iterator index(array.Elements());
+
+		while (index.Next() == true)
+                {
+                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
+                    {
+                        tmpssidslist.push_back(index.Current().String().c_str());
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Unexpected variant type in SSID array.");
+                        returnJson(rc);
+                    }
+                }
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+            }
+            else
+            {
+                NMLOG_INFO("No SSIDs provided. Proceeding without SSID filtering.");
+            }
 
             if (_networkManager)
                 rc = _networkManager->StartWiFiScan(frequency, ssids);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            if (ssids)
+                ssids->Release();
+
 
             returnJson(rc);
         }

@@ -505,10 +505,8 @@ namespace WPEFramework
                         }
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
-                        string json;
-                        ssids.ToString(json);
 
-                        ::_instance->ReportAvailableSSIDs(json);
+                        ::_instance->ReportAvailableSSIDs(ssids);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
@@ -1027,8 +1025,29 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             IARM_Bus_WiFiSrvMgr_SsidList_Param_t param;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
-            (void)ssids;
-            (void) frequency;
+            //Cleared the Existing Store filterred SSID list
+            scanForSsidslist.clear();
+
+            if(ssids)
+            {
+                string tmpssidlist{};
+                while (ssids->Next(tmpssidlist) == true)
+                {
+                    scanForSsidslist.push_back(tmpssidlist.c_str());
+		    NMLOG_INFO("SSID added to scanForSsidslist: %s", tmpssidlist.c_str());
+                }
+            }
+
+            if (frequency.empty())
+            {
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+                scanForFreq.clear();
+            }
+            else
+            {
+                scanForFreq = frequency;
+                NMLOG_INFO("Frequency set for scanning: %s", scanForFreq.c_str());
+            }
 
             memset(&param, 0, sizeof(param));
 

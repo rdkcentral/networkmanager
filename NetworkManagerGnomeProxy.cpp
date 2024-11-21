@@ -650,10 +650,32 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            (void) ssids;
+
+            //Cleared the Existing Store filterred SSID list
+            scanForSsidslist.clear();
+
+            if(ssids)
+            {
+                string tmpssidlist{};
+                while (ssids->Next(tmpssidlist) == true)
+                {
+                    scanForSsidslist.push_back(tmpssidlist.c_str());
+                }
+            }
+
+            if (frequency.empty())
+            {
+                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
+                scanForFreq.clear();
+            }
+            else
+            {
+                scanForFreq = frequency;
+                NMLOG_INFO("Frequency set for scanning: %s", scanForFreq.c_str());
+            }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(frequency))
+            if(wifi->wifiScanRequest(scanForFreq))
                 rc = Core::ERROR_NONE;
             return rc;
         }
