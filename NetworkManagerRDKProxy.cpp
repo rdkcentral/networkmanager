@@ -825,7 +825,7 @@ namespace WPEFramework
                 strncpy(iarmData.interface, "ETHERNET", INTERFACE_SIZE);
             else if (!interface.empty())
             {
-                NMLOG_ERROR("Given interface (%s) is NOT supported\n", interface.c_str());
+                NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
                 return Core::ERROR_NOT_SUPPORTED;
             }
 
@@ -855,7 +855,17 @@ namespace WPEFramework
                 }
 
                 /* Return the default interface information */
-                interface = string(interface);
+                if (interface.empty())
+                {
+                    string tmpInterface = string(iarmData.interface);
+                    if ("ETHERNET" == tmpInterface)
+                        interface = "eth0";
+                    else if ("WIFI" == tmpInterface)
+                        interface = "wlan0";
+                    else
+                        rc = Core::ERROR_BAD_REQUEST;
+                }
+
                 rc = Core::ERROR_NONE;
             }
             else

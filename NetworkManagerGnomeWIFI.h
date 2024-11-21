@@ -46,13 +46,16 @@ namespace WPEFramework
             bool wifiDisconnect();
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(Exchange::INetworkManager::WiFiConnectTo wifiData);
-            bool wifiScanRequest(std::string frequency, std::string ssidReq = "");
-            bool isWifiScannedRecently(int timelimitInSec = 10); // default 10 sec as shotest scanning interval
+            bool wifiScanRequest(std::string ssidReq = "");
+            bool isWifiScannedRecently(int timelimitInSec = 5); // default 10 sec as shotest scanning interval
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo);
             bool removeKnownSSID(const string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
+            bool initiateWPS();
+            bool cancelWPS();
+            bool setInterfaceState(std::string interface, bool enabled);
         private:
             NMDevice *getNmDevice();
 

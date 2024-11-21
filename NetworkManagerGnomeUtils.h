@@ -33,13 +33,17 @@ namespace WPEFramework
         {
 
             public:
-               static bool GetInterfacesName(std::string &wifiIfname ,std::string &ethIfname);
+               static bool getInterfacesName();
+               static const char* wlanIface();
+               static const char* ethIface();
+               static const char* convertPercentageToSignalStrengtStr(int percentage);
                static bool caseInsensitiveCompare(const std::string& str1, const std::string& str2);
                static uint8_t wifiSecurityModeFromAp(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static JsonObject apToJsonObject(NMAccessPoint *ap);
                static void printActiveSSIDsOnly(NMDeviceWifi *wifiDevice);
+               static NMDeviceState ifaceState(NMClient *client, const char* interface);
         };
 
     }

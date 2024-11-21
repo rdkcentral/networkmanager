@@ -271,7 +271,7 @@ namespace WPEFramework
                 if ("wlan0" != interface && "eth0" != interface)
                     rc = Core::ERROR_BAD_REQUEST;
                 else if (_networkManager)
-                    rc = _networkManager->SetInterfaceState(interface, enabled);
+                    rc = _networkManager->GetInterfaceState(interface, enabled);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
 
@@ -290,8 +290,14 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IPAddress address{};
 
-            string interface = parameters["interface"].String();
-            string ipversion = parameters["ipversion"].String();
+            string interface{};
+            string ipversion{};
+
+            if (parameters.HasLabel("interface"))
+                interface = parameters["interface"].String();
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
 
             if (_networkManager)
                 rc = _networkManager->GetIPSettings(interface, ipversion, address);
@@ -717,7 +723,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            NMLOG_INFO("Entry to %s", __FUNCTION__);
 
             if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
@@ -758,7 +764,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            NMLOG_INFO("Entry to %s", __FUNCTION__);
 
             if (parameters.HasLabel("ssid"))
                 ssid.ssid = parameters["ssid"].String();
