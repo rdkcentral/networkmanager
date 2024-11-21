@@ -171,21 +171,22 @@ namespace WPEFramework
             return wifiDevice;
         }
 
-        bool static getConnectedSSID(NMDeviceWifi *wifiDevice, std::string& ssidin)
+        bool static getConnectedSSID(NMDevice *device, std::string& ssidin)
         {
             GBytes *ssid;
-            NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
-            if(activeAP == NULL) {
-                return false;
+            NMDeviceState device_state = nm_device_get_state(device);
+            if (device_state == NM_DEVICE_STATE_ACTIVATED)
+            {
+                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
+                ssid = nm_access_point_get_ssid(activeAP);
+                gsize size;
+                const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
+                ssidin = ssidTmp;
+                NMLOG_INFO("connected ssid: %s", ssidin.c_str());
+                return true;
             }
-
-            ssid = nm_access_point_get_ssid(activeAP);
-            gsize size;
-            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
-            std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-            ssidin = ssidTmp;
-            NMLOG_INFO("connected ssid: %s", ssidin.c_str());
-            return true;
+            return false;
         }
 
         static void getApInfo(NMAccessPoint *AccessPoint, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo)
@@ -584,7 +585,7 @@ namespace WPEFramework
                 return false;
 
             std::string activeSSID;
-            if(getConnectedSSID(NM_DEVICE_WIFI(device), activeSSID))
+            if(getConnectedSSID(device, activeSSID))
             {
                 if(ssidInfo.ssid == activeSSID)
                 {
@@ -944,52 +945,122 @@ namespace WPEFramework
             return false;
         }
 
-        bool wifiManager::initiateWPS()
+        void wifiManager::wpsAction()
         {
-            Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
-            const GPtrArray *aps;
-            int count = 1, wpsConnected = 0;
+            FILE *fp;
+            std::ifstream configFile("/opt/secure/wifi/wpa_supplicant.conf");
+            std::string line;
+            std::string securityPattern = "key_mgmt=";
+            std::string ssidPattern = "ssid=";
+            std::string passphrasePattern = "psk=";
+            std::string security, ssid, passphrase;
+            Exchange::INetworkManager::WiFiConnectTo wifiData;
+            std::array<char, 128> buffer;
+            std::string wpaCliResult;
+            boolean wpsConnect;
+            int timeout = 0;
+
             if(!createClientNewConnection())
                 return;
+            std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
+            fp = popen(wpaCliCommand.c_str(), "r");
+            if (fp == nullptr) {
+                NMLOG_ERROR("wpa_cli popen failed");
+                return ;
+            }
+            pclose(fp);
+            std::string wpaCliStatus = "wpa_cli status";
+            while (true) {
+                fp = popen(wpaCliStatus.c_str(), "r");
+                if (fp == nullptr) {
+                    NMLOG_ERROR("wpa_cli popen failed");
+                    return ;
+                }
+                while (fgets(buffer.data(), buffer.size(), fp) != nullptr) {
+                    wpaCliResult += buffer.data();
+                }
+                wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
+                if(wpsConnect || timeout >= 120)
+                    break;
+                sleep(1);
+                timeout++;
+                pclose(fp);
+            }
 
-            sleep(10); /* As we will get the ap info with NM_802_11_AP_FLAGS_WPS_PBC set after pressing the PBC button.
-                          So we are waiting for 10 seconds here*/
-            do{
-                if(wifiScanRequest(""))
-                {
-                    aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(getNmDevice()));
-                    for (guint i = 0; i < aps->len; i++) {
-                        NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
+            if (!configFile.is_open()) {
+                NMLOG_ERROR("Unable to open wpa_supplicant.conf file");
+                return;
+            }
 
-                        guint32 flags = nm_access_point_get_flags(ap);
+            if(wpsConnect)
+            {
+                while (std::getline(configFile, line)) {
+                    size_t pos;
 
-                        NMLOG_INFO("AP Flags: 0x%x\n", flags);
-
-                        if (flags & NM_802_11_AP_FLAGS_WPS_PBC) {
-                            Exchange::INetworkManager::WiFiConnectTo wifiData;
-                            GBytes *ssid;
-                            ssid = nm_access_point_get_ssid(ap);
-                            gsize size;
-                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
-                            std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                            wifiData.ssid = ssidTmp.c_str();
-                            NMLOG_INFO("connected ssid: %s", ssidTmp.c_str());
-                            if(wifiConnect(wifiData))
-                                wpsConnected = 1;
-                            break;
+                    // Fetch security value
+                    pos = line.find(securityPattern);
+                    if (pos != std::string::npos) {
+                        pos += securityPattern.length();
+                        size_t end = line.find(' ', pos);
+                        if (end == std::string::npos) {
+                            end = line.length();
                         }
+                        security = line.substr(pos, end - pos);
+                        continue;
+                    }
+
+                    // Fetch ssid value
+                    pos = line.find(ssidPattern);
+                    if (pos != std::string::npos) {
+                        pos += ssidPattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos) {
+                            end = line.length();
+                        }
+                        ssid = line.substr(pos + 1, end - pos - 1);
+                        continue;
+                    }
+
+                    // Fetch passphare value
+                    pos = line.find(passphrasePattern);
+                    if (pos != std::string::npos) {
+                        pos += passphrasePattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos) {
+                            end = line.length();
+                        }
+                        passphrase = line.substr(pos + 1, end - pos - 1);
+                        continue;
                     }
                 }
-                sleep(3); /* Waiting time between successive scan */
-                count++;
-            }while(count <= 3 && !wpsConnected);
-            NMLOG_INFO("Completed scanning and wpsconnect status = %d", wpsConnected);
+
+                configFile.close();
+                wifiData.ssid = ssid;
+                wifiData.passphrase = passphrase;
+                if(security == "WPA-PSK")
+                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
+                else if(security == "WPA2-PSK")
+                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+            }
+            if(wifiConnect(wifiData))
+                NMLOG_INFO("WPS connected successfully");
+            else
+                NMLOG_ERROR("WPS connect failed");
+        }
+
+        bool wifiManager::initiateWPS()
+        {
+            job = Core::ProxyType<Core::IDispatch>(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
+                NMLOG_INFO ("Start WPS %s", __FUNCTION__);
+                wpsAction();
             })));
+            Core::IWorkerPool::Instance().Submit(job);
             return true;
         }
 
         bool wifiManager::cancelWPS()
         {
+            Core::IWorkerPool::Instance().Revoke(job);
             return true;
         }
 
