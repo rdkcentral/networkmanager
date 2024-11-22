@@ -975,6 +975,7 @@ namespace WPEFramework
                 gettimeofday(&startTime, NULL);
                 while (true) {
                     if(!wpsStop.load()){
+                        NMLOG_INFO("wpsStop = %d", wpsStop.load());
                         fp = popen(wpaCliStatus.c_str(), "r");
                         if (fp == nullptr) {
                             NMLOG_ERROR("wpa_cli popen failed");
@@ -1072,7 +1073,11 @@ namespace WPEFramework
         bool wifiManager::cancelWPS()
         {
             wpsStop.store(true);
+            NMLOG_INFO ("Stop WPS %s", __FUNCTION__);
+            sleep(2);
+            NMLOG_INFO ("Initiated revoke");
             Core::IWorkerPool::Instance().Revoke(job);
+            NMLOG_INFO ("Revoke completed");
             return true;
         }
 
