@@ -158,7 +158,7 @@ namespace WPEFramework
             curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
             if ((ipversion == CURL_IPRESOLVE_V4) || (ipversion == CURL_IPRESOLVE_V6))
             {
-                NMLOG_DEBUG("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"ipv4 only":"ipv6 only", headReq? "HEAD":"GET");
+                NMLOG_DEBUG("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"IPv4":"IPv6", headReq? "HEAD":"GET");
                 curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, ipversion);
             }
             else
@@ -327,7 +327,6 @@ namespace WPEFramework
         gInternetState = nsm_internetState::UNKNOWN;
         gIpv4InternetState = nsm_internetState::UNKNOWN;
         gIpv6InternetState = nsm_internetState::UNKNOWN;
-        ginterfaceStatus = false;
     }
 
     ConnectivityMonitor::~ConnectivityMonitor()
@@ -472,9 +471,8 @@ namespace WPEFramework
      *  -->  when IP address accuired
      *  -->  when etherenet/wifi disconnected
      */
-    bool ConnectivityMonitor::startConnectivityMonitor(bool interfaceStatus)
+    bool ConnectivityMonitor::startConnectivityMonitor()
     {
-        ginterfaceStatus = interfaceStatus; /* this will give interface status connected/ disconnected */
         gInternetState = UNKNOWN;
         gIpv4InternetState = UNKNOWN;
         gIpv6InternetState = UNKNOWN;
@@ -497,21 +495,24 @@ namespace WPEFramework
             return false;
         }
 
-        NMLOG_ERROR("connectivity monitor started %d", NMCONNECTIVITY_MONITOR_MIN_INTERVAL);
+        NMLOG_INFO("connectivity monitor started %d sec - eth %s - wlan %s", 
+                    NMCONNECTIVITY_MONITOR_MIN_INTERVAL, _instance->isEthConnected? "up":"down", _instance->isWlanConnected? "up":"down");
         return true;
     }
 
     void ConnectivityMonitor::notifyInternetStatusChangedEvent(nsm_internetState newInternetState)
     {
+        static Exchange::INetworkManager::InternetStatus oldState = Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN;
         if(_instance != nullptr)
         {
-            Exchange::INetworkManager::InternetStatus oldState = static_cast<Exchange::INetworkManager::InternetStatus>(gInternetState.load());
+            NMLOG_INFO("notify internet state %s", getInternetStateString(newInternetState));
             Exchange::INetworkManager::InternetStatus newState = static_cast<Exchange::INetworkManager::InternetStatus>(newInternetState);
             _instance->ReportInternetStatusChange(oldState , newState);
             gInternetState = newInternetState;
+            oldState = newState; // 'gInternetState' not exactly previous state, it may change to unknow when interface changed
         }
         else
-            NMLOG_WARNING("NetworkManagerImplementation Instance NULL notifyInternetStatusChange failed.");
+            NMLOG_FATAL("NetworkManagerImplementation Instance NULL notifyInternetStatusChange failed.");
     }
 
     void ConnectivityMonitor::continuousMonitorFunction()
@@ -524,6 +525,17 @@ namespace WPEFramework
 
         do
         {
+            if(!_instance->isEthConnected && !_instance->isWlanConnected) // no wifi no ethernet connected
+            {
+                NMLOG_DEBUG("no interface connected; no ccm check");
+                gIpv4InternetState = NO_INTERNET;
+                gIpv6InternetState = NO_INTERNET;
+                std::unique_lock<std::mutex> lock(connMutex);
+                cvContinuousMonitor.wait_for(lock, std::chrono::seconds(continuousMonitorTimeout.load()));
+                ipResolveTyp = NSM_IPRESOLVE_WHATEVER;
+                continue;
+            }
+
             if(doConnectivityMonitor)
             {
                 NMLOG_DEBUG("connectivity monitor running so skiping ccm check");
@@ -531,7 +543,7 @@ namespace WPEFramework
                 gIpv6InternetState = UNKNOWN;
                 std::unique_lock<std::mutex> lock(connMutex);
                 cvContinuousMonitor.wait_for(lock, std::chrono::seconds(continuousMonitorTimeout.load()));
-                ipResolveTyp = NSM_IPRESOLVE_WHATEVER; /* some interface change happense*/
+                ipResolveTyp = NSM_IPRESOLVE_WHATEVER; /* some interface change happense */
                 continue;
             }
             else if (ipResolveTyp == NSM_IPRESOLVE_WHATEVER)
@@ -603,7 +615,6 @@ namespace WPEFramework
 
             if(gInternetState != currentInternetState)
             {
-                NMLOG_INFO("Internet state changed to %s", getInternetStateString(currentInternetState));
                 /* Notify Internet state change */
                 notifyInternetStatusChangedEvent(currentInternetState);
             }
@@ -681,8 +692,9 @@ namespace WPEFramework
                         doConnectivityMonitor = false;  // self exit
                         notifyNow = true; // post current state when retry complete
                     }
-                    else if(ginterfaceStatus) // interface is active and still no internet, continue check every 30 sec
+                    else if(_instance->isEthConnected | _instance->isWlanConnected)
                     {
+                        /* interface is connected and still no internet, continue check every 30 sec */
                         TempInterval = NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL;
                         /* notify if retry completed and state stil no internet state */
                         if(notifyPreRetry == NMCONNECTIVITY_CONN_MONITOR_RETRY_COUNT)
@@ -702,7 +714,6 @@ namespace WPEFramework
             if(gInternetState != currentInternetState || notifyNow)
             {
                 notifyNow = false;
-                NMLOG_INFO("notify internet state %s", getInternetStateString(currentInternetState));
                 notifyInternetStatusChangedEvent(currentInternetState);
             }
 

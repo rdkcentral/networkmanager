@@ -114,7 +114,7 @@ namespace WPEFramework
             ~ConnectivityMonitor();
             bool startContinuousConnectivityMonitor(int timeoutInSeconds);
             bool stopContinuousConnectivityMonitor();
-            bool startConnectivityMonitor(bool interfaceStatus);
+            bool startConnectivityMonitor();
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
             bool isConnectedToInternet(nsm_ipversion ipversion);
@@ -140,7 +140,6 @@ namespace WPEFramework
 
             EndpointCache endpointCache;
             std::mutex endpointMutex;
-            std::atomic<bool> ginterfaceStatus;
             std::atomic<nsm_internetState> gInternetState;
             std::atomic<nsm_internetState> gIpv4InternetState;
             std::atomic<nsm_internetState> gIpv6InternetState;

@@ -25,6 +25,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
+#include <atomic>
 
 using namespace std;
 
@@ -222,9 +223,14 @@ namespace WPEFramework
             void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
             void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
+        public:
+            std::atomic<bool> isEthConnected;
+            std::atomic<bool> isWlanConnected;
+
         private:
             void platform_init();
             void retryIarmEventRegistration();
+            void getInitialConnectionState();
             void threadEventRegistration();
             void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
 
