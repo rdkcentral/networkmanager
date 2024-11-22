@@ -958,7 +958,8 @@ namespace WPEFramework
             std::array<char, 128> buffer;
             std::string wpaCliResult;
             gboolean wpsConnect;
-            int timeout = 0;
+            struct timeval startTime, endTime;
+            long timeDiff;
 
             if(!createClientNewConnection())
                 return;
@@ -970,6 +971,7 @@ namespace WPEFramework
             }
             pclose(fp);
             std::string wpaCliStatus = "wpa_cli status";
+            gettimeofday(&startTime, NULL);
             while (true) {
                 fp = popen(wpaCliStatus.c_str(), "r");
                 if (fp == nullptr) {
@@ -980,10 +982,11 @@ namespace WPEFramework
                     wpaCliResult += buffer.data();
                 }
                 wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
-                if(wpsConnect || timeout >= 120)
+                gettimeofday(&endTime, NULL);
+                timeDiff = ((endTime.tv_sec - startTime.tv_sec) * 1000000 + (endTime.tv_usec - startTime.tv_usec))/1000000;
+                NMLOG_INFO("Inside while timeDiff = %ld", timeDiff);
+                if(wpsConnect || timeDiff > 120)
                     break;
-                sleep(1);
-                timeout++;
                 pclose(fp);
             }
 
