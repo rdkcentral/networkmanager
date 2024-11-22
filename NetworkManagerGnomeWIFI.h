@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <atomic>
 
 namespace WPEFramework
 {
@@ -80,6 +81,7 @@ namespace WPEFramework
 
             bool createClientNewConnection();
             Core::ProxyType<Core::IDispatch> job;
+            std::atomic<bool> wpsStop = {false};
 
         public:
             NMClient *client;
