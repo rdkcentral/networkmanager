@@ -957,7 +957,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiConnectTo wifiData;
             std::array<char, 128> buffer;
             std::string wpaCliResult;
-            boolean wpsConnect;
+            gboolean wpsConnect;
             int timeout = 0;
 
             if(!createClientNewConnection())
