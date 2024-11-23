@@ -1062,6 +1062,7 @@ namespace WPEFramework
 
         bool wifiManager::initiateWPS()
         {
+            wpsStop.store(false);
             job = Core::ProxyType<Core::IDispatch>(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
                 NMLOG_INFO ("Start WPS %s", __FUNCTION__);
                 wpsAction();
@@ -1074,10 +1075,10 @@ namespace WPEFramework
         {
             wpsStop.store(true);
             NMLOG_INFO ("Stop WPS %s", __FUNCTION__);
-            sleep(2);
+            /*sleep(2);
             NMLOG_INFO ("Initiated revoke");
             Core::IWorkerPool::Instance().Revoke(job);
-            NMLOG_INFO ("Revoke completed");
+            NMLOG_INFO ("Revoke completed");*/
             return true;
         }
 
