@@ -88,6 +88,7 @@ namespace WPEFramework
             GMainLoop *loop;
             gboolean createNewConnection;
             GMainContext *nmContext = nullptr;
+            GMainContext *wpsContext = nullptr;
             const char* objectPath;
             NMDevice *wifidevice;
             GSource *source;

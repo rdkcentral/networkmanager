@@ -961,13 +961,26 @@ namespace WPEFramework
             struct timeval startTime, endTime;
             long timeDiff;
 
+            if (!g_main_context_acquire(wpsContext)) {
+                NMLOG_ERROR("Failed to acquire wpsContext");
+                return;
+            }
+
+            g_main_context_push_thread_default(wpsContext);
+
             if(!wpsStop.load()){
                 if(!this->createClientNewConnection())
+                {
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
                     return;
+                }
                 std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
                 fp = popen(wpaCliCommand.c_str(), "r");
                 if (fp == nullptr) {
                     NMLOG_ERROR("wpa_cli popen failed");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
                     return ;
                 }
                 pclose(fp);
@@ -979,6 +992,8 @@ namespace WPEFramework
                         fp = popen(wpaCliStatus.c_str(), "r");
                         if (fp == nullptr) {
                             NMLOG_ERROR("wpa_cli popen failed");
+                            g_main_context_pop_thread_default(wpsContext);
+                            g_main_context_release(wpsContext);
                             return ;
                         }
                         while (fgets(buffer.data(), buffer.size(), fp) != nullptr) {
@@ -993,11 +1008,17 @@ namespace WPEFramework
                         pclose(fp);
                     }
                     else
+                    {
+                        g_main_context_pop_thread_default(wpsContext);
+                        g_main_context_release(wpsContext);
                         return;
+                    }
                 }
 
                 if (!configFile.is_open()) {
                     NMLOG_ERROR("Unable to open wpa_supplicant.conf file");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
                     return;
                 }
 
@@ -1056,12 +1077,14 @@ namespace WPEFramework
                 else
                     NMLOG_ERROR("WPS connect failed");
             }
-            else
-                return;
+            g_main_context_pop_thread_default(wpsContext);
+            g_main_context_release(wpsContext);
+            return;
         }
 
         bool wifiManager::initiateWPS()
         {
+            wpsContext = g_main_context_new();
             NMLOG_INFO ("Start WPS %s", __FUNCTION__);
             wpsStop.store(false);
             if (wpsThread.joinable()) {
@@ -1077,6 +1100,10 @@ namespace WPEFramework
             wpsStop.store(true);
             if (wpsThread.joinable()) {
                 wpsThread.join();
+            }
+            if (wpsContext) {
+                g_main_context_unref(wpsContext);
+                wpsContext = nullptr;
             }
             return true;
         }
