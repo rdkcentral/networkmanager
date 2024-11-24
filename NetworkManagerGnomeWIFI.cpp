@@ -962,7 +962,7 @@ namespace WPEFramework
             long timeDiff;
 
             if(!wpsStop.load()){
-                if(!createClientNewConnection())
+                if(!this->createClientNewConnection())
                     return;
                 std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
                 fp = popen(wpaCliCommand.c_str(), "r");
@@ -1051,7 +1051,7 @@ namespace WPEFramework
                     else if(security == "WPA2-PSK")
                         wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
                 }
-                if(wifiConnect(wifiData))
+                if(this->wifiConnect(wifiData))
                     NMLOG_INFO("WPS connected successfully");
                 else
                     NMLOG_ERROR("WPS connect failed");
@@ -1062,23 +1062,22 @@ namespace WPEFramework
 
         bool wifiManager::initiateWPS()
         {
+            NMLOG_INFO ("Start WPS %s", __FUNCTION__);
             wpsStop.store(false);
-            job = Core::ProxyType<Core::IDispatch>(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
-                NMLOG_INFO ("Start WPS %s", __FUNCTION__);
-                wpsAction();
-            })));
-            Core::IWorkerPool::Instance().Submit(job);
+            if (wpsThread.joinable()) {
+                wpsThread.join();
+            }
+            wpsThread = std::thread(&wifiManager::wpsAction, this);
             return true;
         }
 
         bool wifiManager::cancelWPS()
         {
-            wpsStop.store(true);
             NMLOG_INFO ("Stop WPS %s", __FUNCTION__);
-            /*sleep(2);
-            NMLOG_INFO ("Initiated revoke");
-            Core::IWorkerPool::Instance().Revoke(job);
-            NMLOG_INFO ("Revoke completed");*/
+            wpsStop.store(true);
+            if (wpsThread.joinable()) {
+                wpsThread.join();
+            }
             return true;
         }
 

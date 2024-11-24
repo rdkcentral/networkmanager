@@ -80,8 +80,8 @@ namespace WPEFramework
             void operator=(wifiManager const&) = delete;
 
             bool createClientNewConnection();
-            Core::ProxyType<Core::IDispatch> job;
             std::atomic<bool> wpsStop = {false};
+            std::thread wpsThread;
 
         public:
             NMClient *client;
