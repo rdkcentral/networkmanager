@@ -947,19 +947,19 @@ namespace WPEFramework
 
         void wifiManager::wpsAction()
         {
-            FILE *fp;
+            FILE *fp = nullptr;
             std::ifstream configFile(WPA_SUPPLICANT_CONF);
-            std::string line;
+            std::string line = "";
             std::string securityPattern = "key_mgmt=";
             std::string ssidPattern = "ssid=";
             std::string passphrasePattern = "psk=";
-            std::string security, ssid, passphrase;
-            Exchange::INetworkManager::WiFiConnectTo wifiData;
-            std::array<char, 128> buffer;
-            std::string wpaCliResult;
-            gboolean wpsConnect;
-            struct timespec startTime, endTime;
-            long timeDiff;
+            std::string security = "", ssid = "", passphrase = "";
+            Exchange::INetworkManager::WiFiConnectTo wifiData = {};
+            std::array<char, 128> buffer = {};
+            std::string wpaCliResult = "";
+            gboolean wpsConnect = false;
+            struct timespec startTime = {}, endTime = {};
+            long timeDiff = 0;
 
             if (!g_main_context_acquire(wpsContext))
             {
@@ -980,39 +980,36 @@ namespace WPEFramework
             }
             pclose(fp);
             std::string wpaCliStatus = WPA_CLI_STATUS;
-            clock_gettime(NM_CLOCK_ID, &startTime);
-            while (true)
+            clock_gettime(CLOCK_MONOTONIC, &startTime);
+            while(!wpsStop.load())
             {
-                if(!wpsStop.load())
+                fp = popen(wpaCliStatus.c_str(), "r");
+                if (fp == nullptr)
                 {
-                    fp = popen(wpaCliStatus.c_str(), "r");
-                    if (fp == nullptr)
-                    {
-                        NMLOG_ERROR("WPS not able to fetch the connection status");
-                        continue;
-                    }
-                    while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
-                    {
-                        wpaCliResult += buffer.data();
-                    }
-                    wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
-                    clock_gettime(NM_CLOCK_ID, &endTime);
-                    timeDiff = (endTime.tv_sec - startTime.tv_sec);
-                    NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
-                    if(wpsConnect || timeDiff > 120)
-                        break;
-                    pclose(fp);
-                    sleep(5);
+                    NMLOG_ERROR("WPS not able to fetch the connection status");
+                    continue;
                 }
-                else
+                while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
                 {
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_release(wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
-                    return;
+                    wpaCliResult += buffer.data();
                 }
+                wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
+                clock_gettime(CLOCK_MONOTONIC, &endTime);
+                timeDiff = (endTime.tv_sec - startTime.tv_sec);
+                NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
+                if(wpsConnect || timeDiff > 120)
+                    break;
+                pclose(fp);
+                sleep(5);
             }
 
-            if(wpsConnect)
+            if(!wpsConnect)
+            {
+                g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
+                return;
+            }
+
             {
                 if (!configFile.is_open())
                 {

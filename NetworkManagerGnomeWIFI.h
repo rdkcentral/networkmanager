@@ -32,7 +32,6 @@
 
 #define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
 #define WPA_CLI_STATUS "wpa_cli status"
-#define NM_CLOCK_ID CLOCK_MONOTONIC
 
 namespace WPEFramework
 {
