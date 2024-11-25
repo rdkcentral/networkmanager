@@ -958,7 +958,7 @@ namespace WPEFramework
             std::array<char, 128> buffer;
             std::string wpaCliResult;
             gboolean wpsConnect;
-            struct timeval startTime, endTime;
+            struct timespec startTime, endTime;
             long timeDiff;
 
             if (!g_main_context_acquire(wpsContext))
@@ -969,24 +969,18 @@ namespace WPEFramework
 
             g_main_context_push_thread_default(wpsContext);
 
-            if(!this->createClientNewConnection())
-            {
-                g_main_context_pop_thread_default(wpsContext);
-                g_main_context_release(wpsContext);
-                return;
-            }
             std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
             fp = popen(wpaCliCommand.c_str(), "r");
             if (fp == nullptr)
             {
-                NMLOG_ERROR("wpa_cli popen failed");
+                NMLOG_ERROR("WPS failed to connect with the SSID");
                 g_main_context_pop_thread_default(wpsContext);
                 g_main_context_release(wpsContext);
                 return ;
             }
             pclose(fp);
             std::string wpaCliStatus = WPA_CLI_STATUS;
-            gettimeofday(&startTime, NULL);
+            clock_gettime(NM_CLOCK_ID, &startTime);
             while (true)
             {
                 if(!wpsStop.load())
@@ -994,7 +988,7 @@ namespace WPEFramework
                     fp = popen(wpaCliStatus.c_str(), "r");
                     if (fp == nullptr)
                     {
-                        NMLOG_ERROR("wpa_cli popen failed");
+                        NMLOG_ERROR("WPS not able to fetch the connection status");
                         continue;
                     }
                     while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
@@ -1002,17 +996,18 @@ namespace WPEFramework
                         wpaCliResult += buffer.data();
                     }
                     wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
-                    gettimeofday(&endTime, NULL);
-                    timeDiff = ((endTime.tv_sec - startTime.tv_sec) * 1000000 + (endTime.tv_usec - startTime.tv_usec))/1000000;
+                    clock_gettime(NM_CLOCK_ID, &endTime);
+                    timeDiff = (endTime.tv_sec - startTime.tv_sec);
                     NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
                     if(wpsConnect || timeDiff > 120)
                         break;
                     pclose(fp);
+                    sleep(5);
                 }
                 else
                 {
                     g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_release(wpsContext);
+                    g_main_context_release(wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
                     return;
                 }
             }
@@ -1021,7 +1016,7 @@ namespace WPEFramework
             {
                 if (!configFile.is_open())
                 {
-                    NMLOG_ERROR("Unable to open wpa_supplicant.conf file");
+                    NMLOG_ERROR("WPS connected with an SSID but not able to fetch IP address");
                     g_main_context_pop_thread_default(wpsContext);
                     g_main_context_release(wpsContext);
                     return;
@@ -1085,21 +1080,32 @@ namespace WPEFramework
             if(this->wifiConnect(wifiData))
                 NMLOG_INFO("WPS connected successfully");
             else
-                NMLOG_ERROR("WPS connect failed");
+                NMLOG_ERROR("WPS connect failed");/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
+
             g_main_context_pop_thread_default(wpsContext);
             g_main_context_release(wpsContext);
+            if (wpsContext) {
+                    g_main_context_unref(wpsContext);
+                    wpsContext = nullptr;
+            }
             return;
         }
 
         bool wifiManager::initiateWPS()
         {
-            wpsContext = g_main_context_new();
-            NMLOG_INFO ("Start WPS %s", __FUNCTION__);
-            wpsStop.store(false);
-            if (wpsThread.joinable()) {
-                wpsThread.join();
+            if (!createClientNewConnection())
+                return false;
+
+            if(!wpsContext){
+                if (wpsThread.joinable()) {
+                    wpsThread.join();
+                }
+                wpsContext = g_main_context_new();
+                wpsThread = std::thread(&wifiManager::wpsAction, this);
             }
-            wpsThread = std::thread(&wifiManager::wpsAction, this);
+            else
+                NMLOG_INFO("Start WPS is already in progress");
+
             return true;
         }
 
@@ -1114,6 +1120,7 @@ namespace WPEFramework
                 g_main_context_unref(wpsContext);
                 wpsContext = nullptr;
             }
+            wpsStop.store(false);
             return true;
         }
 
