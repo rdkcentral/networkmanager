@@ -948,7 +948,7 @@ namespace WPEFramework
         void wifiManager::wpsAction()
         {
             FILE *fp;
-            std::ifstream configFile("/opt/secure/wifi/wpa_supplicant.conf");
+            std::ifstream configFile(WPA_SUPPLICANT_CONF);
             std::string line;
             std::string securityPattern = "key_mgmt=";
             std::string ssidPattern = "ssid=";
@@ -984,7 +984,7 @@ namespace WPEFramework
                     return ;
                 }
                 pclose(fp);
-                std::string wpaCliStatus = "wpa_cli status";
+                std::string wpaCliStatus = WPA_CLI_STATUS;
                 gettimeofday(&startTime, NULL);
                 while (true) {
                     if(!wpsStop.load()){

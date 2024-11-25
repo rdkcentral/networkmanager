@@ -30,6 +30,9 @@
 #include <string.h>
 #include <atomic>
 
+#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
+#define WPA_CLI_STATUS "wpa_cli status"
+
 namespace WPEFramework
 {
     namespace Plugin
