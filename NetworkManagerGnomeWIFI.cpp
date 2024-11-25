@@ -961,122 +961,131 @@ namespace WPEFramework
             struct timeval startTime, endTime;
             long timeDiff;
 
-            if (!g_main_context_acquire(wpsContext)) {
+            if (!g_main_context_acquire(wpsContext))
+            {
                 NMLOG_ERROR("Failed to acquire wpsContext");
                 return;
             }
 
             g_main_context_push_thread_default(wpsContext);
 
-            if(!wpsStop.load()){
-                if(!this->createClientNewConnection())
+            if(!this->createClientNewConnection())
+            {
+                g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
+                return;
+            }
+            std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
+            fp = popen(wpaCliCommand.c_str(), "r");
+            if (fp == nullptr)
+            {
+                NMLOG_ERROR("wpa_cli popen failed");
+                g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
+                return ;
+            }
+            pclose(fp);
+            std::string wpaCliStatus = WPA_CLI_STATUS;
+            gettimeofday(&startTime, NULL);
+            while (true)
+            {
+                if(!wpsStop.load())
+                {
+                    fp = popen(wpaCliStatus.c_str(), "r");
+                    if (fp == nullptr)
+                    {
+                        NMLOG_ERROR("wpa_cli popen failed");
+                        continue;
+                    }
+                    while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
+                    {
+                        wpaCliResult += buffer.data();
+                    }
+                    wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
+                    gettimeofday(&endTime, NULL);
+                    timeDiff = ((endTime.tv_sec - startTime.tv_sec) * 1000000 + (endTime.tv_usec - startTime.tv_usec))/1000000;
+                    NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
+                    if(wpsConnect || timeDiff > 120)
+                        break;
+                    pclose(fp);
+                }
+                else
                 {
                     g_main_context_pop_thread_default(wpsContext);
                     g_main_context_release(wpsContext);
                     return;
                 }
-                std::string wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc";
-                fp = popen(wpaCliCommand.c_str(), "r");
-                if (fp == nullptr) {
-                    NMLOG_ERROR("wpa_cli popen failed");
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_release(wpsContext);
-                    return ;
-                }
-                pclose(fp);
-                std::string wpaCliStatus = WPA_CLI_STATUS;
-                gettimeofday(&startTime, NULL);
-                while (true) {
-                    if(!wpsStop.load()){
-                        NMLOG_INFO("wpsStop = %d", wpsStop.load());
-                        fp = popen(wpaCliStatus.c_str(), "r");
-                        if (fp == nullptr) {
-                            NMLOG_ERROR("wpa_cli popen failed");
-                            g_main_context_pop_thread_default(wpsContext);
-                            g_main_context_release(wpsContext);
-                            return ;
-                        }
-                        while (fgets(buffer.data(), buffer.size(), fp) != nullptr) {
-                            wpaCliResult += buffer.data();
-                        }
-                        wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
-                        gettimeofday(&endTime, NULL);
-                        timeDiff = ((endTime.tv_sec - startTime.tv_sec) * 1000000 + (endTime.tv_usec - startTime.tv_usec))/1000000;
-                        NMLOG_INFO("Inside while timeDiff = %ld", timeDiff);
-                        if(wpsConnect || timeDiff > 120)
-                            break;
-                        pclose(fp);
-                    }
-                    else
-                    {
-                        g_main_context_pop_thread_default(wpsContext);
-                        g_main_context_release(wpsContext);
-                        return;
-                    }
-                }
+            }
 
-                if (!configFile.is_open()) {
+            if(wpsConnect)
+            {
+                if (!configFile.is_open())
+                {
                     NMLOG_ERROR("Unable to open wpa_supplicant.conf file");
                     g_main_context_pop_thread_default(wpsContext);
                     g_main_context_release(wpsContext);
                     return;
                 }
 
-                if(wpsConnect)
+                while (std::getline(configFile, line))
                 {
-                    while (std::getline(configFile, line)) {
-                        size_t pos;
+                    size_t pos;
 
-                        // Fetch security value
-                        pos = line.find(securityPattern);
-                        if (pos != std::string::npos) {
-                            pos += securityPattern.length();
-                            size_t end = line.find(' ', pos);
-                            if (end == std::string::npos) {
-                                end = line.length();
-                            }
-                            security = line.substr(pos, end - pos);
-                            continue;
+                    // Fetch security value
+                    pos = line.find(securityPattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += securityPattern.length();
+                        size_t end = line.find(' ', pos);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
                         }
-
-                        // Fetch ssid value
-                        pos = line.find(ssidPattern);
-                        if (pos != std::string::npos) {
-                            pos += ssidPattern.length();
-                            size_t end = line.find('"', pos + 1);
-                            if (end == std::string::npos) {
-                                end = line.length();
-                            }
-                            ssid = line.substr(pos + 1, end - pos - 1);
-                            continue;
-                        }
-
-                        // Fetch passphare value
-                        pos = line.find(passphrasePattern);
-                        if (pos != std::string::npos) {
-                            pos += passphrasePattern.length();
-                            size_t end = line.find('"', pos + 1);
-                            if (end == std::string::npos) {
-                                end = line.length();
-                            }
-                            passphrase = line.substr(pos + 1, end - pos - 1);
-                            continue;
-                        }
+                        security = line.substr(pos, end - pos);
+                        continue;
                     }
 
-                    configFile.close();
-                    wifiData.ssid = ssid;
-                    wifiData.passphrase = passphrase;
-                    if(security == "WPA-PSK")
-                        wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
-                    else if(security == "WPA2-PSK")
-                        wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                    // Fetch ssid value
+                    pos = line.find(ssidPattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += ssidPattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        ssid = line.substr(pos + 1, end - pos - 1);
+                        continue;
+                    }
+
+                    // Fetch passphare value
+                    pos = line.find(passphrasePattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += passphrasePattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        passphrase = line.substr(pos + 1, end - pos - 1);
+                        continue;
+                    }
                 }
-                if(this->wifiConnect(wifiData))
-                    NMLOG_INFO("WPS connected successfully");
-                else
-                    NMLOG_ERROR("WPS connect failed");
+
+                configFile.close();
+                wifiData.ssid = ssid;
+                wifiData.passphrase = passphrase;
+                if(security == "WPA-PSK")
+                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
+                else if(security == "WPA2-PSK")
+                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
             }
+            if(this->wifiConnect(wifiData))
+                NMLOG_INFO("WPS connected successfully");
+            else
+                NMLOG_ERROR("WPS connect failed");
             g_main_context_pop_thread_default(wpsContext);
             g_main_context_release(wpsContext);
             return;
