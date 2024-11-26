@@ -1650,7 +1650,7 @@ This method takes no parameters.
 | result | object |  |
 | result.ssid | string | The paired SSID |
 | result.strength | string | The RSSI value in dBm |
-| result.quality | integer | Signal strength Quality |
+| result.quality | string | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1674,7 +1674,7 @@ This method takes no parameters.
   "result": {
     "ssid": "123412341234",
     "strength": "-27.000000",
-    "quality": 123,
+    "quality": "Excellent",
     "success": true
   }
 }

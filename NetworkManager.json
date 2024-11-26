@@ -1257,8 +1257,8 @@
                     },
                     "quality":{
                         "summary": "Signal strength Quality",
-                        "type": "integer",
-                        "example": 123
+                        "type": "string",
+                        "example": "Excellent"
                     },
                     "success":{
                         "$ref": "#/definitions/success"
