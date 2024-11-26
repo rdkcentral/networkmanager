@@ -1256,6 +1256,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 if (signalStrengthOut == 0)
                 {
                     quality = WIFI_SIGNAL_DISCONNECTED;
+                    signalStrength = "0";
                 }
                 else if (signalStrengthOut >= signalStrengthThresholdExcellent && signalStrengthOut < 0)
                 {
