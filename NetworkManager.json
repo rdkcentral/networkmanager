@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json",
-        "version": "0.5.2"
+        "version": "0.5.3"
     },
     "definitions": {
         "success": {
