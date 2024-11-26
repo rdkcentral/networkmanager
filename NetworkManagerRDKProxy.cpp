@@ -457,11 +457,12 @@ namespace WPEFramework
                     {
                         IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t *e = (IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t*) data;
                         interface = e->interface;
-                        NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS :: %s -- %s", interface.c_str(), e->ip_address);
+                        NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS: %s - %s - %s", interface.c_str(), e->ip_address, e->acquired?"Acquired":"Lost"
+);
 
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
-                            Exchange::INetworkManager::IPStatus status;
+                            Exchange::INetworkManager::IPStatus status = Exchange::INetworkManager::IP_LOST;
 
                             if (e->is_ipv6)
                                 ipversion = "IPv6";
