@@ -28,6 +28,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <atomic>
+
+#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
+#define WPA_CLI_STATUS "wpa_cli status"
 
 namespace WPEFramework
 {
@@ -55,6 +59,7 @@ namespace WPEFramework
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
             bool initiateWPS();
             bool cancelWPS();
+            void wpsAction();
             bool setInterfaceState(std::string interface, bool enabled);
         private:
             NMDevice *getNmDevice();
@@ -78,12 +83,15 @@ namespace WPEFramework
             void operator=(wifiManager const&) = delete;
 
             bool createClientNewConnection();
+            std::atomic<bool> wpsStop = {false};
+            std::thread wpsThread;
 
         public:
             NMClient *client;
             GMainLoop *loop;
             gboolean createNewConnection;
             GMainContext *nmContext = nullptr;
+            GMainContext *wpsContext = nullptr;
             const char* objectPath;
             NMDevice *wifidevice;
             GSource *source;
