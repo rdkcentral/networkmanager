@@ -624,8 +624,8 @@ namespace WPEFramework
         {
             JsonObject ssidObj;
             ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
-            ssidObj = nmUtils::apToJsonObject(ap);
-            ssidList.Add(ssidObj);
+            if(nmUtils::apToJsonObject(ap, ssidObj))
+                ssidList.Add(ssidObj);
         }
 
         ssidList.ToString(ssidListJson);

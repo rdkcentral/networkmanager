@@ -198,17 +198,15 @@ namespace WPEFramework
             return freq;
        }
 
-       JsonObject nmUtils::apToJsonObject(NMAccessPoint *ap)
+       bool nmUtils::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
        {
-            GError *error = NULL;
             GBytes *ssid = NULL;
             int strength = 0;
             std::string freq;
             int security;
             guint32 flags, wpaFlags, rsnFlags, apFreq;
-            JsonObject ssidObj;
             if(ap == nullptr)
-                return ssidObj;
+                return false;
             ssid = nm_access_point_get_ssid(ap);
             if (ssid)
             {
@@ -227,11 +225,11 @@ namespace WPEFramework
                 ssidObj["security"] = security;
                 ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
                 ssidObj["frequency"] = freq;
+                return true;
             }
-            else
-                NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
-
-            return ssidObj;
+            // else
+            //     NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
+            return false;
        }
 
         void nmUtils::printActiveSSIDsOnly(NMDeviceWifi *wifiDevice)
