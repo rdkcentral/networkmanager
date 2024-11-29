@@ -14,6 +14,37 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.5.4] - 2024-11-29
+### Fixed
+- Fixed documentation of NetworkManager
+- Handled IPAddressChange event
+
+## [0.5.3] - 2024-11-21
+### Fixed
+- Fixed GetInterfaceState method
+- Fixed bootup events on Gnome backend
+
+## [0.5.2] - 2024-11-19
+### Fixed
+- Fixed Event data for DefaultInterfacechanged & WiFiThresholdChanged
+- Fixed GetAvailableInterfaces on Gnome backend
+
+## [0.5.1] - 2024-11-15
+### Added
+- Implemented WPS support on Gnome Backend
+- Implemented L1/L2 unit test support
+### Fixed
+- Fixed GetIPSettings error
+- Fixed IPAddressChange event
+
+## [0.5.0] - 2024-11-05
+### Added
+- Enhanced WiFi Connection Structure to support EAP
+- Defined JsonEnum to publish the Events
+- Refactored Legacy Plugins to use ComRPC to communicate with NetworkManager
+- Documentation Update
+- Minor bug fixes
+
 ## [0.4.0] - 2024-10-04
 ### Added
 - Added RDKLogger Integration
