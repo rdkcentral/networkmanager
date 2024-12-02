@@ -948,7 +948,6 @@ namespace WPEFramework
         void wifiManager::wpsAction()
         {
             FILE *fp = nullptr;
-            std::ifstream configFile(WPA_SUPPLICANT_CONF);
             std::string line = "";
             std::string securityPattern = "key_mgmt=";
             std::string ssidPattern = "ssid=";
@@ -960,8 +959,10 @@ namespace WPEFramework
             gboolean wpsConnect = false;
             struct timespec startTime = {}, endTime = {};
             long timeDiff = 0;
+            int count = 0;
+            bool ssidFound = false;
 
-            if (!g_main_context_acquire(wpsContext))
+            if (!wpsContext || !g_main_context_acquire(wpsContext))
             {
                 NMLOG_ERROR("Failed to acquire wpsContext");
                 return;
@@ -993,13 +994,16 @@ namespace WPEFramework
                 {
                     wpaCliResult += buffer.data();
                 }
+                pclose(fp);
                 wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
                 clock_gettime(CLOCK_MONOTONIC, &endTime);
                 timeDiff = (endTime.tv_sec - startTime.tv_sec);
                 NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
                 if(wpsConnect || timeDiff > 120)
+                {
+                    NMLOG_INFO("wpsConnect is %d", wpsConnect);
                     break;
-                pclose(fp);
+                }
                 sleep(5);
             }
 
@@ -1010,7 +1014,9 @@ namespace WPEFramework
                 return;
             }
 
+            while(count < 2 && !ssidFound)
             {
+                std::ifstream configFile(WPA_SUPPLICANT_CONF);
                 if (!configFile.is_open())
                 {
                     NMLOG_ERROR("WPS connected with an SSID but not able to fetch IP address");
@@ -1023,20 +1029,6 @@ namespace WPEFramework
                 {
                     size_t pos;
 
-                    // Fetch security value
-                    pos = line.find(securityPattern);
-                    if (pos != std::string::npos)
-                    {
-                        pos += securityPattern.length();
-                        size_t end = line.find(' ', pos);
-                        if (end == std::string::npos)
-                        {
-                            end = line.length();
-                        }
-                        security = line.substr(pos, end - pos);
-                        continue;
-                    }
-
                     // Fetch ssid value
                     pos = line.find(ssidPattern);
                     if (pos != std::string::npos)
@@ -1048,37 +1040,61 @@ namespace WPEFramework
                             end = line.length();
                         }
                         ssid = line.substr(pos + 1, end - pos - 1);
+                        ssidFound = true;
+                        NMLOG_INFO("SSID found");
                         continue;
                     }
 
-                    // Fetch passphare value
-                    pos = line.find(passphrasePattern);
-                    if (pos != std::string::npos)
-                    {
-                        pos += passphrasePattern.length();
-                        size_t end = line.find('"', pos + 1);
-                        if (end == std::string::npos)
+                    if (ssidFound) {
+                        // Fetch security value
+                        pos = line.find(securityPattern);
+                        if (pos != std::string::npos)
                         {
-                            end = line.length();
+                            pos += securityPattern.length();
+                            size_t end = line.find(' ', pos);
+                            if (end == std::string::npos)
+                            {
+                                end = line.length();
+                            }
+                            security = line.substr(pos, end - pos);
+                            continue;
                         }
-                        passphrase = line.substr(pos + 1, end - pos - 1);
-                        continue;
+
+                        // Fetch passphare value
+                        pos = line.find(passphrasePattern);
+                        if (pos != std::string::npos)
+                        {
+                            pos += passphrasePattern.length();
+                            size_t end = line.find('"', pos + 1);
+                            if (end == std::string::npos)
+                            {
+                                end = line.length();
+                            }
+                            passphrase = line.substr(pos + 1, end - pos - 1);
+                        }
                     }
                 }
-
+                if(ssid.empty())
+                {
+                    count++;
+                    NMLOG_INFO("SSID not found retrying with 5 sec delay");
+                    sleep(5);
+                }
+                else
+                {
+                    wifiData.ssid = ssid;
+                    wifiData.passphrase = passphrase;
+                    if(security == "WPA-PSK")
+                        wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
+                    else if(security == "WPA2-PSK")
+                        wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                    if(this->wifiConnect(wifiData))
+                        NMLOG_INFO("WPS connected successfully");
+                    else
+                        NMLOG_ERROR("WPS connect failed");/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
+                }
                 configFile.close();
-                wifiData.ssid = ssid;
-                wifiData.passphrase = passphrase;
-                if(security == "WPA-PSK")
-                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
-                else if(security == "WPA2-PSK")
-                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
             }
-            if(this->wifiConnect(wifiData))
-                NMLOG_INFO("WPS connected successfully");
-            else
-                NMLOG_ERROR("WPS connect failed");/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
-
             g_main_context_pop_thread_default(wpsContext);
             g_main_context_release(wpsContext);
             if (wpsContext) {
@@ -1090,14 +1106,15 @@ namespace WPEFramework
 
         bool wifiManager::initiateWPS()
         {
-            if (!createClientNewConnection())
-                return false;
-
             if(!wpsContext){
                 if (wpsThread.joinable()) {
                     wpsThread.join();
                 }
                 wpsContext = g_main_context_new();
+                if (!wpsContext) {
+                    NMLOG_ERROR("Failed to create new main context for WPS");
+                    return false;
+                }
                 wpsThread = std::thread(&wifiManager::wpsAction, this);
             }
             else
