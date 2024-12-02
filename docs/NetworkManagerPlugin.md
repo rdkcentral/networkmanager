@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 0.5.3**
+**Version: 0.5.4**
 
 **Status: :white_circle::white_circle::white_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.5.3). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.5.4). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -1635,7 +1635,13 @@ This method takes no parameters.
 <a name="method.GetWiFiSignalStrength"></a>
 ## *GetWiFiSignalStrength [<sup>method</sup>](#head.Methods)*
 
-Get WiFiSignalStrength of connected SSID.
+Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the signal strength. The possible states are
+* 'Excellent'
+* 'Good'
+* 'Fair'
+* 'Weak'
+* 'Disconnected'
+.
 
 Also see: [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange)
 

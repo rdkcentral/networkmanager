@@ -1242,7 +1242,7 @@
             }
         },
         "GetWiFiSignalStrength":{
-            "summary": "Get WiFiSignalStrength of connected SSID.",
+            "summary": "Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the signal strength. The possible states are \n* 'Excellent' \n* 'Good' \n* 'Fair' \n* 'Weak' \n* 'Disconnected' \n",
             "events":{
                 "onWiFiSignalStrengthChange" : "Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak."
             },
