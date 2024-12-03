@@ -424,6 +424,7 @@ namespace WPEFramework
 
     bool ConnectivityMonitor::startContinuousConnectivityMonitor(int timeoutInSeconds)
     {
+        NMLOG_INFO("interface status eth - %s wlan - %s ", _instance->isEthConnected? "up":"down", _instance->isWlanConnected? "up":"down");
         continuousMonitorTimeout.store(timeoutInSeconds >= NMCONNECTIVITY_MONITOR_MIN_INTERVAL ? timeoutInSeconds : NMCONNECTIVITY_MONITOR_DEFAULT_INTERVAL);
         if (doContinuousMonitor)
         {
