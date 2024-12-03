@@ -329,33 +329,30 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IPAddress address{};
 
-            string interface = "";
-            string ipversion = "";
+            string interface = {};
 
-            if (parameters.HasLabel("interface"))
-                interface = parameters["interface"].String();
-            else
-            {
+            if (!parameters.HasLabel("interface") || !parameters.HasLabel("ipversion") || !parameters.HasLabel("autoconfig"))
                 rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            address.autoconfig = parameters["autoconfig"].Boolean();
-            if (!address.autoconfig)
-            {
-                address.ipaddress      = parameters["ipaddress"].String();
-                address.ipversion      = parameters["ipversion"].String();
-                address.prefix         = parameters["prefix"].Number();
-                address.gateway        = parameters["gateway"].String();
-                address.primarydns     = parameters["primarydns"].String();
-                address.secondarydns   = parameters["secondarydns"].String();
-            }
-
-            if (_networkManager)
-                rc = _networkManager->SetIPSettings(interface, address);
             else
-                rc = Core::ERROR_UNAVAILABLE;
+            {
+                interface = parameters["interface"].String();
+                address.ipversion = parameters["ipversion"].String();
+                address.autoconfig = parameters["autoconfig"].Boolean();
 
+                if (!address.autoconfig)
+                {
+                    address.ipaddress      = parameters["ipaddress"].String();
+                    address.prefix         = parameters["prefix"].Number();
+                    address.gateway        = parameters["gateway"].String();
+                    address.primarydns     = parameters["primarydns"].String();
+                    address.secondarydns   = parameters["secondarydns"].String();
+                }
+
+                if (_networkManager)
+                    rc = _networkManager->SetIPSettings(interface, address);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+            }
             returnJson(rc);
         }
 

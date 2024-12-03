@@ -61,8 +61,9 @@ namespace WPEFramework
             bool cancelWPS();
             void wpsAction();
             bool setInterfaceState(std::string interface, bool enabled);
+            bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address);
         private:
-            NMDevice *getNmDevice();
+            NMDevice *getWifiDevice();
 
         private:
             wifiManager();

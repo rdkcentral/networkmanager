@@ -123,7 +123,7 @@ namespace WPEFramework
             return true;
         }
 
-        NMDevice* wifiManager::getNmDevice()
+        NMDevice* wifiManager::getWifiDevice()
         {
             NMDevice *wifiDevice = NULL;
 
@@ -248,7 +248,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
@@ -269,7 +269,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
@@ -315,7 +315,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDevice *wifiNMDevice = getNmDevice();
+            NMDevice *wifiNMDevice = getWifiDevice();
             if(wifiNMDevice == NULL) {
                 NMLOG_WARNING("wifi state is unmanaged !");
                 return true;
@@ -580,7 +580,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDevice *device = getNmDevice();
+            NMDevice *device = getWifiDevice();
             if(device == NULL)
                 return false;
 
@@ -725,7 +725,7 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDevice *device = getNmDevice();
+            NMDevice *device = getWifiDevice();
             if(device == NULL)
                 return false;
 
@@ -886,7 +886,7 @@ namespace WPEFramework
         {
             if(!createClientNewConnection())
                 return false;
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
@@ -919,7 +919,7 @@ namespace WPEFramework
             if (!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getNmDevice());
+            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if (wifiDevice == NULL) {
                 NMLOG_ERROR("Invalid Wi-Fi device.");
                 return false;
@@ -1183,6 +1183,7 @@ namespace WPEFramework
                 NMLOG_DEBUG("Disabling interface...");
                 if (deviceState <= NM_DEVICE_STATE_UNMANAGED) // already disabled
                     return true;
+
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(loop);
@@ -1199,5 +1200,192 @@ namespace WPEFramework
             return isSuccess;
         }
 
+        static void onActivateComplete(GObject *source_object, GAsyncResult *res, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
+            NMLOG_DEBUG("activate connection completeing...");
+            // Check if the operation was successful
+            if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
+                NMLOG_DEBUG("Activating connection failed: %s", error->message);
+                g_error_free(error);
+                _wifiManager->isSuccess = false;
+            } else {
+                NMLOG_DEBUG("Activating connection successful");
+                _wifiManager->isSuccess = true;
+            }
+            _wifiManager->quit(nullptr);
+        }
+
+        bool static checkAutoConnectEnabledInIPv4Conn(NMConnection *connection)
+        {
+            if(connection == NULL)
+                return false;
+            NMSettingIPConfig *ipConfig = nm_connection_get_setting_ip4_config(connection);
+            if(ipConfig)
+            {
+                const char* ipConfMethod = nm_setting_ip_config_get_method (ipConfig);
+                if(ipConfMethod != NULL && g_strcmp0(ipConfMethod, "auto") == 0)
+                    return true;
+                else
+                    NMLOG_WARNING("ip configuration: %s", ipConfMethod != NULL? ipConfMethod: "null");
+            }
+
+            return false;
+        }
+
+        bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address)
+        {
+            isSuccess = false;
+            NMConnection *connection = NULL;
+            NMRemoteConnection *remoteConn = NULL;
+            NMActiveConnection* activeConnection = NULL;
+            NMSetting *setting = NULL;
+            NMDevice *device = NULL;
+            const char *specObject = NULL;
+
+            if (!createClientNewConnection())
+                return false;
+
+            device = nm_client_get_device_by_iface(client, interface.c_str());
+            if(device == NULL)
+                return false;
+
+            if(interface == nmUtils::ethIface())
+            {
+                NMSettingConnection *settings = NULL;
+                if(device == NULL)
+                    return false;
+
+                const GPtrArray *connections = nm_device_get_available_connections(device);
+                if (connections == NULL || connections->len == 0)
+                {
+                    NMLOG_WARNING("no connections availble to edit ");
+                    return false;
+                }
+
+                for (guint i = 0; i < connections->len; i++)
+                {
+                    NMConnection *tmpConn = NM_CONNECTION(connections->pdata[i]);
+                    if(tmpConn == nullptr)
+                        continue;
+                    settings = nm_connection_get_setting_connection(connection);
+                    if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
+                        connection = tmpConn;
+
+                        if (NM_IS_REMOTE_CONNECTION(connection)) {
+                            remoteConn = NM_REMOTE_CONNECTION(connection);
+                        } else {
+                            NMLOG_ERROR("The connection is not a remote connection.");
+                            return false; /* connection and remoteconnection should match */
+                        }
+
+                        NMLOG_DEBUG("ethernet connection found "); 
+                        break;
+                    }
+                }
+            }
+            else if(interface == nmUtils::wlanIface())
+            {
+                /* for wifi we need active connection to modify becuse of multiple wifi connection */
+                activeConnection = nm_device_get_active_connection(device);
+                if(activeConnection == NULL)
+                {
+                    NMLOG_ERROR("no active connection for wifi");
+                    return false;
+                }
+                remoteConn = nm_active_connection_get_connection(activeConnection);
+                connection = NM_CONNECTION(remoteConn);
+            }
+            else
+                return false; // interface is not eth0 or wlan0
+
+            if(connection == nullptr)
+            {
+                NMLOG_WARNING("not a single connection availble for %s", interface.c_str());
+                return false;
+            }
+
+            if(address.autoconfig)
+            {
+                NMSettingIP4Config *sIp4 = nullptr;
+                NMSettingIP6Config *sIp6 = nullptr;
+                if (nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
+                {
+                    if(checkAutoConnectEnabledInIPv4Conn(connection)) // already auto connect true connection
+                    {
+                        NMLOG_INFO("Setting IPv4 auto connect enabled");
+                        return true; // no need to modify
+                    }
+                    sIp4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
+                    g_object_set(G_OBJECT(sIp4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
+                    nm_connection_add_setting(connection, NM_SETTING(sIp4));
+                }
+                else
+                {
+                    sIp6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
+                    g_object_set(G_OBJECT(sIp6), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL);
+                    nm_connection_add_setting(connection, NM_SETTING(sIp6));
+                }
+            }
+            else
+            {
+                if (nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
+                {
+                    NMSettingIPConfig *ip4Config = nm_connection_get_setting_ip4_config(connection);
+                    if (ip4Config == nullptr) 
+                    {
+                        ip4Config = (NMSettingIPConfig *)nm_setting_ip4_config_new();
+                    }
+                    NMIPAddress *ipAddress;
+                    setting = nm_connection_get_setting_by_name(connection, "ipv4");
+                    ipAddress = nm_ip_address_new(AF_INET, address.ipaddress.c_str(), address.prefix, NULL);
+                    nm_setting_ip_config_clear_addresses(ip4Config);
+                    nm_setting_ip_config_add_address(NM_SETTING_IP_CONFIG(setting), ipAddress);
+                    nm_setting_ip_config_clear_dns(ip4Config);
+                    if(!address.primarydns.empty())
+                        nm_setting_ip_config_add_dns(ip4Config, address.primarydns.c_str());
+                    if(!address.secondarydns.empty())
+                        nm_setting_ip_config_add_dns(ip4Config, address.secondarydns.c_str());
+
+                    g_object_set(G_OBJECT(ip4Config),NM_SETTING_IP_CONFIG_GATEWAY, address.gateway.c_str(), NULL);
+                    g_object_set(G_OBJECT(ip4Config),NM_SETTING_IP_CONFIG_NEVER_DEFAULT, FALSE, NULL);
+                    g_object_set(G_OBJECT(ip4Config), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_MANUAL, NULL);
+                }
+                else
+                {
+                    //FIXME : Add IPv6 support here
+                    NMLOG_WARNING("Setting IPv6 is not supported at this point in time. This is just a place holder");
+                }
+            }
+
+            // TODO fix depricated api
+            GError *error = NULL;
+
+            if (!nm_remote_connection_commit_changes(remoteConn, FALSE, NULL, &error)) {
+                if (error) {
+                    NMLOG_ERROR("Failed to commit changes to the remote connection: %s", error->message);
+                    g_error_free(error); // Free the GError object after handling it
+                } else {
+                    NMLOG_ERROR("Failed to commit changes to the remote connection (unknown error).");
+                }
+                return false;
+            }
+
+            if (activeConnection != NULL) {
+                specObject = nm_object_get_path(NM_OBJECT(activeConnection));
+                GError *deactivate_error = NULL;
+                // TODO fix depricated api
+                if (!nm_client_deactivate_connection(client, activeConnection, NULL, &deactivate_error)) {
+                    NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
+                    g_clear_error(&deactivate_error);
+                    return false;
+                }
+            }
+
+            nm_client_activate_connection_async(client, connection, device, specObject, NULL, onActivateComplete, this);
+            wait(loop);
+            return isSuccess;
+        }
     } // namespace Plugin
 } // namespace WPEFramework

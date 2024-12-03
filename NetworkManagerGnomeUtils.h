@@ -41,7 +41,7 @@ namespace WPEFramework
                static uint8_t wifiSecurityModeFromAp(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
-               static JsonObject apToJsonObject(NMAccessPoint *ap);
+               static bool apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj);
                static void printActiveSSIDsOnly(NMDeviceWifi *wifiDevice);
                static NMDeviceState ifaceState(NMClient *client, const char* interface);
         };
