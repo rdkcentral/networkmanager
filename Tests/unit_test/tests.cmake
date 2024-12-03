@@ -15,9 +15,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 add_executable(${UNIT_TEST}
   Tests/unit_test/test_WiFiSignalStrengthMonitor.cpp
+  Tests/unit_test/test_NetworkManagerConnectivity.cpp
+  Tests/unit_test/test_NetworkManagerStunClient.cpp
   WiFiSignalStrengthMonitor.cpp
   NetworkManagerLogger.cpp
   NetworkManagerConnectivity.cpp
+  NetworkManagerStunClient.cpp
 )
 set_target_properties(${UNIT_TEST} PROPERTIES
     CXX_STANDARD 11
