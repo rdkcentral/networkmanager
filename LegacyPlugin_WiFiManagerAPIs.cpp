@@ -542,27 +542,6 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-       string trim(const string& str)
-       {
-           size_t first = str.find_first_not_of(" \t");
-           size_t last = str.find_last_not_of(" \t");
-           return (first == std::string::npos) ? "" : str.substr(first, last - first + 1);
-       }
-
-       vector<string> split(const string& input, char delimiter)
-       {
-           vector<string> result;
-           stringstream ss(input);
-           string item;
-
-           while (getline(ss, item, delimiter))
-           {
-               result.push_back(item);
-           }
-           return result;
-       }
-
-
 	uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
@@ -585,16 +564,15 @@ namespace WPEFramework
             {
                 vector<string> tmpssidslist;
                 string tmpssids = parameters["ssid"].String();
-
                 NMLOG_INFO("Provided SSID value : %s", tmpssids.c_str());
 
-                vector<string> rawSSIDs = split(tmpssids, ',');
-
-                for (const auto& ssid : rawSSIDs)
+                stringstream ss(tmpssids);
+                string ssid;
+                while (getline(ss, ssid, ','))
                 {
-                    tmpssidslist.push_back(trim(ssid));
+                    tmpssidslist.push_back(ssid);
                 }
-                NMLOG_INFO("Processed SSID list with %zu entries", tmpssidslist.size());
+
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
             }
             else
