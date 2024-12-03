@@ -703,11 +703,11 @@ namespace WPEFramework
                         tmp.connected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
                         if ("eth0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
-                            isEthConnected = tmp.connected;
+                            m_ethConnected = tmp.connected;
                         }
                         else if ("wlan0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
-                            isWlanConnected = tmp.connected;
+                            m_wlanConnected = tmp.connected;
                         }
 
                         interfaceList.push_back(tmp);

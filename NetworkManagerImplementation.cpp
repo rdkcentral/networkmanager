@@ -50,8 +50,8 @@ namespace WPEFramework
             m_stunCacheTimeout = 0;
             m_defaultInterface = "";
             m_publicIP = "";
-            isEthConnected = false;
-            isWlanConnected = false;
+            m_ethConnected = false;
+            m_wlanConnected = false;
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -526,15 +526,15 @@ namespace WPEFramework
                 // Start the connectivity monitor with 'false' to indicate the interface is down.
                 // The monitor will automatically exit after the retry attempts are completed, posting a 'noInternet' event.
                 if(interface == "eth0")
-                    isEthConnected = false;
+                    m_ethConnected = false;
                 else
-                    isWlanConnected = false;
+                    m_wlanConnected = false;
                 connectivityMonitor.startConnectivityMonitor();
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
-                isEthConnected = true;
+                m_ethConnected = true;
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
@@ -596,11 +596,11 @@ namespace WPEFramework
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
-                isWlanConnected = true;
+                m_wlanConnected = true;
                 m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
-                isWlanConnected = false; /* Any other state is considered as WiFi not connected. */
+                m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);

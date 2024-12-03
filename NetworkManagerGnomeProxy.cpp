@@ -95,12 +95,12 @@ namespace WPEFramework
                         if(ifaceStr == wifiname) {
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
-                            isWlanConnected = interface.connected;
+                            m_wlanConnected = interface.connected;
                         }
                         if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
-                            isEthConnected = interface.connected;
+                            m_ethConnected = interface.connected;
                         }
 
                         interfaceList.push_back(interface);

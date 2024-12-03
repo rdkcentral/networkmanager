@@ -140,9 +140,9 @@ namespace WPEFramework
 
             EndpointCache endpointCache;
             std::mutex endpointMutex;
-            std::atomic<nsm_internetState> gInternetState;
-            std::atomic<nsm_internetState> gIpv4InternetState;
-            std::atomic<nsm_internetState> gIpv6InternetState;
+            std::atomic<nsm_internetState> m_InternetState;
+            std::atomic<nsm_internetState> m_Ipv4InternetState;
+            std::atomic<nsm_internetState> m_Ipv6InternetState;
         };
     } // namespace Plugin
 } // namespace WPEFramework

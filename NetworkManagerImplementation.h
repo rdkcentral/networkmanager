@@ -224,8 +224,8 @@ namespace WPEFramework
             void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         public:
-            std::atomic<bool> isEthConnected;
-            std::atomic<bool> isWlanConnected;
+            std::atomic<bool> m_ethConnected;
+            std::atomic<bool> m_wlanConnected;
 
         private:
             void platform_init();
