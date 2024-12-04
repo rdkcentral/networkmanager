@@ -500,6 +500,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 else
                     return Core::ERROR_BAD_REQUEST;
             }
+            else
+                ipversion = "IPv4"; // default IPv4
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
