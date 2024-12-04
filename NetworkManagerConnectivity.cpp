@@ -424,7 +424,8 @@ namespace WPEFramework
 
     bool ConnectivityMonitor::startContinuousConnectivityMonitor(int timeoutInSeconds)
     {
-        NMLOG_INFO("interface status eth - %s wlan - %s ", _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+        if(_instance != nullptr )
+            NMLOG_INFO("interface status eth - %s wlan - %s ", _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
         continuousMonitorTimeout.store(timeoutInSeconds >= NMCONNECTIVITY_MONITOR_MIN_INTERVAL ? timeoutInSeconds : NMCONNECTIVITY_MONITOR_DEFAULT_INTERVAL);
         if (doContinuousMonitor)
         {
@@ -496,8 +497,10 @@ namespace WPEFramework
             return false;
         }
 
-        NMLOG_INFO("connectivity monitor started %d sec - eth %s - wlan %s", 
-                    NMCONNECTIVITY_MONITOR_MIN_INTERVAL, _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+        if(_instance != nullptr) {
+            NMLOG_INFO("connectivity monitor started %d sec - eth %s - wlan %s", NMCONNECTIVITY_MONITOR_MIN_INTERVAL, 
+                                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+        }
         return true;
     }
 
@@ -526,7 +529,7 @@ namespace WPEFramework
 
         do
         {
-            if(!_instance->m_ethConnected && !_instance->m_wlanConnected) // no wifi no ethernet connected
+            if(_instance != nullptr && (!_instance->m_ethConnected && !_instance->m_wlanConnected)) // no wifi no ethernet connected
             {
                 NMLOG_DEBUG("no interface connected; no ccm check");
                 m_Ipv4InternetState = NO_INTERNET;
@@ -693,7 +696,7 @@ namespace WPEFramework
                         doConnectivityMonitor = false;  // self exit
                         notifyNow = true; // post current state when retry complete
                     }
-                    else if(_instance->m_ethConnected | _instance->m_wlanConnected)
+                    else if(_instance != nullptr && (_instance->m_ethConnected | _instance->m_wlanConnected))
                     {
                         /* interface is connected and still no internet, continue check every 30 sec */
                         TempInterval = NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL;
