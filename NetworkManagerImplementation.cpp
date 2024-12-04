@@ -50,6 +50,8 @@ namespace WPEFramework
             m_stunCacheTimeout = 0;
             m_defaultInterface = "";
             m_publicIP = "";
+            m_ethConnected = false;
+            m_wlanConnected = false;
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -520,13 +522,22 @@ namespace WPEFramework
         void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
             LOG_ENTRY_FUNCTION();
-            if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state) {
+            if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state) {
                 // Start the connectivity monitor with 'false' to indicate the interface is down.
                 // The monitor will automatically exit after the retry attempts are completed, posting a 'noInternet' event.
-                connectivityMonitor.startConnectivityMonitor(false);
+                if(interface == "eth0")
+                    m_ethConnected = false;
+                else
+                    m_wlanConnected = false;
+                connectivityMonitor.startConnectivityMonitor();
             }
 
+            /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
+            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
+                m_ethConnected = true;
+
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
             for (const auto callback : _notificationCallbacks) {
                 callback->onInterfaceStateChange(state, interface);
             }
@@ -535,8 +546,8 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
-            NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
@@ -549,11 +560,11 @@ namespace WPEFramework
             if (Exchange::INetworkManager::IP_ACQUIRED == status) {
                 // Start the connectivity monitor with 'true' to indicate the interface is up.
                 // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
-                connectivityMonitor.startConnectivityMonitor(true);
+                connectivityMonitor.startConnectivityMonitor();
             }
 
-            NMLOG_INFO("Posting onIPAddressChange %s", ipaddress.c_str());
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onIPAddressChange %s - %s", ipaddress.c_str(), interface.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
@@ -562,8 +573,8 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
         {
-            NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
             for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState);
             }
@@ -584,10 +595,15 @@ namespace WPEFramework
         {
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
+            {
+                m_wlanConnected = true;
                 m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+            }
+            else
+                m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
 
-            NMLOG_INFO("Posting onWiFiStateChange");
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
@@ -596,11 +612,10 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
-            NMLOG_INFO("Posting onWiFiSignalStrengthChange");
             _notificationLock.Lock();
+            NMLOG_INFO("Posting onWiFiSignalStrengthChange %s", strength.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiSignalStrengthChange(ssid, strength, quality);
-                
             }
             _notificationLock.Unlock();
         }

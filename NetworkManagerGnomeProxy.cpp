@@ -84,23 +84,25 @@ namespace WPEFramework
                     {
                         NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
                         Exchange::INetworkManager::InterfaceDetails interface;
+                        interface.mac = nm_device_get_hw_address(device);
+                        deviceState = nm_device_get_state(device);
+                        interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)? true : false;
+                        if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING)
+                            interface.connected = true;
+                        else
+                            interface.connected = false;
+
                         if(ifaceStr == wifiname) {
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
+                            m_wlanConnected = interface.connected;
                         }
                         if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
+                            m_ethConnected = interface.connected;
                         }
-                        interface.mac = nm_device_get_hw_address(device);
-                        deviceState = nm_device_get_state(device);
-                        interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
-                        if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING){
-                            interface.connected = true;
-                            m_defaultInterface = interface.name;
-                        }
-                        else
-                            interface.connected = false;
+
                         interfaceList.push_back(interface);
                         rc = Core::ERROR_NONE;
                     }

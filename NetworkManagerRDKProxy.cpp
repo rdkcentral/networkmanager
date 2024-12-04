@@ -457,8 +457,7 @@ namespace WPEFramework
                     {
                         IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t *e = (IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t*) data;
                         interface = e->interface;
-                        NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS: %s - %s - %s", interface.c_str(), e->ip_address, e->acquired?"Acquired":"Lost"
-);
+                        NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS: %s - %s - %s", interface.c_str(), e->ip_address, e->acquired?"Acquired":"Lost");
 
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
@@ -577,8 +576,55 @@ namespace WPEFramework
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
 
                 NMLOG_INFO("threadEventRegistration successfully subscribed to IARM event for NetworkManager Plugin");
+               /* 
+                * Read current network state and post the event.
+                * Useful if NetworkManager plugin or WPEFramework is restarted 
+                * or netsrvmgr misses to post iarm events during bootup.
+                */
+                getInitialConnectionState();
             }
 
+        }
+
+        void NetworkManagerImplementation::getInitialConnectionState()
+        {
+            // check the connection state and post event
+            Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
+            uint32_t rc = GetAvailableInterfaces(_interfaces);
+
+            if (Core::ERROR_NONE == rc)
+            {
+                if (_interfaces != nullptr)
+                {
+                    Exchange::INetworkManager::InterfaceDetails iface{};
+                    while (_interfaces->Next(iface) == true)
+                    {
+                        Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
+                        if(iface.enabled)
+                        {
+                            NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
+                            // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
+                            if(iface.connected)
+                            {
+                                NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
+                                ReportActiveInterfaceChange(iface.name, iface.name);
+                                std::string ipversion = {};
+                                Exchange::INetworkManager::IPAddress addr;
+                                rc = GetIPSettings(iface.name, ipversion, addr);
+                                if (Core::ERROR_NONE == rc)
+                                {
+                                    if(!addr.ipaddress.empty()) {
+                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
+                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    _interfaces->Release();
+                }
+            }
         }
 
         void NetworkManagerImplementation::platform_init()
@@ -625,7 +671,14 @@ namespace WPEFramework
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onError, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
+                /* 
+                * Read current network state and post the event.
+                * Useful if NetworkManager plugin or WPEFramework is restarted 
+                * or netsrvmgr misses to post iarm events during bootup.
+                */
+                getInitialConnectionState();
             }
+
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -644,15 +697,19 @@ namespace WPEFramework
                     {
                         InterfaceDetails tmp;
                         /* Update the interface as per RDK NetSrvMgr */
-                        if ("eth0" == interfaceName)
-                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
-                        else if ("wlan0" == interfaceName)
-                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
-
                         tmp.name         = interfaceName;
                         tmp.mac          = string(list.interfaces[i].mac);
                         tmp.enabled    = ((list.interfaces[i].flags & IFF_UP) != 0);
                         tmp.connected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
+                        if ("eth0" == interfaceName) {
+                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
+                            m_ethConnected = tmp.connected;
+                        }
+                        else if ("wlan0" == interfaceName) {
+                            tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
+                            m_wlanConnected = tmp.connected;
+                        }
+
                         interfaceList.push_back(tmp);
                     }
                 }
