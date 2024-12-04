@@ -673,7 +673,7 @@ namespace WPEFramework
 	    if (parameters.HasLabel("frequency"))
             {
                 frequency = parameters["frequency"].String();
-                NMLOG_INFO("Received frequency string : %s", frequency.c_str());
+                NMLOG_DEBUG("Received frequency string : %s", frequency.c_str());
             }
             else
             {
@@ -683,14 +683,14 @@ namespace WPEFramework
             if (parameters.HasLabel("ssids"))
             {
                 JsonArray array = parameters["ssids"].Array();
-                std::vector<std::string> tmpssidslist;
+                std::vector<std::string> ssidslist;
 	        JsonArray::Iterator index(array.Elements());
 
 		while (index.Next() == true)
                 {
                     if (Core::JSON::Variant::type::STRING == index.Current().Content())
                     {
-                        tmpssidslist.push_back(index.Current().String().c_str());
+                        ssidslist.push_back(index.Current().String().c_str());
                     }
                     else
                     {
@@ -698,7 +698,7 @@ namespace WPEFramework
                         returnJson(rc);
                     }
                 }
-                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidslist));
             }
             else
             {

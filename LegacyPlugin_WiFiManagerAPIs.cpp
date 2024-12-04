@@ -553,7 +553,7 @@ namespace WPEFramework
             if (parameters.HasLabel("frequency"))
             {
                 frequency = parameters["frequency"].String();
-                NMLOG_INFO("Received frequency string : %s", frequency.c_str());
+                NMLOG_DEBUG("Received frequency string : %s", frequency.c_str());
             }
             else
             {
@@ -562,18 +562,18 @@ namespace WPEFramework
 
             if (parameters.HasLabel("ssid"))
             {
-                vector<string> tmpssidslist;
-                string tmpssids = parameters["ssid"].String();
-                NMLOG_INFO("Provided SSID value : %s", tmpssids.c_str());
+                vector<string> inputSSIDlist;
+                string inputSSID = parameters["ssid"].String();
+                NMLOG_DEBUG("Provided SSID value : %s", inputSSID.c_str());
 
-                stringstream ss(tmpssids);
+                stringstream ssidStream(inputSSID);
                 string ssid;
-                while (getline(ss, ssid, ','))
+                while (getline(ssidStream, ssid, '|'))
                 {
-                    tmpssidslist.push_back(ssid);
+                    inputSSIDlist.push_back(ssid);
                 }
 
-                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpssidslist));
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
             }
             else
             {

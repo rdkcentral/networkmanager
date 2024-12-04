@@ -530,30 +530,30 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
             //Cleared the Existing Store filterred SSID list
-            scanForSsidslist.clear();
+            m_filterSsidslist.clear();
 
             if(ssids)
             {
                 string tmpssidlist{};
                 while (ssids->Next(tmpssidlist) == true)
                 {
-                    scanForSsidslist.push_back(tmpssidlist.c_str());
+                    m_filterSsidslist.push_back(tmpssidlist.c_str());
                 }
             }
 
             if (frequency.empty())
             {
-                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
-                scanForFreq.clear();
+                NMLOG_DEBUG("No frequency provided. Proceeding without frequency filtering.");
+                m_filterfrequency.clear();
             }
             else
             {
-                scanForFreq = frequency;
-                NMLOG_INFO("Frequency set for scanning: %s", scanForFreq.c_str());
+                m_filterfrequency = frequency;
+                NMLOG_DEBUG("Frequency set for scanning: %s", m_filterfrequency.c_str());
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(scanForFreq))
+            if(wifi->wifiScanRequest(m_filterfrequency))
                 rc = Core::ERROR_NONE;
             return rc;
         }

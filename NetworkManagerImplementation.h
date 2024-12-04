@@ -246,8 +246,8 @@ namespace WPEFramework
             uint16_t m_stunBindTimeout;
             uint16_t m_stunCacheTimeout;
             std::thread m_registrationThread;
-            string scanForFreq;
-            std::vector<std::string> scanForSsidslist;
+            string m_filterfrequency;
+            std::vector<std::string> m_filterSsidslist;
 
 	public:
             WiFiSignalStrengthMonitor m_wifiSignalMonitor;
