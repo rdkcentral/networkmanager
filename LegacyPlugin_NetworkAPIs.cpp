@@ -491,7 +491,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
 
             if (parameters.HasLabel("ipversion"))
+            {
                 ipversion = parameters["ipversion"].String();
+                if(caseInsensitiveCompare(ipversion,"IPV4") || ipversion == "null")
+                    ipversion = "IPv4";
+                else if(caseInsensitiveCompare(ipversion,"IPV6"))
+                    ipversion = "IPv6";
+                else
+                    return Core::ERROR_BAD_REQUEST;
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
