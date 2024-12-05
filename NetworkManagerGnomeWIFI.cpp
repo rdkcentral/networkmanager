@@ -1063,7 +1063,7 @@ namespace WPEFramework
 
                 while (std::getline(configFile, line))
                 {
-                    NMLOG_INFO("Inside getline while");
+                    NMLOG_DEBUG("Attempting to read the configuration to populate SSID specific information");
                     size_t pos;
 
                     // Fetch ssid value
@@ -1078,7 +1078,7 @@ namespace WPEFramework
                         }
                         ssid = line.substr(pos + 1, end - pos - 1);
                         ssidFound = true;
-                        NMLOG_INFO("SSID found");
+                        NMLOG_DEBUG("SSID found");
                         continue;
                     }
 
@@ -1129,9 +1129,9 @@ namespace WPEFramework
                         wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
                     loop = g_main_loop_new(wpsContext, FALSE);
                     if(this->wifiConnect(wifiData))
-                        NMLOG_INFO("WPS connected successfully");
+                        NMLOG_INFO("NetworkManager updated with WPS status - connected successfully");
                     else
-                        NMLOG_ERROR("WPS connect failed");/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
+                        NMLOG_ERROR("NetworkManager is not able to sync up with underneath wpa_supplicant/hal regarding the WPS connect"); /* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
                     loop = g_main_loop_new(nmContext, FALSE);
                 }
             }
