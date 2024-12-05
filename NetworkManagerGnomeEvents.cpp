@@ -617,7 +617,6 @@ namespace WPEFramework
             return;
         }
         JsonArray ssidList = JsonArray();
-        string ssidListJson;
         NMAccessPoint *ap = nullptr;
         const GPtrArray *accessPoints = nm_device_wifi_get_access_points(wifiDevice);
         for (guint i = 0; i < accessPoints->len; i++)
@@ -628,13 +627,11 @@ namespace WPEFramework
                 ssidList.Add(ssidObj);
         }
 
-        ssidList.ToString(ssidListJson);
         NMLOG_INFO("No of AP Available = %d", static_cast<int>(accessPoints->len));
-        //NMLOG_DEBUG("Scanned APIs are  = %s",ssidListJson.c_str());
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
-            _instance->ReportAvailableSSIDs(ssidListJson);
+            _instance->ReportAvailableSSIDs(ssidList);
         }
     }
 

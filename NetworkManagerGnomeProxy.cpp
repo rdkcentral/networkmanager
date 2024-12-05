@@ -528,10 +528,29 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            (void) ssids;
+
+            //Cleared the Existing Store filterred SSID list
+            m_filterSsidslist.clear();
+            m_filterfrequency.clear();
+
+            if(ssids)
+            {
+                string tmpssidlist{};
+                while (ssids->Next(tmpssidlist) == true)
+                {
+                    m_filterSsidslist.push_back(tmpssidlist.c_str());
+                    NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
+                }
+            }
+
+            if (!frequency.empty())
+            {
+                m_filterfrequency = frequency;
+                NMLOG_DEBUG("Scan SSIDs of frequency %s", m_filterfrequency.c_str());
+            }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(frequency))
+            if(wifi->wifiScanRequest(m_filterfrequency))
                 rc = Core::ERROR_NONE;
             return rc;
         }

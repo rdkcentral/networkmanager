@@ -544,12 +544,30 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
+	uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency = parameters["frequency"].String();
+            string frequency{};
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
+
+
+            if (parameters.HasLabel("frequency"))
+                frequency = parameters["frequency"].String();
+
+            if (parameters.HasLabel("ssid"))
+            {
+                string inputSSID = parameters["ssid"].String();
+                string ssid{};
+                vector<string> inputSSIDlist;
+                stringstream ssidStream(inputSSID);
+                while (getline(ssidStream, ssid, '|'))
+                {
+                    inputSSIDlist.push_back(ssid);
+                }
+
+                ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
@@ -559,6 +577,9 @@ namespace WPEFramework
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            if (ssids)
+                ssids->Release();
 
             returnJson(rc);
         }

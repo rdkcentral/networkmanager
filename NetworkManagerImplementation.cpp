@@ -490,6 +490,56 @@ namespace WPEFramework
             return;
         }
 
+
+        void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
+        {
+            JsonArray result;
+            double filterFreq = 0.0;
+            std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
+
+            // If neither SSID list nor frequency is provided, exit
+            if (m_filterSsidslist.empty() && m_filterfrequency.empty())
+            {
+                NMLOG_DEBUG("Neither SSID nor Frequency is provided. Exiting function.");
+                return;
+            }
+
+            if (!m_filterfrequency.empty())
+            {
+                filterFreq = std::stod(m_filterfrequency);
+                NMLOG_DEBUG("Frequency provided: %lf\n", filterFreq);
+            }
+
+            for (int i = 0; i < ssids.Length(); i++)
+            {
+                JsonObject object = ssids[i].Object();
+                string ssid = object["ssid"].String();
+                string frequency = object["frequency"].String();
+
+                NMLOG_DEBUG("Processing SSID: %s, Frequency: %s\n", ssid.c_str(), frequency.c_str());
+
+                double frequencyValue = std::stod(frequency);
+
+		//Debug to  print log
+                NMLOG_DEBUG("Processing Frequency after double conversion: %lf\n", frequencyValue);
+
+                bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
+                bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
+
+                if (ssidMatches && freqMatches)
+                {
+                    result.Add(object);
+                    NMLOG_DEBUG("Match found: SSID = %s, Frequency = %lf\n", ssid.c_str(), frequencyValue);
+                }
+                else
+                {
+                    NMLOG_DEBUG("No match: SSID = %s, Frequency = %lf\n", ssid.c_str(), frequencyValue);
+                }
+            }
+            ssids = result;
+            NMLOG_DEBUG("After filtering, found %d SSIDs.", ssids.Length());
+        }
+
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
         uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const
@@ -581,12 +631,22 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportAvailableSSIDs(const string jsonOfWiFiScanResults)
+        void NetworkManagerImplementation::ReportAvailableSSIDs(JsonArray &arrayofWiFiScanResults)
         {
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onAvailableSSIDs result is, %s", jsonOfWiFiScanResults.c_str());
+            string jsonOfWiFiScanResults;
+            string jsonOfFilterScanResults;
+
+            arrayofWiFiScanResults.ToString(jsonOfWiFiScanResults);
+            NMLOG_DEBUG("Posting onAvailableSSIDs result before Filtering is, %s", jsonOfWiFiScanResults.c_str());
+
+            filterScanResults(arrayofWiFiScanResults);
+
+            arrayofWiFiScanResults.ToString(jsonOfFilterScanResults);
+
+            NMLOG_INFO("Posting onAvailableSSIDs result is, %s", jsonOfFilterScanResults.c_str());
             for (const auto callback : _notificationCallbacks) {
-                callback->onAvailableSSIDs(jsonOfWiFiScanResults);
+                callback->onAvailableSSIDs(jsonOfFilterScanResults);
             }
             _notificationLock.Unlock();
         }
