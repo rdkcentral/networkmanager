@@ -996,9 +996,9 @@ namespace WPEFramework
                     }
                 }
                 count++;
-            }while(count <= 6 && !pbcFound && !wpsStop.load());
+            }while(count < 10 && !pbcFound && !wpsStop.load());
 
-            if(!pbcFound)
+            if(!pbcFound || wpsStop.load())
             {
                 g_main_context_pop_thread_default(wpsContext);
                 g_main_context_release(wpsContext);
@@ -1034,9 +1034,9 @@ namespace WPEFramework
                 clock_gettime(CLOCK_MONOTONIC, &endTime);
                 timeDiff = (endTime.tv_sec - startTime.tv_sec);
                 NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
-                if(wpsConnect || timeDiff > 120)
+                if(wpsConnect || timeDiff > 20)
                 {
-                    NMLOG_INFO("wpsConnect is %d", wpsConnect);
+                    NMLOG_WARNING("WPS Connect status = %d; took %ld seconds", wpsConnect, (100 + timeDiff));
                     break;
                 }
                 sleep(5);
@@ -1109,13 +1109,14 @@ namespace WPEFramework
                             }
                             passphrase = line.substr(pos + 1, end - pos - 1);
                         }
-                        NMLOG_INFO("Completed getline while");
+                        NMLOG_DEBUG("Fetched SSID = %s, security = %s", ssid.c_str(), security.c_str());
                     }
                 }
+                configFile.close();
                 if(ssid.empty())
                 {
                     count++;
-                    NMLOG_INFO("SSID not found retrying with 5 sec delay");
+                    NMLOG_INFO("connected successfully; attempting to retrive SSID info to persist");
                     sleep(5);
                 }
                 else
@@ -1133,7 +1134,6 @@ namespace WPEFramework
                         NMLOG_ERROR("WPS connect failed");/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
                     loop = g_main_loop_new(nmContext, FALSE);
                 }
-                configFile.close();
             }
             g_main_context_pop_thread_default(wpsContext);
             g_main_context_release(wpsContext);
