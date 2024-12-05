@@ -539,13 +539,14 @@ namespace WPEFramework
                 while (ssids->Next(tmpssidlist) == true)
                 {
                     m_filterSsidslist.push_back(tmpssidlist.c_str());
+                    NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
                 }
             }
 
             if (!frequency.empty())
             {
                 m_filterfrequency = frequency;
-                NMLOG_DEBUG("Frequency set for scanning: %s", m_filterfrequency.c_str());
+                NMLOG_DEBUG("Scan SSIDs of frequency %s", m_filterfrequency.c_str());
             }
 
             nmEvent->setwifiScanOptions(true);
