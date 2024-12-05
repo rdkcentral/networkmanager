@@ -551,33 +551,20 @@ namespace WPEFramework
 
 
             if (parameters.HasLabel("frequency"))
-            {
                 frequency = parameters["frequency"].String();
-                NMLOG_DEBUG("Received frequency string : %s", frequency.c_str());
-            }
-            else
-            {
-                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
-            }
 
             if (parameters.HasLabel("ssid"))
             {
-                vector<string> inputSSIDlist;
                 string inputSSID = parameters["ssid"].String();
-                NMLOG_DEBUG("Provided SSID value : %s", inputSSID.c_str());
-
+                string ssid{};
+                vector<string> inputSSIDlist;
                 stringstream ssidStream(inputSSID);
-                string ssid;
                 while (getline(ssidStream, ssid, '|'))
                 {
                     inputSSIDlist.push_back(ssid);
                 }
 
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
-            }
-            else
-            {
-                NMLOG_INFO("No SSIDs provided. Proceeding without SSID filtering.");
             }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
