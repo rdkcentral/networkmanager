@@ -531,6 +531,7 @@ namespace WPEFramework
 
             //Cleared the Existing Store filterred SSID list
             m_filterSsidslist.clear();
+            m_filterfrequency.clear();
 
             if(ssids)
             {
@@ -541,12 +542,7 @@ namespace WPEFramework
                 }
             }
 
-            if (frequency.empty())
-            {
-                NMLOG_DEBUG("No frequency provided. Proceeding without frequency filtering.");
-                m_filterfrequency.clear();
-            }
-            else
+            if (!frequency.empty())
             {
                 m_filterfrequency = frequency;
                 NMLOG_DEBUG("Frequency set for scanning: %s", m_filterfrequency.c_str());
