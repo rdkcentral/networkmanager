@@ -671,14 +671,7 @@ namespace WPEFramework
 	    Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
 	    if (parameters.HasLabel("frequency"))
-            {
                 frequency = parameters["frequency"].String();
-                NMLOG_DEBUG("Received frequency string : %s", frequency.c_str());
-            }
-            else
-            {
-                NMLOG_INFO("No frequency provided. Proceeding without frequency filtering.");
-            }
 
             if (parameters.HasLabel("ssids"))
             {
@@ -699,10 +692,6 @@ namespace WPEFramework
                     }
                 }
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidslist));
-            }
-            else
-            {
-                NMLOG_INFO("No SSIDs provided. Proceeding without SSID filtering.");
             }
 
             if (_networkManager)
