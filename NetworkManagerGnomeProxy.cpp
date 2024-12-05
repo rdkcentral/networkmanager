@@ -669,6 +669,11 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {
             uint32_t rc = Core::ERROR_NONE;
+            if(method == WIFI_WPS_SERIALIZED_PIN || method == WIFI_WPS_PIN)
+            {
+                NMLOG_ERROR("WPS PIN method is not supported as of now");
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
             if(wifi->initiateWPS())
                 NMLOG_INFO ("startWPS success");
             else
