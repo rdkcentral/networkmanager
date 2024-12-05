@@ -574,9 +574,9 @@ namespace WPEFramework
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
 
                 NMLOG_INFO("threadEventRegistration successfully subscribed to IARM event for NetworkManager Plugin");
-               /* 
+               /*
                 * Read current network state and post the event.
-                * Useful if NetworkManager plugin or WPEFramework is restarted 
+                * Useful if NetworkManager plugin or WPEFramework is restarted
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
                 getInitialConnectionState();
@@ -669,9 +669,9 @@ namespace WPEFramework
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onError, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
-                /* 
+                /*
                 * Read current network state and post the event.
-                * Useful if NetworkManager plugin or WPEFramework is restarted 
+                * Useful if NetworkManager plugin or WPEFramework is restarted
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
                 getInitialConnectionState();
@@ -683,7 +683,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_BUS_NetSrvMgr_InterfaceList_t list;
+            IARM_BUS_NetSrvMgr_InterfaceList_t list{};
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getInterfaceList, (void*)&list, sizeof(list)))
             {
                 std::vector<InterfaceDetails> interfaceList;
@@ -868,7 +868,7 @@ namespace WPEFramework
 
 
         /* @brief Get IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& address /* @out */) 
+        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& address /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -1080,7 +1080,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_SsidList_Param_t param;
+            IARM_Bus_WiFiSrvMgr_SsidList_Param_t param{};
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
             //Cleared the Existing Store filterred SSID list
@@ -1122,7 +1122,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
             memset(&param, 0, sizeof(param));
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_stopProgressiveWifiScanning, (void*) &param, sizeof(IARM_Bus_WiFiSrvMgr_Param_t)))
@@ -1142,7 +1142,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
 
             memset(&param, 0, sizeof(param));
 
@@ -1170,7 +1170,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
             memset(&param, 0, sizeof(param));
 
             strncpy(param.data.connect.ssid, ssid.ssid.c_str(), SSID_SIZE - 1);
@@ -1194,7 +1194,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
             memset(&param, 0, sizeof(param));
 
             /* Currently RDK-NM supports only one saved SSID. So when you say clear, it jsut clears it. No need to pass input at this point in time.
@@ -1220,7 +1220,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
             memset(&param, 0, sizeof(param));
 
             if(ssid.ssid.length() || ssid.passphrase.length())
@@ -1258,7 +1258,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_ENTRY_FUNCTION();
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
             memset(&param, 0, sizeof(param));
 
             retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_disconnectSSID, (void *)&param, sizeof(param));
@@ -1279,7 +1279,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-            IARM_Bus_WiFiSrvMgr_Param_t param;
+            IARM_Bus_WiFiSrvMgr_Param_t param{};
 
             memset(&param, 0, sizeof(param));
 
@@ -1362,7 +1362,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Bus_WiFiSrvMgr_WPS_Parameters_t wps_parameters;
+            IARM_Bus_WiFiSrvMgr_WPS_Parameters_t wps_parameters{};
             if (method == WIFI_WPS_PBC)
             {
                 wps_parameters.pbc = true;
@@ -1377,15 +1377,22 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 snprintf(wps_parameters.pin, sizeof(wps_parameters.pin), "xxxxxxxx");
                 wps_parameters.pbc = false;
             }
+            wps_parameters.status = false;
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_initiateWPSPairing2, (void *)&wps_parameters, sizeof(wps_parameters)))
             {
-                NMLOG_INFO ("StartWPS is success");
-                rc = Core::ERROR_NONE;
+                if (wps_parameters.status)
+                {
+                    NMLOG_INFO ("StartWPS is success");
+                    rc = Core::ERROR_NONE;
+                }
+                else
+                    NMLOG_ERROR ("StartWPS: Failed");
             }
-            else
+
+            if (Core::ERROR_NONE != rc)
             {
-                NMLOG_ERROR ("StartWPS: Failed");                
+                NMLOG_ERROR ("StartWPS: Failed");
             }
 
             return rc;
@@ -1404,7 +1411,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
             else
             {
-                NMLOG_ERROR ("StopWPS: Failed");                
+                NMLOG_ERROR ("StopWPS: Failed");
             }
 
             return rc;

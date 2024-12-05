@@ -539,6 +539,8 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
                 response["result"] = 0;
+            else
+                response["result"] = 1;
             returnJson(rc);
         }
 
