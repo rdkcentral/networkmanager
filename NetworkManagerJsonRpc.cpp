@@ -687,7 +687,7 @@ namespace WPEFramework
                     }
                     else
                     {
-                        NMLOG_DEBUG("Unexpected variant type in SSID array.");
+                        NMLOG_ERROR("Unexpected variant type in SSID array.");
                         returnJson(rc);
                     }
                 }
