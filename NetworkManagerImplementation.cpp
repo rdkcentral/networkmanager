@@ -497,12 +497,10 @@ namespace WPEFramework
             double filterFreq = 0.0;
             std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
 
-            NMLOG_DEBUG("User Provided Frequency: %s\n", m_filterfrequency.c_str());
-
             // If neither SSID list nor frequency is provided, exit
             if (m_filterSsidslist.empty() && m_filterfrequency.empty())
             {
-                NMLOG_INFO("Neither SSID nor Frequency is provided. Exiting function.");
+                NMLOG_DEBUG("Neither SSID nor Frequency is provided. Exiting function.");
                 return;
             }
 
@@ -511,8 +509,6 @@ namespace WPEFramework
                 filterFreq = std::stod(m_filterfrequency);
                 NMLOG_DEBUG("Frequency provided: %lf\n", filterFreq);
             }
-
-            NMLOG_INFO(" Frequency: %s\n", m_filterfrequency.c_str());
 
             for (int i = 0; i < ssids.Length(); i++)
             {
@@ -541,7 +537,7 @@ namespace WPEFramework
                 }
             }
             ssids = result;
-            NMLOG_INFO("Filtered %d SSIDs.", ssids.Length());
+            NMLOG_DEBUG("After filtering, found %d SSIDs.", ssids.Length());
         }
 
         // WiFi Specific Methods
