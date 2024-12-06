@@ -139,24 +139,6 @@ namespace WPEFramework
             return true;
         }
 
-        void GnomeUtils::printKeyVariant(const char *setting_name, GVariant *setting)
-        {
-            GVariantIter iter;
-            const char  *property_name;
-            GVariant    *value;
-            char        *printed_value;
-
-            NMLOG_DEBUG("  %s:", setting_name);
-            g_variant_iter_init(&iter, setting);
-            while (g_variant_iter_next(&iter, "{&sv}", &property_name, &value)) {
-                printed_value = g_variant_print(value, FALSE);
-                if (strcmp(printed_value, "[]") != 0)
-                    NMLOG_DEBUG("    %s: %s", property_name, printed_value);
-                g_free(printed_value);
-                g_variant_unref(value);
-            }
-        }
-
         // TODO change this function 
         const char* GnomeUtils::getWifiIfname() { return ifnameWlan; }
         const char* GnomeUtils::getEthIfname() { return ifnameEth; }

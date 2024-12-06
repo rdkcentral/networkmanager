@@ -65,7 +65,6 @@ namespace WPEFramework
     {
         class GnomeUtils {
             public:
-                static void printKeyVariant(const char *setting_name, GVariant *setting);
                 static bool getDeviceByIpIface(DbusMgr& m_dbus, const gchar *iface_name, std::string& path);
                 static bool getApDetails(DbusMgr& m_dbus, const char* apPath, Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo);
                 static bool getConnectionPaths(DbusMgr& m_dbus, std::list<std::string>& pathsList);
