@@ -69,14 +69,14 @@ namespace WPEFramework
             wifiManager();
             ~wifiManager() {
                 NMLOG_INFO("~wifiManager");
-                g_main_context_pop_thread_default(nmContext);
-                if(client != NULL) {
-                    g_object_unref(client);
-                    client = NULL;
+                g_main_context_pop_thread_default(m_nmContext);
+                if(m_client != NULL) {
+                    g_object_unref(m_client);
+                    m_client = NULL;
                 }
-                if(loop != NULL) {
-                    g_main_loop_unref(loop);
-                    loop = NULL;
+                if(m_loop != NULL) {
+                    g_main_loop_unref(m_loop);
+                    m_loop = NULL;
                 }
             }
 
@@ -88,16 +88,15 @@ namespace WPEFramework
             std::thread wpsThread;
 
         public:
-            NMClient *client;
-            GMainLoop *loop;
-            gboolean createNewConnection;
-            GMainContext *nmContext = nullptr;
-            GMainContext *wpsContext = nullptr;
-            const char* objectPath;
-            NMDevice *wifidevice;
-            GSource *source;
-            guint wifiDeviceStateGsignal = 0;
-            bool isSuccess = false;
+            NMClient *m_client;
+            GMainLoop *m_loop;
+            gboolean m_createNewConnection;
+            GMainContext *m_nmContext = nullptr;
+            GMainContext *m_wpsContext = nullptr;
+            const char* m_objectPath;
+            NMDevice *m_wifidevice;
+            GSource *m_source;
+            bool m_isSuccess = false;
         };
     }   // Plugin
 }   // WPEFramework

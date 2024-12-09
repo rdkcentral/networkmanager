@@ -51,24 +51,24 @@ namespace WPEFramework
     {
         extern NetworkManagerImplementation* _instance;
 
-        wifiManager::wifiManager() : client(nullptr), loop(nullptr), createNewConnection(false) {
+        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false) {
             NMLOG_INFO("wifiManager");
-            nmContext = g_main_context_new();
-            g_main_context_push_thread_default(nmContext);
-            loop = g_main_loop_new(nmContext, FALSE);
+            m_nmContext = g_main_context_new();
+            g_main_context_push_thread_default(m_nmContext);
+            m_loop = g_main_loop_new(m_nmContext, FALSE);
         }
 
         bool wifiManager::createClientNewConnection()
         {
             GError *error = NULL;
-            if(client != nullptr)
+            if(m_client != nullptr)
             {
-                g_object_unref(client);
-                client = nullptr;
+                g_object_unref(m_client);
+                m_client = nullptr;
             }
 
-            client = nm_client_new(NULL, &error);
-            if (!client || !loop) {
+            m_client = nm_client_new(NULL, &error);
+            if (!m_client || !m_loop) {
                 NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                 g_error_free(error);
                 return false;
@@ -78,17 +78,12 @@ namespace WPEFramework
 
         bool wifiManager::quit(NMDevice *wifiNMDevice)
         {
-            if (wifiNMDevice && wifiDeviceStateGsignal > 0) {
-                g_signal_handler_disconnect(wifiNMDevice, wifiDeviceStateGsignal);
-                wifiDeviceStateGsignal = 0;
-            }
-
-            if(!g_main_loop_is_running(loop)) {
+            if(!g_main_loop_is_running(m_loop)) {
                 NMLOG_ERROR("g_main_loop_is not running");
                 return false;
             }
 
-            g_main_loop_quit(loop);
+            g_main_loop_quit(m_loop);
             return false;
         }
 
@@ -96,8 +91,8 @@ namespace WPEFramework
         {
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             NMLOG_WARNING("GmainLoop ERROR_TIMEDOUT");
-            _wifiManager->isSuccess = false;
-            g_main_loop_quit(_wifiManager->loop);
+            _wifiManager->m_isSuccess = false;
+            g_main_loop_quit(_wifiManager->m_loop);
             return true;
         }
     
@@ -107,18 +102,18 @@ namespace WPEFramework
                 NMLOG_WARNING("g_main_loop_is running");
                 return false;
             }
-            source = g_timeout_source_new(timeOutMs);  // 10000ms interval
-            g_source_set_callback(source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
-            g_source_attach(source, NULL);
+            m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
+            g_source_set_callback(m_source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
+            g_source_attach(m_source, NULL);
             g_main_loop_run(loop);
-            if(source != nullptr) {
-                if(g_source_is_destroyed(source)) {
+            if(m_source != nullptr) {
+                if(g_source_is_destroyed(m_source)) {
                     NMLOG_WARNING("Source has been destroyed");
                 }
                 else {
-                    g_source_destroy(source);
+                    g_source_destroy(m_source);
                 }
-                g_source_unref(source);
+                g_source_unref(m_source);
             }
             return true;
         }
@@ -127,7 +122,7 @@ namespace WPEFramework
         {
             NMDevice *wifiDevice = NULL;
 
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_client));
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
                 return wifiDevice;
@@ -294,7 +289,7 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
 
             NMLOG_DEBUG("Disconnecting... ");
-            _wifiManager->isSuccess = true;
+            _wifiManager->m_isSuccess = true;
             if (!nm_device_disconnect_finish(device, result, &error)) {
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
                     return;
@@ -305,7 +300,7 @@ namespace WPEFramework
                             error->message);
                 g_error_free(error);
                 _wifiManager->quit(device);
-                 _wifiManager->isSuccess = false;
+                 _wifiManager->m_isSuccess = false;
             }
             _wifiManager->quit(device);
         }
@@ -322,8 +317,8 @@ namespace WPEFramework
             }
 
             nm_device_disconnect_async(wifiNMDevice, NULL, disconnectCb, this);
-            wait(loop);
-            return isSuccess;
+            wait(m_loop);
+            return m_isSuccess;
         }
 
         static NMAccessPoint *checkSSIDAvailable(NMDevice *device, const char *ssid)
@@ -361,27 +356,27 @@ namespace WPEFramework
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
 
-            if (_wifiManager->createNewConnection) {
+            if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
-                nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->client), result, &error);
-                 _wifiManager->isSuccess = true;
+                nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                 _wifiManager->m_isSuccess = true;
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
-                nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->client), result, &error);
-                 _wifiManager->isSuccess = true;
+                nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                 _wifiManager->m_isSuccess = true;
             }
 
             if (error) {
-                 _wifiManager->isSuccess = false;
-                if (_wifiManager->createNewConnection) {
+                 _wifiManager->m_isSuccess = false;
+                if (_wifiManager->m_createNewConnection) {
                     NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
                 } else {
                     NMLOG_ERROR("Failed to activate connection: %s", error->message);
                 }
             }
 
-            g_main_loop_quit(_wifiManager->loop);
+            g_main_loop_quit(_wifiManager->m_loop);
         }
 
         static void removeKnownSSIDCb(GObject *client, GAsyncResult *result, gpointer user_data)
@@ -391,12 +386,12 @@ namespace WPEFramework
             NMRemoteConnection *connection = NM_REMOTE_CONNECTION(client);
             if (!nm_remote_connection_delete_finish(connection, result, &error)) {
                 NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             }
             else
             {
                 NMLOG_INFO ("RemoveKnownSSID is success");
-                _wifiManager->isSuccess = true;
+                _wifiManager->m_isSuccess = true;
             }
 
             _wifiManager->quit(NULL);
@@ -414,13 +409,13 @@ namespace WPEFramework
             if (!ret) {
                 NMLOG_ERROR("Error: %s.", error->message);
                 g_error_free(error);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
                 _wifiManager->quit(NULL);
                 return;
             }
-            _wifiManager->createNewConnection = false; // no need to create new connection
+            _wifiManager->m_createNewConnection = false; // no need to create new connection
             nm_client_activate_connection_async(
-                _wifiManager->client, NM_CONNECTION(remote_con), _wifiManager->wifidevice, _wifiManager->objectPath, NULL, wifiConnectCb, _wifiManager);
+                _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, NULL, wifiConnectCb, _wifiManager);
         }
 
         static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection)
@@ -575,7 +570,7 @@ namespace WPEFramework
             NMConnection *m_connection = NULL;
             const GPtrArray  *availableConnections;
             bool SSIDmatch = false;
-            isSuccess = false;
+            m_isSuccess = false;
 
             if(!createClientNewConnection())
                 return false;
@@ -662,18 +657,18 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("creating new connection '%s' ", ssidInfo.ssid.c_str());
                 m_connection = nm_simple_connection_new();
-                objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
                 if(!connectionBuilder(ssidInfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
                     return false;
                 }
-                createNewConnection = true;
-                nm_client_add_and_activate_connection_async(client, m_connection, device, objectPath, NULL, wifiConnectCb, this);
+                m_createNewConnection = true;
+                nm_client_add_and_activate_connection_async(m_client, m_connection, device, m_objectPath, NULL, wifiConnectCb, this);
             }
 
-            wait(loop);
-            return isSuccess;
+            wait(m_loop);
+            return m_isSuccess;
         }
 
          static void addToKnownSSIDsUpdateCb(GObject *rmObject, GAsyncResult *res, gpointer user_data)
@@ -688,12 +683,12 @@ namespace WPEFramework
             if (!ret) {
                 NMLOG_ERROR("Error: %s.", error->message);
                 g_error_free(error);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
                 NMLOG_ERROR("AddToKnownSSIDs failed");
             }
             else
             {
-                _wifiManager->isSuccess = true;
+                _wifiManager->m_isSuccess = true;
                 NMLOG_INFO("AddToKnownSSIDs success");
             }
             _wifiManager->quit(NULL);
@@ -706,20 +701,20 @@ namespace WPEFramework
             GVariant **outResult = NULL;
             if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, outResult, &error)) {
                 NMLOG_ERROR("AddToKnownSSIDs Failed");
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             }
             else
             {
                 NMLOG_INFO("AddToKnownSSIDs success");
-                _wifiManager->isSuccess = true;
+                _wifiManager->m_isSuccess = true;
             }
 
-            g_main_loop_quit(_wifiManager->loop);
+            g_main_loop_quit(_wifiManager->m_loop);
         }
 
         bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo)
         {
-            isSuccess = false;
+            m_isSuccess = false;
             NMConnection *m_connection = NULL;
 
             if(!createClientNewConnection())
@@ -766,22 +761,22 @@ namespace WPEFramework
                     NMLOG_ERROR("connection builder failed");
                     return false;
                 }
-                createNewConnection = true;
+                m_createNewConnection = true;
                 GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
-                nm_client_add_connection2(client,
+                nm_client_add_connection2(m_client,
                                         connSettings,
                                         NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
                                         NULL, TRUE, NULL,
                                         addToKnownSSIDsCb, this);
             }
-            wait(loop);
-            return isSuccess;
+            wait(m_loop);
+            return m_isSuccess;
         }
 
         bool wifiManager::removeKnownSSID(const string& ssid)
         {
             NMConnection *m_connection = NULL;
-            isSuccess = false;
+            m_isSuccess = false;
 
             if(!createClientNewConnection())
                 return false;
@@ -792,7 +787,7 @@ namespace WPEFramework
                 return false;
             }
 
-            const GPtrArray  *allconnections = nm_client_get_connections(client);
+            const GPtrArray  *allconnections = nm_client_get_connections(m_client);
             for (guint i = 0; i < allconnections->len; i++)
             {
                 NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
@@ -813,7 +808,7 @@ namespace WPEFramework
                                                     removeKnownSSIDCb,
                                                     this);
                     }
-                    wait(loop);
+                    wait(m_loop);
                     break; // multiple connection with same name not handiled
                 }
             }
@@ -821,14 +816,14 @@ namespace WPEFramework
             if(!m_connection)
                 NMLOG_INFO("'%s' no such connection profile", ssid.c_str());
 
-            return isSuccess;
+            return m_isSuccess;
         }
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
             if(!createClientNewConnection())
                 return false;
-            const GPtrArray *connections = nm_client_get_connections(client);
+            const GPtrArray *connections = nm_client_get_connections(m_client);
             std::string ssidPrint;
             for (guint i = 0; i < connections->len; i++)
             {
@@ -866,20 +861,20 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             if(nm_device_wifi_request_scan_finish(NM_DEVICE_WIFI(object), result, &error)) {
                  NMLOG_DEBUG("Scanning success");
-                 _wifiManager->isSuccess = true;
+                 _wifiManager->m_isSuccess = true;
             }
             else
             {
                 NMLOG_ERROR("Scanning Failed");
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             }
             if (error) {
                 NMLOG_ERROR("Scanning Failed Error: %s.", error->message);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
                 g_error_free(error);
             }
 
-            g_main_loop_quit(_wifiManager->loop);
+            g_main_loop_quit(_wifiManager->m_loop);
         }
 
         bool wifiManager::wifiScanRequest(std::string ssidReq)
@@ -891,7 +886,7 @@ namespace WPEFramework
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
-            isSuccess = false;
+            m_isSuccess = false;
             if(!ssidReq.empty() && ssidReq != "null")
             {
                 NMLOG_INFO("staring wifi scanning .. %s", ssidReq.c_str());
@@ -910,8 +905,8 @@ namespace WPEFramework
                 NMLOG_DEBUG("staring normal wifi scanning");
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
             }
-            wait(loop);
-            return isSuccess;
+            wait(m_loop);
+            return m_isSuccess;
         }
 
         bool wifiManager::isWifiScannedRecently(int timelimitInSec)
@@ -959,6 +954,7 @@ namespace WPEFramework
             gboolean wpsConnect = false;
             struct timespec startTime = {}, endTime = {};
             long timeDiff = 0;
+            long wpsPBCDuration = 0;
             int count = 0;
             bool scanResult = false;
             bool ssidFound = false;
@@ -966,20 +962,21 @@ namespace WPEFramework
             gboolean pbcFound = false;
             const GPtrArray *aps;
 
-
-            if (!wpsContext || !g_main_context_acquire(wpsContext))
+            if (!m_wpsContext || !g_main_context_acquire(m_wpsContext))
             {
                 NMLOG_ERROR("Failed to acquire wpsContext");
                 return;
             }
 
-            g_main_context_push_thread_default(wpsContext);
+            g_main_context_push_thread_default(m_wpsContext);
 
+            clock_gettime(CLOCK_MONOTONIC, &startTime);
             do{
                 sleep(10);
-                loop = g_main_loop_new(wpsContext, FALSE);
+                m_loop = g_main_loop_new(m_wpsContext, FALSE);
                 scanResult = wifiScanRequest("");
-                loop = g_main_loop_new(nmContext, FALSE);
+                m_loop = g_main_loop_new(m_nmContext, FALSE);
+                NMLOG_DEBUG("Wifi scan result = %d", scanResult);
                 if(scanResult)
                 {
                     aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(getWifiDevice()));
@@ -987,35 +984,49 @@ namespace WPEFramework
                         NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
                         guint32 flags = nm_access_point_get_flags(ap);
 
+                        NMLOG_DEBUG("Access point flag value : %u", flags);
                         if (flags & NM_802_11_AP_FLAGS_WPS_PBC)
                         {
+                            clock_gettime(CLOCK_MONOTONIC, &endTime);
+                            NMLOG_DEBUG("WPS Push button event is received");
                             bssid = nm_access_point_get_bssid(ap);
+                            NMLOG_DEBUG("BSSID fetched from access point = %s", bssid);
                             pbcFound = true;
                             break;
                         }
                     }
                 }
                 count++;
+                clock_gettime(CLOCK_MONOTONIC, &endTime);
             }while(count < 10 && !pbcFound && !wpsStop.load());
+            wpsPBCDuration = (endTime.tv_sec - startTime.tv_sec);
 
             if(!pbcFound || wpsStop.load())
             {
-                g_main_context_pop_thread_default(wpsContext);
-                g_main_context_release(wpsContext);
+                g_main_context_pop_thread_default(m_wpsContext);
+                g_main_context_release(m_wpsContext);
                 return;
             }
 
-            std::string wpaCliCommand = "wpa_cli disconnect && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0 && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc " + std::string(bssid);
+            std::string wpaCliCommand = "wpa_cli disconnect && wpa_cli remove_network 0 && wpa_cli save_config && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0 && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc " + std::string(bssid);
             fp = popen(wpaCliCommand.c_str(), "r");
             if (fp == nullptr)
             {
                 NMLOG_ERROR("WPS failed to connect with the SSID");
-                g_main_context_pop_thread_default(wpsContext);
-                g_main_context_release(wpsContext);
+                g_main_context_pop_thread_default(m_wpsContext);
+                g_main_context_release(m_wpsContext);
                 return ;
             }
+            while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
+            {
+                wpaCliResult += buffer.data();
+            }
+            NMLOG_DEBUG("Command output = %s", wpaCliResult);
             pclose(fp);
+            std::memset(buffer.data(), 0, buffer.size());
             std::string wpaCliStatus = WPA_CLI_STATUS;
+            startTime = {}, endTime = {};
+            wpaCliResult.clear();
             clock_gettime(CLOCK_MONOTONIC, &startTime);
             while(!wpsStop.load())
             {
@@ -1033,10 +1044,10 @@ namespace WPEFramework
                 wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
                 clock_gettime(CLOCK_MONOTONIC, &endTime);
                 timeDiff = (endTime.tv_sec - startTime.tv_sec);
-                NMLOG_DEBUG("Time elapsed before getting wifi connected = %ld", timeDiff);
-                if(wpsConnect || timeDiff > 20)
+                NMLOG_DEBUG("Time elapsed in getting state completed = %ld", timeDiff);
+                if(wpsConnect || timeDiff > 100)
                 {
-                    NMLOG_WARNING("WPS Connect status = %d; took %ld seconds", wpsConnect, (100 + timeDiff));
+                    NMLOG_WARNING("WPS Connect status = %d; took %ld seconds", wpsConnect, (wpsPBCDuration + timeDiff));
                     break;
                 }
                 sleep(5);
@@ -1044,8 +1055,8 @@ namespace WPEFramework
 
             if(!wpsConnect)
             {
-                g_main_context_pop_thread_default(wpsContext);
-                g_main_context_release(wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
+                g_main_context_pop_thread_default(m_wpsContext);
+                g_main_context_release(m_wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
                 return;
             }
 
@@ -1056,8 +1067,8 @@ namespace WPEFramework
                 if (!configFile.is_open())
                 {
                     NMLOG_ERROR("WPS connected with an SSID but not able to fetch IP address");
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_release(wpsContext);
+                    g_main_context_pop_thread_default(m_wpsContext);
+                    g_main_context_release(m_wpsContext);
                     return;
                 }
 
@@ -1127,31 +1138,31 @@ namespace WPEFramework
                         wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
                     else if(security == "WPA2-PSK")
                         wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
-                    loop = g_main_loop_new(wpsContext, FALSE);
+                    m_loop = g_main_loop_new(m_wpsContext, FALSE);
                     if(this->wifiConnect(wifiData))
                         NMLOG_INFO("NetworkManager updated with WPS status - connected successfully");
                     else
                         NMLOG_ERROR("NetworkManager is not able to sync up with underneath wpa_supplicant/hal regarding the WPS connect"); /* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
-                    loop = g_main_loop_new(nmContext, FALSE);
+                    m_loop = g_main_loop_new(m_nmContext, FALSE);
                 }
             }
-            g_main_context_pop_thread_default(wpsContext);
-            g_main_context_release(wpsContext);
-            if (wpsContext) {
-                    g_main_context_unref(wpsContext);
-                    wpsContext = nullptr;
+            g_main_context_pop_thread_default(m_wpsContext);
+            g_main_context_release(m_wpsContext);
+            if (m_wpsContext) {
+                    g_main_context_unref(m_wpsContext);
+                    m_wpsContext = nullptr;
             }
             return;
         }
 
         bool wifiManager::initiateWPS()
         {
-            if(!wpsContext){
+            if(!m_wpsContext){
                 if (wpsThread.joinable()) {
                     wpsThread.join();
                 }
-                wpsContext = g_main_context_new();
-                if (!wpsContext) {
+                m_wpsContext = g_main_context_new();
+                if (!m_wpsContext) {
                     NMLOG_ERROR("Failed to create new main context for WPS");
                     return false;
                 }
@@ -1170,9 +1181,9 @@ namespace WPEFramework
             if (wpsThread.joinable()) {
                 wpsThread.join();
             }
-            if (wpsContext) {
-                g_main_context_unref(wpsContext);
-                wpsContext = nullptr;
+            if (m_wpsContext) {
+                g_main_context_unref(m_wpsContext);
+                m_wpsContext = nullptr;
             }
             wpsStop.store(false);
             return true;
@@ -1191,10 +1202,10 @@ namespace WPEFramework
 
                 NMLOG_ERROR("Failed to set Managed property: %s", error->message);
                 g_error_free(error);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             } else {
                 NMLOG_DEBUG("Successfully set Managed property.");
-                _wifiManager->isSuccess = true;
+                _wifiManager->m_isSuccess = true;
             }
 
             _wifiManager->quit(nullptr);
@@ -1202,16 +1213,16 @@ namespace WPEFramework
 
         bool wifiManager::setInterfaceState(std::string interface, bool enabled)
         {
-            isSuccess = false;
+            m_isSuccess = false;
             NMDevice *device = nullptr;
 
             if (!createClientNewConnection())
                 return false;
 
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_client));
             if (devices == nullptr) {
                 NMLOG_ERROR("Failed to get device list.");
-                return isSuccess;
+                return m_isSuccess;
             }
 
             for (guint j = 0; j < devices->len; j++) {
@@ -1243,7 +1254,7 @@ namespace WPEFramework
 
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
-                    wait(loop);
+                    wait(m_loop);
                     sleep(1); // to remove the connection
                 }
             }
@@ -1251,10 +1262,10 @@ namespace WPEFramework
             const char *objectPath = nm_object_get_path(NM_OBJECT(device));
             GVariant *value = g_variant_new_boolean(enabled);
 
-            nm_client_dbus_set_property( client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
+            nm_client_dbus_set_property( m_client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
                                                                     value, -1, nullptr, deviceManagedCb, this);
-            wait(loop);
-            return isSuccess;
+            wait(m_loop);
+            return m_isSuccess;
         }
 
         static void onActivateComplete(GObject *source_object, GAsyncResult *res, gpointer user_data)
@@ -1266,10 +1277,10 @@ namespace WPEFramework
             if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
                 NMLOG_DEBUG("Activating connection failed: %s", error->message);
                 g_error_free(error);
-                _wifiManager->isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             } else {
                 NMLOG_DEBUG("Activating connection successful");
-                _wifiManager->isSuccess = true;
+                _wifiManager->m_isSuccess = true;
             }
             _wifiManager->quit(nullptr);
         }
@@ -1293,7 +1304,7 @@ namespace WPEFramework
 
         bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address)
         {
-            isSuccess = false;
+            m_isSuccess = false;
             NMConnection *connection = NULL;
             NMRemoteConnection *remoteConn = NULL;
             NMActiveConnection* activeConnection = NULL;
@@ -1304,7 +1315,7 @@ namespace WPEFramework
             if (!createClientNewConnection())
                 return false;
 
-            device = nm_client_get_device_by_iface(client, interface.c_str());
+            device = nm_client_get_device_by_iface(m_client, interface.c_str());
             if(device == NULL)
                 return false;
 
@@ -1433,16 +1444,16 @@ namespace WPEFramework
                 specObject = nm_object_get_path(NM_OBJECT(activeConnection));
                 GError *deactivate_error = NULL;
                 // TODO fix depricated api
-                if (!nm_client_deactivate_connection(client, activeConnection, NULL, &deactivate_error)) {
+                if (!nm_client_deactivate_connection(m_client, activeConnection, NULL, &deactivate_error)) {
                     NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
                     g_clear_error(&deactivate_error);
                     return false;
                 }
             }
 
-            nm_client_activate_connection_async(client, connection, device, specObject, NULL, onActivateComplete, this);
-            wait(loop);
-            return isSuccess;
+            nm_client_activate_connection_async(m_client, connection, device, specObject, NULL, onActivateComplete, this);
+            wait(m_loop);
+            return m_isSuccess;
         }
     } // namespace Plugin
 } // namespace WPEFramework
