@@ -172,4 +172,3 @@ write_config(PLUGINS LegacyPlugin_WiFiManagerAPIs CLASSNAME WiFiManager LOCATOR 
 if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
-
