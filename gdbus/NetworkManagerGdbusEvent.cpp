@@ -38,29 +38,6 @@ namespace WPEFramework
 
     static NetworkManagerEvents *_NetworkManagerEvents = nullptr;
 
-    const char * nm_state_to_string(NMState state)
-    {
-        switch (state) {
-        case NM_STATE_ASLEEP:
-            return "asleep";
-        case NM_STATE_CONNECTING:
-            return "connecting";
-        case NM_STATE_CONNECTED_LOCAL:
-            return "connected (local only)";
-        case NM_STATE_CONNECTED_SITE:
-            return "connected (site only)";
-        case NM_STATE_CONNECTED_GLOBAL:
-            return "connected";
-        case NM_STATE_DISCONNECTING:
-            return "disconnecting";
-        case NM_STATE_DISCONNECTED:
-            return "disconnected";
-        case NM_STATE_UNKNOWN:
-        default:
-            return "unknown";
-        }
-    }
-
     static std::string getInterafaceNameFormDevicePath(const char* DevicePath)
     {
         GDBusProxy *deviceProxy = NULL;
