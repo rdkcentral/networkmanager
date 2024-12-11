@@ -940,6 +940,23 @@ namespace WPEFramework
             return false;
         }
 
+        std::string wifiManager::executeWpaCliCommand(const std::string& wpaCliCommand) {
+            std::array<char, 128> buffer;
+            std::string wpaCliResult;
+            FILE* fp = popen(wpaCliCommand.c_str(), "r");
+            if (fp == nullptr) {
+                NMLOG_ERROR("Failed to run command: %s", wpaCliCommand.c_str());
+                return "ERROR";
+            }
+
+            while (fgets(buffer.data(), buffer.size(), fp) != nullptr) {
+                wpaCliResult += buffer.data();
+            }
+            pclose(fp);
+            NMLOG_DEBUG("Command output: %s", wpaCliResult.c_str());
+            return wpaCliResult;
+        }
+
         void wifiManager::wpsAction()
         {
             FILE *fp = nullptr;
@@ -985,6 +1002,9 @@ namespace WPEFramework
                     for (guint i = 0; i < aps->len; i++) {
                         NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, i));
                         guint32 flags = nm_access_point_get_flags(ap);
+                        GBytes *ssid;
+                        gsize size;
+                        std::string ssidStr;
 
                         NMLOG_DEBUG("Access point flag value : %u", flags);
                         if ((flags & NM_802_11_AP_FLAGS_WPS_PBC) && (wpsApCount < MAX_WPS_AP_COUNT))
@@ -996,7 +1016,13 @@ namespace WPEFramework
                                 strncpy(apList[wpsApCount].bssid, bssid, sizeof(apList[wpsApCount].bssid) - 1);
                                 apList[wpsApCount].bssid[sizeof(apList[wpsApCount].bssid) - 1] = '\0';
                             }
-                            NMLOG_INFO("BSSID fetched from access point = %s", bssid);
+                            NMLOG_DEBUG("PBC enabled access point bssid = %s", bssid);
+                            ssid = nm_access_point_get_ssid(ap);
+                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                            std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
+                            strncpy(apList[wpsApCount].ssid, ssidTmp.c_str(), sizeof(apList[wpsApCount].ssid) - 1);
+                            NMLOG_INFO("PBC enabled access point ssid: %s", apList[wpsApCount].ssid);
+                            NMLOG_DEBUG("PBC enabled access point bssid = %s", bssid);
                             pbcFound = true;
                             wpsApCount++;
                         }
@@ -1016,70 +1042,70 @@ namespace WPEFramework
                 return;
             }
 
-            std::string wpaCliCommand = "wpa_cli disconnect && wpa_cli remove_network 0 && wpa_cli save_config && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan && wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0";
-            fp = popen(wpaCliCommand.c_str(), "r");
-            if (fp == nullptr)
+            std::string command1 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " disconnect";
+            std::string command2 = " wpa_cli -i " + std::string(nmUtils::wlanIface()) + " remove_network 0";
+            std::string command3 = " wpa_cli -i " + std::string(nmUtils::wlanIface()) + " save_config";
+            std::string command4 = " wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan";
+            std::string command5 = " wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0";
+            std::string wpaCliCommand = command1 + command2 + command3 + command4 + command5;
+            wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
+            if (wpaCliResult == "ERROR")
             {
                 NMLOG_ERROR("WPS failed to connect with the SSID");
                 g_main_context_pop_thread_default(m_wpsContext);
                 g_main_context_release(m_wpsContext);
                 return ;
             }
-            while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
-            {
-                wpaCliResult += buffer.data();
-            }
             NMLOG_DEBUG("Initial wps command output = %s", wpaCliResult.c_str());
-            pclose(fp);
             wpaCliCommand.clear();
-            std::memset(buffer.data(), 0, buffer.size());
             for(int i=0; i<wpsApCount && !wpsConnect; i++)
             {
                 wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc " + std::string(apList[i].bssid);
                 NMLOG_DEBUG("wpacli pbc command with bssid = %s", wpaCliCommand.c_str());
-                fp = popen(wpaCliCommand.c_str(), "r");
-                if (fp == nullptr)
+                NMLOG_INFO("Connecting with the SSID = %s", apList[i].ssid);
+                wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
+                if (wpaCliResult == "ERROR")
                 {
                     NMLOG_ERROR("WPS failed to connect with the SSID");
                     g_main_context_pop_thread_default(m_wpsContext);
                     g_main_context_release(m_wpsContext);
                     return ;
                 }
-                while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
-                {
-                    wpaCliResult += buffer.data();
-                }
                 NMLOG_DEBUG("wps pbc connect output = %s", wpaCliResult.c_str());
-                pclose(fp);
-                std::memset(buffer.data(), 0, buffer.size());
                 std::string wpaCliStatus = WPA_CLI_STATUS;
                 startTime = {}, endTime = {};
                 wpaCliResult.clear();
                 clock_gettime(CLOCK_MONOTONIC, &startTime);
                 while(!wpsStop.load())
                 {
-                    fp = popen(wpaCliStatus.c_str(), "r");
-                    if (fp == nullptr)
+                    wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliStatus);
+                    if (wpaCliResult == "ERROR")
                     {
                         NMLOG_ERROR("WPS not able to fetch the connection status");
                         continue;
                     }
-                    while (fgets(buffer.data(), buffer.size(), fp) != nullptr)
-                    {
-                        wpaCliResult += buffer.data();
-                    }
-                    pclose(fp);
                     NMLOG_DEBUG("wpacli status = %s", wpaCliResult.c_str());
                     wpsConnect = (wpaCliResult.find("wpa_state=COMPLETED") != std::string::npos);
                     clock_gettime(CLOCK_MONOTONIC, &endTime);
                     timeDiff = (endTime.tv_sec - startTime.tv_sec);
                     NMLOG_DEBUG("Time elapsed in getting state completed = %ld", timeDiff);
-                    if(wpsConnect || timeDiff > 20)
+                    if(wpsConnect || timeDiff > 120)
                     {
                         NMLOG_WARNING("WPS Connect status = %d; took %ld seconds", wpsConnect, (wpsPBCDuration + timeDiff));
                         break;
                     }
                     sleep(10);
+                }
+                if(!wpsConnect)
+                {
+                    wpaCliCommand.clear();
+                    wpaCliResult.clear();
+                    wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_cancel";
+                    wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
+                    if (wpaCliResult == "ERROR")
+                    {
+                        NMLOG_ERROR("WPS cancel failed for SSID = %s", apList[i].ssid);
+                    }
                 }
             }
 
@@ -1087,12 +1113,13 @@ namespace WPEFramework
             {
                 g_main_context_pop_thread_default(m_wpsContext);
                 g_main_context_release(m_wpsContext);/* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
-                wpaCliCommand.clear();  
+                wpaCliCommand.clear();
+                wpaCliResult.clear();
                 wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_cancel";
-                fp = popen(wpaCliCommand.c_str(), "r");
-                if (fp == nullptr)
+                wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
+                if (wpaCliResult == "ERROR")
                 {
-                    NMLOG_ERROR("WPS failed to connect with the SSID");
+                    NMLOG_ERROR("WPS cancel failed");
                 }
                 return;
             }
@@ -1181,12 +1208,13 @@ namespace WPEFramework
                     else
                     {
                         NMLOG_ERROR("NetworkManager is not able to sync up with underneath wpa_supplicant/hal regarding the WPS connect"); /* TODO: Need to disconnect the wpa_cli connection, as the libnm is not aware of the connection created by wpa_cli */
-                        wpaCliCommand.clear();  
+                        wpaCliCommand.clear();
+                        wpaCliResult.clear();
                         wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_cancel";
-                        fp = popen(wpaCliCommand.c_str(), "r");
-                        if (fp == nullptr)
+                        wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
+                        if (wpaCliResult == "ERROR")
                         {
-                            NMLOG_ERROR("WPS failed to connect with the SSID");
+                            NMLOG_ERROR("WPS cancel failed");
                         }
                     }
                     m_loop = g_main_loop_new(m_nmContext, FALSE);

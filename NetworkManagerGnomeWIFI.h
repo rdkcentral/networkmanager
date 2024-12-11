@@ -36,6 +36,7 @@
 typedef struct _wifi_wps_pbc_ap
 {
     char bssid[32];
+    char ssid[32];
 } wifi_wps_pbc_ap_t;
 
 namespace WPEFramework
@@ -65,6 +66,7 @@ namespace WPEFramework
             bool initiateWPS();
             bool cancelWPS();
             void wpsAction();
+            std::string executeWpaCliCommand(const std::string& wpaCliCommand);
             bool setInterfaceState(std::string interface, bool enabled);
             bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address);
         private:
