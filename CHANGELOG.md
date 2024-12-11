@@ -14,6 +14,14 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.6.0] - 2024-12-10
+### Added
+- Added specific SSID/frequency scanning
+- Added retry logic in WPS Connect
+- Added Unittest for Connectivity Class
+- Fixed Continuous Connectivity Monitoring when no interface connected
+- Fixed SetIPSettings on GNome backed
+
 ## [0.5.4] - 2024-11-29
 ### Fixed
 - Fixed documentation of NetworkManager
