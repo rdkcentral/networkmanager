@@ -34,7 +34,7 @@ namespace WPEFramework
         static const char* ifnameEth = "eth0";
         static const char* ifnameWlan = "wlan0";
 
-        bool GnomeUtils::getIpv4AddrFromIP4ConfigProxy( GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prefix)
+        bool GnomeUtils::getIPv4AddrFromIPv4ConfigProxy(GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prefix)
         {
             GVariantIter *iter;
             GVariantIter *dictIter;
@@ -58,7 +58,7 @@ namespace WPEFramework
                             address = g_variant_dup_string(value, NULL);
                             if(address!= NULL)
                             {
-                                ipAddr.assign(address, 16); // strlen of "255.255.255.255"
+                                ipAddr = address; // strlen of "255.255.255.255"
                                 NMLOG_DEBUG("Address: %s", ipAddr.c_str());
                                 ret = true;
                             }
@@ -77,7 +77,7 @@ namespace WPEFramework
             return ret;
         }
 
-        bool GnomeUtils::getIpv6AddrFromIP6ConfigProxy( GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prefix)
+        bool GnomeUtils::getIPv6AddrFromIPv6ConfigProxy( GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prefix)
         {
             GVariantIter *iter = NULL;
             GVariantIter *dictIter = NULL;
@@ -95,12 +95,14 @@ namespace WPEFramework
             if (addressDataVariant != NULL) {
                 g_variant_get(addressDataVariant, "aa{sv}", &iter);
                 while (g_variant_iter_loop(iter, "a{sv}", &dictIter)) {
-                    while (g_variant_iter_loop(dictIter, "{&sv}", &key, &value)) {
-                        if (g_strcmp0(key, "address") == 0) {
+                    while (g_variant_iter_loop(dictIter, "{&sv}", &key, &value))
+                    {
+                        if (g_strcmp0(key, "address") == 0)
+                        {
                             address = g_variant_dup_string(value, NULL);
                             if(address!= NULL)
                             {
-                                ipAddress.assign(address, 40); // strlen of "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
+                                ipAddress = address; // strlen of "FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF"
                                 if (ipAddress.compare(0, 5, "fe80:") == 0 || 
                                     ipAddress.compare(0, 6, "fe80::") == 0) { // It's link-local starts with fe80
                                     NMLOG_DEBUG("link-local ip: %s", address);
@@ -113,7 +115,9 @@ namespace WPEFramework
                                 }
                             }
                             g_free(address);
-                        } else if (g_strcmp0(key, "prefix") == 0) {
+                        }
+                        else if (g_strcmp0(key, "prefix") == 0)
+                        {
                             prefix = g_variant_get_uint32(value);
                             NMLOG_DEBUG("Prefix: %u", prefix);
                         }
@@ -231,7 +235,6 @@ namespace WPEFramework
                 if(iface != NULL)
                 {
                     properties.interface = iface;
-                    //g_free(iface);
                 }
                 //NMLOG_DEBUG("Interface: %s", iface);
                 g_variant_unref(devicesVar);
@@ -272,10 +275,10 @@ namespace WPEFramework
                 return false;
             }
 
-            GVariantIter* iter;
+            GVariantIter* iter = NULL;
             gchar* devicePath = NULL;
             g_variant_get(devicesVar, "(ao)", &iter);
-            while (g_variant_iter_loop(iter, "o", &devicePath))
+            while (iter != NULL && g_variant_iter_loop(iter, "o", &devicePath))
             {
                 if(devicePath == NULL )
                     continue;
@@ -379,7 +382,7 @@ namespace WPEFramework
                 }
                 g_variant_get(result, "s", &_bssid);
                 if(_bssid != NULL) {
-                    wifiInfo.bssid.assign(_bssid);
+                    wifiInfo.bssid = _bssid;
                     g_free(_bssid);
                 }
                 g_variant_unref(result);

@@ -38,6 +38,7 @@ namespace WPEFramework
                 NMLOG_FATAL("Error connecting to system D-Bus bus: %s ", error->message);
                 g_error_free(error);
             }
+            flags = static_cast<GDBusProxyFlags>(G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES | G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START);
         }
 
         DbusMgr::~DbusMgr() {

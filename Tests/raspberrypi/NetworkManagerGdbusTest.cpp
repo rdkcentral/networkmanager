@@ -4,6 +4,7 @@
 #include "NetworkManagerGdbusEvent.h"
 #include "INetworkManager.h"
 #include "NetworkManagerGdbusUtils.h"
+#include "NetworkManagerImplementation.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -15,7 +16,46 @@ using namespace WPEFramework::Plugin;
 using namespace WPEFramework::Exchange;
 using namespace std;
 
-void displayMenu() {
+namespace WPEFramework
+{
+   namespace Plugin
+    {
+
+        void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
+        {
+            NMLOG_INFO("calling 'ReportInterfaceStateChange' cb");
+        }
+        void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
+        {
+            NMLOG_INFO("calling 'ReportActiveInterfaceChange' cb");
+        }
+        void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
+        {
+            NMLOG_INFO("calling 'ReportIPAddressChange' cb");
+        }
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        {
+            NMLOG_INFO("calling 'ReportInternetStatusChange' cb");
+        }
+        void NetworkManagerImplementation::ReportAvailableSSIDs(JsonArray &arrayofWiFiScanResults)
+        {
+            NMLOG_INFO("calling 'ReportAvailableSSIDs' cb");
+        }
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        {
+            NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
+        }
+        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        {
+            NMLOG_INFO("calling 'ReportWiFiSignalStrengthChange' cb");
+        }
+
+        NetworkManagerImplementation* _instance = nullptr;
+    }
+}
+
+void displayMenu()
+{
     std::cout << "\n--- Network Manager API Test Menu ---" << std::endl;
     std::cout << "1. Get Known SSIDs" << std::endl;
     std::cout << "2. Get Available SSIDs" << std::endl;
@@ -31,7 +71,8 @@ void displayMenu() {
     std::cout << "-------------------------------------" << std::endl;
 }
 
-WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType() {
+WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
+{
     int securityChoice;
     std::cout << "Select Security Type:" << std::endl;
     std::cout << "1. WPA/WPA2 PSK AES" << std::endl;
@@ -52,8 +93,8 @@ WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType() {
     }
 }
 
-
-void printSSIDs(const std::list<std::string>& ssids) {
+void printSSIDs(const std::list<std::string>& ssids)
+{
     if (ssids.empty()) {
         std::cout << "No SSIDs found" << std::endl;
     } else {
@@ -64,13 +105,14 @@ void printSSIDs(const std::list<std::string>& ssids) {
     }
 }
 
-int main() {
-    
-    DbusMgr test;
+
+int main()
+{
+
     NetworkManagerClient* nmClient = NetworkManagerClient::getInstance();
     NetworkManagerEvents* nmEvents = NetworkManagerEvents::getInstance();
     int choice = -1;
-    
+
     while (choice != 0) {
         displayMenu();
         std::cout << "Enter your choice: \n";

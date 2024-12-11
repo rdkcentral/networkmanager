@@ -72,8 +72,8 @@ namespace WPEFramework
                 static bool getDevicePropertiesByPath(DbusMgr& m_dbus, const char* devPath, deviceInfo& properties);
                 static bool getDeviceInfoByIfname(DbusMgr& m_dbus, const char* ifname, deviceInfo& properties);
                 static bool getCachedPropertyU(GDBusProxy* proxy, const char* propertiy, uint32_t *value);
-                static bool getIpv4AddrFromIP4ConfigProxy( GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
-                static bool getIpv6AddrFromIP6ConfigProxy( GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
+                static bool getIPv4AddrFromIPv4ConfigProxy(GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
+                static bool getIPv6AddrFromIPv6ConfigProxy(GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
 
                 static bool convertSsidInfoToJsonObject(Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo, JsonObject& ssidObj);
                 static const char* convertPercentageToSignalStrengtStr(int percentage);

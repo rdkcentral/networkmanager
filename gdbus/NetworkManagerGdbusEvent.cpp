@@ -17,18 +17,17 @@
  * limitations under the License.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <gio/gio.h>
-#include <string.h>
+
 #include <libnm/nm-dbus-interface.h>
+#include <gio/gio.h>
 #include <thread>
 #include <string>
 #include <map>
 
 #include "NetworkManagerGdbusEvent.h"
-#include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusUtils.h"
+#include "NetworkManagerImplementation.h"
+#include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
 
 namespace WPEFramework
@@ -37,29 +36,7 @@ namespace WPEFramework
     {
 
     static NetworkManagerEvents *_NetworkManagerEvents = nullptr;
-
-    const char * nm_state_to_string(NMState state)
-    {
-        switch (state) {
-        case NM_STATE_ASLEEP:
-            return "asleep";
-        case NM_STATE_CONNECTING:
-            return "connecting";
-        case NM_STATE_CONNECTED_LOCAL:
-            return "connected (local only)";
-        case NM_STATE_CONNECTED_SITE:
-            return "connected (site only)";
-        case NM_STATE_CONNECTED_GLOBAL:
-            return "connected";
-        case NM_STATE_DISCONNECTING:
-            return "disconnecting";
-        case NM_STATE_DISCONNECTED:
-            return "disconnected";
-        case NM_STATE_UNKNOWN:
-        default:
-            return "unknown";
-        }
-    }
+    extern NetworkManagerImplementation* _instance;
 
     static std::string getInterafaceNameFormDevicePath(const char* DevicePath)
     {
@@ -76,24 +53,22 @@ namespace WPEFramework
 
         const gchar *ifaceName = g_variant_get_string(ifaceVariant, NULL);
         if(ifaceName != nullptr)
-            ifname.assign(ifaceName, 0, 16);
+            ifname = ifaceName;
 
         g_variant_unref(ifaceVariant);
         g_object_unref(deviceProxy);
         return ifname;
     }
 
-    static void lastScanPropertiesChangedCB(GDBusProxy *proxy,
-                        GVariant    *changed_properties,
-                        const gchar *invalidated_properties[],
-                        gpointer     user_data) {
+    static void lastScanPropertiesChangedCB(GDBusProxy *proxy, GVariant *changedProps,
+                                                const gchar *invalidProps[], gpointer userData) {
 
         if (proxy == NULL) {
             NMLOG_FATAL("cb doesn't have proxy ");
             return;
         }
 
-        GVariant *lastScanVariant = g_variant_lookup_value(changed_properties, "LastScan", NULL);
+        GVariant *lastScanVariant = g_variant_lookup_value(changedProps, "LastScan", NULL);
         if (lastScanVariant == NULL)
             return;
 
@@ -101,13 +76,13 @@ namespace WPEFramework
         NMLOG_DEBUG("LastScan value changed: %" G_GINT64_FORMAT, lastScanTime);
         g_variant_unref(lastScanVariant);
 
-        const gchar *object_path = g_dbus_proxy_get_object_path(proxy);
-        if (object_path == NULL) {
+        const gchar *objectPath = g_dbus_proxy_get_object_path(proxy);
+        if (objectPath == NULL) {
             NMLOG_WARNING("Failed to get the proxy object path");
             return;
         }
 
-        NetworkManagerEvents::onAvailableSSIDsCb(object_path);
+        NetworkManagerEvents::onAvailableSSIDsCb(objectPath);
     }
 
     static bool subscribeForlastScanPropertyEvent(const gchar *wirelessPath)
@@ -122,19 +97,17 @@ namespace WPEFramework
         return true;
     }
 
-    static void primaryConnectionChangedCB(GDBusProxy *proxy,
-                      GVariant *changed_properties,
-                      GStrv invalidated_properties,
-                      gpointer user_data) {
-
-        if (changed_properties == NULL) {
+    static void primaryConnectionChangedCB(GDBusProxy *proxy, GVariant *changedPropes, GStrv invalidatPropes, gpointer userData)
+    {
+        if (changedPropes == NULL) {
             NMLOG_FATAL("cb doesn't have changed_properties ");
             return;
         }
-        GVariant *primaryConnPathVariant = g_variant_lookup_value(changed_properties, "PrimaryConnection", NULL);
+
+        GVariant *primaryConnPathVariant = g_variant_lookup_value(changedPropes, "PrimaryConnection", NULL);
         if (primaryConnPathVariant != NULL)
         {
-            const gchar *primaryConnPath;
+            const gchar *primaryConnPath = NULL;
             std::string newIface = "";
             primaryConnPath = g_variant_get_string(primaryConnPathVariant, NULL);
             if(primaryConnPath && g_strcmp0(primaryConnPath, "/") == 0)
@@ -142,6 +115,7 @@ namespace WPEFramework
                 NMLOG_DEBUG("no active primary connection");
                 // sending empty string if no active interface
                 NetworkManagerEvents::onActiveInterfaceChangeCb(std::string("Unknown"));
+                g_variant_unref(primaryConnPathVariant);
                 return;
             }
             else if(primaryConnPath)
@@ -165,6 +139,7 @@ namespace WPEFramework
                         }
                         else
                             NMLOG_WARNING("connection type NULL");
+                        g_variant_unref(typeVariant);
                     }
                     else
                         NMLOG_ERROR("PrimaryConnection Type property missing");
@@ -173,23 +148,21 @@ namespace WPEFramework
             }
             else
                 NMLOG_WARNING("PrimaryConnection object missing");
+            g_variant_unref(primaryConnPathVariant);
         }
     }
 
-    static void deviceAddRemoveCb(GDBusProxy *proxy,
-                                            gchar *sender_name,
-                                            gchar *signal_name,
-                                            GVariant *parameters,
-                                            gpointer user_data) {
+    static void deviceAddRemoveCb(GDBusProxy *proxy, gchar *senderName, gchar *signalName,
+                                                        GVariant *parameters, gpointer userData) {
 
-        if (signal_name == NULL) {
-            NMLOG_FATAL("cb doesn't have signal_name ");
+        if (signalName == NULL) {
+            NMLOG_FATAL("cb doesn't have signalName ");
             return;
         }
 
         const gchar *devicePath = NULL;
         std::string ifname;
-        if (g_strcmp0(signal_name, "DeviceAdded") == 0 || g_strcmp0(signal_name, "DeviceRemoved") == 0)
+        if (g_strcmp0(signalName, "DeviceAdded") == 0 || g_strcmp0(signalName, "DeviceRemoved") == 0)
         {
             if (g_variant_is_of_type(parameters, G_VARIANT_TYPE_TUPLE)) {
                 GVariant *first_element = g_variant_get_child_value(parameters, 0);
@@ -202,7 +175,7 @@ namespace WPEFramework
                 }
                 g_variant_unref(first_element);
             }
-            if (g_strcmp0(signal_name, "DeviceAdded") == 0) {
+            if (g_strcmp0(signalName, "DeviceAdded") == 0) {
                 NMLOG_INFO("Device Added: %s", ifname.c_str());
                 if(ifname == GnomeUtils::getWifiIfname() || ifname == GnomeUtils::getEthIfname() )
                 {
@@ -212,7 +185,7 @@ namespace WPEFramework
                     // monitorDevice()
                 }
             }
-            else if(g_strcmp0(signal_name, "DeviceRemoved")) {
+            else if(g_strcmp0(signalName, "DeviceRemoved")) {
                 NMLOG_INFO("Device Removed: %s", ifname.c_str());
                 if(ifname == GnomeUtils::getWifiIfname() || ifname == GnomeUtils::getEthIfname() )
                 {
@@ -223,18 +196,18 @@ namespace WPEFramework
         }
     }
 
-    static void deviceStateChangedCB(GDBusProxy *proxy,
-                                        gchar *sender_name,
-                                        gchar *signal_name,
-                                        GVariant *parameters,
-                                        gpointer user_data) {
+    static void deviceStateChangedCB(GDBusProxy *proxy, gchar *senderName, gchar *signalName,
+                                                        GVariant *parameters, gpointer userData) {
 
-        if (signal_name == NULL || g_strcmp0(signal_name, "StateChanged") != 0) {
+        if (signalName == NULL || g_strcmp0(signalName, "StateChanged") != 0) {
             return;
         }
 
-        const gchar *device_path = g_dbus_proxy_get_object_path(proxy);
-        std::string ifname = getInterafaceNameFormDevicePath(device_path);
+        static bool doPostEthUpEvent= false;
+        static bool doPostWlanUpEvent= false;
+
+        const gchar *devicePath = g_dbus_proxy_get_object_path(proxy);
+        std::string ifname = getInterafaceNameFormDevicePath(devicePath);
         if(ifname.empty())
         {
             NMLOG_WARNING("interface name null");
@@ -283,17 +256,21 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_UNKNOWN:
                         wifiState = "WIFI_STATE_UNINSTALLED";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED, wifiState);
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, GnomeUtils::getWifiIfname());
+                        doPostWlanUpEvent= true;
                         break;
                     case NM_DEVICE_STATE_UNMANAGED:
                         wifiState = "WIFI_STATE_DISABLED";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISABLED, wifiState);
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, GnomeUtils::getWifiIfname());
+                        doPostWlanUpEvent= true;
                         break;
                     case NM_DEVICE_STATE_UNAVAILABLE:
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, wifiState);
-                        NetworkManagerEvents::onAddressChangeCb(std::string("wlan0"), false, false);
-                        NetworkManagerEvents::onAddressChangeCb(std::string("wlan0"), false, true);
+                        NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, false);
+                        NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, true);
                         break;
                     case NM_DEVICE_STATE_PREPARE:
                         wifiState = "WIFI_STATE_PAIRING";
@@ -302,9 +279,10 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_CONFIG:
                         wifiState = "WIFI_STATE_CONNECTING";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING, wifiState);
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, GnomeUtils::getWifiIfname());
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
-                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP,"wlan0");
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getWifiIfname());
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
@@ -320,10 +298,16 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_NEED_AUTH:
                         //NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
-                        //wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
+                        wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
                         break;
                     default:
                         wifiState = "Un handiled";
+                    }
+
+                    if(doPostWlanUpEvent && deviceState > NM_DEVICE_STATE_UNMANAGED)
+                    {
+                        doPostWlanUpEvent = false;
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, GnomeUtils::getWifiIfname());
                     }
                 }
             }
@@ -334,99 +318,103 @@ namespace WPEFramework
             {
                 case NM_DEVICE_STATE_UNKNOWN:
                 case NM_DEVICE_STATE_UNMANAGED:
-                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
+                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, GnomeUtils::getEthIfname());
+                    doPostEthUpEvent= true;
                 break;
                 case NM_DEVICE_STATE_UNAVAILABLE:
                 case NM_DEVICE_STATE_DISCONNECTED:
-                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, "eth0");
-                    NetworkManagerEvents::onAddressChangeCb(std::string("eth0"), false, false);
-                    NetworkManagerEvents::onAddressChangeCb(std::string("eth0"), false, true);
+                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN,  GnomeUtils::getEthIfname());
+                    NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getEthIfname(), false, false);
+                    NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getEthIfname(), false, true);
                 break;
                 case NM_DEVICE_STATE_PREPARE:
-                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, "eth0");
+                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP,  GnomeUtils::getEthIfname());
                 break;
                 case NM_DEVICE_STATE_IP_CONFIG:
-                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP,"eth0");
+                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getEthIfname());
                 case NM_DEVICE_STATE_NEED_AUTH:
                 case NM_DEVICE_STATE_SECONDARIES:
                 case NM_DEVICE_STATE_ACTIVATED:
                 case NM_DEVICE_STATE_DEACTIVATING:
                 default:
                     NMLOG_WARNING("Unhandiled state change eth0");
+
+                if(doPostEthUpEvent && deviceState > NM_DEVICE_STATE_UNMANAGED)
+                {
+                    doPostEthUpEvent = false;
+                    NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, GnomeUtils::getEthIfname());
+                }
             }
         }
         
     }
 
-    static void onConnectionSignalReceivedCB (GDBusProxy *proxy, 
-                                        gchar *sender_name,
-                                        gchar *signal_name,
-                                        GVariant *parameters,
-                                        gpointer user_data) {
-
-        if (g_strcmp0(signal_name, "NewConnection") == 0) {
-            NMLOG_INFO("new Connection added success");
+    static void onConnectionSignalReceivedCB (GDBusProxy *proxy, gchar *senderName, gchar *signalName,
+                                        GVariant *parameters, gpointer userData) {
+        if (g_strcmp0(senderName, "NewConnection") == 0) {
+            NMLOG_INFO("new connection added success");
             NMLOG_DEBUG("Parameters: %s", g_variant_print(parameters, TRUE));
-        } else if (g_strcmp0(signal_name, "ConnectionRemoved") == 0) {
+        } else if (g_strcmp0(signalName, "ConnectionRemoved") == 0) {
             NMLOG_INFO("connection remove success");
             NMLOG_DEBUG("Parameters: %s", g_variant_print(parameters, TRUE));
         }
     }
 
-    static void ipV4addressChangeCb(GDBusProxy *proxy,
-                      GVariant *changed_properties,
-                      GStrv invalidated_properties,
-                      gpointer user_data) {
-        if (changed_properties == NULL || proxy == NULL) {
-            NMLOG_FATAL("cb doesn't have changed_properties ");
+    static void ipV4addressChangeCb(GDBusProxy *proxy, GVariant *changedProps, GStrv invalidProps, gpointer userData)
+    {
+        if (changedProps == NULL || proxy == NULL) {
+            NMLOG_FATAL("cb doesn't have changed properties ");
             return;
         }
 
-        GVariant *addressDataVariant = g_variant_lookup_value(changed_properties, "Addresses", NULL);
-        if (addressDataVariant != NULL)
+        GVariant *addressVariant = g_variant_lookup_value(changedProps, "Addresses", NULL);
+        if (addressVariant != NULL)
         {
-            const char* iface = static_cast<char*>(user_data);
+            const char* iface = static_cast<char*>(userData);
             if(iface != NULL )
             {
                 std::string ipAddr; uint32_t prifix;
-                if(GnomeUtils::getIpv4AddrFromIP4ConfigProxy(proxy, ipAddr, prifix))
+                if(GnomeUtils::getIPv4AddrFromIPv4ConfigProxy(proxy, ipAddr, prifix))
                     NetworkManagerEvents::onAddressChangeCb(std::string(iface), true, false, ipAddr);
             }
+            g_variant_unref(addressVariant);
         }
     }
 
-    static void ipV6addressChangeCb(GDBusProxy *proxy,
-                      GVariant *changed_properties,
-                      GStrv invalidated_properties,
-                      gpointer user_data) {
-        if (changed_properties == NULL || proxy == NULL) {
-            NMLOG_FATAL("cb doesn't have changed_properties ");
+    static void ipV6addressChangeCb(GDBusProxy *proxy, GVariant *changedProps, GStrv invalidProps, gpointer userData)
+    {
+        if (changedProps == NULL || proxy == NULL) {
+            NMLOG_FATAL("cb doesn't have changed properties ");
             return;
         }
 
-        GVariant *addressDataVariant = g_variant_lookup_value(changed_properties, "Addresses", NULL);
-        if (addressDataVariant != NULL)
+        GVariant *addressVariant = g_variant_lookup_value(changedProps, "Addresses", NULL);
+        if (addressVariant != NULL)
         {
-            const char* iface = static_cast<char*>(user_data);
-            if(iface != NULL )
+            const char* iface = static_cast<char*>(userData);
+            if(iface != NULL)
             {
                 std::string ipAddr; uint32_t prifix;
-                if(GnomeUtils::getIpv6AddrFromIP6ConfigProxy(proxy, ipAddr, prifix))
+                if(GnomeUtils::getIPv6AddrFromIPv6ConfigProxy(proxy, ipAddr, prifix))
                     NetworkManagerEvents::onAddressChangeCb(std::string(iface), true, true, ipAddr);
             }
+
+            g_variant_unref(addressVariant);
         }
         else
         {
-            GVariantIter *props_iter;
-            const gchar *property_name;
-            GVariant *property_value;
+            GVariantIter *propsIter= NULL;
+            const gchar *propertyName= NULL;
+            GVariant *propertyValue= NULL;
 
             // Iterate over all changed properties
-            g_variant_get(changed_properties, "a{sv}", &props_iter);
-            while (g_variant_iter_loop(props_iter, "{&sv}", &property_name, &property_value)) {
-                NMLOG_DEBUG("Other Property: %s", property_name);
+            g_variant_get(changedProps, "a{sv}", &propsIter);
+            while (g_variant_iter_loop(propsIter, "{&sv}", &propertyName, &propertyValue)) {
+                NMLOG_DEBUG("Other Property: %s", propertyName);
+                // if(propertyValue)
+                //     g_variant_unref(changedProps);
             }
-            g_variant_iter_free(props_iter);
+            g_variant_iter_free(propsIter);
         }
     }
 
@@ -452,14 +440,15 @@ namespace WPEFramework
 
         g_signal_connect(deviceProxy, "g-signal", G_CALLBACK(deviceStateChangedCB), NULL);
         NMLOG_DEBUG("Monitoring device: %s", devicePath);
-        if(ifname == _NetworkManagerEvents->wlanIfname)
+        if(ifname == GnomeUtils::getWifiIfname())
         {
             _NetworkManagerEvents->nmEvents.wirelessDeviceProxy = deviceProxy;
             _NetworkManagerEvents->nmEvents.wifiDevicePath = devicePath;
+            userdata = _NetworkManagerEvents->wlanIfname; // TODO change to GnomeUtils::getWifiIfname()
             subscribeForlastScanPropertyEvent(devicePath);
-            userdata = _NetworkManagerEvents->wlanIfname;
         }
-        else{
+        else if(ifname == GnomeUtils::getEthIfname())
+        {
             _NetworkManagerEvents->nmEvents.wiredDeviceProxy = deviceProxy;
             _NetworkManagerEvents->nmEvents.ethDevicePath = devicePath;
             userdata = _NetworkManagerEvents->ethIfname;
@@ -467,15 +456,17 @@ namespace WPEFramework
 
         const gchar *ipv4ConfigPath = NULL;
         const gchar *ipv6ConfigPath = NULL;
-        GVariant *ip4_config = g_dbus_proxy_get_cached_property(deviceProxy, "Ip4Config");
-        if (ip4_config) {
-            ipv4ConfigPath = g_variant_get_string(ip4_config, NULL);
+        GVariant *ip4Config = g_dbus_proxy_get_cached_property(deviceProxy, "Ip4Config");
+        if (ip4Config)
+        {
+            ipv4ConfigPath = g_variant_get_string(ip4Config, NULL);
             NMLOG_DEBUG("Monitoring ip4_config_path: %s", ipv4ConfigPath);
         }
 
-        GVariant *ip6_config = g_dbus_proxy_get_cached_property(deviceProxy, "Ip6Config");
-        if (ip6_config) {
-            ipv6ConfigPath = g_variant_get_string(ip6_config, NULL);
+        GVariant *ip6Config = g_dbus_proxy_get_cached_property(deviceProxy, "Ip6Config");
+        if(ip6Config)
+        {
+            ipv6ConfigPath = g_variant_get_string(ip6Config, NULL);
             NMLOG_DEBUG("Monitoring ip6_config_path: %s", ipv6ConfigPath);
         }
 
@@ -483,13 +474,26 @@ namespace WPEFramework
         {
             GDBusProxy *ipV4Proxy = _NetworkManagerEvents->eventDbus.getNetworkManagerIpv4Proxy(ipv4ConfigPath);
             g_signal_connect(ipV4Proxy, "g-properties-changed", G_CALLBACK(ipV4addressChangeCb), userdata);
+            if(ifname == GnomeUtils::getEthIfname())
+                _NetworkManagerEvents->nmEvents.ethIPv4Proxy = ipV4Proxy;
+            else if(ifname == GnomeUtils::getWifiIfname())
+                _NetworkManagerEvents->nmEvents.wlanIPv4Proxy = ipV4Proxy;
         }
 
         if(ipv6ConfigPath)
         {
             GDBusProxy *ipV6Proxy = _NetworkManagerEvents->eventDbus.getNetworkManagerIpv6Proxy(ipv6ConfigPath);
             g_signal_connect(ipV6Proxy, "g-properties-changed", G_CALLBACK(ipV6addressChangeCb), userdata);
+            if(ifname == GnomeUtils::getEthIfname())
+                _NetworkManagerEvents->nmEvents.ethIPv6Proxy = ipV6Proxy;
+            else if(ifname == GnomeUtils::getWifiIfname())
+                _NetworkManagerEvents->nmEvents.wlanIPv6Proxy = ipV6Proxy;
         }
+
+        if(ip4Config)
+            g_variant_unref(ip4Config);
+        if(ip6Config)
+            g_variant_unref(ip6Config);
     }
 
     void* NetworkManagerEvents::networkMangerEventMonitor(void *arg)
@@ -512,12 +516,13 @@ namespace WPEFramework
         GVariant *devices = g_dbus_proxy_get_cached_property(nmEvents->networkManagerProxy, "Devices");
         if (devices != NULL) {
             GVariantIter iter;
-            const gchar *devicePath;
+            gchar *devicePath = NULL;
 
             g_variant_iter_init(&iter, devices);
             while (g_variant_iter_loop(&iter, "&o", &devicePath)) {
                 monitorDevice(devicePath);
             }
+
             g_variant_unref(devices);
         }
 
@@ -540,8 +545,16 @@ namespace WPEFramework
             g_object_unref(nmEvents->networkManagerProxy);
         if(nmEvents->settingsProxy)
             g_object_unref(nmEvents->settingsProxy);
+        if(nmEvents->ethIPv4Proxy)
+            g_object_unref(nmEvents->ethIPv4Proxy);
+        if(nmEvents->ethIPv6Proxy)
+            g_object_unref(nmEvents->ethIPv6Proxy);
+        if(nmEvents->wlanIPv4Proxy)
+            g_object_unref(nmEvents->wlanIPv4Proxy);
+        if(nmEvents->wlanIPv6Proxy)
+            g_object_unref(nmEvents->wlanIPv6Proxy);
 
-         NMLOG_WARNING("stoping all event monitor");
+         NMLOG_WARNING("unregistered all event monitor");
         return nullptr;
     }
 
@@ -604,6 +617,8 @@ namespace WPEFramework
         {
             NMLOG_INFO("old interface - %s new interface - %s", oldIface.c_str(), newIface.c_str());
             oldIface = newIface;
+            if(_instance != nullptr)
+                _instance->ReportActiveInterfaceChange(oldIface, newIface);
         }
     }
 
@@ -633,22 +648,27 @@ namespace WPEFramework
             default:
                 state = "Unknown";
         }
+
         NMLOG_DEBUG("%s interface state changed - %s", iface.c_str(), state.c_str());
+        if(_instance != nullptr && (iface == GnomeUtils::getWifiIfname() || iface == GnomeUtils::getEthIfname()))
+            _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
     }
 
     void NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WiFiState state, std::string& wifiStateStr)
     {
         NMLOG_DEBUG("wifi state changed: %d ; NM wifi: %s", state, wifiStateStr.c_str());
+        if(_instance != nullptr)
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
     }
 
-    void NetworkManagerEvents::onAddressChangeCb(std::string iface, bool acqired, bool isIPv6, std::string ipAddress)
+    void NetworkManagerEvents::onAddressChangeCb(std::string iface, bool acquired, bool isIPv6, std::string ipAddress)
     {
         static std::map<std::string, std::string> ipv6Map;
         static std::map<std::string, std::string> ipv4Map;
 
         if (isIPv6)
         {
-            if (acqired == false) { // ip lost event
+            if (acquired == false) { // ip lost event
                 if(ipv6Map.size() < 1)
                 {
                     return; // no ipv6 added yet no event posting
@@ -656,15 +676,15 @@ namespace WPEFramework
                 ipAddress = ipv6Map[iface];
                 ipv6Map[iface].clear();
             }
-            else // acqired
+            else // acquired
             {
                 if (ipAddress.compare(0, 5, "fe80:") == 0 || 
                     ipAddress.compare(0, 6, "fe80::") == 0) {
                     NMLOG_DEBUG("It's link-local ip");
                     return; // It's link-local
                 }
-
-                if (ipv6Map[iface].find(ipAddress) == std::string::npos && !ipAddress.empty()) { // same ip comes multiple time so avoding that
+                /* same ip comes multiple time so avoding that */
+                if (ipv6Map[iface].find(ipAddress) == std::string::npos && !ipAddress.empty()) {
                     ipv6Map[iface] = ipAddress; // SLAAC protocol may include multip ipv6 address last one will save
                 }
                 else
@@ -673,7 +693,7 @@ namespace WPEFramework
         }
         else
         {
-            if (acqired == false) { // ip lost event
+            if (acquired == false) { // ip lost event
                 if(ipv4Map.size() < 1)
                 {
                     return; // no ipv4 added yet no event posting
@@ -690,25 +710,31 @@ namespace WPEFramework
             }
         }
 
-       // if(_instance != nullptr)
-            //instance->ReportIPAddressChangedEvent(iface, acqired, true, ipAddress);
-        NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acqired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");
+        Exchange::INetworkManager::IPStatus ipStatus{};
+        if(acquired)
+            ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
+
+        if(_instance != nullptr)
+            _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
+
+        NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");
     }
 
     void NetworkManagerEvents::onAvailableSSIDsCb(const char* wifiDevicePath)
     {
+        GDBusProxy* wProxy = nullptr;
+        GError* error = nullptr;
+
         NMLOG_DEBUG("wifi scanning completed ...");
         if(_NetworkManagerEvents->doScanNotify == false) {
            return;
         }
 
         _NetworkManagerEvents->doScanNotify = false;
-        GDBusProxy* wProxy = nullptr;
-        GError* error = nullptr;
         wProxy = _NetworkManagerEvents->eventDbus.getNetworkManagerWirelessProxy(wifiDevicePath);
-
         if(wProxy == NULL)
             return;
+
         GVariant* result = g_dbus_proxy_call_sync(wProxy, "GetAllAccessPoints", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
         if (error) {
             NMLOG_ERROR("Error creating proxy: %s", error->message);
@@ -717,16 +743,18 @@ namespace WPEFramework
             return;
         }
 
-        GVariantIter* iter;
-        const gchar* apPath;
+        GVariantIter* iter = NULL;
+        const gchar* apPath = NULL;
         JsonArray ssidList = JsonArray();
         bool oneSSIDFound = false;
 
         g_variant_get(result, "(ao)", &iter);
+        if(iter == NULL)
+            return;
         while (g_variant_iter_loop(iter, "o", &apPath)) {
             Exchange::INetworkManager::WiFiSSIDInfo wifiInfo;
             // NMLOG_DEBUG("Access Point Path: %s", apPath);
-            if(GnomeUtils::getApDetails(_NetworkManagerEvents->eventDbus, apPath, wifiInfo))
+            if(apPath != NULL && GnomeUtils::getApDetails(_NetworkManagerEvents->eventDbus, apPath, wifiInfo))
             {
                 JsonObject ssidObj;
                 if(GnomeUtils::convertSsidInfoToJsonObject(wifiInfo, ssidObj))
@@ -735,12 +763,13 @@ namespace WPEFramework
                     oneSSIDFound = true;
                 }
             }
-
         }
 
         if(oneSSIDFound) {
-            std::string ssids;
+            std::string ssids{};
             ssidList.ToString(ssids);
+            if(_instance != nullptr)
+                _instance->ReportAvailableSSIDs(ssidList);
             NMLOG_DEBUG("scanned ssids: %s", ssids.c_str());
         }
 

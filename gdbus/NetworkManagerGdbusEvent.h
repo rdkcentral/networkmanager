@@ -39,6 +39,11 @@ namespace WPEFramework
         GDBusProxy *networkManagerProxy; // networkmanager main bus
         GDBusProxy *settingsProxy; // settings 
 
+        GDBusProxy *ethIPv4Proxy;
+        GDBusProxy *ethIPv6Proxy;
+        GDBusProxy *wlanIPv4Proxy;
+        GDBusProxy *wlanIPv6Proxy;
+    
         std::string wifiDevicePath;
         std::string ethDevicePath;
 
@@ -50,7 +55,7 @@ namespace WPEFramework
 
     public:
         static void onInterfaceStateChangeCb(Exchange::INetworkManager::InterfaceState newState, std::string iface); // ReportInterfaceStateChangedEvent
-        static void onAddressChangeCb(std::string iface, bool acqired, bool isIPv6, std::string ipAddress = ""); // ReportIPAddressChangedEvent
+        static void onAddressChangeCb(std::string iface, bool acquired, bool isIPv6, std::string ipAddress = ""); // ReportIPAddressChangedEvent
         static void onActiveInterfaceChangeCb(std::string newInterface); // ReportActiveInterfaceChangedEvent
         static void onAvailableSSIDsCb(const char* wifiDevicePath); // ReportAvailableSSIDsEvent
         static void onWIFIStateChanged(Exchange::INetworkManager::WiFiState state, std::string& wifiStateStr); // ReportWiFiStateChangedEvent
@@ -69,7 +74,7 @@ namespace WPEFramework
         std::atomic<bool>doScanNotify = {true};
         GThread *eventThrdID;
     public:
-        NMEvents nmEvents;
+        NMEvents nmEvents{};
         DbusMgr eventDbus;
         char wlanIfname[16];
         char ethIfname[16];

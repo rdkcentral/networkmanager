@@ -52,13 +52,7 @@ namespace WPEFramework
             if(ConnProxy == NULL)
                 return false;
         
-            settingsProxy = g_dbus_proxy_call_sync(ConnProxy,
-                                    "GetSettings",
-                                    NULL,
-                                    G_DBUS_CALL_FLAGS_NONE,
-                                    -1,
-                                    NULL,
-                                    &error);
+            settingsProxy = g_dbus_proxy_call_sync(ConnProxy, "GetSettings", NULL, G_DBUS_CALL_FLAGS_NONE, -1,  NULL, &error);
             if (!settingsProxy) {
                 g_dbus_error_strip_remote_error(error);
                 NMLOG_ERROR("Failed to get connection settings: %s", error->message);
@@ -156,13 +150,7 @@ namespace WPEFramework
             if(ConnProxy == NULL)
                 return false;
 
-            deleteVar = g_dbus_proxy_call_sync(ConnProxy,
-                                    "Delete",
-                                    NULL,
-                                    G_DBUS_CALL_FLAGS_NONE,
-                                    -1,
-                                    NULL,
-                                    &error);
+            deleteVar = g_dbus_proxy_call_sync(ConnProxy, "Delete", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
             if (!deleteVar) {
                 g_dbus_error_strip_remote_error(error);
                 NMLOG_ERROR("Failed to get connection settings: %s", error->message);
@@ -886,8 +874,9 @@ namespace WPEFramework
             wProxy = m_dbus.getNetworkManagerDeviceProxy(devInfo.path.c_str());
             if(wProxy == NULL)
                 return false;
-
+            else
             g_dbus_proxy_call_sync(wProxy, "Disconnect", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+                return true;
             if (error) {
                 NMLOG_ERROR("Error calling Disconnect method: %s", error->message);
                 g_error_free(error);
@@ -895,8 +884,9 @@ namespace WPEFramework
                 return false;
             }
             else
-               NMLOG_INFO("wifi disconnected success"); 
+               NMLOG_INFO("wifi disconnected success");
 
+            g_object_unref(wProxy);
             return true;
         }
 
