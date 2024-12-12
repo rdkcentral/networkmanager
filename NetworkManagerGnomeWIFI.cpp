@@ -1105,12 +1105,12 @@ namespace WPEFramework
                     clock_gettime(CLOCK_MONOTONIC, &endTime);
                     timeDiff = (endTime.tv_sec - startTime.tv_sec);
                     NMLOG_DEBUG("Time elapsed in getting state completed = %ld", timeDiff);
-                    if(wpsConnect || timeDiff > 120)
+                    if(wpsConnect || timeDiff > 20)
                     {
                         NMLOG_WARNING("WPS Connect status = %d; took %ld seconds", wpsConnect, (wpsPBCDuration + timeDiff));
                         break;
                     }
-                    sleep(10);
+                    sleep(3);
                 }
             }
 
