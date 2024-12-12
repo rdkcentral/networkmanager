@@ -92,6 +92,7 @@ jobs:
           path: networkmanager
           
       - name: Build networkmanager with Gnome Proxy
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/networkmanager"
