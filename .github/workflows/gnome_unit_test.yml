@@ -111,7 +111,7 @@ jobs:
         run: >
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          unit_test
+          unit_tests
     
       - name: Generate coverage
         run: |
