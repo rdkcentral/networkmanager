@@ -1070,7 +1070,7 @@ namespace WPEFramework
             }
             NMLOG_DEBUG("Initial wps command output = %s", wpaCliResult.c_str());
             wpaCliCommand.clear();
-            for(guint wpsPbcAp=0; wpsPbcAp < wpsApCount && !wpsConnect; wpsPbcAp++)
+            for(guint wpsPbcAp=0; wpsPbcAp < wpsApCount && !wpsConnect && !wpsStop.load(); wpsPbcAp++)
             {
                 wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc " + std::string(apList[wpsPbcAp].bssid);
                 NMLOG_DEBUG("wpacli pbc command with bssid = %s", wpaCliCommand.c_str());
@@ -1111,17 +1111,6 @@ namespace WPEFramework
                         break;
                     }
                     sleep(10);
-                }
-                if(!wpsConnect)
-                {
-                    wpaCliCommand.clear();
-                    wpaCliResult.clear();
-                    wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_cancel";
-                    wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
-                    if (wpaCliResult == "ERROR")
-                    {
-                        NMLOG_ERROR("WPS cancel failed for SSID = %s", apList[wpsPbcAp].ssid);
-                    }
                 }
             }
 
