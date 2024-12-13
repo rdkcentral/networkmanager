@@ -91,6 +91,15 @@ jobs:
         with:
           path: networkmanager
           
+      - name: Clean cache before build (conditional)
+        if: steps.cache.outputs.cache-hit == 'true'
+        run: |
+          rm -rf build/
+          
+      - name: Clean previous build (Optional but recommended)
+        run: |
+          rm -rf build/GnomeNetworkmanager
+          
       - name: Build networkmanager with Gnome Proxy
         
         run: >
