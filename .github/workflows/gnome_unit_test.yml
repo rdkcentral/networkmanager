@@ -96,10 +96,6 @@ jobs:
           rm -rf build/
           rm -rf install/usr/*
           
-      - name: Clean .gcda files before build
-        run: |
-          find build/GnomeNetworkmanager -name "*.gcda" -exec rm -f {} \;
-          
       - name: Build networkmanager with Gnome Proxy
         
         run: >
@@ -114,6 +110,10 @@ jobs:
           -DENABLE_UNIT_TESTING=ON
           &&
           cmake --build build/GnomeNetworkmanager --target install -j8
+          
+      - name: Clean .gcda files before build
+        run: |
+          find build/GnomeNetworkmanager -name "*.gcda" -exec rm -f {} \;
 
 
       - name: Run unit tests without valgrind
