@@ -1,20 +1,5 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
-#include "WiFiSignalStrengthMonitor.h"
-#include <cstring>
-#include <atomic>
-#include <vector>
-#include <thread>
-#include <chrono>
-#include <map>
-#include <curl/curl.h>
-#include <condition_variable>
-#include <mutex>
-#include <cerrno>
-#include <cstdlib>
-#include <fstream>
-#include <algorithm>
-#include <ctime>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
