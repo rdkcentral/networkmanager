@@ -94,7 +94,6 @@ jobs:
       - name: Clean all build artifacts
         run: |
           rm -rf build/
-          rm -rf install/usr/*
           
       - name: Build networkmanager with Gnome Proxy
         
