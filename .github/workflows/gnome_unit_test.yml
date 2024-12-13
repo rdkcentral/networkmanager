@@ -91,14 +91,14 @@ jobs:
         with:
           path: networkmanager
           
-      - name: Clean cache before build (conditional)
-        if: steps.cache.outputs.cache-hit == 'true'
+      - name: Clean all build artifacts
         run: |
           rm -rf build/
+          rm -rf install/usr/*
           
-      - name: Clean previous build (Optional but recommended)
+      - name: Clean .gcda files before build
         run: |
-          rm -rf build/GnomeNetworkmanager
+          find build/GnomeNetworkmanager -name "*.gcda" -exec rm -f {} \;
           
       - name: Build networkmanager with Gnome Proxy
         
