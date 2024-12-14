@@ -1048,8 +1048,8 @@ namespace WPEFramework
                 return;
             }
 
-            std::string command1 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " disconnect && ";
-            std::string command2 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " remove_network 0 && ";
+            std::string command1 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " disconnect ";
+            std::string command2 = "&& wpa_cli -i " + std::string(nmUtils::wlanIface()) + " remove_network 0 && ";
             std::string command3 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " save_config && ";
             std::string command4 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan && ";
             std::string command5 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0";
@@ -1074,6 +1074,7 @@ namespace WPEFramework
                 wpaCliCommand = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " wps_pbc " + std::string(apList[wpsPbcAp].bssid);
                 NMLOG_DEBUG("wpacli pbc command with bssid = %s", wpaCliCommand.c_str());
                 NMLOG_INFO("Connecting with the SSID = %s", apList[wpsPbcAp].ssid);
+                wpaCliResult.clear();
                 wpaCliResult = wifiManager::executeWpaCliCommand(wpaCliCommand);
                 if (wpaCliResult == "ERROR")
                 {
@@ -1176,6 +1177,19 @@ namespace WPEFramework
                     wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
                 else if(security == "WPA2-PSK")
                     wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                wpaCliResult.clear();
+                wpaCliResult = wifiManager::executeWpaCliCommand(command1);
+                if (wpaCliResult == "ERROR")
+                {
+                    NMLOG_ERROR("WPS failed to connect with the SSID");
+                    g_main_context_pop_thread_default(m_wpsContext);
+                    g_main_context_release(m_wpsContext);
+                    if (m_wpsContext) {
+                        g_main_context_unref(m_wpsContext);
+                        m_wpsContext = nullptr;
+                    }
+                    return ;
+                }
                 m_loop = g_main_loop_new(m_wpsContext, FALSE);
                 if(this->wifiConnect(wifiData))
                     NMLOG_INFO("NetworkManager updated with WPS status - connected successfully");
