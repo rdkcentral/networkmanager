@@ -965,7 +965,6 @@ namespace WPEFramework
             std::string ssidPattern = "ssid=";
             std::string passphrasePattern = "psk=";
             std::string security = "", ssid = "", passphrase = "";
-            Exchange::INetworkManager::WiFiConnectTo wifiData = {};
             std::string wpaCliResult = "";
             gboolean wpsConnect = false;
             struct timespec startTime = {}, endTime = {};
@@ -1033,7 +1032,7 @@ namespace WPEFramework
                 }
                 count++;
                 clock_gettime(CLOCK_MONOTONIC, &endTime);
-            }while(count < 9 && !pbcFound && !wpsStop.load());
+            }while(count < 10 && !pbcFound && !wpsStop.load());
             wpsPBCDuration = (endTime.tv_sec - startTime.tv_sec);
 
             if(!pbcFound || wpsStop.load())
