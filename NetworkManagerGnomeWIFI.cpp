@@ -1089,6 +1089,7 @@ namespace WPEFramework
                 }
 
                 startTime = {}, endTime = {};
+                int waitTime = (MAX_WPS_WAIT_DURATION - wpsPBCDuration)/wpsApCount;
                 clock_gettime(CLOCK_MONOTONIC, &startTime);
                 while(!wpsConnect && !wpsStop.load())
                 {
@@ -1160,7 +1161,7 @@ namespace WPEFramework
                     clock_gettime(CLOCK_MONOTONIC, &endTime);
                     timeDiff = (endTime.tv_sec - startTime.tv_sec);
                     NMLOG_DEBUG("Time elapsed in getting SSID = %ld", timeDiff);
-                    if(ssid.empty() && timeDiff < 30)
+                    if(ssid.empty() && timeDiff < waitTime)
                     {
                         NMLOG_INFO("connected successfully; attempting to retrive SSID info to persist");
                         sleep(5);
@@ -1171,27 +1172,12 @@ namespace WPEFramework
             }
             if(wpsConnect)
             {
-                wifiData.ssid = ssid;
-                wifiData.passphrase = passphrase;
-                if(security == "WPA-PSK")
-                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
-                else if(security == "WPA2-PSK")
-                    wifiData.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
-                wpaCliResult.clear();
-                wpaCliResult = wifiManager::executeWpaCliCommand(command1);
-                if (wpaCliResult == "ERROR")
-                {
-                    NMLOG_ERROR("WPS failed to connect with the SSID");
-                    g_main_context_pop_thread_default(m_wpsContext);
-                    g_main_context_release(m_wpsContext);
-                    if (m_wpsContext) {
-                        g_main_context_unref(m_wpsContext);
-                        m_wpsContext = nullptr;
-                    }
-                    return ;
-                }
-                m_loop = g_main_loop_new(m_wpsContext, FALSE);
-                if(this->wifiConnect(wifiData))
+                std::string nmCliCommand1 = "nmcli connection add type wifi ifname " + std::string(nmUtils::wlanIface()) + " con-name " + ssid + " ssid " + ssid + " wifi-sec.psk " + passphrase + " wifi-sec.key-mgmt wpa-psk && ";
+                std::string nmCliCommand2 = "nmcli connection up " + ssid;
+                std::string nmCliCommand = nmCliCommand1 + nmCliCommand2;
+                std::string nmCliResult = "";
+                nmCliResult = wifiManager::executeWpaCliCommand(nmCliCommand);
+                if (nmCliResult != "ERROR")
                     NMLOG_INFO("NetworkManager updated with WPS status - connected successfully");
                 else
                 {
@@ -1205,7 +1191,6 @@ namespace WPEFramework
                         NMLOG_ERROR("WPS cancel failed");
                     }
                 }
-                m_loop = g_main_loop_new(m_nmContext, FALSE);
             }
             g_main_context_pop_thread_default(m_wpsContext);
             g_main_context_release(m_wpsContext);
