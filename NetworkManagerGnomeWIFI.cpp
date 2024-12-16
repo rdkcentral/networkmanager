@@ -1033,7 +1033,7 @@ namespace WPEFramework
                 }
                 count++;
                 clock_gettime(CLOCK_MONOTONIC, &endTime);
-            }while(count < 10 && !pbcFound && !wpsStop.load());
+            }while(count < 9 && !pbcFound && !wpsStop.load());
             wpsPBCDuration = (endTime.tv_sec - startTime.tv_sec);
 
             if(!pbcFound || wpsStop.load())
@@ -1160,7 +1160,7 @@ namespace WPEFramework
                     clock_gettime(CLOCK_MONOTONIC, &endTime);
                     timeDiff = (endTime.tv_sec - startTime.tv_sec);
                     NMLOG_DEBUG("Time elapsed in getting SSID = %ld", timeDiff);
-                    if(ssid.empty() && timeDiff < 20)
+                    if(ssid.empty() && timeDiff < 30)
                     {
                         NMLOG_INFO("connected successfully; attempting to retrive SSID info to persist");
                         sleep(5);
