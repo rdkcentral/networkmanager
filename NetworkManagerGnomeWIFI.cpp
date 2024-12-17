@@ -1047,8 +1047,8 @@ namespace WPEFramework
                 return;
             }
 
-            std::string command1 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " disconnect ";
-            std::string command2 = "&& wpa_cli -i " + std::string(nmUtils::wlanIface()) + " remove_network 0 && ";
+            std::string command1 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " disconnect && ";
+            std::string command2 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " remove_network 0 && ";
             std::string command3 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " save_config && ";
             std::string command4 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " abort_scan && ";
             std::string command5 = "wpa_cli -i " + std::string(nmUtils::wlanIface()) + " bss_flush 0";
