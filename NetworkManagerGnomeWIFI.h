@@ -33,6 +33,8 @@
 #define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
 #define WPA_CLI_STATUS "wpa_cli status"
 #define MAX_WPS_AP_COUNT 3
+#define MAX_WPS_WAIT_DURATION 120
+
 typedef struct _wifi_wps_pbc_ap
 {
     char bssid[32];

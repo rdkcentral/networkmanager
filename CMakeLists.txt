@@ -5,7 +5,7 @@ find_package(WPEFramework)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 0)
-set(VERSION_MINOR 6)
+set(VERSION_MINOR 8)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -32,9 +32,9 @@ find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CURL)
 
-set(PLUGIN_NETWORKMANAGER_STARTUPORDER "55" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
-set(PLUGIN_LEGACY_NW_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy Network plugin")
-set(PLUGIN_LEGACY_WIFI_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy WiFi plugin")
+set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
+set(PLUGIN_LEGACY_NW_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy Network plugin")
+set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy WiFi plugin")
 
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
@@ -102,13 +102,28 @@ set_target_properties(${MODULE_NAME} PROPERTIES
 
 
 if(ENABLE_GNOME_NETWORKMANAGER)
-    target_sources(${MODULE_NAME} PRIVATE NetworkManagerGnomeProxy.cpp 
-                    NetworkManagerGnomeWIFI.cpp
-                    NetworkManagerGnomeEvents.cpp
-                    NetworkManagerGnomeUtils.cpp )
-    target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
-    target_link_libraries(${MODULE_NAME} PRIVATE ${LIBNM_LIBRARIES})
+    if(ENABLE_GNOME_GDBUS)
+        message("networkmanager building with gdbus")
+        target_sources(${MODULE_NAME} PRIVATE
+            gdbus/NetworkManagerGdbusProxy.cpp 
+            gdbus/NetworkManagerGdbusClient.cpp
+            gdbus/NetworkManagerGdbusEvent.cpp
+            gdbus/NetworkManagerGdbusMgr.cpp
+            gdbus/NetworkManagerGdbusUtils.cpp )
+            target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${GIO_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
+            target_link_libraries(${MODULE_NAME} PRIVATE ${GLIB_LIBRARIES} ${GIO_LIBRARIES})
+    else()
+        message("networkmanager building with libnm")
+        target_sources(${MODULE_NAME} PRIVATE 
+            NetworkManagerGnomeProxy.cpp 
+            NetworkManagerGnomeWIFI.cpp
+            NetworkManagerGnomeEvents.cpp
+            NetworkManagerGnomeUtils.cpp )
+        target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
+        target_link_libraries(${MODULE_NAME} PRIVATE ${LIBNM_LIBRARIES})
+    endif()
 else()
+    message("networkmanager building with netsrvmgr")
     target_sources(${MODULE_NAME} PRIVATE NetworkManagerRDKProxy.cpp)
     target_include_directories(${MODULE_NAME} PRIVATE ${IARMBUS_INCLUDE_DIRS})
     target_link_libraries(${MODULE_NAME} PRIVATE ${IARMBUS_LIBRARIES})

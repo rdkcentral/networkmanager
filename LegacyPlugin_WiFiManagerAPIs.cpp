@@ -155,6 +155,11 @@ namespace WPEFramework
                 }
                 interface->Release();
             }
+            else
+    	    {
+        	NMLOG_INFO("The call sign '%s' returns null", callsign.c_str());
+        	return string() ;
+    	    }
         
             Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
             m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
@@ -165,7 +170,13 @@ namespace WPEFramework
 
         void WiFiManager::Deinitialize(PluginHost::IShell* /* service */)
         {
+            m_timer.stop();
             unregisterLegacyMethods();
+
+            if (m_networkmanager)
+                m_networkmanager.reset();
+
+            m_networkmanager = NULL;
             m_service->Release();
             m_service = nullptr;
             _gWiFiInstance = nullptr;
