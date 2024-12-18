@@ -12,26 +12,26 @@ protected:
 
 class ClientTest : public ::testing::Test {
 protected:
-   stun::client _client;
+   stun::client cl;
 };
 
 TEST_F(ClientTest, BindSuccess) {
     stun::bind_result result;
-    bool success = _client.bind("https://github.com/", 3478, "eth0", stun::protocol::af_inet, 5000, 10000, result);
+    bool success = cl.bind("https://github.com/", 3478, "eth0", stun::protocol::af_inet, 5000, 10000, result);
     EXPECT_FALSE(success);
     EXPECT_FALSE(result.is_valid());
 }
 
 TEST_F(ClientTest, BindFailure) {
     stun::bind_result result;
-    bool success = _client.bind("http//tata.com", 3478, "eth0", stun::protocol::af_inet, 5000, 10000, result);
+    bool success = cl.bind("http//tata.com", 3478, "eth0", stun::protocol::af_inet, 5000, 10000, result);
+    EXPECT_FALSE(success);
+    EXPECT_FALSE(result.is_valid());
+}
+TEST_F(ClientTest, BindWithInvalidInterface) {
+    stun::bind_result result;
+    bool success = cl.bind("https://github.com/", 3478, "invalid_interface", stun::protocol::af_inet, 5000, 10000, result);
     EXPECT_FALSE(success);
     EXPECT_FALSE(result.is_valid());
 }
 
-TEST_F(ClientTest, BindWithInvalidInterface) {
-    stun::bind_result result;
-    bool success = _client.bind("https://github.com/", 3478, "invalid_interface", stun::protocol::af_inet, 5000, 10000, result);
-    EXPECT_FALSE(success);
-    EXPECT_FALSE(result.is_valid());
-}
