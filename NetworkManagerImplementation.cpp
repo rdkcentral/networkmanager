@@ -598,6 +598,12 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
+
+            if(currentActiveinterface == "eth0")
+                m_ethConnected = true;
+            else if (currentActiveinterface == "wlan0")
+                m_wlanConnected = true;
+
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
@@ -611,6 +617,11 @@ namespace WPEFramework
                 // Start the connectivity monitor with 'true' to indicate the interface is up.
                 // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
                 connectivityMonitor.startConnectivityMonitor();
+                // if ipaddress is aquired means there should be interface connected
+                if(interface == "eth0")
+                    m_ethConnected = true;
+                else if (interface == "wlan0")
+                    m_wlanConnected = true;
             }
 
             _notificationLock.Lock();
