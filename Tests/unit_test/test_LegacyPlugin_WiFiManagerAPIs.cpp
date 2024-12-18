@@ -6,11 +6,11 @@
 #include "NetworkManagerLogger.h"
 #include "LegacyPlugin_WiFiManagerAPIs.h"
 #include "ThunderPortability.h"
-
+ 
 using namespace std;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
-
+using ::testing::NiceMock;
  
 class WiFiManagerTest : public ::testing::Test  {
 protected:
@@ -28,32 +28,35 @@ protected:
    {
    
    }
+ 
    virtual ~WiFiManagerTest() override
     {
     }
 };
-
-class WiFiInitializedEventTest : public WiFiManagerTest {
+ 
+class WiFiManagerInitializedTest : public WiFiManagerTest {
 protected:
-    FactoriesImplementation factoriesImplementation;
-    PLUGINHOST_DISPATCHER* dispatcher;
-
-    WiFiInitializedEventTest()
-        : WiFiManagerTest()
+    NiceMock<ServiceMock> service;
+    WiFiManagerInitializedTest()
     {
-        PluginHost::IFactories::Assign(&factoriesImplementation);
-
-        dispatcher = static_cast<PLUGINHOST_DISPATCHER*>(
-           plugin->QueryInterface(PLUGINHOST_DISPATCHER_ID));
-        dispatcher->Activate(&this->services);
+        EXPECT_EQ(string(""), plugin->Initialize(&service));
+ 
+        EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
+            .Times(1)
+            .WillOnce(::testing::Invoke(
+                [&](const uint32_t, const string& name) -> void* {
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    return nullptr;
+                }));
     }
-
-    virtual ~WiFiInitializedEventTest() override
+ 
+    virtual ~WiFiManagerInitializedTest() override
     {
-
+        plugin->Deinitialize(&service);
     }
+   
 };
-
+ 
 TEST_F(WiFiManagerTest, TestedAPIsShouldExist)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("startScan")));
@@ -70,8 +73,15 @@ TEST_F(WiFiManagerTest, TestedAPIsShouldExist)
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getConnectedSSID")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("getSupportedSecurityModes")));
 }
-
-
-
-
-
+ 
+TEST_F(WiFiManagerInitializedTest, startScan)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("startScan"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+ 
+TEST_F(WiFiManagerInitializedTest, stopScan)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("stopScan"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
