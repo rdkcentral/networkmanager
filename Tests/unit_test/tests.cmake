@@ -1,4 +1,5 @@
-set(UNIT_TEST "unit_tests")
+cmake_minimum_required(VERSION 3.10)
+set(UNIT_TEST "tests")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -21,12 +22,10 @@ add_executable(${UNIT_TEST}
   NetworkManagerConnectivity.cpp
   NetworkManagerStunClient.cpp
 )
-
 set_target_properties(${UNIT_TEST} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
 )
-
 target_compile_options(${UNIT_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 
@@ -44,3 +43,4 @@ target_include_directories(${UNIT_TEST} PRIVATE
 target_link_libraries(${UNIT_TEST} PRIVATE gmock_main ${NAMESPACE}Core::${NAMESPACE}Core ${GLIB_LIBRARIES} ${GIO_LIBRARIES} ${LIBNM_LIBRARIES} ${CURL_LIBRARIES})
 target_include_directories(${UNIT_TEST} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) 
 install(TARGETS ${UNIT_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+

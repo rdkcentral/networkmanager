@@ -17,12 +17,11 @@ namespace WPEFramework
 {
    namespace Plugin
     {
-        NetworkManagerImplementation* _instance = nullptr;
+       NetworkManagerImplementation* _instance;
         void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const WiFiSignalQuality quality)
-        {
+       {
             return;
         }
-
         void NetworkManagerImplementation::ReportInternetStatusChange(const InternetStatus prevState, const InternetStatus currState)
         {
             return;
@@ -33,7 +32,12 @@ namespace WPEFramework
 class WiFiSignalStrengthMonitorTest : public ::testing::Test {
  protected:
      WPEFramework::Plugin::WiFiSignalStrengthMonitor monitor;
+     void SetUp() override {
+     }
+     void TearDown() override {
+    }
 };
+#define BUFFER_SIZE 1024
 
 TEST_F(WiFiSignalStrengthMonitorTest, GetSignalData_Connected) {
     std::string ssid = "TestSSID";
@@ -43,10 +47,12 @@ TEST_F(WiFiSignalStrengthMonitorTest, GetSignalData_Connected) {
 }
 
 TEST_F(WiFiSignalStrengthMonitorTest, StartWiFiSignalStrengthMonitor) {
-    monitor.startWiFiSignalStrengthMonitor(1);
+    monitor.startWiFiSignalStrengthMonitor(1);  
+
 }
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleMock(&argc, argv);
     return RUN_ALL_TESTS();
 }
+
