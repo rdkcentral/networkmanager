@@ -69,18 +69,17 @@ TEST_F(ConnectivityMonitorTest, StopContinuousMonitor_LongRunningMonitor) {
 
  TEST_F(ConnectivityMonitorTest, StartMonitor_WithInterfaceStatusTrue) {
     bool interfaceStatus = true; 
-    bool result = cm.startConnectivityMonitor(interfaceStatus);
+    bool result = cm.startConnectivityMonitor();
     EXPECT_TRUE(result);  
 }    
 TEST_F(ConnectivityMonitorTest, StartMonitor_WithInterfaceStatusFalse) {
     bool interfaceStatus = false;  
-    bool result = cm.startConnectivityMonitor(interfaceStatus);
+    bool result = cm.startConnectivityMonitor();
     EXPECT_TRUE(result); 
 }
 TEST_F(ConnectivityMonitorTest, StartMonitor_NotifyIfAlreadyMonitoring) {
     bool interfaceStatus = true;
-    cm.startConnectivityMonitor(interfaceStatus);
-    bool result = cm.startConnectivityMonitor(interfaceStatus); 
+    bool result = cm.startConnectivityMonitor(); 
     EXPECT_TRUE(result); 
 }
 
