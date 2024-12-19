@@ -598,6 +598,12 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
+
+            if(currentActiveinterface == "eth0")
+                m_ethConnected = true;
+            else if (currentActiveinterface == "wlan0")
+                m_wlanConnected = true;
+
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
