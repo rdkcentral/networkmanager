@@ -15,14 +15,12 @@ add_executable(${UNIT_TEST}
   Tests/unit_test/test_NetworkManagerConnectivity.cpp
   Tests/unit_test/test_NetworkManagerStunClient.cpp
   Tests/unit_test/test_LegacyPlugin_WiFiManagerAPIs.cpp
-  Tests/unit_test/test_LegacyPlugin_NetworkAPIs.cpp
   Tests/mocks/thunder/Module.cpp
   WiFiSignalStrengthMonitor.cpp
   NetworkManagerLogger.cpp
   NetworkManagerConnectivity.cpp
   NetworkManagerStunClient.cpp
   LegacyPlugin_WiFiManagerAPIs.cpp
-  LegacyPlugin_NetworkAPIs.cpp
 )
 set_target_properties(${UNIT_TEST} PROPERTIES
     CXX_STANDARD 11
