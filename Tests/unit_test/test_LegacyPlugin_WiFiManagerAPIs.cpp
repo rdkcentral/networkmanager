@@ -63,6 +63,7 @@ TEST_F(WiFiManagerTest, TestedAPIsShouldExist)
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("stopScan")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("connect")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("disconnect")));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("initiateWPSPairing")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("cancelWPSPairing")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("saveSSID")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("clearSSID")));
@@ -83,5 +84,63 @@ TEST_F(WiFiManagerInitializedTest, startScan)
 TEST_F(WiFiManagerInitializedTest, stopScan)
 {
     EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("stopScan"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, isPaired)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("isPaired"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, disconnect)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("disconnect"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, initiateWPSPairing)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("initiateWPSPairing"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, cancelWPSPairing)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("cancelWPSPairing"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, clearSSID)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("clearSSID"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+TEST_F(WiFiManagerInitializedTest, getPairedSSID)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("getPairedSSID"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, getPairedSSIDInfo)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("getPairedSSIDInfo"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, getCurrentState)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("getCurrentState"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+TEST_F(WiFiManagerInitializedTest, getConnectedSSID)
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("getConnectedSSID"), _T("{}"), response));
+    EXPECT_EQ(response, string(""));
+}
+
+TEST_F(WiFiManagerInitializedTest, getSupportedSecurityModes )
+{
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, handler.Invoke(connection, _T("getSupportedSecurityModes"), _T("{}"), response));
     EXPECT_EQ(response, string(""));
 }

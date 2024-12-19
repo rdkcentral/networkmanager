@@ -17,7 +17,7 @@ namespace WPEFramework
 {
    namespace Plugin
     {
-       NetworkManagerImplementation* _instance;
+       NetworkManagerImplementation* _instance = nullptr;
         void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const WiFiSignalQuality quality)
        {
             return;
@@ -43,11 +43,6 @@ TEST_F(WiFiSignalStrengthMonitorTest, GetSignalData_Connected) {
 
 TEST_F(WiFiSignalStrengthMonitorTest, StartWiFiSignalStrengthMonitor) {
     monitor.startWiFiSignalStrengthMonitor(1);  
-
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleMock(&argc, argv);
-    return RUN_ALL_TESTS();
-}
 
