@@ -280,7 +280,7 @@ namespace WPEFramework
         }
 
         /* @brief Get the Public IP used for external world communication */
-        uint32_t NetworkManagerImplementation::GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */)
+        uint32_t NetworkManagerImplementation::GetPublicIP (string &ipversion /* @inout */,  string& ipaddress /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             stun::bind_result result;
@@ -289,6 +289,11 @@ namespace WPEFramework
             stun::protocol  proto (isIPv6 ? stun::protocol::af_inet6  : stun::protocol::af_inet);
             if(stunClient.bind(m_stunEndPoint, m_stunPort, m_defaultInterface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
             {
+                if (isIPv6)
+                    ipversion = "IPv6";
+                else
+                    ipversion = "IPv4";
+
                 ipaddress = result.public_ip;
                 return Core::ERROR_NONE;
             }
