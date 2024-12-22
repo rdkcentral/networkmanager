@@ -567,7 +567,6 @@ namespace WPEFramework
 
         void NetworkManager::PublishToThunderAboutInternet()
         {
-            NMLOG_DEBUG("No public IP persisted yet; Update the data");
             if (m_publicIPAddress.empty())
             {
                 JsonObject input, output;
@@ -576,6 +575,7 @@ namespace WPEFramework
 
             if (!m_publicIPAddress.empty())
             {
+                NMLOG_DEBUG("No public IP persisted yet; Update the data");
                 PluginHost::ISubSystem* subSystem = _service->SubSystems();
 
                 if (subSystem != nullptr)
