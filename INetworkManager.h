@@ -243,7 +243,7 @@ namespace WPEFramework
             virtual uint32_t StopConnectivityMonitoring(void) const = 0;
 
             /* @brief Get the Public IP used for external world communication */
-            virtual uint32_t GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */) = 0;
+            virtual uint32_t GetPublicIP (string &ipversion /* @inout */,  string& ipaddress /* @out */) = 0;
 
             /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
             virtual uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t count /* @in */, const uint16_t timeout /* @in */, const string guid /* @in */, string& response /* @out */) = 0;

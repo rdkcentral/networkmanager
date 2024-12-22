@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <netinet/in.h>
+#include "NetworkManagerLogger.h"
 
 namespace stun
 {
@@ -157,11 +158,7 @@ public:
 
   network_access_type discover_network_access_type(server const & srv);
 
-  inline void set_verbose(bool b) {
-    m_verbose = b;
-  }
 private:
-  void verbose(char const * format, ...) __attribute__((format(printf, 2, 3)));
   void create_udp_socket(int inet_family);
 
   std::unique_ptr<message> send_binding_request(std::chrono::milliseconds wait_time);
@@ -180,7 +177,6 @@ private:
   uint16_t m_cache_timeout;
   std::chrono::time_point<std::chrono::steady_clock> m_last_cache_time;
   bind_result m_last_result;
-  bool m_verbose;
   int m_fd;
 };
 

@@ -197,7 +197,7 @@ namespace WPEFramework
             uint32_t StopConnectivityMonitoring(void) const override;
 
             /* @brief Get the Public IP used for external world communication */
-            uint32_t GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */) override;
+            uint32_t GetPublicIP (string &ipversion /* @inout */,  string& ipaddress /* @out */) override;
 
             /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
             uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */) override;
