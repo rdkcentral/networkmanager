@@ -31,7 +31,6 @@ namespace WPEFramework {
 
             void registerLegacyMethods(void);
             void unregisterLegacyMethods(void);
-            void subscribeToEvents(void);
             void activatePrimaryPlugin();
             uint32_t internalGetIPSettings(const JsonObject& parameters, JsonObject& response);
             string getInterfaceNameToType(const string & interface);
@@ -60,10 +59,74 @@ namespace WPEFramework {
             uint32_t getSTBIPFamily(const JsonObject& parameters, JsonObject& response);
 
             /* Events */
-            static void onInterfaceStateChange(const JsonObject& parameters);
-            static void onActiveInterfaceChange(const JsonObject& parameters);
-            static void onIPAddressChange(const JsonObject& parameters);
-            static void onInternetStatusChange(const JsonObject& parameters);
+            void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
+            void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
+            void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
+
+        private:
+            class Notification : public Exchange::INetworkManager::INotification
+            {
+            private:
+                Notification() = delete;
+                Notification(const Notification &) = delete;
+                Notification &operator=(const Notification &) = delete;
+
+            public:
+                explicit Notification(Network *parent)
+                    : _parent(*parent)
+                {
+                    ASSERT(parent != nullptr);
+                }
+                virtual ~Notification() override
+                {
+                }
+
+            public:
+
+                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface) override
+                {
+                    _parent.onInterfaceStateChange(state, interface);
+                }
+
+                void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface) override
+                {
+                    _parent.onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
+                }
+
+                void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status) override
+                {
+                    _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
+                }
+
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState) override
+                {
+                    _parent.onInternetStatusChange(prevState, currState);
+                }
+
+                void onAvailableSSIDs(const string jsonOfScanResults) override
+                {
+                    return;
+                }
+
+                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state) override
+                {
+                    return;
+                }
+
+                void onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                {
+                    return;
+                }
+
+                // Build QueryInterface implementation, specifying all possible interfaces we implement
+                BEGIN_INTERFACE_MAP(Notification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::INotification)
+                END_INTERFACE_MAP
+
+            private:
+                Network &_parent;
+            };
 
         public:
             Network();
@@ -86,15 +149,7 @@ namespace WPEFramework {
 
         private:
             PluginHost::IShell* m_service;
-            std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
-            //WPEFramework::Exchange::INetworkManager* m_nwmgr;
-            string m_defaultInterface;
-            NetworkManagerTimer m_timer;
-
-            bool m_subsIfaceStateChange;
-            bool m_subsActIfaceChange;
-            bool m_subsIPAddrChange;
-            bool m_subsInternetChange;
+            Core::Sink<Notification> _notification;
         };
     } // namespace Plugin
 } // namespace WPEFramework

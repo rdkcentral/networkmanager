@@ -27,7 +27,6 @@ using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
-#define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 #define DEFAULT_PING_PACKETS 15
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
@@ -71,27 +70,19 @@ namespace WPEFramework
             {}
     );
 
-    Network* _gNWInstance = nullptr;
     namespace Plugin
     {
         SERVICE_REGISTRATION(Network, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);
         Network::Network()
         : PluginHost::JSONRPC()
         , m_service(nullptr)
-        , m_subsIfaceStateChange(false)
-        , m_subsActIfaceChange(false)
-        , m_subsIPAddrChange(false)
-        , m_subsInternetChange(false)
+        , _notification(this)
        {
-           _gNWInstance = this;
-           m_defaultInterface = "wlan0";
-           m_timer.connect(std::bind(&Network::subscribeToEvents, this));
            registerLegacyMethods();
        }
 
         Network::~Network()
         {
-            _gNWInstance = nullptr;
         }
 
         void Network::activatePrimaryPlugin()
@@ -156,11 +147,14 @@ namespace WPEFramework
                 }
                 interface->Release();
             }
-        
-            Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
-            m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Network"), query);
 
-            subscribeToEvents();
+            auto nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (nwmgr)
+            {
+                NMLOG_INFO("Lets subscribe to Events of '%s' Plugin", callsign.c_str());
+                nwmgr->Register(&_notification);
+                nwmgr->Release();
+            }
 
             return string();
         }
@@ -170,7 +164,6 @@ namespace WPEFramework
             unregisterLegacyMethods();
             m_service->Release();
             m_service = nullptr;
-            _gNWInstance = nullptr;
         }
 
         string Network::Information() const
@@ -896,68 +889,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         }
 
         /** Private */
-        void Network::subscribeToEvents(void)
-        {
-            uint32_t errCode = Core::ERROR_GENERAL;
-            if (m_networkmanager)
-            {
-                if (!m_subsIfaceStateChange)
-                {
-                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onInterfaceStateChange"), &Network::onInterfaceStateChange);
-                    if (Core::ERROR_NONE == errCode)
-                        m_subsIfaceStateChange = true;
-                    else
-                        NMLOG_ERROR ("Subscribe to onInterfaceStateChange failed, errCode: %u", errCode);
-                }
-
-                if (!m_subsActIfaceChange)
-                {
-                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onActiveInterfaceChange"), &Network::onActiveInterfaceChange);
-                    if (Core::ERROR_NONE == errCode)
-                        m_subsActIfaceChange = true;
-                    else
-                    {
-                        NMLOG_ERROR("Subscribe to onActiveInterfaceChange failed, errCode: %u", errCode);
-                    }
-                }
-
-                if (!m_subsIPAddrChange)
-                {
-                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onIPAddressChange"), &Network::onIPAddressChange);
-                    if (Core::ERROR_NONE == errCode)
-                        m_subsIPAddrChange = true;
-                    else
-                    {
-                        NMLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
-                    }
-                }
-
-                if (!m_subsInternetChange)
-                {
-                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onInternetStatusChange"), &Network::onInternetStatusChange);
-                    if (Core::ERROR_NONE == errCode)
-                        m_subsInternetChange = true;
-                    else
-                    {
-                        NMLOG_ERROR("Subscribe to onInternetStatusChange failed, errCode: %u", errCode);
-                    }
-                }
-            }
-            else
-                NMLOG_ERROR("m_networkmanager is null");
-
-            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange && m_subsInternetChange)
-            {
-                m_timer.stop();
-                NMLOG_INFO("All the required events are subscribed; Retry timer stoped");
-            }
-            else
-            {
-                m_timer.start(SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS);
-                NMLOG_INFO("Few required events are yet to be subscribed; Retry timer started");
-            }
-        }
-
         string Network::getInterfaceNameToType(const string & interface)
         {
             if(interface == "wlan0")
@@ -977,47 +908,43 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         }
 
         /** Event Handling and Publishing */
-        void Network::ReportonInterfaceStateChange(const JsonObject& parameters)
+        void Network::onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
-            JsonObject legacyParams;
+            JsonObject parameters;
+            parameters["interface"] = interface;
+            if (Exchange::INetworkManager::INTERFACE_ADDED == state)
+                parameters["enabled"] = true;
+            else if (Exchange::INetworkManager::INTERFACE_REMOVED == state)
+                parameters["enabled"] = false;
+            else if (Exchange::INetworkManager::INTERFACE_LINK_UP == state)
+                parameters["status"] = "CONNECTED";
+            else if (Exchange::INetworkManager::INTERFACE_LINK_DOWN == state)
+                parameters["status"] = "DISCONNECTED";
+
+
             string json;
-            string state = parameters["status"].String();
-
-            legacyParams["interface"] = getInterfaceNameToType(parameters["interface"].String());
-
-            /* State check */
-            if(state == "INTERFACE_ADDED")
-                legacyParams["enabled"] = true;
-            else if(state == "INTERFACE_REMOVED")
-                legacyParams["enabled"] = false;
-            else if(state == "INTERFACE_LINK_UP")
-                legacyParams["status"] = "CONNECTED";
-            else if(state == "INTERFACE_LINK_DOWN")
-                legacyParams["status"] = "DISCONNECTED";
-
-            legacyParams.ToString(json);
-            if((state == "INTERFACE_ADDED") || (state == "INTERFACE_REMOVED"))
+            parameters.ToString(json);
+            if ((Exchange::INetworkManager::INTERFACE_ADDED == state) || (Exchange::INetworkManager::INTERFACE_REMOVED == state))
             {
                 NMLOG_INFO("Posting onInterfaceStatusChanged as %s", json.c_str());
-                Notify("onInterfaceStatusChanged", legacyParams);
+                Notify("onInterfaceStatusChanged", parameters);
             }
-            else if((state == "INTERFACE_LINK_UP") || (state == "INTERFACE_LINK_DOWN"))
+            else if ((Exchange::INetworkManager::INTERFACE_LINK_UP == state) || (Exchange::INetworkManager::INTERFACE_LINK_DOWN == state))
             {
                 NMLOG_INFO("Posting onConnectionStatusChanged as %s", json.c_str());
-                Notify("onConnectionStatusChanged", legacyParams);
+                Notify("onConnectionStatusChanged", parameters);
             }
 
             return;
         }
 
-        void Network::ReportonActiveInterfaceChange(const JsonObject& parameters)
+        void Network::onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
             JsonObject legacyParams;
             
-            legacyParams["oldInterfaceName"] = getInterfaceNameToType(parameters["prevActiveInterface"].String());
-            legacyParams["newInterfaceName"] = getInterfaceNameToType(parameters["currentActiveInterface"].String());
+            legacyParams["oldInterfaceName"] = getInterfaceNameToType(prevActiveInterface);
+            legacyParams["newInterfaceName"] = getInterfaceNameToType(currentActiveinterface);
 
-            m_defaultInterface = parameters["currentActiveInterface"].String();
 
             string json;
             legacyParams.ToString(json);
@@ -1027,21 +954,22 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return;
         }
 
-        void Network::ReportonIPAddressChange(const JsonObject& parameters)
+        void Network::onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
         {
             JsonObject legacyParams;
-            legacyParams["interface"] = getInterfaceNameToType(parameters["interface"].String());
+            Core::JSON::EnumType<Exchange::INetworkManager::IPStatus> iStatus{status};
 
-            if (parameters["ipversion"].String() == "IPv6")
+            legacyParams["interface"] = getInterfaceNameToType(interface);
+            if (ipversion == "IPv6")
             {
-                legacyParams["ip6Address"] = parameters["ipaddress"];
+                legacyParams["ip6Address"] = ipaddress;
             }
             else
             {
-                legacyParams["ip4Address"] = parameters["ipaddress"];
+                legacyParams["ip4Address"] = ipaddress;
             }
 
-            legacyParams["status"] = parameters["status"];
+            legacyParams["status"] = iStatus.Data();
 
             string json;
             legacyParams.ToString(json);
@@ -1049,52 +977,22 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             Notify("onIPAddressStatusChanged", legacyParams);
 
-            // if ("ACQUIRED" == parameters["status"].String())
-            //     m_defaultInterface = parameters["interface"].String();
-
             return;
         }
 
-        void Network::ReportonInternetStatusChange(const JsonObject& parameters)
+        void Network::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
         {
-            JsonObject legacyParams;
+            JsonObject parameters;
+            Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> currStatus(currState);
+            parameters["state"] = JsonValue(currState);
+            parameters["status"] = currStatus.Data();
+
             string json;
+            parameters.ToString(json);
 
-            legacyParams["state"] = parameters["state"];
-            legacyParams["status"] = parameters["status"];
-            legacyParams.ToString(json);
-
-            NMLOG_INFO("Posting onInternetStatusChanged as, %s", json.c_str());
-            Notify("onInternetStatusChange", legacyParams);
+            NMLOG_INFO("Posting onInternetStatusChange as, %s", json.c_str());
+            Notify("onInternetStatusChange", parameters);
             return;
-        }
-
-        void Network::onInterfaceStateChange(const JsonObject& parameters)
-        {
-            if(_gNWInstance)
-                _gNWInstance->ReportonInterfaceStateChange(parameters);
-
-            return;
-        }
-
-        void Network::onActiveInterfaceChange(const JsonObject& parameters)
-        {
-            if(_gNWInstance)
-                _gNWInstance->ReportonActiveInterfaceChange(parameters);
-            return;
-        }
-
-        void Network::onIPAddressChange(const JsonObject& parameters)
-        {
-            if(_gNWInstance)
-                _gNWInstance->ReportonIPAddressChange(parameters);
-            return;
-        }
-
-        void Network::onInternetStatusChange(const JsonObject& parameters)
-        {
-            if(_gNWInstance)
-                _gNWInstance->ReportonInternetStatusChange(parameters);
         }
     }
 }
