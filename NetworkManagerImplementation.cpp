@@ -53,6 +53,10 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             LOG_ENTRY_FUNCTION();
+
+            /* stoping connectivity monitor */
+            connectivityMonitor.stopConnectivityMonitor();
+
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
@@ -284,20 +288,14 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::StartConnectivityMonitoring(const uint32_t interval/* @in */)
         {
             LOG_ENTRY_FUNCTION();
-            if (connectivityMonitor.startContinuousConnectivityMonitor(interval))
-                return Core::ERROR_NONE;
-            else
-                return Core::ERROR_GENERAL;
+            return Core::ERROR_NONE;
         }
 
         /* @brief Stop The Internet Connectivity Monitoring */
         uint32_t NetworkManagerImplementation::StopConnectivityMonitoring(void) const
         {
             LOG_ENTRY_FUNCTION();
-            if (connectivityMonitor.stopContinuousConnectivityMonitor())
-                return Core::ERROR_NONE;
-            else
-                return Core::ERROR_GENERAL;
+            return Core::ERROR_NONE;
         }
 
         /* @brief Get the Public IP used for external world communication */
@@ -614,8 +612,7 @@ namespace WPEFramework
                     m_ethConnected = false;
                 else if(interface == "wlan0")
                     m_wlanConnected = false;
-
-                connectivityMonitor.startConnectivityMonitor();
+                connectivityMonitor.switchToInitialCheck();
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
@@ -653,6 +650,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             if (Exchange::INetworkManager::IP_ACQUIRED == status) {
+                // Switch the connectivity monitor to initial check
                 // if ipaddress is aquired means there should be interface connected
                 if(interface == "eth0")
                     m_ethConnected = true;
@@ -665,9 +663,7 @@ namespace WPEFramework
                 else
                     m_defaultInterface = interface;
 
-                // Start the connectivity monitor with 'true' to indicate the interface is up.
-                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
-                connectivityMonitor.startConnectivityMonitor();
+                connectivityMonitor.switchToInitialCheck();
             }
 
             _notificationLock.Lock();

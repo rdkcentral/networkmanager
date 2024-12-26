@@ -19,20 +19,14 @@
 
 #pragma once
 
-#include <cstring>
 #include <atomic>
 #include <vector>
 #include <thread>
-#include <chrono>
-#include <map>
-#include <curl/curl.h>
 #include <condition_variable>
 #include <mutex>
 #include <cerrno>
 #include <cstdlib>
 #include <fstream>
-#include <algorithm>
-#include <ctime>
 
 enum nsm_ipversion
 {
@@ -64,30 +58,50 @@ enum nsm_connectivity_httpcode {
 
 #define NMCONNECTIVITY_CURL_HEAD_REQUEST          true
 #define NMCONNECTIVITY_CURL_GET_REQUEST           false
-
-#define NMCONNECTIVITY_MONITOR_DEFAULT_INTERVAL   60     // sec
-#define NMCONNECTIVITY_MONITOR_MIN_INTERVAL       5      // sec
-#define NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS    5000   // ms
-#define NMCONNECTIVITY_NO_INTERNET_RETRY_COUNT    4      // 4 retry
-#define NMCONNECTIVITY_CONN_MONITOR_RETRY_COUNT   3      // 3 retry
-#define NMCONNECTIVITY_CAPTIVE_MONITOR_INTERVAL   30     //  sec
-#define NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL   30     //  sec
+#define NMCONNECTIVITY_MONITOR_CACHE_FILE         "/tmp/nm.plugin.endpoints"
+#define NMCONNECTIVITY_MONITOR_MIN_INTERVAL         5      // sec
+#define NMCONNECTIVITY_MONITOR_RETRY_INTERVAL       30     //  sec
+#define NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS      5000   // ms
+#define NM_CONNECTIVITY_MONITOR_RETRY_COUNT         3      // 3 retry
 
 namespace WPEFramework
 {
     namespace Plugin
     {
-        /* save user specific endponint in to a chache file and load form the file if monitorEndpoints are empty case wpeframework restared */
-        class EndpointCache {
-            public:
-                bool isEndpointCashFileExist();
-                void writeEnpointsToFile(const std::vector<std::string>& endpoints);
-                std::vector<std::string> readEnpointsFromFile();
 
-                EndpointCache() : CachefilePath("/tmp/nm.plugin.endpoints") {}
-                ~EndpointCache(){}
+        class DnsResolver
+        {
+            public:
+                DnsResolver(std::string url, nsm_ipversion ipversion = NSM_IPRESOLVE_WHATEVER);
+                ~DnsResolver(){};
+                bool operator()() { return (ipv6Resolved || ipv4Resolved);}
+
             private:
-                std::string CachefilePath;
+                std::string m_domain{};
+                bool ipv4Resolved = false;
+                bool ipv6Resolved = false;
+                std::string convertUrIToDomainName(std::string& url);
+                bool resolveIP(std::string& uri, nsm_ipversion ipversion = NSM_IPRESOLVE_WHATEVER);
+        };
+
+        /*
+         * Save user specific endpoint into a cache file and load from the file 
+         * if endpoints are empty in case plugin is restarted.
+         */
+        class EndpointManager {
+        public:
+            EndpointManager();
+            ~EndpointManager() {}
+            void writeEndpointsToFile(const std::vector<std::string>& endpoints);
+            std::vector<std::string> readEndpointsFromFile();
+            void setConnectivityMonitorEndpoints(const std::vector<std::string>& endpoints);
+            std::vector<std::string> getConnectivityMonitorEndpoints();
+            std::vector<std::string> operator()() { return getConnectivityMonitorEndpoints(); }
+
+        private:
+            std::string m_CachefilePath;
+            std::vector<std::string> m_Endpoints;
+            std::mutex m_endpointMutex;
         };
 
         class TestConnectivity
@@ -112,9 +126,9 @@ namespace WPEFramework
         public:
             ConnectivityMonitor();
             ~ConnectivityMonitor();
-            bool startContinuousConnectivityMonitor(int timeoutInSeconds);
-            bool stopContinuousConnectivityMonitor();
+            bool stopConnectivityMonitor();
             bool startConnectivityMonitor();
+            bool switchToInitialCheck();
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
             bool isConnectedToInternet(nsm_ipversion ipversion);
@@ -127,22 +141,18 @@ namespace WPEFramework
             void connectivityMonitorFunction();
             void notifyInternetStatusChangedEvent(nsm_internetState newState);
             /* connectivity monitor */
-            std::thread connectivityMonitorThrd;
-            std::condition_variable cvConnectivityMonitor;
-            std::atomic<int> continuousMonitorTimeout;
-            std::atomic<bool> doConnectivityMonitor;
-            std::vector<std::string> connectivityMonitorEndpt;
-            /*continuous connectivity monitor */
-            std::atomic<bool> doContinuousMonitor;
-            std::thread continuousMonitorThrd;
-            std::condition_variable cvContinuousMonitor;
-            void continuousMonitorFunction();
-
-            EndpointCache endpointCache;
-            std::mutex endpointMutex;
+            std::thread m_cmThrdID;
+            std::atomic<bool> m_cmRunning;
+            std::condition_variable m_cmCv;
+            std::mutex m_cmMutex;
+            std::atomic<bool> m_notify;
+            std::atomic<bool> m_switchToInitial;
+            std::string m_captiveURI;
             std::atomic<nsm_internetState> m_InternetState;
             std::atomic<nsm_internetState> m_Ipv4InternetState;
             std::atomic<nsm_internetState> m_Ipv6InternetState;
+            /* manages endpoints */
+            EndpointManager m_endpoint;
         };
     } // namespace Plugin
 } // namespace WPEFramework
