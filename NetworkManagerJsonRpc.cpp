@@ -360,19 +360,19 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint;
+            string endpoint;
             uint32_t port;
             uint32_t timeout;
             uint32_t cacheLifetime;
 
             if (_networkManager)
-                rc = _networkManager->GetStunEndpoint(endPoint, port, timeout, cacheLifetime);
+                rc = _networkManager->GetStunEndpoint(endpoint, port, timeout, cacheLifetime);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["endpoint"] = endPoint;
+                response["endpoint"] = endpoint;
                 response["port"] = port;
                 response["timeout"] = timeout;
                 response["cacheLifetime"] = cacheLifetime;
@@ -384,13 +384,13 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint = parameters["endpoint"].String();
+            string endpoint = parameters["endpoint"].String();
             uint32_t port = parameters["port"].Number();
             uint32_t bindTimeout = parameters["timeout"].Number();
             uint32_t cacheTimeout = parameters["cacheLifetime"].Number();
 
             if (_networkManager)
-                rc = _networkManager->SetStunEndpoint(endPoint, port, bindTimeout, cacheTimeout);
+                rc = _networkManager->SetStunEndpoint(endpoint, port, bindTimeout, cacheTimeout);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
@@ -583,8 +583,8 @@ namespace WPEFramework
                     const PluginHost::ISubSystem::IInternet* internet(subSystem->Get<PluginHost::ISubSystem::IInternet>());
                     if (nullptr == internet)
                     {
+                        NMLOG_INFO("Setting INTERNET ISubSystem");
                         subSystem->Set(PluginHost::ISubSystem::INTERNET, this);
-                        NMLOG_INFO("Set INTERNET ISubSystem");
                     }
 
                     subSystem->Release();
@@ -632,7 +632,7 @@ namespace WPEFramework
                 reply.FromString(result);
                 response = reply;
             }
-            returnJson(rc);
+            return rc;
         }
 
         uint32_t NetworkManager::Trace(const JsonObject& parameters, JsonObject& response)
