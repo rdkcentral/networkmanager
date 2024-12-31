@@ -20,7 +20,6 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
 
-
 using namespace std;
 using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_MAJOR 2
@@ -84,7 +83,6 @@ namespace WPEFramework
         , m_subsInternetChange(false)
        {
            _gNWInstance = this;
-           m_defaultInterface = "wlan0";
            m_timer.connect(std::bind(&Network::subscribeToEvents, this));
            registerLegacyMethods();
        }
@@ -167,7 +165,13 @@ namespace WPEFramework
 
         void Network::Deinitialize(PluginHost::IShell* /* service */)
         {
+            m_timer.stop();
             unregisterLegacyMethods();
+
+            if (m_networkmanager)
+                m_networkmanager.reset();
+
+            m_networkmanager = NULL;
             m_service->Release();
             m_service = nullptr;
             _gNWInstance = nullptr;
@@ -204,7 +208,7 @@ namespace WPEFramework
             Register("getInternetConnectionState",        &Network::getInternetConnectionState, this);
             Register("ping",                              &Network::doPing, this);
             Register("isConnectedToInternet",             &Network::isConnectedToInternet, this);
-            Register("setStunEndPoint",                   &Network::setStunEndPoint, this);
+            Register("setStunEndPoint",                   &Network::setStunEndpoint, this);
             Register("trace",                             &Network::doTrace, this);
             Register("setConnectivityTestEndpoints",      &Network::setConnectivityTestEndpoints, this);
             Register("startConnectivityMonitoring",       &Network::startConnectivityMonitoring, this);
@@ -219,6 +223,8 @@ namespace WPEFramework
          */
         void Network::unregisterLegacyMethods(void)
         {
+            Unregister("getStbIp");
+            Unregister("getSTBIPFamily");
             Unregister("getInterfaces");
             Unregister("isInterfaceEnabled");
             Unregister("getPublicIP");
@@ -230,6 +236,8 @@ namespace WPEFramework
             Unregister("getInternetConnectionState");
             Unregister("ping");
             Unregister("isConnectedToInternet");
+            Unregister("setStunEndPoint");
+            Unregister("trace");
             Unregister("setConnectivityTestEndpoints");
             Unregister("startConnectivityMonitoring");
             Unregister("getCaptivePortalURI");
@@ -319,11 +327,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             returnJson(rc);
         }
 
-        uint32_t Network::setStunEndPoint(const JsonObject& parameters, JsonObject& response)
+        uint32_t Network::setStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string endPoint = parameters["server"].String();
+            string endpoint = parameters["server"].String();
             uint32_t port = parameters["port"].Number();
             uint32_t bindTimeout = parameters["timeout"].Number();
             uint32_t cacheTimeout = parameters["cache_timeout"].Number();
@@ -331,7 +339,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _nwmgr->SetStunEndpoint(endPoint, port, bindTimeout, cacheTimeout);
+                rc = _nwmgr->SetStunEndpoint(endpoint, port, bindTimeout, cacheTimeout);
                 _nwmgr->Release();
             }
             else
@@ -1017,8 +1025,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             legacyParams["oldInterfaceName"] = getInterfaceNameToType(parameters["prevActiveInterface"].String());
             legacyParams["newInterfaceName"] = getInterfaceNameToType(parameters["currentActiveInterface"].String());
 
-            m_defaultInterface = parameters["currentActiveInterface"].String();
-
             string json;
             legacyParams.ToString(json);
 
@@ -1048,9 +1054,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             NMLOG_INFO("Posting onIPAddressStatusChanged as %s", json.c_str());
 
             Notify("onIPAddressStatusChanged", legacyParams);
-
-            // if ("ACQUIRED" == parameters["status"].String())
-            //     m_defaultInterface = parameters["interface"].String();
 
             return;
         }

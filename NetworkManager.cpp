@@ -59,6 +59,7 @@ namespace WPEFramework
          */
         const string NetworkManager::Initialize(PluginHost::IShell *service)
         {
+            string message{};
             // Make sure everything is null as we expect
             ASSERT(_service == nullptr);
             ASSERT(_networkManager == nullptr);
@@ -84,19 +85,23 @@ namespace WPEFramework
             // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
             {
-                // set the plugin configuration
-                Exchange::INetworkManager::Logging _loglevel;
-                _networkManager->Configure(_service->ConfigLine());
+                if (_networkManager->Configure(service) != Core::ERROR_NONE)
+                {
+                    SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
+                    message = _T("NetworkManager failed to configure");
+                }
 
-                // configure loglevel in libWPEFrameworkNetworkManager.so
+                // Set the plugin log level
+                Exchange::INetworkManager::Logging _loglevel;
                 _networkManager->GetLogLevel(_loglevel);
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
 
-
+                // Register Notifications
                 _networkManager->Register(&_notification);
 
                 // Register all custom JSON-RPC methods
                 RegisterAllMethods();
+
 
                 // Get IPlugin interface for this plugin
                 _networkManagerImpl = _networkManager->QueryInterface<PluginHost::IPlugin>();
@@ -109,11 +114,11 @@ namespace WPEFramework
                 _service = nullptr;
 
                 // Returning a string signals that we failed to initialize - WPEFramework will print this as an error message
-                return "Failed to initialize NetworkManager";
+                message = _T("Failed to initialize NetworkManager");
             }
 
             // Success
-            return "";
+            return message;
         }
 
         /**

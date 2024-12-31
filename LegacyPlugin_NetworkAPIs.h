@@ -55,7 +55,7 @@ namespace WPEFramework {
             uint32_t getCaptivePortalURI(const JsonObject& parameters, JsonObject& response);
             uint32_t stopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response);
             uint32_t getPublicIP(const JsonObject& parameters, JsonObject& response);
-            uint32_t setStunEndPoint(const JsonObject& parameters, JsonObject& response);
+            uint32_t setStunEndpoint(const JsonObject& parameters, JsonObject& response);
             uint32_t getStbIp(const JsonObject& parameters, JsonObject& response);
             uint32_t getSTBIPFamily(const JsonObject& parameters, JsonObject& response);
 
@@ -88,7 +88,6 @@ namespace WPEFramework {
             PluginHost::IShell* m_service;
             std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
             //WPEFramework::Exchange::INetworkManager* m_nwmgr;
-            string m_defaultInterface;
             NetworkManagerTimer m_timer;
 
             bool m_subsIfaceStateChange;
