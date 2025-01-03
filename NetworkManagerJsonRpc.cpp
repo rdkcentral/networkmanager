@@ -535,30 +535,27 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string ipAddress{};
+            string interface{};
+            string ipaddress{};
             string ipversion = "IPv4";
             if (parameters.HasLabel("ipversion"))
                 ipversion = parameters["ipversion"].String();
 
-            if ((!m_publicIPAddress.empty()) && (m_publicIPAddressType == ipversion))
-            {
-                rc = Core::ERROR_NONE;
-                ipAddress = m_publicIPAddress;
-            }
+            if (parameters.HasLabel("interface"))
+                interface = parameters["interface"].String();
+
+            if (_networkManager)
+                rc = _networkManager->GetPublicIP(interface, ipversion, ipaddress);
             else
-            {
-                if (_networkManager)
-                    rc = _networkManager->GetPublicIP(ipversion, ipAddress);
-                else
-                    rc = Core::ERROR_UNAVAILABLE;
-            }
+                rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["ipaddress"] = ipAddress;
+                response["interface"] = interface;
+                response["ipaddress"] = ipaddress;
                 response["ipversion"] = ipversion;
 
-                m_publicIPAddress = ipAddress;
+                m_publicIPAddress = ipaddress;
                 m_publicIPAddressType = ipversion;
                 PublishToThunderAboutInternet();
             }
@@ -567,15 +564,8 @@ namespace WPEFramework
 
         void NetworkManager::PublishToThunderAboutInternet()
         {
-            if (m_publicIPAddress.empty())
-            {
-                JsonObject input, output;
-                GetPublicIP(input, output);
-            }
-
             if (!m_publicIPAddress.empty())
             {
-                NMLOG_DEBUG("No public IP persisted yet; Update the data");
                 PluginHost::ISubSystem* subSystem = _service->SubSystems();
 
                 if (subSystem != nullptr)

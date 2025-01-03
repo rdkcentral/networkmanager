@@ -14,6 +14,11 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.8.0] - 2025-01-03
+### Changed
+- Updated the definition of GetPublicIP method to take interface as additional input
+- Updated the Legacy Plugin to use newly defined API
+
 ## [0.7.0] - 2024-12-30
 ### Added
 - Gnome WPS custom design implemented

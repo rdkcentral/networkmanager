@@ -712,13 +712,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             uint32_t rc = Core::ERROR_GENERAL;
             string ipAddress{};
             string ipversion = "IPv4";
-            if (parameters.HasLabel("ipversion"))
-                ipversion = parameters["ipversion"].String();
+            if (parameters.HasLabel("ipv6") && parameters["ipv6"].Boolean())
+                ipversion = "IPv6";
+
+            string interface = "";
+            if (parameters.HasLabel("iface"))
+            {
+                string givenInterface = parameters["iface"].String();
+                interface = getInterfaceTypeToName(givenInterface);
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _nwmgr->GetPublicIP(ipversion, ipAddress);
+                rc = _nwmgr->GetPublicIP(interface, ipversion, ipAddress);
                 _nwmgr->Release();
             }
             else
