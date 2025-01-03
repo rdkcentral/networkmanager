@@ -301,19 +301,29 @@ namespace WPEFramework
         }
 
         /* @brief Get the Public IP used for external world communication */
-        uint32_t NetworkManagerImplementation::GetPublicIP (string &ipversion /* @inout */,  string& ipaddress /* @out */)
+        uint32_t NetworkManagerImplementation::GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             stun::bind_result result;
             bool isIPv6 = (ipversion == "IPv6");
 
+            // Either Interface must be connected to get the public IP
+            if (!(m_ethConnected | m_wlanConnected))
+            {
+                NMLOG_WARNING("No interface Connected");
+                return Core::ERROR_GENERAL;
+            }
+
             stun::protocol  proto (isIPv6 ? stun::protocol::af_inet6  : stun::protocol::af_inet);
-            if(stunClient.bind(m_stunEndpoint, m_stunPort, m_defaultInterface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
+            if(stunClient.bind(m_stunEndpoint, m_stunPort, interface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
             {
                 if (isIPv6)
                     ipversion = "IPv6";
                 else
                     ipversion = "IPv4";
+
+                if (interface.empty())
+                    interface = m_defaultInterface;
 
                 ipaddress = result.public_ip;
                 return Core::ERROR_NONE;
@@ -630,6 +640,9 @@ namespace WPEFramework
             else if (currentActiveinterface == "wlan0")
                 m_wlanConnected = true;
 
+            // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
+            // m_defaultInterface = currentActiveinterface;
+
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
@@ -645,6 +658,12 @@ namespace WPEFramework
                     m_ethConnected = true;
                 else if(interface == "wlan0")
                     m_wlanConnected = true;
+
+                // FIXME : Availability of ip address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
+                if (m_ethConnected && m_wlanConnected)
+                    m_defaultInterface = "eth0";
+                else
+                    m_defaultInterface = interface;
 
                 // Start the connectivity monitor with 'true' to indicate the interface is up.
                 // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.

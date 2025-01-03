@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json",
-        "version": "0.7.0"
+        "version": "0.8.0"
     },
     "definitions": {
         "success": {
@@ -423,7 +423,7 @@
                     "gateway",
                     "primarydns",
                     "secondarydns",
-                    "success"  
+                    "success"
                 ]
             }
         },
@@ -714,6 +714,9 @@
                 "type":"object",
                 "summary":"it allows empty parameter too",
                 "properties": {
+                    "interface":{
+                        "$ref": "#/definitions/interface"
+                    },
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
                     }
@@ -724,19 +727,23 @@
             "result": {
                 "type": "object",
                 "properties": {
-                    "ipaddress": {
-                        "$ref": "#/definitions/ipaddress"
+                    "interface":{
+                        "$ref": "#/definitions/interface"
                     },
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
+                    },
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
                     },
                     "success": {
                         "$ref": "#/definitions/success"
                     }
                 },
                 "required": [
-                    "ipaddress",
+                    "interface",
                     "ipversion",
+                    "ipaddress",
                     "success"
                 ]
             }
@@ -846,7 +853,7 @@
                 "type":"object",
                 "properties": {
                     "endpoint":{
-                        "$ref": "#/definitions/endpoint"                       
+                        "$ref": "#/definitions/endpoint"
                     },
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
@@ -867,7 +874,7 @@
                 "type": "object",
                 "properties": {
                     "endpoint":{
-                        "$ref": "#/definitions/endpoint"                       
+                        "$ref": "#/definitions/endpoint"
                     },
                    "results": {
                         "summary": "The response of traceroute",
@@ -1333,7 +1340,7 @@
                                 "type": "integer",
                                 "example": 12
                             },
-	                   "NET_WIFI_SECURITY_WPA3_PSK_AES": {
+                            "NET_WIFI_SECURITY_WPA3_PSK_AES": {
                                 "type": "integer",
                                 "example": 13
                             },
@@ -1387,7 +1394,7 @@
                 "type": "object",
                 "properties": {
                     "interface":{
-                        "$ref": "#/definitions/interface" 
+                        "$ref": "#/definitions/interface"
                     },
                     "state":{
                         "summary": "Current state of the interface",
@@ -1546,7 +1553,7 @@
                     "state":{
                         "summary": "WiFi State",
                         "type": "integer",
-                        "example": "5"	
+                        "example": "5"
                     },
                     "status": {
                         "summary": "WiFi status",
@@ -1568,17 +1575,17 @@
                     "ssid":{
                         "summary": "Signal Strength changed SSID",
                         "type": "string",
-                        "example": "home-new_123"	
+                        "example": "home-new_123"
                     },
                     "strength":{
                         "summary": "Signal Strength",
                         "type": "string",
-                        "example": "-27.000000"	
+                        "example": "-27.000000"
                     },
                     "quality":{
                         "summary": "Signal quality",
                         "type": "string",
-                        "example": "Excellent"	
+                        "example": "Excellent"
                     }
                 },
                 "required": [
