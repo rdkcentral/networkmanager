@@ -14,6 +14,16 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.7.0] - 2024-12-30
+### Added
+- Gnome WPS custom design implemented
+- Handle interface status based on IPAddress change event
+- Cleanup STUN client codebase
+- Handle JSON Event Subscription
+- Handle Platform Init and Configure functions of out-of-process
+- Handle the startup order
+- Added L1 test cases for the plugins
+
 ## [0.6.0] - 2024-12-10
 ### Added
 - Added specific SSID/frequency scanning

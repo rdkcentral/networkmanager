@@ -18,7 +18,6 @@
 **/
 
 #include "NetworkManagerImplementation.h"
-#include "NetworkManagerConnectivity.h"
 #include "WiFiSignalStrengthMonitor.h"
 
 using namespace WPEFramework;
@@ -36,15 +35,8 @@ namespace WPEFramework
         NetworkManagerImplementation::NetworkManagerImplementation()
             : _notificationCallbacks({})
         {
-            /* Initialize Network Manager */
-            NetworkManagerLogger::Init();
-
-            LOG_ENTRY_FUNCTION();
-            /* Name says it all */
-            platform_init();
-
             /* Initialize STUN Endpoints */
-            m_stunEndPoint = "stun.l.google.com";
+            m_stunEndpoint = "stun.l.google.com";
             m_stunPort = 19302;
             m_stunBindTimeout = 30;
             m_stunCacheTimeout = 0;
@@ -52,6 +44,10 @@ namespace WPEFramework
             m_publicIP = "";
             m_ethConnected = false;
             m_wlanConnected = false;
+
+            /* Initialize Network Manager */
+            NetworkManagerLogger::Init();
+            LOG_ENTRY_FUNCTION();
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -61,6 +57,7 @@ namespace WPEFramework
             {
                 m_registrationThread.join();
             }
+            connectivityMonitor.stopContinuousConnectivityMonitor();
         }
 
         /**
@@ -102,79 +99,93 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::Configure(const string& configLine /* @in */)
+        uint32_t NetworkManagerImplementation::Configure(PluginHost::IShell* service)
         {
-            if(configLine.empty())
+            LOG_ENTRY_FUNCTION();
+            Configuration config;
+
+            if (service)
             {
-                NMLOG_FATAL("config line : is empty !");
-                return(Core::ERROR_GENERAL);
-            }
-
-            NMLOG_DEBUG("config line : %s", configLine.c_str());
-
-            Config config;
-            if(config.FromString(configLine))
-            {
-                /* stun configuration copy */
-                m_stunEndPoint = config.stun.stunEndpoint.Value();
-                m_stunPort = config.stun.port.Value();
-                m_stunBindTimeout = config.stun.interval.Value();
-
-                NMLOG_DEBUG("config : stun endpoint %s", m_stunEndPoint.c_str());
-                NMLOG_DEBUG("config : stun port %d", m_stunPort);
-                NMLOG_DEBUG("config : stun interval %d", m_stunBindTimeout);
-
-                NMLOG_DEBUG("config : loglevel %d", config.loglevel.Value());
-                NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
-
-                /* load connectivity monitor endpoints */
-                std::vector<std::string> connectEndpts;
-                if(!config.connectivityConf.endpoint_1.Value().empty()) {
-                    NMLOG_DEBUG("config : connectivity enpt 1 %s", config.connectivityConf.endpoint_1.Value().c_str());
-                    connectEndpts.push_back(config.connectivityConf.endpoint_1.Value().c_str());
-                }
-                if(!config.connectivityConf.endpoint_2.Value().empty()) {
-                    NMLOG_DEBUG("config : connectivity enpt 2 %s", config.connectivityConf.endpoint_2.Value().c_str());
-                    connectEndpts.push_back(config.connectivityConf.endpoint_2.Value().c_str());
-                }
-                if(!config.connectivityConf.endpoint_3.Value().empty()) {
-                    NMLOG_DEBUG("config : connectivity enpt 3 %s", config.connectivityConf.endpoint_3.Value().c_str());
-                    connectEndpts.push_back(config.connectivityConf.endpoint_3.Value().c_str());
-                }
-                if(!config.connectivityConf.endpoint_4.Value().empty()) {
-                    NMLOG_DEBUG("config : connectivity enpt 4 %s", config.connectivityConf.endpoint_4.Value().c_str());
-                    connectEndpts.push_back(config.connectivityConf.endpoint_4.Value().c_str());
-                }
-                if(!config.connectivityConf.endpoint_5.Value().empty()) {
-                    NMLOG_DEBUG("config : connectivity enpt 5 %s", config.connectivityConf.endpoint_5.Value().c_str());
-                    connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
-                }
-
-                /* check whether the endpoint is already loaded from Cache; if Yes, do not use the one from configuration */
-                if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+                string configLine = service->ConfigLine();
+                if(configLine.empty())
                 {
-                    NMLOG_INFO("config : Use the connectivity endpoint from config");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                    NMLOG_FATAL("config line : is empty !");
+                    return Core::ERROR_GENERAL;
                 }
-                else if (connectEndpts.size() < 1)
+                else
                 {
-                    std::vector<std::string> backup;
-                    NMLOG_INFO("config : Connectivity endpoints are empty in config; use the default");
-                    backup.push_back("http://clients3.google.com/generate_204");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                    NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                    config.FromString(configLine);
                 }
             }
             else
-                NMLOG_ERROR("Plugin configuration read error !");
+            {
+                NMLOG_FATAL("Service is NULL!");
+                return Core::ERROR_GENERAL;
 
+            }
+
+            NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
+            NMLOG_DEBUG("loglevel %d", config.loglevel.Value());
+
+            /* STUN configuration copy */
+            m_stunEndpoint = config.stun.stunEndpoint.Value();
+            m_stunPort = config.stun.port.Value();
+            m_stunBindTimeout = config.stun.interval.Value();
+
+            NMLOG_INFO("stun endpoint %s", m_stunEndpoint.c_str());
+            NMLOG_DEBUG("stun port %d", m_stunPort);
+            NMLOG_DEBUG("stun interval %d", m_stunBindTimeout);
+
+
+            /* Connectivity monitor endpoints configuration */
+            std::vector<std::string> connectEndpts;
+            if(!config.connectivityConf.endpoint_1.Value().empty()) {
+                NMLOG_INFO("connectivity endpoint 1 %s", config.connectivityConf.endpoint_1.Value().c_str());
+                connectEndpts.push_back(config.connectivityConf.endpoint_1.Value().c_str());
+            }
+            if(!config.connectivityConf.endpoint_2.Value().empty()) {
+                NMLOG_DEBUG("connectivity endpoint 2 %s", config.connectivityConf.endpoint_2.Value().c_str());
+                connectEndpts.push_back(config.connectivityConf.endpoint_2.Value().c_str());
+            }
+            if(!config.connectivityConf.endpoint_3.Value().empty()) {
+                NMLOG_DEBUG("connectivity endpoint 3 %s", config.connectivityConf.endpoint_3.Value().c_str());
+                connectEndpts.push_back(config.connectivityConf.endpoint_3.Value().c_str());
+            }
+            if(!config.connectivityConf.endpoint_4.Value().empty()) {
+                NMLOG_DEBUG("connectivity endpoint 4 %s", config.connectivityConf.endpoint_4.Value().c_str());
+                connectEndpts.push_back(config.connectivityConf.endpoint_4.Value().c_str());
+            }
+            if(!config.connectivityConf.endpoint_5.Value().empty()) {
+                NMLOG_DEBUG("connectivity endpoint 5 %s", config.connectivityConf.endpoint_5.Value().c_str());
+                connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
+            }
+
+            /* check whether the endpoint is already loaded from Cache; if Yes, do not use the one from configuration */
+            if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+            {
+                NMLOG_INFO("Use the connectivity endpoint from config");
+                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+            }
+            else if (connectEndpts.size() < 1)
+            {
+                std::vector<std::string> backup;
+                NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
+                backup.push_back("http://clients3.google.com/generate_204");
+                connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+            }
+
+            /* As all the configuration is set, lets instantiate platform */
+            std::thread platformThread = std::thread(&NetworkManagerImplementation::platform_init, this);
+            platformThread.join();
             return(Core::ERROR_NONE);
         }
 
         /* @brief Get STUN Endpoint to be used for identifying Public IP */
-        uint32_t NetworkManagerImplementation::GetStunEndpoint (string &endPoint /* @out */, uint32_t& port /* @out */, uint32_t& bindTimeout /* @out */, uint32_t& cacheTimeout /* @out */) const
+        uint32_t NetworkManagerImplementation::GetStunEndpoint (string &endpoint /* @out */, uint32_t& port /* @out */, uint32_t& bindTimeout /* @out */, uint32_t& cacheTimeout /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            endPoint = m_stunEndPoint;
+            endpoint = m_stunEndpoint;
             port = m_stunPort;
             bindTimeout = m_stunBindTimeout;
             cacheTimeout = m_stunCacheTimeout;
@@ -182,42 +193,52 @@ namespace WPEFramework
         }
 
         /* @brief Set STUN Endpoint to be used to identify Public IP */
-        uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endPoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
+        uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
         {
             LOG_ENTRY_FUNCTION();
-            if (!endPoint.empty())
-                m_stunEndPoint = endPoint;
-            if (port != 0)
+            if (!endpoint.empty())
+                m_stunEndpoint = endpoint;
+
+            if (0 != port)
                 m_stunPort = port;
 
-            m_stunBindTimeout = bindTimeout;
-            m_stunCacheTimeout = cacheTimeout;
+            if (0 != bindTimeout)
+                m_stunBindTimeout = bindTimeout;
+
+            if (0 != cacheTimeout)
+                m_stunCacheTimeout = cacheTimeout;
+
             return Core::ERROR_NONE;
         }
 
         /* @brief Get ConnectivityTest Endpoints */
-        uint32_t NetworkManagerImplementation::GetConnectivityTestEndpoints(IStringIterator*& endPoints/* @out */) const
+        uint32_t NetworkManagerImplementation::GetConnectivityTestEndpoints(IStringIterator*& endpoints/* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            std::vector<std::string> tmpEndPoints = connectivityMonitor.getConnectivityMonitorEndpoints();
-            endPoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndPoints));
+            std::vector<std::string> tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
+            endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
 
             return Core::ERROR_NONE;
         }
 
         /* @brief Set ConnectivityTest Endpoints */
-        uint32_t NetworkManagerImplementation::SetConnectivityTestEndpoints(IStringIterator* const endPoints /* @in */)
+        uint32_t NetworkManagerImplementation::SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */)
         {
             LOG_ENTRY_FUNCTION();
-            std::vector<std::string> tmpEndPoints;
-            if(endPoints)
+            std::vector<std::string> tmpEndpoints;
+
+            if(endpoints && (endpoints->Count() >= 1))
             {
-                string endPoint{};
-                while (endPoints->Next(endPoint) == true)
+                string endpoint{};
+                while(endpoints->Next(endpoint))
                 {
-                    tmpEndPoints.push_back(endPoint);
+                    /* The url must be atleast 7 letters to be a valid `http://` url */
+                    if(!endpoint.empty() && endpoint.size() > 7)
+                    {
+                        tmpEndpoints.push_back(endpoint);
+                    }
                 }
-                connectivityMonitor.setConnectivityMonitorEndpoints(tmpEndPoints);
+                connectivityMonitor.setConnectivityMonitorEndpoints(tmpEndpoints);
             }
             return Core::ERROR_NONE;
         }
@@ -252,14 +273,14 @@ namespace WPEFramework
         }
 
         /* @brief Get Authentication URL if the device is behind Captive Portal */ 
-        uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &endPoints/* @out */) const
+        uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            endPoints = connectivityMonitor.getCaptivePortalURI();
+            uri = connectivityMonitor.getCaptivePortalURI();
             return Core::ERROR_NONE;
         }
 
-        /* @brief Start The Internet Connectivity Monitoring */ 
+        /* @brief Start The Internet Connectivity Monitoring */
         uint32_t NetworkManagerImplementation::StartConnectivityMonitoring(const uint32_t interval/* @in */)
         {
             LOG_ENTRY_FUNCTION();
@@ -269,7 +290,7 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
         }
 
-        /* @brief Stop The Internet Connectivity Monitoring */ 
+        /* @brief Stop The Internet Connectivity Monitoring */
         uint32_t NetworkManagerImplementation::StopConnectivityMonitoring(void) const
         {
             LOG_ENTRY_FUNCTION();
@@ -280,15 +301,20 @@ namespace WPEFramework
         }
 
         /* @brief Get the Public IP used for external world communication */
-        uint32_t NetworkManagerImplementation::GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */)
+        uint32_t NetworkManagerImplementation::GetPublicIP (string &ipversion /* @inout */,  string& ipaddress /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             stun::bind_result result;
             bool isIPv6 = (ipversion == "IPv6");
 
             stun::protocol  proto (isIPv6 ? stun::protocol::af_inet6  : stun::protocol::af_inet);
-            if(stunClient.bind(m_stunEndPoint, m_stunPort, m_defaultInterface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
+            if(stunClient.bind(m_stunEndpoint, m_stunPort, m_defaultInterface, proto, m_stunBindTimeout, m_stunCacheTimeout, result))
             {
+                if (isIPv6)
+                    ipversion = "IPv6";
+                else
+                    ipversion = "IPv4";
+
                 ipaddress = result.public_ip;
                 return Core::ERROR_NONE;
             }
@@ -572,13 +598,13 @@ namespace WPEFramework
         void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
             LOG_ENTRY_FUNCTION();
-            if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state) {
-                // Start the connectivity monitor with 'false' to indicate the interface is down.
-                // The monitor will automatically exit after the retry attempts are completed, posting a 'noInternet' event.
+            if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
+            {
                 if(interface == "eth0")
                     m_ethConnected = false;
-                else
+                else if(interface == "wlan0")
                     m_wlanConnected = false;
+
                 connectivityMonitor.startConnectivityMonitor();
             }
 
@@ -614,14 +640,15 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             if (Exchange::INetworkManager::IP_ACQUIRED == status) {
-                // Start the connectivity monitor with 'true' to indicate the interface is up.
-                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
-                connectivityMonitor.startConnectivityMonitor();
                 // if ipaddress is aquired means there should be interface connected
                 if(interface == "eth0")
                     m_ethConnected = true;
-                else if (interface == "wlan0")
+                else if(interface == "wlan0")
                     m_wlanConnected = true;
+
+                // Start the connectivity monitor with 'true' to indicate the interface is up.
+                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
+                connectivityMonitor.startConnectivityMonitor();
             }
 
             _notificationLock.Lock();
@@ -642,20 +669,21 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportAvailableSSIDs(JsonArray &arrayofWiFiScanResults)
+        void NetworkManagerImplementation::ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults)
         {
             _notificationLock.Lock();
             string jsonOfWiFiScanResults;
             string jsonOfFilterScanResults;
+            JsonArray filterResult = arrayofWiFiScanResults;
 
             arrayofWiFiScanResults.ToString(jsonOfWiFiScanResults);
-            NMLOG_DEBUG("Posting onAvailableSSIDs result before Filtering is, %s", jsonOfWiFiScanResults.c_str());
+            NMLOG_DEBUG("onAvailableSSIDs Filtering is, %s", jsonOfWiFiScanResults.c_str());
 
-            filterScanResults(arrayofWiFiScanResults);
+            filterScanResults(filterResult);
 
-            arrayofWiFiScanResults.ToString(jsonOfFilterScanResults);
+            filterResult.ToString(jsonOfFilterScanResults);
 
-            NMLOG_INFO("Posting onAvailableSSIDs result is, %s", jsonOfFilterScanResults.c_str());
+            NMLOG_INFO("Posting onAvailableSSIDs event as, %s", jsonOfFilterScanResults.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onAvailableSSIDs(jsonOfFilterScanResults);
             }

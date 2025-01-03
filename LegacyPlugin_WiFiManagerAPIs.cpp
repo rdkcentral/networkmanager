@@ -165,7 +165,13 @@ namespace WPEFramework
 
         void WiFiManager::Deinitialize(PluginHost::IShell* /* service */)
         {
+            m_timer.stop();
             unregisterLegacyMethods();
+
+            if (m_networkmanager)
+                m_networkmanager.reset();
+
+            m_networkmanager = NULL;
             m_service->Release();
             m_service = nullptr;
             _gWiFiInstance = nullptr;

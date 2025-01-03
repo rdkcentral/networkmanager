@@ -537,11 +537,6 @@ namespace WPEFramework
                 NMLOG_WARNING("WARNING - cannot handle IARM events without a Network plugin instance!");
         }
 
-        void  NetworkManagerImplementation::retryIarmEventRegistration()
-        {
-            m_registrationThread = thread(&NetworkManagerImplementation::threadEventRegistration, this);
-
-        }
         void  NetworkManagerImplementation::threadEventRegistration()
         {
             IARM_Result_t res = IARM_RESULT_SUCCESS;
@@ -658,7 +653,7 @@ namespace WPEFramework
             {
                 string msg = "NetSrvMgr is not available";
                 NMLOG_INFO("NETWORK_NOT_READY: The NetSrvMgr Component is not available.Retrying in separate thread ::%s::", msg.c_str());
-                retryIarmEventRegistration();
+                m_registrationThread = thread(&NetworkManagerImplementation::threadEventRegistration, this);
             }
             else {
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, NetworkManagerInternalEventHandler);
