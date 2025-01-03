@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 0.7.0**
+**Version: 0.8.0**
 
 **Status: :white_circle::white_circle::white_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.7.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.8.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -960,6 +960,7 @@ Gets the internet/public IP Address of the device.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object | It allows empty parameter too |
+| params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
@@ -967,8 +968,9 @@ Gets the internet/public IP Address of the device.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ipaddress | string | The IP address |
+| result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | result.ipversion | string | Either IPv4 or IPv6 |
+| result.ipaddress | string | The IP address |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -981,6 +983,7 @@ Gets the internet/public IP Address of the device.
   "id": 42,
   "method": "org.rdk.NetworkManager.1.GetPublicIP",
   "params": {
+    "interface": "wlan0",
     "ipversion": "IPv4"
   }
 }
@@ -993,8 +996,9 @@ Gets the internet/public IP Address of the device.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "ipaddress": "192.168.1.101",
+    "interface": "wlan0",
     "ipversion": "IPv4",
+    "ipaddress": "192.168.1.101",
     "success": true
   }
 }
