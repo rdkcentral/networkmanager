@@ -51,7 +51,7 @@ namespace details {
     int m_fd;
   };
 
-  #ifdef _STUN_DEBUG
+#ifdef _STUN_DEBUG
   void dump_buffer(char const * prefix, buffer const & buff)
   {
     if (prefix)
@@ -61,14 +61,7 @@ namespace details {
     printf("\n");
     return;
   }
-  #endif
-
-  #ifdef _STUN_DEBUG
-  #define STUN_TRACE(format, ...) printf("STUN:" format __VA_OPT__(,) __VA_ARGS__)
-  #else
-  #define STUN_TRACE(format, ...)
-  #endif
-
+#endif
 
   void throw_error(char const * format, ...)
   {
@@ -126,7 +119,7 @@ namespace details {
       details::throw_error("failed to find ip for interface:%s", iface.c_str());
       return iface_info;
     }
-    STUN_TRACE("local_addr:%s\n", sockaddr_to_string(iface_info).c_str());
+    NMLOG_DEBUG("local_addr:%s", sockaddr_to_string(iface_info).c_str());
 
     return iface_info;
   }
@@ -290,7 +283,6 @@ client::client()
     , m_cache_timeout(30)
     , m_last_cache_time()
     , m_last_result()
-    , m_verbose(true)
     , m_fd(-1)
 {
 }
@@ -350,7 +342,7 @@ bool client::bind(
       dirty = true;
     }
 
-    verbose("client::bind enter: server=%s port=%u iface=%s ipv6=%u timeout=%u cache_timeout=%u dirty=%u\n",
+    NMLOG_DEBUG("client::bind enter: server=%s port=%u iface=%s ipv6=%u timeout=%u cache_timeout=%u dirty=%u",
         hostname.c_str(), port, interface.c_str(), proto == stun::protocol::af_inet6, bind_timeout, cache_timeout, dirty);
 
     if(m_cache_timeout > 0        /*asking if caching is enabled*/
@@ -360,18 +352,18 @@ bool client::bind(
         auto time_in_cache = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::steady_clock::now() - m_last_cache_time);
 
-        verbose("client::bind cache time=%lld\n", time_in_cache.count());
+        NMLOG_DEBUG("client::bind cache time=%ld", time_in_cache.count());
 
         if(time_in_cache.count() < m_cache_timeout)
         {
             result = m_last_result;
 
-            verbose("client::bind returning cached result: %s\n", result.public_ip.c_str());
+            NMLOG_DEBUG("client::bind returning cached result: %s", result.public_ip.c_str());
             return true;
         }
         else
         {
-            verbose("client::client::bind cached result expired\n");
+            NMLOG_DEBUG("client::client::bind cached result expired");
         }
     }
 
@@ -387,7 +379,7 @@ bool client::bind(
         std::chrono::milliseconds wait_time(interval_wait_time);
         for (int i = 0; i < num_attempts && total_time < m_bind_timeout; ++i)
         {
-            verbose("client::bind sending bind request\n");
+            NMLOG_DEBUG("client::bind sending bind request");
 
             std::unique_ptr<stun::message> binding_response = send_binding_request(wait_time);
 
@@ -415,25 +407,25 @@ bool client::bind(
 
                     m_last_cache_time = std::chrono::steady_clock::now();
 
-                    verbose("client::bind success: public_ip=%s\n", result.public_ip.c_str());
+                    NMLOG_DEBUG("client::bind success: public_ip=%s", result.public_ip.c_str());
 
                     ret_ok = true;
                 }
                 else
                 {
-                    verbose("client::bind failed: ip missing from binding response\n");
+                    NMLOG_DEBUG("client::bind failed: ip missing from binding response");
                 }
             }
             else
             {
-                verbose("client::bind failed: no response received from server\n");
+                NMLOG_INFO("client::bind failed: no response received from server");
             }
         }
     }
 #ifdef __cpp_exceptions
     catch (std::exception const & err)
     {
-        verbose("client::bind failed: %s\n", err.what());
+        NMLOG_WARNING("client::bind failed: %s", err.what());
     }
 #endif
 
@@ -454,13 +446,13 @@ void client::create_udp_socket(int inet_family)
   if (inet_family != AF_INET && inet_family != AF_INET6)
     details::throw_error("invalid inet family:%d", inet_family);
 
-  verbose("creating udp/%s socket\n", details::family_to_string(inet_family));
+  NMLOG_DEBUG("creating udp/%s socket", details::family_to_string(inet_family));
 
   int soc = socket(inet_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
   if (soc < 0)
     details::throw_error("error creating socket. %s", strerror(errno));
 
-  #ifdef _SUN_USE_MSGHDR
+  #ifdef _STUN_USE_MSGHDR
   int optval = 1;
   setsockopt(soc, IPPROTO_IP, IP_PKTINFO, &optval, sizeof(int));
   #endif
@@ -468,7 +460,7 @@ void client::create_udp_socket(int inet_family)
   if (!m_interface.empty()) {
     sockaddr_storage local_addr = details::get_interface_address(m_interface, inet_family);
 
-    verbose("binding to local interface %s/%s\n", m_interface.c_str(),
+    NMLOG_DEBUG("binding to local interface %s/%s", m_interface.c_str(),
       sockaddr_to_string(local_addr).c_str());
 
     int ret = ::bind(soc, reinterpret_cast<sockaddr const *>(&local_addr), details::socket_length(local_addr));
@@ -479,18 +471,16 @@ void client::create_udp_socket(int inet_family)
           sockaddr_to_string(local_addr).c_str(), strerror(err));
     }
     else {
-      if (m_verbose) {
         sockaddr_storage local_endpoint;
         socklen_t socklen = sizeof(sockaddr_storage);
         int ret = getsockname(soc, reinterpret_cast<sockaddr *>(&local_endpoint), &socklen);
         if (ret == 0)
-          verbose("local endpoint %s/%d\n", sockaddr_to_string(local_endpoint).c_str(),
+          NMLOG_DEBUG("local endpoint %s/%d", sockaddr_to_string(local_endpoint).c_str(),
             details::sockaddr_get_port(local_endpoint));
-      }
     }
   }
   else
-    verbose("no local interface supplied to bind to\n");
+    NMLOG_DEBUG("no local interface supplied to bind to");
 
   if (m_fd != -1)
     close(m_fd);
@@ -506,13 +496,13 @@ message * client::send_message(sockaddr_storage const & remote_addr, message con
 
   buffer bytes = req.encode();
 
-  STUN_TRACE("remote_addr:%s\n", sockaddr_to_string(remote_addr).c_str());
+  NMLOG_DEBUG("remote_addr:%s", sockaddr_to_string(remote_addr).c_str());
 
   #ifdef _STUN_DEBUG
   details::dump_buffer("STUN >>> ", bytes);
   #endif
 
-  verbose("sending messsage\n");
+  NMLOG_DEBUG("sending messsage");
 
   ssize_t n = sendto(m_fd, &bytes[0], bytes.size(), 0, (sockaddr *) &remote_addr, details::socket_length(remote_addr));
   if (n < 0)
@@ -537,10 +527,10 @@ message * client::send_message(sockaddr_storage const & remote_addr, message con
     timeout.tv_sec = (timeout.tv_usec / kMicrosecondsPerSecond);
     timeout.tv_usec -= (timeout.tv_sec * kMicrosecondsPerSecond);
   }
-  verbose("waiting for response, timeout set to %lus - %luus\n", timeout.tv_sec, timeout.tv_usec);
+  NMLOG_DEBUG("waiting for response, timeout set to %lus - %luus", timeout.tv_sec, timeout.tv_usec);
   int ret = select(m_fd + 1, &rfds, nullptr, nullptr, &timeout);
   if (ret == 0) {
-    STUN_TRACE("select timeout out\n");
+    NMLOG_DEBUG("select timeout out");
     return nullptr;
   }
 
@@ -608,18 +598,6 @@ message * client::send_message(sockaddr_storage const & remote_addr, message con
   return decoder::decode_message(bytes, nullptr);
 }
 
-void client::verbose(char const * format, ...)
-{
-  if (!m_verbose)
-    return;
-  va_list ap;
-  va_start(ap, format);
-  printf("STUN:");
-  vprintf(format, ap);
-  va_end(ap);
-  return;
-}
-
 network_access_type client::discover_network_access_type(server const & srv)
 {
   std::chrono::milliseconds wait_time(250);
@@ -672,7 +650,7 @@ std::unique_ptr<message> client::send_binding_request(std::chrono::milliseconds 
 std::unique_ptr<message> client::send_binding_request(sockaddr_storage const & addr, 
   std::chrono::milliseconds wait_time)
 {
-  this->verbose("sending binding request with wait time:%lld ms\n", wait_time.count());
+  NMLOG_DEBUG("sending binding request with wait time:%ld ms", wait_time.count());
   this->create_udp_socket(addr.ss_family);
   std::unique_ptr<message> binding_request(message_factory::create_binding_request());
   std::unique_ptr<message> binding_response(this->send_message(addr, *binding_request, wait_time));

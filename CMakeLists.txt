@@ -5,7 +5,7 @@ find_package(WPEFramework)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 0)
-set(VERSION_MINOR 6)
+set(VERSION_MINOR 8)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -32,9 +32,9 @@ find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CURL)
 
-set(PLUGIN_NETWORKMANAGER_STARTUPORDER "55" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
-set(PLUGIN_LEGACY_NW_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy Network plugin")
-set(PLUGIN_LEGACY_WIFI_STARTUPORDER "56" CACHE STRING "To configure startup order of Legacy WiFi plugin")
+set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
+set(PLUGIN_LEGACY_NW_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy Network plugin")
+set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy WiFi plugin")
 
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})

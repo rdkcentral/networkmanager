@@ -85,7 +85,7 @@ namespace WPEFramework
                 INTERNET_LIMITED            /* @text: LIMITED_INTERNET */,
                 INTERNET_CAPTIVE_PORTAL     /* @text: CAPTIVE_PORTAL */,
                 INTERNET_FULLY_CONNECTED    /* @text: FULLY_CONNECTED */,
-                INTERNET_UNKNOWN            /* @text: NO_INTERNET */,
+                INTERNET_UNKNOWN            /* @text: UNKNOWN */,
             };
 
             enum WiFiWPS : uint8_t
@@ -237,13 +237,13 @@ namespace WPEFramework
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             virtual uint32_t GetCaptivePortalURI(string &uri/* @out */) const = 0;
 
-            /* @brief Start The Internet Connectivity Monitoring */ 
+            /* @brief Start The Internet Connectivity Monitoring */
             virtual uint32_t StartConnectivityMonitoring(const uint32_t interval /* @in */) = 0;
-            /* @brief Stop The Internet Connectivity Monitoring */ 
+            /* @brief Stop The Internet Connectivity Monitoring */
             virtual uint32_t StopConnectivityMonitoring(void) const = 0;
 
             /* @brief Get the Public IP used for external world communication */
-            virtual uint32_t GetPublicIP (const string &ipversion /* @in */,  string& ipaddress /* @out */) = 0;
+            virtual uint32_t GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */) = 0;
 
             /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
             virtual uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t count /* @in */, const uint16_t timeout /* @in */, const string guid /* @in */, string& response /* @out */) = 0;
@@ -275,8 +275,8 @@ namespace WPEFramework
             virtual uint32_t SetLogLevel(const Logging& level /* @in */) = 0;
             virtual uint32_t GetLogLevel(Logging& level /* @out */) = 0;
 
-            /* @brief configure network manager plugin */
-            virtual uint32_t Configure(const string& configLine /* @in */) = 0;
+            /* @brief Configure the Network Manager plugin */
+            virtual uint32_t Configure(PluginHost::IShell* service /* @in */) = 0;
 
             /* @event */
             struct EXTERNAL INotification : virtual public Core::IUnknown
