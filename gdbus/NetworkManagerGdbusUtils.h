@@ -48,6 +48,8 @@ struct deviceInfo
     std::string interface;
     std::string activeConnPath;
     std::string path;
+    std::string MAC;
+    bool managed;
     NMDeviceState state;
     NMDeviceStateReason stateReason;
     NMDeviceType deviceType;
@@ -72,8 +74,14 @@ namespace WPEFramework
                 static bool getDevicePropertiesByPath(DbusMgr& m_dbus, const char* devPath, deviceInfo& properties);
                 static bool getDeviceInfoByIfname(DbusMgr& m_dbus, const char* ifname, deviceInfo& properties);
                 static bool getCachedPropertyU(GDBusProxy* proxy, const char* propertiy, uint32_t *value);
+                static bool getCachedPropertyBoolean(GDBusProxy* proxy, const char* property, bool *value);
                 static bool getIPv4AddrFromIPv4ConfigProxy(GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
                 static bool getIPv6AddrFromIPv6ConfigProxy(GDBusProxy *ipProxy, std::string& ipAddr, uint32_t& prifix);
+                static bool activateConnection(DbusMgr& m_dbus, const std::string& connectionProfile, const std::string& devicePath);
+                static bool getSettingsConnectionPath(DbusMgr &m_dbus, std::string& connectionPath, const std::string& interface);
+                static uint32_t ip4StrToNBO(const std::string &ipAddress);
+                static std::string ip4ToString(uint32_t ip);
+                static std::string ip6ToString(const uint8_t *ipv6);
 
                 static bool convertSsidInfoToJsonObject(Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo, JsonObject& ssidObj);
                 static const char* convertPercentageToSignalStrengtStr(int percentage);
