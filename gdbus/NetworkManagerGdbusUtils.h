@@ -80,6 +80,7 @@ namespace WPEFramework
                 static bool activateConnection(DbusMgr& m_dbus, const std::string& connectionProfile, const std::string& devicePath);
                 static bool getSettingsConnectionPath(DbusMgr &m_dbus, std::string& connectionPath, const std::string& interface);
                 static uint32_t ip4StrToNBO(const std::string &ipAddress);
+                static std::array<guint8, 16> ip6StrToNBO(const std::string &ipAddress);
                 static std::string ip4ToString(uint32_t ip);
                 static std::string ip6ToString(const uint8_t *ipv6);
 

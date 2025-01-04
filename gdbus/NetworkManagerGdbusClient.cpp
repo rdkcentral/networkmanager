@@ -282,6 +282,9 @@ namespace WPEFramework
             GVariantBuilder wifiBuilder;
             GVariantBuilder settingsBuilder;
             GVariantBuilder wifiSecurityBuilder;
+            GVariantBuilder addressesBuilder;
+            GVariantBuilder addressEntryBuilder;
+            GVariantBuilder dnsBuilder;
             g_variant_builder_init(&settingsBuilder, G_VARIANT_TYPE("a{sa{sv}}"));
             // Define the 'connection' dictionary with connection details
             g_variant_builder_init(&connectionBuilder, G_VARIANT_TYPE("a{sv}"));
@@ -311,48 +314,72 @@ namespace WPEFramework
             }
 
             GVariantBuilder ipv4Builder;
-            g_variant_builder_init(&ipv4Builder, G_VARIANT_TYPE("a{sv}"));
+            GVariantBuilder ipv6Builder;
 
             if (g_strcmp0(address.ipversion.c_str(), "IPv4") == 0)
             {
+                g_variant_builder_init(&ipv4Builder, G_VARIANT_TYPE("a{sv}"));
                 g_variant_builder_add(&ipv4Builder, "{sv}", "method", g_variant_new_string(address.autoconfig ? "auto" : "manual"));
             }
             else
             {
-                //FIXME : Add IPv6 support here
-                NMLOG_WARNING("Setting IPv6 is not supported at this point in time. This is just a place holder");
-                return false;
+                g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
+                g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(address.autoconfig ? "auto" : "manual"));
             }
 
             if(!address.autoconfig)
             {
-                // addresses
-                GVariantBuilder addressesBuilder;
-                g_variant_builder_init(&addressesBuilder, G_VARIANT_TYPE("aau"));
+                if (g_strcmp0(address.ipversion.c_str(), "IPv4") == 0)
+                {
+                    // addresses
+                    g_variant_builder_init(&addressesBuilder, G_VARIANT_TYPE("aau"));
 
-                GVariantBuilder addressEntryBuilder;
-                g_variant_builder_init(&addressEntryBuilder, G_VARIANT_TYPE("au"));
+                    g_variant_builder_init(&addressEntryBuilder, G_VARIANT_TYPE("au"));
 
-                g_variant_builder_add(&addressEntryBuilder, "u", GnomeUtils::ip4StrToNBO(address.ipaddress));
+                    g_variant_builder_add(&addressEntryBuilder, "u", GnomeUtils::ip4StrToNBO(address.ipaddress));
+                    g_variant_builder_add(&addressEntryBuilder, "u", address.prefix);
+                    g_variant_builder_add(&addressEntryBuilder, "u", GnomeUtils::ip4StrToNBO(address.gateway));
+                    g_variant_builder_add_value(&addressesBuilder, g_variant_builder_end(&addressEntryBuilder));
 
-                g_variant_builder_add(&addressEntryBuilder, "u", address.prefix);
-                g_variant_builder_add(&addressEntryBuilder, "u", GnomeUtils::ip4StrToNBO(address.gateway));
-                g_variant_builder_add_value(&addressesBuilder, g_variant_builder_end(&addressEntryBuilder));
+                    g_variant_builder_add(&ipv4Builder, "{sv}", "addresses", g_variant_builder_end(&addressesBuilder));
 
-                g_variant_builder_add(&ipv4Builder, "{sv}", "addresses", g_variant_builder_end(&addressesBuilder));
+                    // dns
+                    g_variant_builder_init(&dnsBuilder, G_VARIANT_TYPE("au"));
+                    g_variant_builder_add(&dnsBuilder, "u", GnomeUtils::ip4StrToNBO(address.primarydns));
+                    g_variant_builder_add(&dnsBuilder, "u", GnomeUtils::ip4StrToNBO(address.secondarydns));
 
-                // dns
-                GVariantBuilder dns_builder;
-                g_variant_builder_init(&dns_builder, G_VARIANT_TYPE("au"));
-                g_variant_builder_add(&dns_builder, "u", GnomeUtils::ip4StrToNBO(address.primarydns));
-                g_variant_builder_add(&dns_builder, "u", GnomeUtils::ip4StrToNBO(address.secondarydns));
+                    g_variant_builder_add(&ipv4Builder, "{sv}", "dns", g_variant_builder_end(&dnsBuilder));
+                    // Add gateway
+                    g_variant_builder_add(&ipv4Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
+                    g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
+                }
+                else if (g_strcmp0(address.ipversion.c_str(), "IPv6") == 0)
+                {
+                    // addresses
+                    g_variant_builder_init(&addressesBuilder, G_VARIANT_TYPE("a(ayuay)"));
 
-                g_variant_builder_add(&ipv4Builder, "{sv}", "dns", g_variant_builder_end(&dns_builder));
-                // Add gateway
-                g_variant_builder_add(&ipv4Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
+                    g_variant_builder_init(&addressEntryBuilder, G_VARIANT_TYPE("(ayuay)"));
+                    std::array<guint8, 16> ip6 = GnomeUtils::ip6StrToNBO(address.ipaddress);
+                    std::array<guint8, 16> gateway6 = GnomeUtils::ip6StrToNBO(address.gateway);
+                    g_variant_builder_add_value(&addressEntryBuilder, g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, ip6.data(), ip6.size(), sizeof(guint8)));
+                    g_variant_builder_add(&addressEntryBuilder, "u", address.prefix);
+                    g_variant_builder_add_value(&addressEntryBuilder, g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, gateway6.data(), gateway6.size(), sizeof(guint8)));
+                    g_variant_builder_add_value(&addressesBuilder, g_variant_builder_end(&addressEntryBuilder));
+                    g_variant_builder_add(&ipv6Builder, "{sv}", "addresses", g_variant_builder_end(&addressesBuilder));
+
+                    //DNS
+                    g_variant_builder_init(&dnsBuilder, G_VARIANT_TYPE("aay"));
+                    std::array<guint8, 16> primaryDns6 = GnomeUtils::ip6StrToNBO(address.primarydns);
+                    std::array<guint8, 16> secondaryDns6 = GnomeUtils::ip6StrToNBO(address.secondarydns);
+                    g_variant_builder_add_value(&dnsBuilder, g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, primaryDns6.data(), primaryDns6.size(), sizeof(guint8)));
+                    g_variant_builder_add_value(&dnsBuilder, g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, secondaryDns6.data(), secondaryDns6.size(), sizeof(guint8)));
+                    g_variant_builder_add(&ipv6Builder, "{sv}", "dns", g_variant_builder_end(&dnsBuilder));
+                    // Add gateway
+                    g_variant_builder_add(&ipv6Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
+
+                    g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
+                }
             }
-
-            g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
 
             g_dbus_proxy_call_sync(
                     settingsProxy,

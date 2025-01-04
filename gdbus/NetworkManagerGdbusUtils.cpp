@@ -20,6 +20,7 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <string>
+#include <cstring>
 #include <nm-dbus-interface.h>
 
 #include "NetworkManagerLogger.h"
@@ -684,6 +685,16 @@ namespace WPEFramework
                 NMLOG_ERROR("Invalid IPv4 address format: %s", ipAddress.c_str());
             }
             return addr.s_addr;
+        }
+
+        // Convert an IPv6 string address to an array of bytes
+        std::array<guint8, 16> GnomeUtils::ip6StrToNBO(const std::string &ipAddress)
+        {
+            struct in6_addr addr6;
+            inet_pton(AF_INET6, ipAddress.c_str(), &addr6);
+            std::array<guint8, 16> ip6{};
+            std::memcpy(ip6.data(), &addr6, 16);
+            return ip6;
         }
 
         // Helper function to convert a raw IPv4 address to human-readable format
