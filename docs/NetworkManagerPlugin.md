@@ -87,8 +87,6 @@ NetworkManager interface methods:
 | [SetConnectivityTestEndpoints](#method.SetConnectivityTestEndpoints) | This method used to set up to 5 endpoints for a connectivity test |
 | [IsConnectedToInternet](#method.IsConnectedToInternet) | Seeks whether the device has internet connectivity |
 | [GetCaptivePortalURI](#method.GetCaptivePortalURI) | Gets the captive portal URI if connected to any captive portal network |
-| [StartConnectivityMonitoring](#method.StartConnectivityMonitoring) | Enable a continuous monitoring of internet connectivity with heart beat interval thats given |
-| [StopConnectivityMonitoring](#method.StopConnectivityMonitoring) | Stops the connectivity monitoring |
 | [GetPublicIP](#method.GetPublicIP) | Gets the internet/public IP Address of the device |
 | [Ping](#method.Ping) | Pings the specified endpoint with the specified number of packets |
 | [Trace](#method.Trace) | Traces the specified endpoint with the specified number of packets using `traceroute` |
@@ -453,7 +451,7 @@ Gets the IP setting for the given interface.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
 
 ### Result
 
@@ -461,7 +459,7 @@ Gets the IP setting for the given interface.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| result.ipversion | string | Either IPv4 or IPv6 |
+| result.ipversion | string | either IPv4 or IPv6 |
 | result.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | result?.dhcpserver | string | <sup>*(optional)*</sup> The DHCP Server address |
 | result.ipaddress | string | The IP address |
@@ -523,7 +521,7 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params.ipversion | string | Either IPv4 or IPv6 |
+| params.ipversion | string | either IPv4 or IPv6 |
 | params.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | params.ipaddress | string | The IP address |
 | params.prefix | integer | The prefix number |
@@ -776,14 +774,14 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ipversion | string | Either IPv4 or IPv6 |
+| result.ipversion | string | either IPv4 or IPv6 |
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
@@ -862,94 +860,6 @@ This method takes no parameters.
 }
 ```
 
-<a name="method.StartConnectivityMonitoring"></a>
-## *StartConnectivityMonitoring [<sup>method</sup>](#head.Methods)*
-
-Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval. When the interval is not passed, it will be 60s by default.
-
-Also see: [onInternetStatusChange](#event.onInternetStatusChange)
-
-### Parameters
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| params | object |  |
-| params?.interval | integer | <sup>*(optional)*</sup> Interval in sec |
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "method": "org.rdk.NetworkManager.1.StartConnectivityMonitoring",
-  "params": {
-    "interval": 30
-  }
-}
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "result": {
-    "success": true
-  }
-}
-```
-
-<a name="method.StopConnectivityMonitoring"></a>
-## *StopConnectivityMonitoring [<sup>method</sup>](#head.Methods)*
-
-Stops the connectivity monitoring.
-
-### Parameters
-
-This method takes no parameters.
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "method": "org.rdk.NetworkManager.1.StopConnectivityMonitoring"
-}
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "result": {
-    "success": true
-  }
-}
-```
-
 <a name="method.GetPublicIP"></a>
 ## *GetPublicIP [<sup>method</sup>](#head.Methods)*
 
@@ -959,9 +869,9 @@ Gets the internet/public IP Address of the device.
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
-| params | object | It allows empty parameter too |
+| params | object | it allows empty parameter too |
 | params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
 
 ### Result
 
@@ -969,7 +879,7 @@ Gets the internet/public IP Address of the device.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| result.ipversion | string | Either IPv4 or IPv6 |
+| result.ipversion | string | either IPv4 or IPv6 |
 | result.ipaddress | string | The IP address |
 | result.success | boolean | Whether the request succeeded |
 
@@ -1015,7 +925,7 @@ Pings the specified endpoint with the specified number of packets.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
-| params.ipversion | string | Either IPv4 or IPv6 |
+| params.ipversion | string | either IPv4 or IPv6 |
 | params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 3 |
 | params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
@@ -1089,7 +999,7 @@ Traces the specified endpoint with the specified number of packets using `tracer
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
-| params.ipversion | string | Either IPv4 or IPv6 |
+| params.ipversion | string | either IPv4 or IPv6 |
 | params?.packets | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 5 |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
@@ -1888,8 +1798,8 @@ Triggered when an IP Address is assigned or lost.
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | params.ipaddress | string | The IP address |
-| params.ipversion | string | Either IPv4 or IPv6 |
-| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') |
+| params.ipversion | string | either IPv4 or IPv6 |
+| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') (must be one of the following: *`ACQUIRED`*, *`LOST`*) |
 
 ### Example
 
@@ -1974,10 +1884,10 @@ Triggered when scan completes or when scan cancelled.
 | params | object |  |
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
-| params.ssids[#].ssid | string | Ssid |
-| params.ssids[#].security | integer | Security |
-| params.ssids[#].strength | string | Strength |
-| params.ssids[#].frequency | string | Frequency |
+| params.ssids[#].ssid | string | ssid |
+| params.ssids[#].security | integer | security |
+| params.ssids[#].strength | string | strength |
+| params.ssids[#].frequency | string | frequency |
 
 ### Example
 

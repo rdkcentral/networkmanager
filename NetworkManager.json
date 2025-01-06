@@ -665,49 +665,6 @@
                 ]
             }
         },
-        "StartConnectivityMonitoring":{
-            "summary": "Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval. When the interval is not passed, it will be 60s by default.",
-            "events":{
-                 "onInternetStatusChange" : "Triggered when internet connection state changed."
-            },
-            "params": {
-                "type":"object",
-                "properties": {
-                    "interval": {
-                        "summary": "Interval in sec.",
-                        "type": "number",
-                        "example": "30"
-                    }
-                },
-                "required": [
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success":{
-                        "$ref": "#/definitions/success"
-                    }
-                },
-                "required": [
-                    "success"
-                ]
-            }
-        },
-        "StopConnectivityMonitoring":{
-            "summary": "Stops the connectivity monitoring",
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success":{
-                        "$ref": "#/definitions/success"
-                    }
-                },
-                "required": [
-                    "success"
-                ]
-            }
-        },
         "GetPublicIP":{
             "summary": "Gets the internet/public IP Address of the device.",
             "params": {

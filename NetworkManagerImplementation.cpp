@@ -277,20 +277,6 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Start The Internet Connectivity Monitoring */
-        uint32_t NetworkManagerImplementation::StartConnectivityMonitoring(const uint32_t interval/* @in */)
-        {
-            LOG_ENTRY_FUNCTION();
-            return Core::ERROR_NONE;
-        }
-
-        /* @brief Stop The Internet Connectivity Monitoring */
-        uint32_t NetworkManagerImplementation::StopConnectivityMonitoring(void) const
-        {
-            LOG_ENTRY_FUNCTION();
-            return Core::ERROR_NONE;
-        }
-
         /* @brief Get the Public IP used for external world communication */
         uint32_t NetworkManagerImplementation::GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */)
         {

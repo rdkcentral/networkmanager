@@ -536,6 +536,7 @@ namespace WPEFramework
                         _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
         }
 
+        NMLOG_INFO("connectivity monitor is started");
         return true;
     }
 
@@ -548,7 +549,7 @@ namespace WPEFramework
         m_InternetState = INTERNET_UNKNOWN;
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
-        NMLOG_INFO("connectivity monitor stopping ...");
+        NMLOG_INFO("connectivity monitor stoped !!!");
         return true;
     }
 
