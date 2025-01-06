@@ -247,10 +247,9 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @in */, InternetStatus &result /* @out */)
+         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            Exchange::INetworkManager::InternetStatus internetState;
             Exchange::INetworkManager::IPVersion ipVersion = Exchange::INetworkManager::IP_ADDRESS_V4;
             bool ipVersionNotSpecified = false;
             if(0 == strcasecmp("IPv4", ipversion.c_str()))

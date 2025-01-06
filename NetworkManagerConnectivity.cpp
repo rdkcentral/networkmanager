@@ -497,7 +497,8 @@ namespace WPEFramework
     {
         if(ipVersionNotSpecified) {
             ipversion = m_ipversion;
-           return m_InternetState.load();
+            NMLOG_DEBUG("ipversion %s - %s", ipversion == IP_ADDRESS_V4? "IPv4":"IPv6", getInternetStateString(m_InternetState.load()));
+            return m_InternetState.load();
         }
         else if(ipversion == IP_ADDRESS_V4)
             return m_Ipv4InternetState.load();
