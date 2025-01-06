@@ -29,6 +29,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerLogger.h"
+#include "INetworkManager.h"
 
 namespace WPEFramework
 {
@@ -37,14 +38,23 @@ namespace WPEFramework
 
     extern NetworkManagerImplementation* _instance;
 
-    static const char* getInternetStateString(nsm_internetState state)
+    constexpr auto INTERNET_NOT_AVAILABLE = Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE;
+    constexpr auto INTERNET_LIMITED = Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED;
+    constexpr auto INTERNET_CAPTIVE_PORTAL = Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL;
+    constexpr auto INTERNET_FULLY_CONNECTED = Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
+    constexpr auto INTERNET_UNKNOWN = Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN;
+
+    constexpr auto IP_ADDRESS_V4 = Exchange::INetworkManager::IPVersion::IP_ADDRESS_V4;
+    constexpr auto IP_ADDRESS_V6 = Exchange::INetworkManager::IPVersion::IP_ADDRESS_V6;
+
+    static const char* getInternetStateString(Exchange::INetworkManager::InternetStatus state)
     {
         switch(state)
         {
-            case NO_INTERNET: return "NO_INTERNET";
-            case LIMITED_INTERNET: return "LIMITED_INTERNET";
-            case CAPTIVE_PORTAL: return "CAPTIVE_PORTAL";
-            case FULLY_CONNECTED: return "FULLY_CONNECTED";
+            case INTERNET_NOT_AVAILABLE: return "NO_INTERNET";
+            case INTERNET_LIMITED: return "LIMITED_INTERNET";
+            case INTERNET_CAPTIVE_PORTAL: return "CAPTIVE_PORTAL";
+            case INTERNET_FULLY_CONNECTED: return "FULLY_CONNECTED";
             default: return "UNKNOWN";
         }
     }
@@ -143,14 +153,14 @@ namespace WPEFramework
         return m_Endpoints;
     }
 
-    bool DnsResolver::resolveIP(std::string& uri, nsm_ipversion ipversion)
+    bool DnsResolver::resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion)
     {
         struct addrinfo sockAddrProps, *resultAddr= NULL;
         char ipStr[INET6_ADDRSTRLEN] = {0};
 
-        if(ipversion == NSM_IPRESOLVE_V4)
+        if(ipversion == IP_ADDRESS_V4)
             sockAddrProps.ai_family = AF_INET;
-        else if(ipversion == NSM_IPRESOLVE_V6)
+        else if(ipversion == IP_ADDRESS_V6)
             sockAddrProps.ai_family = AF_INET6;
         else
             sockAddrProps.ai_family = AF_UNSPEC;
@@ -205,21 +215,33 @@ namespace WPEFramework
             return url.substr(domainStart);
     }
 
-    DnsResolver::DnsResolver(std::string url, nsm_ipversion ipversion)
+    DnsResolver::DnsResolver(std::string url, Exchange::INetworkManager::IPVersion ipversion, int curlErrorCode)
     {
-        NMLOG_DEBUG("DnsResolver constructor %s - %d", url.c_str(), ipversion);
+        NMLOG_DEBUG("url %s - ipversion %d - curl error %d ", url.c_str(), ipversion, curlErrorCode);
         if(url.empty()) {
             NMLOG_ERROR("URI/hostname missing");
             return;
         }
-
-        m_domain = convertUrIToDomainName(url);
-        resolveIP(m_domain, ipversion);
+        switch (curlErrorCode)
+        {
+            case CURLE_COULDNT_RESOLVE_HOST:    // 6 - Could not resolve host
+            case CURLE_OPERATION_TIMEDOUT:      // 28 - Operation timeout. time-out period
+            case CURLE_RECV_ERROR:              // 56 - Failure with receiving network data
+            {
+                m_domain = convertUrIToDomainName(url);
+                resolveIP(m_domain, ipversion);
+                break;
+            }
+            default:
+                ipv4Resolved = false;
+                ipv6Resolved = false;
+                break;
+        }
     }
 
-    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, nsm_ipversion ipversion)
+    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion)
     {
-        internetSate = UNKNOWN;
+        internetSate = INTERNET_UNKNOWN;
         if(endpoints.size() < 1) {
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
             return;
@@ -246,7 +268,7 @@ namespace WPEFramework
         return size * nmemb;
     }
 
-    nsm_internetState TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, nsm_ipversion ipversion)
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion)
     {
         long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
 
@@ -254,7 +276,7 @@ namespace WPEFramework
         if (!curl_multi_handle)
         {
             NMLOG_ERROR("curl_multi_init returned NULL");
-            return NO_INTERNET;
+            return INTERNET_NOT_AVAILABLE;
         }
 
         CURLMcode mc;
@@ -283,15 +305,17 @@ namespace WPEFramework
             }
             curl_easy_setopt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
             curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
-            if ((ipversion == CURL_IPRESOLVE_V4) || (ipversion == CURL_IPRESOLVE_V6))
-            {
-                NMLOG_DEBUG("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"IPv4":"IPv6", headReq? "HEAD":"GET");
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, ipversion);
+            if (IP_ADDRESS_V4 == ipversion) {
+                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
+            }
+            else if (IP_ADDRESS_V6 == ipversion) {
+                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+                NMLOG_DEBUG("curlopt ipversion = IPv6 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else
-            {
                 NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
-            }
+
             if(curlVerboseEnabled())
                 curl_easy_setopt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
             if (CURLM_OK != (mc = curl_multi_add_handle(curl_multi_handle, curl_easy_handle)))
@@ -332,8 +356,10 @@ namespace WPEFramework
                         }
                     }
                 }
-                else
+                else {
                     NMLOG_ERROR("endpoint = <%s> curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    curlErrorCode = static_cast<int>(msg->data.result);
+                }
                 http_responses.push_back(response_code);
             }
             time_earlier = time_now;
@@ -391,9 +417,9 @@ namespace WPEFramework
     *      Return Internet State: FULLY_CONNECTED - 50 %
     */
 
-    nsm_internetState TestConnectivity::checkInternetStateFromResponseCode(const std::vector<int>& responses)
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkInternetStateFromResponseCode(const std::vector<int>& responses)
     {
-        nsm_internetState InternetConnectionState = NO_INTERNET;
+        Exchange::INetworkManager::InternetStatus InternetConnectionState = INTERNET_NOT_AVAILABLE;
         nsm_connectivity_httpcode http_response_code = HttpStatus_response_error;
 
         int max_count = 0;
@@ -416,20 +442,20 @@ namespace WPEFramework
             switch (http_response_code)
             {
                 case HttpStatus_204_No_Content:
-                    InternetConnectionState = FULLY_CONNECTED;
+                    InternetConnectionState = INTERNET_FULLY_CONNECTED;
                     NMLOG_INFO("Internet State: FULLY_CONNECTED - %.1f%%", (percentage*100));
                 break;
                 case HttpStatus_200_OK:
-                    InternetConnectionState = LIMITED_INTERNET;
+                    InternetConnectionState = INTERNET_LIMITED;
                     NMLOG_INFO("Internet State: LIMITED_INTERNET - %.1f%%", (percentage*100));
                 break;
                 case HttpStatus_511_Authentication_Required:
                 case HttpStatus_302_Found:
-                    InternetConnectionState = CAPTIVE_PORTAL;
+                    InternetConnectionState = INTERNET_CAPTIVE_PORTAL;
                     NMLOG_INFO("Internet State: CAPTIVE_PORTAL - %.1f%%", (percentage*100));
                 break;
                 default:
-                    InternetConnectionState = NO_INTERNET;
+                    InternetConnectionState = INTERNET_NOT_AVAILABLE;
                     if(http_response_code == -1)
                         NMLOG_ERROR("Internet State: NO_INTERNET (curl error)");
                     else
@@ -442,11 +468,13 @@ namespace WPEFramework
 
     ConnectivityMonitor::ConnectivityMonitor()
     {
+        NMLOG_WARNING("ConnectivityMonitor");
         m_cmRunning = false;
         m_notify = true;
-        m_InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv4InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv6InternetState = nsm_internetState::UNKNOWN;
+        m_InternetState = INTERNET_UNKNOWN;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
+        startConnectivityMonitor();
     }
 
     ConnectivityMonitor::~ConnectivityMonitor()
@@ -465,43 +493,23 @@ namespace WPEFramework
         m_endpoint.setConnectivityMonitorEndpoints(endpoints);
     }
 
-    bool ConnectivityMonitor::isConnectedToInternet(nsm_ipversion ipversion)
+    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
-        if (nsm_internetState::FULLY_CONNECTED == getInternetState(ipversion))
-        {
-            NMLOG_INFO("isConnectedToInternet %s = true", (ipversion == nsm_ipversion::NSM_IPRESOLVE_WHATEVER)?"":(ipversion == nsm_ipversion::NSM_IPRESOLVE_V4? "IPv4":"IPv6"));
-            return true;
+        if(ipVersionNotSpecified) {
+            ipversion = m_ipversion;
+           return m_InternetState.load();
         }
-        NMLOG_WARNING("isConnectedToInternet %s = false",(ipversion == nsm_ipversion::NSM_IPRESOLVE_WHATEVER)?"":(ipversion == nsm_ipversion::NSM_IPRESOLVE_V4? "IPv4":"IPv6") );
-        return false;
-    }
-
-    nsm_internetState ConnectivityMonitor::getInternetState(nsm_ipversion& ipversion)
-    {
-        nsm_internetState internetState = nsm_internetState::UNKNOWN;
-
-        switch (ipversion)
-        {
-            case NSM_IPRESOLVE_V4:
-                internetState = m_Ipv4InternetState;
-                break;
-            case NSM_IPRESOLVE_V6:
-                internetState = m_Ipv6InternetState;
-                break;
-            case NSM_IPRESOLVE_WHATEVER:
-                internetState = m_InternetState;
-                break;
-            default:
-                NMLOG_ERROR("Unknown IP version");
-                return internetState;
-        }
-
-        return internetState;
+        else if(ipversion == IP_ADDRESS_V4)
+            return m_Ipv4InternetState.load();
+        else if(ipversion == IP_ADDRESS_V6)
+            return m_Ipv6InternetState.load();
+        else
+            return INTERNET_UNKNOWN;
     }
 
     std::string ConnectivityMonitor::getCaptivePortalURI()
     {
-        if(m_Ipv4InternetState == nsm_internetState::CAPTIVE_PORTAL || m_Ipv6InternetState == nsm_internetState::CAPTIVE_PORTAL)
+        if(m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL || m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
         {
             NMLOG_INFO("captive portal URI = %s", m_captiveURI.c_str());
             return m_captiveURI;
@@ -522,7 +530,6 @@ namespace WPEFramework
 
         m_cmRunning = true;
         m_cmThrdID = std::thread(&ConnectivityMonitor::connectivityMonitorFunction, this);
-        m_cmThrdID.detach();
 
         if(_instance != nullptr) {
             NMLOG_INFO("connectivity monitor started - eth %s - wlan %s", 
@@ -536,6 +543,11 @@ namespace WPEFramework
     {
         m_cmRunning = false;
         m_cmCv.notify_one();
+        if(m_cmThrdID.joinable())
+            m_cmThrdID.join();
+        m_InternetState = INTERNET_UNKNOWN;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
         NMLOG_INFO("connectivity monitor stopping ...");
         return true;
     }
@@ -545,17 +557,20 @@ namespace WPEFramework
         m_switchToInitial = true;
         m_notify = true; // m_notify internet state because some network state change may happen
         m_cmCv.notify_one();
-        NMLOG_INFO("switching to initial check");
+        if(_instance != nullptr) {
+            NMLOG_INFO("switching to initial check - eth %s - wlan %s",
+                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+        }
         return true;
     }
 
-    void ConnectivityMonitor::notifyInternetStatusChangedEvent(nsm_internetState newInternetState)
+    void ConnectivityMonitor::notifyInternetStatusChangedEvent(Exchange::INetworkManager::InternetStatus newInternetState)
     {
-        static Exchange::INetworkManager::InternetStatus oldState = Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN;
+        static Exchange::INetworkManager::InternetStatus oldState = INTERNET_UNKNOWN;
         if(_instance != nullptr)
         {
             NMLOG_INFO("notifying internet state %s", getInternetStateString(newInternetState));
-            Exchange::INetworkManager::InternetStatus newState = static_cast<Exchange::INetworkManager::InternetStatus>(newInternetState);
+            Exchange::INetworkManager::InternetStatus newState = newInternetState;
             _instance->ReportInternetStatusChange(oldState , newState);
             m_InternetState = newInternetState;
             oldState = newState; // 'm_InternetState' not exactly previous state, it may change to unknow when interface changed
@@ -567,14 +582,13 @@ namespace WPEFramework
     void ConnectivityMonitor::connectivityMonitorFunction()
     {
         int timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-        nsm_ipversion ipVersion = NSM_IPRESOLVE_WHATEVER;
-        nsm_internetState currentInternetState = NO_INTERNET;
+        Exchange::INetworkManager::InternetStatus currentInternetState = INTERNET_NOT_AVAILABLE;
         int InitialRetryCount = 0;
         int IdealRetryCount = 0;
         m_switchToInitial = true;
-        m_InternetState = UNKNOWN;
-        m_Ipv4InternetState = UNKNOWN;
-        m_Ipv6InternetState = UNKNOWN;
+        m_InternetState = INTERNET_UNKNOWN;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
         m_notify = true;
 
         while (m_cmRunning) {
@@ -582,10 +596,10 @@ namespace WPEFramework
             if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
                 NMLOG_DEBUG("no interface connected, no ccm check");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-                m_InternetState = NO_INTERNET;
-                m_Ipv4InternetState = NO_INTERNET;
-                m_Ipv6InternetState = NO_INTERNET;
-                currentInternetState = NO_INTERNET;
+                m_InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                currentInternetState = INTERNET_NOT_AVAILABLE;
                 if (InitialRetryCount == 0)
                     m_notify = true;
                 InitialRetryCount = 1;
@@ -598,17 +612,17 @@ namespace WPEFramework
                 // Lambda functions to check connectivity for IPv4 and IPv6
                 auto curlCheckThrdIpv4 = [&]() {
                     TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, NSM_IPRESOLVE_V4);
+                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, IP_ADDRESS_V4);
                     m_Ipv4InternetState = testInternet.getInternetState();
-                    if(m_Ipv6InternetState == CAPTIVE_PORTAL)
+                    if(m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
                 auto curlCheckThrdIpv6 = [&]() {
                     TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, NSM_IPRESOLVE_V6);
+                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, IP_ADDRESS_V6);
                     m_Ipv6InternetState = testInternet.getInternetState();
-                    if(m_Ipv6InternetState == CAPTIVE_PORTAL)
+                    if(m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
@@ -621,24 +635,27 @@ namespace WPEFramework
                 ipv6thread.join();
 
                 // Determine the current internet state based on the results
-                if (m_Ipv4InternetState == NO_INTERNET && m_Ipv6InternetState == NO_INTERNET) {
-                    currentInternetState = NO_INTERNET;
+                if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
                     if (InitialRetryCount == 0)
                         m_notify = true;
                     InitialRetryCount = 1; // continue same check for 5 sec
                 } else {
-                    if (m_Ipv4InternetState == FULLY_CONNECTED || m_Ipv6InternetState == FULLY_CONNECTED) {
-                        currentInternetState = FULLY_CONNECTED;
-                        ipVersion = (m_Ipv4InternetState == FULLY_CONNECTED) ? NSM_IPRESOLVE_V4 : NSM_IPRESOLVE_V6;
-                    } else if (m_Ipv4InternetState == CAPTIVE_PORTAL || m_Ipv6InternetState == CAPTIVE_PORTAL) {
-                        currentInternetState = CAPTIVE_PORTAL;
-                        ipVersion = (m_Ipv4InternetState == CAPTIVE_PORTAL) ? NSM_IPRESOLVE_V4 : NSM_IPRESOLVE_V6;
-                    } else if (m_Ipv4InternetState == LIMITED_INTERNET || m_Ipv6InternetState == LIMITED_INTERNET) {
-                        currentInternetState = LIMITED_INTERNET;
-                        ipVersion = (m_Ipv4InternetState == LIMITED_INTERNET) ? NSM_IPRESOLVE_V4 : NSM_IPRESOLVE_V6;
+                    if (m_Ipv4InternetState == INTERNET_FULLY_CONNECTED || m_Ipv6InternetState == INTERNET_FULLY_CONNECTED)
+                    {
+                        currentInternetState = INTERNET_FULLY_CONNECTED;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_FULLY_CONNECTED) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
+                    }
+                    else if (m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL || m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
+                    {
+                        currentInternetState = INTERNET_CAPTIVE_PORTAL;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
+                    } else if (m_Ipv4InternetState == INTERNET_LIMITED || m_Ipv6InternetState == INTERNET_LIMITED) {
+                        currentInternetState = INTERNET_LIMITED;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_LIMITED) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
                     } else {
-                        currentInternetState = NO_INTERNET;
-                        ipVersion = NSM_IPRESOLVE_WHATEVER;
+                        currentInternetState = INTERNET_NOT_AVAILABLE;
+                        m_ipversion = IP_ADDRESS_V4;
                     }
 
                     if (InitialRetryCount == 0)
@@ -666,32 +683,33 @@ namespace WPEFramework
                 InitialRetryCount = 0;
 
                 TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                                NMCONNECTIVITY_CURL_HEAD_REQUEST, ipVersion);
+                                                NMCONNECTIVITY_CURL_HEAD_REQUEST, m_ipversion);
                 currentInternetState = testInternet.getInternetState();
 
-                if (currentInternetState == CAPTIVE_PORTAL) // if captive portal found copy the URL
+                if (currentInternetState == INTERNET_CAPTIVE_PORTAL) // if captive portal found copy the URL
                     m_captiveURI = testInternet.getCaptivePortal();
 
                 if (currentInternetState != m_InternetState)
                 {
-                    if (currentInternetState == NO_INTERNET && m_InternetState == FULLY_CONNECTED)
+                    if (currentInternetState == INTERNET_NOT_AVAILABLE && m_InternetState == INTERNET_FULLY_CONNECTED)
                     {
-                        DnsResolver dnsResolver(getConnectivityMonitorEndpoints()[0], ipVersion); // only first endpoint with specific ipversion
+                        DnsResolver dnsResolver(getConnectivityMonitorEndpoints()[0], m_ipversion, testInternet.getCurlError() ); // only first endpoint with specific ipversion
                         if (dnsResolver()) {
                             NMLOG_INFO("DNS resolved, success !!!");
                             IdealRetryCount = 0;
-                            currentInternetState = FULLY_CONNECTED;
+                            currentInternetState = INTERNET_FULLY_CONNECTED;
                         }
-                        else 
+                        else
                         {
                             NMLOG_WARNING("DNS resolve failed !!!");
                             timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
                             IdealRetryCount++;
                             if (IdealRetryCount >= NM_CONNECTIVITY_MONITOR_RETRY_COUNT) {
                                 IdealRetryCount = 0;
-                                m_InternetState = NO_INTERNET;
-                                m_Ipv4InternetState = NO_INTERNET;
-                                m_Ipv6InternetState = NO_INTERNET; // reset all states to NO_INTERNET
+                                m_InternetState = INTERNET_NOT_AVAILABLE;
+                                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE; // reset all states to NO_INTERNET
+                                currentInternetState = INTERNET_NOT_AVAILABLE;
                                 m_switchToInitial = true; // switch to initial check after 3 retries
                                 InitialRetryCount = 1; // reset initial retry count it will not post the event
                                 m_notify = true;
@@ -707,9 +725,9 @@ namespace WPEFramework
                         InitialRetryCount = 0;
                         IdealRetryCount = 0;
 
-                        if (ipVersion == NSM_IPRESOLVE_V4)
+                        if (m_ipversion == IP_ADDRESS_V4)
                             m_Ipv4InternetState = currentInternetState;
-                        else if (ipVersion == NSM_IPRESOLVE_V6)
+                        else if (m_ipversion == IP_ADDRESS_V4)
                             m_Ipv6InternetState = currentInternetState;
                         else
                             m_InternetState = currentInternetState;

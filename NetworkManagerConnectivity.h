@@ -28,20 +28,7 @@
 #include <cstdlib>
 #include <fstream>
 
-enum nsm_ipversion
-{
-    NSM_IPRESOLVE_WHATEVER  = 0, /* default, resolves addresses to all IP*/
-    NSM_IPRESOLVE_V4        = 1, /* resolve to IPv4 addresses */
-    NSM_IPRESOLVE_V6        = 2  /* resolve to IPv6 addresses */
-};
-
-enum nsm_internetState {
-    NO_INTERNET,
-    LIMITED_INTERNET,
-    CAPTIVE_PORTAL,
-    FULLY_CONNECTED,
-    UNKNOWN,
-};
+#include "INetworkManager.h"
 
 enum nsm_connectivity_httpcode {
     HttpStatus_response_error               = 99,
@@ -72,7 +59,7 @@ namespace WPEFramework
         class DnsResolver
         {
             public:
-                DnsResolver(std::string url, nsm_ipversion ipversion = NSM_IPRESOLVE_WHATEVER);
+                DnsResolver(std::string url, Exchange::INetworkManager::IPVersion ipversion, int curlErrorCode);
                 ~DnsResolver(){};
                 bool operator()() { return (ipv6Resolved || ipv4Resolved);}
 
@@ -81,7 +68,7 @@ namespace WPEFramework
                 bool ipv4Resolved = false;
                 bool ipv6Resolved = false;
                 std::string convertUrIToDomainName(std::string& url);
-                bool resolveIP(std::string& uri, nsm_ipversion ipversion = NSM_IPRESOLVE_WHATEVER);
+                bool resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion);
         };
 
         /*
@@ -110,15 +97,17 @@ namespace WPEFramework
             const TestConnectivity& operator=(const TestConnectivity&) = delete;
 
         public:
-            TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms = 2000, bool  = true, nsm_ipversion ipversion = NSM_IPRESOLVE_WHATEVER);
+            TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion);
             ~TestConnectivity(){}
             std::string getCaptivePortal() {return captivePortalURI;}
-            nsm_internetState getInternetState(){return internetSate;}
+            Exchange::INetworkManager::InternetStatus getInternetState(){return internetSate;}
+            int getCurlError(){return curlErrorCode;}
         private:
-            nsm_internetState checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, nsm_ipversion ipversion);
-            nsm_internetState checkInternetStateFromResponseCode(const std::vector<int>& responses);
+            Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion);
+            Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
-            nsm_internetState internetSate;
+            Exchange::INetworkManager::InternetStatus internetSate;
+            int curlErrorCode = 0;
         };
 
         class ConnectivityMonitor
@@ -131,15 +120,14 @@ namespace WPEFramework
             bool switchToInitialCheck();
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
-            bool isConnectedToInternet(nsm_ipversion ipversion);
-            nsm_internetState getInternetState(nsm_ipversion& ipversion);
+            Exchange::INetworkManager::InternetStatus getInternetState(Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified = false);
             std::string getCaptivePortalURI();
 
         private:
             ConnectivityMonitor(const ConnectivityMonitor&) = delete;
             ConnectivityMonitor& operator=(const ConnectivityMonitor&) = delete;
             void connectivityMonitorFunction();
-            void notifyInternetStatusChangedEvent(nsm_internetState newState);
+            void notifyInternetStatusChangedEvent(Exchange::INetworkManager::InternetStatus newState);
             /* connectivity monitor */
             std::thread m_cmThrdID;
             std::atomic<bool> m_cmRunning;
@@ -148,9 +136,10 @@ namespace WPEFramework
             std::atomic<bool> m_notify;
             std::atomic<bool> m_switchToInitial;
             std::string m_captiveURI;
-            std::atomic<nsm_internetState> m_InternetState;
-            std::atomic<nsm_internetState> m_Ipv4InternetState;
-            std::atomic<nsm_internetState> m_Ipv6InternetState;
+            std::atomic<Exchange::INetworkManager::InternetStatus> m_InternetState; // IPv4 or IPv6
+            std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv4InternetState; //  IPv4
+            std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv6InternetState; //  IPv6
+            std::atomic<Exchange::INetworkManager::IPVersion> m_ipversion; //  IPv6
             /* manages endpoints */
             EndpointManager m_endpoint;
         };
