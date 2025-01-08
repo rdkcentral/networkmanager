@@ -82,7 +82,8 @@ namespace WPEFramework
             const gchar *existingKeyMgmt = nullptr;
             const gchar *existingPSK = nullptr;
             const gchar *existingSSID = nullptr;
-
+            GVariant *existingIPv4Settings = nullptr;
+            GVariant *existingIPv6Settings = nullptr;
 
             g_variant_get(connectionSettings, "(a{sa{sv}})", &iterator);
             while (g_variant_iter_loop(iterator, "{&s@a{sv}}", &settingsKey, &settingsDict)) {
@@ -123,7 +124,12 @@ namespace WPEFramework
                     } else if (g_strcmp0(key, "psk") == 0) {
                         existingPSK = g_variant_get_string(value, NULL);
                         NMLOG_DEBUG("psk: %s\n", existingPSK);
+                    } else if (g_strcmp0(settingsKey, "ipv4") == 0) {
+                        existingIPv4Settings = g_variant_ref(settingsDict);
+                    } else if (g_strcmp0(settingsKey, "ipv6") == 0) {
+                        existingIPv6Settings = g_variant_ref(settingsDict);
                     }
+
                 }
             }
             g_variant_iter_free(iterator);
@@ -167,8 +173,10 @@ namespace WPEFramework
             GVariantBuilder ipv6Builder;
             g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
 
-            g_variant_builder_add(&ipv4Builder, "{sv}", "method", g_variant_new_string(existingIPv4Method));
-            g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(existingIPv6Method));
+            GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, 1);
+            GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, 1);
+            /*g_variant_builder_add(&ipv4Builder, "{sv}", "method", g_variant_new_string(existingIPv4Method));
+            g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(existingIPv6Method));*/
             g_variant_builder_add(&ipv4Builder, "{sv}", "route-metric", g_variant_new_int64(route_metric));
             g_variant_builder_add(&ipv6Builder, "{sv}", "route-metric", g_variant_new_int64(route_metric));
 
@@ -242,6 +250,8 @@ namespace WPEFramework
             const gchar *existingKeyMgmt = nullptr;
             const gchar *existingPSK = nullptr;
             const gchar *existingSSID = nullptr;
+            GVariant *existingIPv4Settings = nullptr;
+            GVariant *existingIPv6Settings = nullptr;
 
 
             g_variant_get(connectionSettings, "(a{sa{sv}})", &iterator);
@@ -272,6 +282,10 @@ namespace WPEFramework
                     } else if (g_strcmp0(key, "psk") == 0) {
                         existingPSK = g_variant_get_string(value, NULL);
                         NMLOG_DEBUG("psk: %s\n", existingPSK);
+                    } else if (g_strcmp0(settingsKey, "ipv4") == 0) {
+                        existingIPv4Settings = g_variant_ref(settingsDict);
+                    } else if (g_strcmp0(settingsKey, "ipv6") == 0) {
+                        existingIPv6Settings = g_variant_ref(settingsDict);
                     }
                 }
             }
@@ -316,20 +330,12 @@ namespace WPEFramework
             GVariantBuilder ipv4Builder;
             GVariantBuilder ipv6Builder;
 
+            g_variant_builder_init(&ipv4Builder, G_VARIANT_TYPE("a{sv}"));
+            g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
             if (g_strcmp0(address.ipversion.c_str(), "IPv4") == 0)
             {
-                g_variant_builder_init(&ipv4Builder, G_VARIANT_TYPE("a{sv}"));
                 g_variant_builder_add(&ipv4Builder, "{sv}", "method", g_variant_new_string(address.autoconfig ? "auto" : "manual"));
-            }
-            else
-            {
-                g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
-                g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(address.autoconfig ? "auto" : "manual"));
-            }
-
-            if(!address.autoconfig)
-            {
-                if (g_strcmp0(address.ipversion.c_str(), "IPv4") == 0)
+                if(!address.autoconfig)
                 {
                     // addresses
                     g_variant_builder_init(&addressesBuilder, G_VARIANT_TYPE("aau"));
@@ -353,7 +359,24 @@ namespace WPEFramework
                     g_variant_builder_add(&ipv4Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
                 }
-                else if (g_strcmp0(address.ipversion.c_str(), "IPv6") == 0)
+                /*else
+                {
+                    if (existingIPv4Settings) {
+                        GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder);
+                        g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
+                        g_variant_unref(existingIPv4Settings);
+                    }
+                }*/
+                if (existingIPv6Settings) {
+                    GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, 0);
+                    g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
+                    g_variant_unref(existingIPv6Settings);
+                }
+            }
+            else if (g_strcmp0(address.ipversion.c_str(), "IPv6") == 0)
+            {
+                g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(address.autoconfig ? "auto" : "manual"));
+                if(!address.autoconfig)
                 {
                     // addresses
                     g_variant_builder_init(&addressesBuilder, G_VARIANT_TYPE("a(ayuay)"));
@@ -378,6 +401,19 @@ namespace WPEFramework
                     g_variant_builder_add(&ipv6Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
 
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
+                }
+               /* else
+                {
+                    if (existingIPv6Settings) {
+                        GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder);
+                        g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
+                        g_variant_unref(existingIPv6Settings);
+                    }
+                }*/
+                if (existingIPv4Settings) {
+                    GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, 0);
+                    g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
+                    g_variant_unref(existingIPv4Settings);
                 }
             }
 
@@ -494,9 +530,9 @@ namespace WPEFramework
                         }
                         if (!g_strcmp0(iface, GnomeUtils::getWifiIfname()) || !g_strcmp0(iface, GnomeUtils::getEthIfname())) {
                             if(interface == iface)
-                                routeMetric = 10;
+                                routeMetric = ROUTE_METRIC_PRIORITY_HIGH;
                             else
-                                routeMetric = 100;
+                                routeMetric = ROUTE_METRIC_PRIORITY_LOW;
                             if(!updateRouteMetric(m_dbus, connectionPath, routeMetric, iface, activeConnectionPath))
                             {
                                 NMLOG_ERROR("Error: Failed to update route metric for Interface %s", iface);

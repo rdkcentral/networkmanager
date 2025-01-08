@@ -715,6 +715,24 @@ namespace WPEFramework
             inet_ntop(AF_INET6, ipv6, buf, sizeof(buf));
             return std::string(buf);
         }
+
+        // Helper function to add elements from GVariant to GVariantBuilder
+        void GnomeUtils::addGvariantToBuilder(GVariant *variant, GVariantBuilder *builder, gboolean excludeRouteMetric) {
+            GVariantIter iter;
+
+            const gchar *key;
+            GVariant *value;
+            g_variant_iter_init(&iter, variant);
+
+            // Iterate through key-value pairs in the dictionary
+            while (g_variant_iter_loop(&iter, "{&sv}", &key, &value)) {
+                if (excludeRouteMetric && strcmp(key, "route-metric") == 0) {
+                    // Skip adding this key-value pair if exclude_route_metric is TRUE and key is "route-metric"
+                    continue;
+                }
+                g_variant_builder_add(builder, "{sv}", key, value);
+            }
+        }
     } // Plugin
 } // WPEFramework
 

@@ -83,6 +83,7 @@ namespace WPEFramework
                 static std::array<guint8, 16> ip6StrToNBO(const std::string &ipAddress);
                 static std::string ip4ToString(uint32_t ip);
                 static std::string ip6ToString(const uint8_t *ipv6);
+                static void addGvariantToBuilder(GVariant *variant, GVariantBuilder *builder, gboolean excludeRouteMetric);
 
                 static bool convertSsidInfoToJsonObject(Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo, JsonObject& ssidObj);
                 static const char* convertPercentageToSignalStrengtStr(int percentage);

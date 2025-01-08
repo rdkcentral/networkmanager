@@ -318,7 +318,7 @@ int main()
                 std::string input;
                 bool autoConfig;
                 std::string ipAddress;
-                uint32_t prefix;
+                uint32_t prefix = 0;
                 std::string gateway;
                 std::string primarydns;
                 std::string secondarydns;
@@ -334,22 +334,25 @@ int main()
                 std::getline(std::cin, input);
                 autoConfig = (input == "true")? true: false;
 
-                std::cout << "Enter IP address: ";
-                std::getline(std::cin, ipAddress);
+                if(!autoConfig)
+                {
+                    std::cout << "Enter IP address: ";
+                    std::getline(std::cin, ipAddress);
 
-                // For prefix, use std::cin because it's a uint32_t
-                std::cout << "Enter prefix length: ";
-                std::cin >> prefix;
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Ignore leftover newline
+                    // For prefix, use std::cin because it's a uint32_t
+                    std::cout << "Enter prefix length: ";
+                    std::cin >> prefix;
+                    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Ignore leftover newline
 
-                std::cout << "Enter gateway: ";
-                std::getline(std::cin, gateway);
+                    std::cout << "Enter gateway: ";
+                    std::getline(std::cin, gateway);
 
-                std::cout << "Enter primary DNS: ";
-                std::getline(std::cin, primarydns);
+                    std::cout << "Enter primary DNS: ";
+                    std::getline(std::cin, primarydns);
 
-                std::cout << "Enter secondary DNS: ";
-                std::getline(std::cin, secondarydns);
+                    std::cout << "Enter secondary DNS: ";
+                    std::getline(std::cin, secondarydns);
+                }
                 address.ipversion = ipVersion;
                 address.autoconfig = autoConfig;
                 address.ipaddress = ipAddress;

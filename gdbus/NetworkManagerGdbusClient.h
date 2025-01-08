@@ -27,6 +27,8 @@
 #include "NetworkManagerGdbusMgr.h"
 #include "INetworkManager.h"
 
+#define ROUTE_METRIC_PRIORITY_HIGH 10
+#define ROUTE_METRIC_PRIORITY_LOW  100
 namespace WPEFramework
 {
     namespace Plugin
