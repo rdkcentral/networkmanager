@@ -173,8 +173,8 @@ namespace WPEFramework
             GVariantBuilder ipv6Builder;
             g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
 
-            GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, 1);
-            GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, 1);
+            GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, true);
+            GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, true);
             /*g_variant_builder_add(&ipv4Builder, "{sv}", "method", g_variant_new_string(existingIPv4Method));
             g_variant_builder_add(&ipv6Builder, "{sv}", "method", g_variant_new_string(existingIPv6Method));*/
             g_variant_builder_add(&ipv4Builder, "{sv}", "route-metric", g_variant_new_int64(route_metric));
@@ -359,16 +359,8 @@ namespace WPEFramework
                     g_variant_builder_add(&ipv4Builder, "{sv}", "gateway", g_variant_new_string(address.gateway.c_str()));
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
                 }
-                /*else
-                {
-                    if (existingIPv4Settings) {
-                        GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder);
-                        g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
-                        g_variant_unref(existingIPv4Settings);
-                    }
-                }*/
                 if (existingIPv6Settings) {
-                    GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, 0);
+                    GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, false);
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
                     g_variant_unref(existingIPv6Settings);
                 }
@@ -402,16 +394,8 @@ namespace WPEFramework
 
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
                 }
-               /* else
-                {
-                    if (existingIPv6Settings) {
-                        GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder);
-                        g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
-                        g_variant_unref(existingIPv6Settings);
-                    }
-                }*/
                 if (existingIPv4Settings) {
-                    GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, 0);
+                    GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, false);
                     g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
                     g_variant_unref(existingIPv4Settings);
                 }
