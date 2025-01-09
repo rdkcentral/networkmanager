@@ -44,6 +44,7 @@ namespace WPEFramework
                 INTERFACE_TYPE_ETHERNET /* @text: ETHERNET */,
                 INTERFACE_TYPE_WIFI     /* @text: WIFI */,
                 INTERFACE_TYPE_P2P      /* @text: P2P */,
+                INTERFACE_TYPE_INVALID  /* @text: Invalid Interface */,
             };
 
             struct EXTERNAL InterfaceDetails {
