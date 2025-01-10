@@ -46,11 +46,20 @@ jobs:
           cmake-version: '3.16.x'
 
       - name: Checkout thunder repositories
-        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
+          
+      - name: Checkout networkmanager
+        uses: actions/checkout@v3
+        with:
+          path: networkmanager 
+
+      - name: Apply Patches
+        run: |
+          cd ${{github.workspace}}/Thunder
+          git apply ${{github.workspace}}/networkmanager/Tests/patches/thunder/Remove-SmartLinkType.patch
 
       - name: Build ThunderTools
         if: steps.cache.outputs.cache-hit != 'true'
@@ -64,7 +73,6 @@ jobs:
           cmake --build build/ThunderTools --target install -j8
 
       - name: Build Thunder
-        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/Thunder" -B build/Thunder
@@ -86,11 +94,6 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
-      - name: Checkout networkmanager
-        uses: actions/checkout@v3
-        with:
-          path: networkmanager
-          
       - name: Build networkmanager with Gnome Proxy
         run: >
           cmake

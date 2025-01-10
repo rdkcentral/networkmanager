@@ -155,7 +155,11 @@ namespace WPEFramework
                 }
                 interface->Release();
             }
-        
+             else
+    	    {
+        	NMLOG_ERROR("The call sign '%s' returns null", callsign.c_str());
+        	return string() ;
+            }
             Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
             m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
 
