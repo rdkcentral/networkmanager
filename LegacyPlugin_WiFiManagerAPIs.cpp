@@ -157,7 +157,7 @@ namespace WPEFramework
             }
             else
     	    {
-        	NMLOG_INFO("The call sign '%s' returns null", callsign.c_str());
+        	NMLOG_ERROR("The call sign '%s' returns null", callsign.c_str());
         	return string() ;
     	    }
         

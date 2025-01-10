@@ -62,6 +62,7 @@ jobs:
           git apply ${{github.workspace}}/networkmanager/Tests/patches/thunder/Remove-SmartLinkType.patch
 
       - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderTools" -B build/ThunderTools
@@ -84,6 +85,7 @@ jobs:
           cmake --build build/Thunder --target install -j8
 
       - name: Build ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
