@@ -606,9 +606,9 @@ namespace WPEFramework
                     m_notify = true;
                 InitialRetryCount = 1;
             }
-            // Initial case monitoring
-            else if (m_switchToInitial) {
-                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(m_InternetState));
+            else if (m_switchToInitial)
+            {
+                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(currentInternetState));
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
                 // Lambda functions to check connectivity for IPv4 and IPv6
@@ -736,6 +736,7 @@ namespace WPEFramework
                     }
                 } else { // ideal case no change in network state
                     IdealRetryCount = 0;
+                    m_InternetState = currentInternetState;
                 }
             }
 

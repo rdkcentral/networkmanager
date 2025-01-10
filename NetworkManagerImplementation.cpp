@@ -58,9 +58,6 @@ namespace WPEFramework
             {
                 m_registrationThread.join();
             }
-
-            /* stoping connectivity monitor */
-            connectivityMonitor.stopConnectivityMonitor();
         }
 
         /**
@@ -250,17 +247,17 @@ namespace WPEFramework
          uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            Exchange::INetworkManager::IPVersion ipVersion = Exchange::INetworkManager::IP_ADDRESS_V4;
+            Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             bool ipVersionNotSpecified = false;
             if(0 == strcasecmp("IPv4", ipversion.c_str()))
-                ipVersion = Exchange::INetworkManager::IP_ADDRESS_V4;
+                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             else if(0 == strcasecmp("IPv6", ipversion.c_str()))
-                ipVersion = Exchange::INetworkManager::IP_ADDRESS_V6;
+                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V6;
             else
                 ipVersionNotSpecified = true;
 
-            result = connectivityMonitor.getInternetState(ipVersion, ipVersionNotSpecified);
-            if (Exchange::INetworkManager::IP_ADDRESS_V6 == ipVersion)
+            result = connectivityMonitor.getInternetState(curlIPversion, ipVersionNotSpecified);
+            if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
                 ipversion = "IPv4";
