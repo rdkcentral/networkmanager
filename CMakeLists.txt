@@ -183,9 +183,12 @@ add_library(${PLUGIN_LEGACY_DEPRECATED_WIFI} SHARED
         Module.cpp
 )
 
+target_include_directories(${PLUGIN_LEGACY_DEPRECATED_WIFI} PRIVATE ${IARMBUS_INCLUDE_DIRS})
+
 target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_WIFI}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+                                        ${IARMBUS_LIBRARIES}
                                     )
 
 if (USE_RDK_LOGGER)

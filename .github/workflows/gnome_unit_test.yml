@@ -73,6 +73,16 @@ jobs:
         with:
           path: networkmanager
           
+      - name: Generate IARM headers
+        run: |
+            touch install/usr/lib/libIARMBus.so 
+            mkdir -p install/usr/include/rdk/iarmbus
+            touch install/usr/include/rdk/iarmbus/libIARM.h
+            cd "${{github.workspace}}/networkmanager/Tests/"
+            mkdir -p headers/rdk/iarmbus
+            cd headers
+            touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
+
       - name: Build networkmanager with Gnome Proxy
         run: >
           cmake
@@ -81,7 +91,9 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
+          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage 
+          -I ${{github.workspace}}/networkmanager/Tests/headers/rdk/iarmbus
+          --include ${{github.workspace}}/networkmanager/Tests/mocks/Iarm.h"
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_UNIT_TESTING=ON
           &&
