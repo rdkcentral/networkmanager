@@ -118,7 +118,6 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
-
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
         message("networkmanager building with gdbus")
@@ -142,6 +141,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
     endif()
 else()
     message("networkmanager building with netsrvmgr")
+    add_definitions(-DENABLE_GET_WIFI_CREDENTIALS)
     target_sources(${MODULE_NAME} PRIVATE NetworkManagerRDKProxy.cpp)
     target_include_directories(${MODULE_NAME} PRIVATE ${IARMBUS_INCLUDE_DIRS})
     target_link_libraries(${MODULE_NAME} PRIVATE ${IARMBUS_LIBRARIES})
@@ -161,7 +161,6 @@ add_library(${PLUGIN_LEGACY_DEPRECATED_NETWORK} SHARED
         NetworkManagerLogger.cpp
         Module.cpp
 )
-
 target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_NETWORK}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
@@ -183,9 +182,12 @@ add_library(${PLUGIN_LEGACY_DEPRECATED_WIFI} SHARED
         Module.cpp
 )
 
+target_include_directories(${PLUGIN_LEGACY_DEPRECATED_WIFI} PRIVATE ${IARMBUS_INCLUDE_DIRS})
+
 target_link_libraries(${PLUGIN_LEGACY_DEPRECATED_WIFI}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+                                        ${IARMBUS_LIBRARIES}
                                     )
 
 if (USE_RDK_LOGGER)

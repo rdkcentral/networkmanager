@@ -20,6 +20,10 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
 
+#ifdef ENABLE_GET_WIFI_CREDENTIALS
+#include "libIBus.h"
+#endif
+
 using namespace std;
 using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_MAJOR 2
@@ -27,6 +31,10 @@ using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_PATCH 0
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
+
+#define IARM_BUS_MFRLIB_NAME                                "MFRLib"
+#define IARM_BUS_MFRLIB_API_WIFI_Credentials                "mfrWifiCredentials"
+
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -209,6 +217,9 @@ namespace WPEFramework
             Register("saveSSID",                          &WiFiManager::saveSSID, this);
             Register("startScan",                         &WiFiManager::startScan, this);
             Register("stopScan",                          &WiFiManager::stopScan, this);
+#ifdef ENABLE_GET_WIFI_CREDENTIALS
+            Register("retrieveSSID",                      &WiFiManager::retrieveSSID, this);
+#endif
         }
 
         /**
@@ -230,6 +241,9 @@ namespace WPEFramework
             Unregister("saveSSID");
             Unregister("startScan");
             Unregister("stopScan");
+#ifdef ENABLE_GET_WIFI_CREDENTIALS
+            Unregister("retrieveSSID");
+#endif
         }
 
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
@@ -304,6 +318,51 @@ namespace WPEFramework
 
             returnJson(rc);
         }
+
+#ifdef ENABLE_GET_WIFI_CREDENTIALS
+        uint32_t WiFiManager::retrieveSSID (const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if (!_nwmgr)
+                return Core::ERROR_UNAVAILABLE;
+
+            Exchange::INetworkManager::WiFiConnectTo credInfo{};
+
+            IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t param{0};
+            param.requestType = WIFI_GET_CREDENTIALS;
+
+            if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials, (void *) &param, sizeof(param)))
+            {
+                credInfo.ssid            = param.wifiCredentials.cSSID;
+                credInfo.passphrase      = param.wifiCredentials.cPassword;
+                credInfo.security        = static_cast<WPEFramework::Exchange::INetworkManager::WIFISecurityMode>(param.wifiCredentials.iSecurityMode);
+
+                response["ssid"]         = credInfo.ssid;
+                response["passphrase"]   = "[HIDDEN]";  // passphrase hidden for logging
+                response["securityMode"] = JsonValue(credInfo.security);
+                response["success"]      = true;
+
+                string json;
+                response.ToString(json);
+                NMLOG_INFO("response=%s", json.c_str());
+
+                response["passphrase"]   =  credInfo.passphrase; // overwrite with correct passphrase after logging
+
+                NMLOG_INFO ("retrieveSSID Success");
+                NMLOG_DEBUG ("SSID: %s, passphrase: %s, security mode: %d", param.wifiCredentials.cSSID,
+                        param.wifiCredentials.cPassword, param.wifiCredentials.iSecurityMode);
+
+                rc = Core::ERROR_NONE;
+            }
+            else
+                NMLOG_ERROR ("retrieveSSID Failed");
+
+            return rc;
+        }
+#endif
 
         uint32_t WiFiManager::getConnectedSSID (const JsonObject& parameters, JsonObject& response)
         {
