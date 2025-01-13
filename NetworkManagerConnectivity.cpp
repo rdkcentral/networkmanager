@@ -726,10 +726,11 @@ namespace WPEFramework
                         m_switchToInitial = true;
                         InitialRetryCount = 0;
                         IdealRetryCount = 0;
+                        timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
 
                         if (m_ipversion == IP_ADDRESS_V4)
                             m_Ipv4InternetState = currentInternetState;
-                        else if (m_ipversion == IP_ADDRESS_V4)
+                        else if (m_ipversion == IP_ADDRESS_V6)
                             m_Ipv6InternetState = currentInternetState;
                         else
                             m_InternetState = currentInternetState;
