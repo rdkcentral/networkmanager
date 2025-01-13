@@ -247,8 +247,6 @@ namespace WPEFramework
             uint32_t SetConnectivityTestEndpoints(const JsonObject& parameters, JsonObject& response);
             uint32_t IsConnectedToInternet(const JsonObject& parameters, JsonObject& response);
             uint32_t GetCaptivePortalURI(const JsonObject& parameters, JsonObject& response);
-            uint32_t StartConnectivityMonitoring(const JsonObject& parameters, JsonObject& response);
-            uint32_t StopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response);
             uint32_t GetPublicIP(const JsonObject& parameters, JsonObject& response);
             uint32_t Ping(const JsonObject& parameters, JsonObject& response);
             uint32_t Trace(const JsonObject& parameters, JsonObject& response);

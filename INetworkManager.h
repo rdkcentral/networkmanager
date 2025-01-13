@@ -237,11 +237,6 @@ namespace WPEFramework
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             virtual uint32_t GetCaptivePortalURI(string &uri/* @out */) const = 0;
 
-            /* @brief Start The Internet Connectivity Monitoring */
-            virtual uint32_t StartConnectivityMonitoring(const uint32_t interval /* @in */) = 0;
-            /* @brief Stop The Internet Connectivity Monitoring */
-            virtual uint32_t StopConnectivityMonitoring(void) const = 0;
-
             /* @brief Get the Public IP used for external world communication */
             virtual uint32_t GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */) = 0;
 

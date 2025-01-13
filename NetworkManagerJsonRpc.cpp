@@ -67,8 +67,6 @@ namespace WPEFramework
             Register("SetConnectivityTestEndpoints",      &NetworkManager::SetConnectivityTestEndpoints, this);
             Register("IsConnectedToInternet",             &NetworkManager::IsConnectedToInternet, this);
             Register("GetCaptivePortalURI",               &NetworkManager::GetCaptivePortalURI, this);
-            Register("StartConnectivityMonitoring",       &NetworkManager::StartConnectivityMonitoring, this);
-            Register("StopConnectivityMonitoring",        &NetworkManager::StopConnectivityMonitoring, this);
             Register("GetPublicIP",                       &NetworkManager::GetPublicIP, this);
             Register("Ping",                              &NetworkManager::Ping, this);
             Register("Trace",                             &NetworkManager::Trace, this);
@@ -106,8 +104,6 @@ namespace WPEFramework
             Unregister("SetConnectivityTestEndpoints");
             Unregister("IsConnectedToInternet");
             Unregister("GetCaptivePortalURI");
-            Unregister("StartConnectivityMonitoring");
-            Unregister("StopConnectivityMonitoring");
             Unregister("GetPublicIP");
             Unregister("Ping");
             Unregister("Trace");
@@ -499,34 +495,6 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
                 response["uri"] = uri;
-
-            returnJson(rc);
-        }
-
-        uint32_t NetworkManager::StartConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
-        {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            uint32_t interval = parameters["interval"].Number();
-
-            NMLOG_DEBUG("connectivity interval = %d", interval);
-            if (_networkManager)
-                rc = _networkManager->StartConnectivityMonitoring(interval);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            returnJson(rc);
-        }
-
-        uint32_t NetworkManager::StopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
-        {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-
-            if (_networkManager)
-                rc = _networkManager->StopConnectivityMonitoring();
-            else
-                rc = Core::ERROR_UNAVAILABLE;
 
             returnJson(rc);
         }

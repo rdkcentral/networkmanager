@@ -817,19 +817,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t Network::startConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            uint32_t interval = parameters["interval"].Number();
-
-            NMLOG_DEBUG("connectivity interval = %d", interval);
-            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr)
-                rc = _nwmgr->StartConnectivityMonitoring(interval);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            if(_nwmgr)
-                _nwmgr->Release();
-
+            uint32_t rc = Core::ERROR_NONE;
             returnJson(rc);
         }
 
@@ -857,17 +845,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t Network::stopConnectivityMonitoring(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-
-            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr)
-            {
-                rc = _nwmgr->StopConnectivityMonitoring();
-                _nwmgr->Release();
-            }
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
+            uint32_t rc = Core::ERROR_NONE;
             returnJson(rc);
         }
 
