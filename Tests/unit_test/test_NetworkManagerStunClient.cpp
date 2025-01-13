@@ -28,10 +28,10 @@ TEST_F(ClientTest, BindFailure) {
     EXPECT_FALSE(success);
     EXPECT_FALSE(result.is_valid());
 }
-
 TEST_F(ClientTest, BindWithInvalidInterface) {
     stun::bind_result result;
     bool success = _client.bind("https://github.com/", 3478, "invalid_interface", stun::protocol::af_inet, 5000, 10000, result);
     EXPECT_FALSE(success);
     EXPECT_FALSE(result.is_valid());
 }
+
