@@ -84,6 +84,7 @@ jobs:
           cmake --build build/Thunder --target install -j8
 
       - name: Build ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
