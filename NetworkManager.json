@@ -108,14 +108,14 @@
             "example": "30"
         },
         "ssid":{
-            "summary": "The paired SSID",
+            "summary": "The WiFi SSID Name",
             "type": "string",
-            "example": "123412341234"
+            "example": "myHomeSSID"
         },
         "bssid":{
-            "summary": "The paired BSSID",
+            "summary": "The BSSID of given SSID",
             "type": "string",
-            "example": "ff:ff:ff:ff:ff:ff"
+            "example": "AA:BB:CC:DD:EE:FF"
         },
         "passphrase": {
             "summary": "The access point password",
@@ -128,9 +128,14 @@
             "example": 6
         },
         "strength":{
-            "summary": "The RSSI value in dBm",
+            "summary": "The Signal RSSI value in dBm",
             "type": "string",
             "example": "-27.000000"
+        },
+        "quality":{
+            "summary": "Signal strength Quality",
+            "type": "string",
+            "example": "Excellent"
         },
         "frequency":{
             "summary": "The supported frequency for this SSID in GHz",
@@ -334,9 +339,7 @@
                 "type": "object",
                 "properties": {
                      "interface": {
-                        "summary": "Disable the specified interface",
-                        "type": "string",
-                        "example": "wlan0"
+                        "$ref": "#/definitions/interface"
                     }
                 },
                 "required": [
@@ -552,7 +555,7 @@
                 "type":"object",
                 "properties": {
                     "endpoints": {
-                        "summary": "",
+                        "summary": "A list of endpoint URLs used",
                         "type": "array",
                         "items": {
                             "type": "string",
@@ -1220,9 +1223,7 @@
                         "$ref": "#/definitions/strength"
                     },
                     "quality":{
-                        "summary": "Signal strength Quality",
-                        "type": "string",
-                        "example": "Excellent"
+                        "$ref": "#/definitions/quality"
                     },
                     "success":{
                         "$ref": "#/definitions/success"
@@ -1471,24 +1472,18 @@
                             "type":"object",
                             "properties": {
                                 "ssid":{
-                                    "summary": "ssid",
+                                    "summary": "Discovered SSID",
                                     "type": "string",
                                     "example": "myAP-2.4"
                                 },
                                 "security":{
-                                    "summary": "security",
-                                    "type": "integer",
-                                    "example": 6
+                                    "$ref": "#/definitions/security"
                                 },
                                 "strength":{
-                                    "summary": "strength",
-                                    "type": "string",
-                                    "example": "-27.000000"
+                                    "$ref": "#/definitions/strength"
                                 },
                                 "frequency":{
-                                    "summary": "frequency",
-                                    "type": "string",
-                                    "example": "2.442000"
+                                    "$ref": "#/definitions/frequency"
                                 }
                             },
                             "required": [
@@ -1530,19 +1525,13 @@
                 "type": "object",
                 "properties": {
                     "ssid":{
-                        "summary": "Signal Strength changed SSID",
-                        "type": "string",
-                        "example": "home-new_123"
+                        "$ref": "#/definitions/ssid"
                     },
                     "strength":{
-                        "summary": "Signal Strength",
-                        "type": "string",
-                        "example": "-27.000000"
+                        "$ref": "#/definitions/strength"
                     },
                     "quality":{
-                        "summary": "Signal quality",
-                        "type": "string",
-                        "example": "Excellent"
+                        "$ref": "#/definitions/quality"
                     }
                 },
                 "required": [
