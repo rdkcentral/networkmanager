@@ -558,6 +558,7 @@
                         "summary": "A list of endpoint URLs used",
                         "type": "array",
                         "items": {
+                            "summary": "The endpoint URL",
                             "type": "string",
                             "example": "http://clients3.google.com/generate_204"
                         }
@@ -581,6 +582,7 @@
                         "summary": "A list of endpoints to test",
                         "type": "array",
                         "items": {
+                            "summary": "The endpoint URL",
                             "type": "string",
                             "example": "http://clients3.google.com/generate_204"
                         }
@@ -875,6 +877,7 @@
                         "summary": "The list of SSIDs to be scanned.",
                         "type": "array",
                         "items": {
+                            "summary": "The SSID to scan.",
                             "type": "string",
                             "example": "Xfinity Mobile"
                         }
@@ -915,9 +918,10 @@
                 "type": "object",
                 "properties": {
                     "ssids": {
-                        "summary": "Known SSIDS",
+                        "summary": "A list of known SSIDs",
                         "type": "array",
                         "items": {
+                            "summary": "The WiFi SSID Name",
                             "type": "string",
                             "example": "Xfinity_Guest"
                         }
