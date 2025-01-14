@@ -402,7 +402,7 @@ Gets the current Status of the specified interface.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interface | string | Disable the specified interface |
+| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 
 ### Result
 
@@ -451,7 +451,7 @@ Gets the IP setting for the given interface.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
@@ -459,7 +459,7 @@ Gets the IP setting for the given interface.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| result.ipversion | string | either IPv4 or IPv6 |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | result?.dhcpserver | string | <sup>*(optional)*</sup> The DHCP Server address |
 | result.ipaddress | string | The IP address |
@@ -521,7 +521,7 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params.ipversion | string | either IPv4 or IPv6 |
+| params.ipversion | string | Either IPv4 or IPv6 |
 | params.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
 | params.ipaddress | string | The IP address |
 | params.prefix | integer | The prefix number |
@@ -684,8 +684,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.endpoints | array |  |
-| result.endpoints[#] | string |  |
+| result.endpoints | array | A list of endpoint URLs used |
+| result.endpoints[#] | string | The endpoint URL |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -726,7 +726,7 @@ This method used to set up to 5 endpoints for a connectivity test. Successful co
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoints | array | A list of endpoints to test |
-| params.endpoints[#] | string |  |
+| params.endpoints[#] | string | The endpoint URL |
 
 ### Result
 
@@ -774,14 +774,14 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ipversion | string | either IPv4 or IPv6 |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
@@ -869,9 +869,9 @@ Gets the internet/public IP Address of the device.
 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
-| params | object | it allows empty parameter too |
+| params | object | It allows empty parameter too |
 | params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| params?.ipversion | string | <sup>*(optional)*</sup> either IPv4 or IPv6 |
+| params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
 
 ### Result
 
@@ -879,7 +879,7 @@ Gets the internet/public IP Address of the device.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-| result.ipversion | string | either IPv4 or IPv6 |
+| result.ipversion | string | Either IPv4 or IPv6 |
 | result.ipaddress | string | The IP address |
 | result.success | boolean | Whether the request succeeded |
 
@@ -925,7 +925,7 @@ Pings the specified endpoint with the specified number of packets.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
-| params.ipversion | string | either IPv4 or IPv6 |
+| params.ipversion | string | Either IPv4 or IPv6 |
 | params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 3 |
 | params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
@@ -999,7 +999,7 @@ Traces the specified endpoint with the specified number of packets using `tracer
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
-| params.ipversion | string | either IPv4 or IPv6 |
+| params.ipversion | string | Either IPv4 or IPv6 |
 | params?.packets | integer | <sup>*(optional)*</sup> The number of packets to send. Default is 5 |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
@@ -1060,7 +1060,7 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 | params | object |  |
 | params?.frequency | string | <sup>*(optional)*</sup> The frequency to scan. An empty or `null` value scans all frequencies |
 | params?.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to be scanned |
-| params?.ssids[#] | string | <sup>*(optional)*</sup>  |
+| params?.ssids[#] | string | <sup>*(optional)*</sup> The SSID to scan |
 
 ### Result
 
@@ -1153,8 +1153,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssids | array | Known SSIDS |
-| result.ssids[#] | string |  |
+| result.ssids | array | A list of known SSIDs |
+| result.ssids[#] | string | The WiFi SSID Name |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1194,7 +1194,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
 | params.security | integer | The security mode. See `getSupportedsecurityModes` |
 
@@ -1215,7 +1215,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
   "id": 42,
   "method": "org.rdk.NetworkManager.1.AddToKnownSSIDs",
   "params": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "passphrase": "password",
     "security": 6
   }
@@ -1246,7 +1246,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 
 ### Result
 
@@ -1265,7 +1265,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
   "id": 42,
   "method": "org.rdk.NetworkManager.1.RemoveKnownSSID",
   "params": {
-    "ssid": "123412341234"
+    "ssid": "myHomeSSID"
   }
 }
 ```
@@ -1294,7 +1294,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
 | params.security | integer | The security mode. See `getSupportedsecurityModes` |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
@@ -1325,7 +1325,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "id": 42,
   "method": "org.rdk.NetworkManager.1.WiFiConnect",
   "params": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "passphrase": "password",
     "security": 6,
     "ca_cert": "...",
@@ -1410,10 +1410,10 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssid | string | The paired SSID |
-| result.bssid | string | The paired BSSID |
+| result.ssid | string | The WiFi SSID Name |
+| result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | The RSSI value in dBm |
+| result.strength | string | The Signal RSSI value in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
 | result.noise | string | The average noise strength in dBm |
@@ -1438,8 +1438,8 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "ssid": "123412341234",
-    "bssid": "ff:ff:ff:ff:ff:ff",
+    "ssid": "myHomeSSID",
+    "bssid": "AA:BB:CC:DD:EE:FF",
     "security": "5",
     "strength": "-27.000000",
     "frequency": "2.442000",
@@ -1568,8 +1568,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssid | string | The paired SSID |
-| result.strength | string | The RSSI value in dBm |
+| result.ssid | string | The WiFi SSID Name |
+| result.strength | string | The Signal RSSI value in dBm |
 | result.quality | string | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
@@ -1592,7 +1592,7 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "strength": "-27.000000",
     "quality": "Excellent",
     "success": true
@@ -1798,8 +1798,8 @@ Triggered when an IP Address is assigned or lost.
 | params | object |  |
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | params.ipaddress | string | The IP address |
-| params.ipversion | string | either IPv4 or IPv6 |
-| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') (must be one of the following: *`ACQUIRED`*, *`LOST`*) |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params.status | string | Whether IP address was acquired or lost (must be one of the following: 'ACQUIRED', 'LOST') |
 
 ### Example
 
@@ -1884,10 +1884,10 @@ Triggered when scan completes or when scan cancelled.
 | params | object |  |
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
-| params.ssids[#].ssid | string | ssid |
-| params.ssids[#].security | integer | security |
-| params.ssids[#].strength | string | strength |
-| params.ssids[#].frequency | string | frequency |
+| params.ssids[#].ssid | string | Discovered SSID |
+| params.ssids[#].security | integer | The security mode. See `getSupportedsecurityModes` |
+| params.ssids[#].strength | string | The Signal RSSI value in dBm |
+| params.ssids[#].frequency | string | The supported frequency for this SSID in GHz |
 
 ### Example
 
@@ -1944,9 +1944,9 @@ Triggered when WIFI connection Signal Strength get changed.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | Signal Strength changed SSID |
-| params.strength | string | Signal Strength |
-| params.quality | string | Signal quality |
+| params.ssid | string | The WiFi SSID Name |
+| params.strength | string | The Signal RSSI value in dBm |
+| params.quality | string | Signal strength Quality |
 
 ### Example
 
@@ -1955,10 +1955,9 @@ Triggered when WIFI connection Signal Strength get changed.
   "jsonrpc": "2.0",
   "method": "client.events.1.onWiFiSignalStrengthChange",
   "params": {
-    "ssid": "home-new_123",
+    "ssid": "myHomeSSID",
     "strength": "-27.000000",
     "quality": "Excellent"
   }
 }
 ```
-
