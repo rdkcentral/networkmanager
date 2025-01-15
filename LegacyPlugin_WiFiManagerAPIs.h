@@ -22,6 +22,8 @@
 #include "Module.h"
 #include "NetworkManagerTimer.h"
 
+#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
+
 /*! Error code: A recoverable, unexpected error occurred,
  * as defined by one of the following values */
 typedef enum _WiFiErrorCode_t {
@@ -73,6 +75,7 @@ namespace WPEFramework {
             uint32_t getPairedSSIDInfo(const JsonObject& parameters, JsonObject& response);
             uint32_t isPaired(const JsonObject& parameters, JsonObject& response);
             uint32_t getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response);
+            uint32_t retrieveSSID(const JsonObject& parameters, JsonObject& response);
             //End methods
 
             //Begin events
