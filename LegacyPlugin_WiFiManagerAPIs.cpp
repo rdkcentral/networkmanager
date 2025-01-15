@@ -209,6 +209,7 @@ namespace WPEFramework
             Register("saveSSID",                          &WiFiManager::saveSSID, this);
             Register("startScan",                         &WiFiManager::startScan, this);
             Register("stopScan",                          &WiFiManager::stopScan, this);
+            Register("retrieveSSID",                      &WiFiManager::retrieveSSID, this);
         }
 
         /**
@@ -230,6 +231,7 @@ namespace WPEFramework
             Unregister("saveSSID");
             Unregister("startScan");
             Unregister("stopScan");
+            Unregister("retrieveSSID");
         }
 
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
@@ -605,6 +607,90 @@ namespace WPEFramework
                 rc = Core::ERROR_UNAVAILABLE;
 
             returnJson(rc);
+        }
+
+        uint32_t WiFiManager::retrieveSSID (const JsonObject& parameters, JsonObject& response)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            std::string line;
+            std::string securityPattern = "key_mgmt=";
+            std::string ssidPattern = "ssid=";
+            std::string passphrasePattern = "psk=";
+            std::string security, ssid, passphrase;
+
+            std::ifstream configFile(WPA_SUPPLICANT_CONF);
+            if (!configFile.is_open())
+            {
+                NMLOG_ERROR("Not able to open the file %s", WPA_SUPPLICANT_CONF);
+                response["success"] = false;
+                return rc;
+            }
+
+            while (std::getline(configFile, line))
+            {
+                NMLOG_DEBUG("Attempting to read the configuration to populate SSID specific information");
+                size_t pos;
+
+                // Fetch ssid value
+                pos = line.find(ssidPattern);
+                if (pos != std::string::npos)
+                {
+                    pos += ssidPattern.length();
+                    size_t end = line.find('"', pos + 1);
+                    if (end == std::string::npos)
+                    {
+                        end = line.length();
+                    }
+                    ssid = line.substr(pos + 1, end - pos - 1);
+                    NMLOG_DEBUG("SSID found");
+                    continue;
+                }
+
+                if (!ssid.empty()) {
+                    // Fetch security value
+                    pos = line.find(securityPattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += securityPattern.length();
+                        size_t end = line.find(' ', pos);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        security = line.substr(pos, end - pos);
+                        continue;
+                    }
+
+                    // Fetch passphare value
+                    pos = line.find(passphrasePattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += passphrasePattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        passphrase = line.substr(pos + 1, end - pos - 1);
+                    }
+                    NMLOG_DEBUG("Fetched SSID = %s, security = %s", ssid.c_str(), security.c_str());
+                }
+            }
+            configFile.close();
+            if (!ssid.empty())
+            {
+                response["ssid"] = ssid;
+                if((security.find("WPA-PSK") != std::string::npos) && (security.find("SAE") != std::string::npos))
+                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK;
+                else if(security.find("NONE"))
+                    response["securityMode"] = WIFI_SECURITY_MODE_NONE;
+                response["passphrase"] = passphrase;
+                response["success"] = true;
+                rc = Core::ERROR_NONE;
+            }
+            else
+                response["success"] = false;
+            return rc;
         }
 
         /** Private */
