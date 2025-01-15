@@ -689,7 +689,6 @@ namespace WPEFramework
                 */
                 getInitialConnectionState();
             }
-
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
