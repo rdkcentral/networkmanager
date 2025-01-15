@@ -87,8 +87,6 @@ NetworkManager interface methods:
 | [SetConnectivityTestEndpoints](#method.SetConnectivityTestEndpoints) | This method used to set up to 5 endpoints for a connectivity test |
 | [IsConnectedToInternet](#method.IsConnectedToInternet) | Seeks whether the device has internet connectivity |
 | [GetCaptivePortalURI](#method.GetCaptivePortalURI) | Gets the captive portal URI if connected to any captive portal network |
-| [StartConnectivityMonitoring](#method.StartConnectivityMonitoring) | Enable a continuous monitoring of internet connectivity with heart beat interval thats given |
-| [StopConnectivityMonitoring](#method.StopConnectivityMonitoring) | Stops the connectivity monitoring |
 | [GetPublicIP](#method.GetPublicIP) | Gets the internet/public IP Address of the device |
 | [Ping](#method.Ping) | Pings the specified endpoint with the specified number of packets |
 | [Trace](#method.Trace) | Traces the specified endpoint with the specified number of packets using `traceroute` |
@@ -404,7 +402,7 @@ Gets the current Status of the specified interface.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.interface | string | Disable the specified interface |
+| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 
 ### Result
 
@@ -686,8 +684,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.endpoints | array |  |
-| result.endpoints[#] | string |  |
+| result.endpoints | array | A list of endpoint URLs used |
+| result.endpoints[#] | string | The endpoint URL |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -728,7 +726,7 @@ This method used to set up to 5 endpoints for a connectivity test. Successful co
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.endpoints | array | A list of endpoints to test |
-| params.endpoints[#] | string |  |
+| params.endpoints[#] | string | The endpoint URL |
 
 ### Result
 
@@ -857,94 +855,6 @@ This method takes no parameters.
   "id": 42,
   "result": {
     "uri": "http://10.0.0.1/captiveportal.jst",
-    "success": true
-  }
-}
-```
-
-<a name="method.StartConnectivityMonitoring"></a>
-## *StartConnectivityMonitoring [<sup>method</sup>](#head.Methods)*
-
-Enable a continuous monitoring of internet connectivity with heart beat interval thats given. If the monitoring is already happening, it will be restarted with new given interval. When the interval is not passed, it will be 60s by default.
-
-Also see: [onInternetStatusChange](#event.onInternetStatusChange)
-
-### Parameters
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| params | object |  |
-| params?.interval | integer | <sup>*(optional)*</sup> Interval in sec |
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "method": "org.rdk.NetworkManager.1.StartConnectivityMonitoring",
-  "params": {
-    "interval": 30
-  }
-}
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "result": {
-    "success": true
-  }
-}
-```
-
-<a name="method.StopConnectivityMonitoring"></a>
-## *StopConnectivityMonitoring [<sup>method</sup>](#head.Methods)*
-
-Stops the connectivity monitoring.
-
-### Parameters
-
-This method takes no parameters.
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "method": "org.rdk.NetworkManager.1.StopConnectivityMonitoring"
-}
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "result": {
     "success": true
   }
 }
@@ -1150,7 +1060,7 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 | params | object |  |
 | params?.frequency | string | <sup>*(optional)*</sup> The frequency to scan. An empty or `null` value scans all frequencies |
 | params?.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to be scanned |
-| params?.ssids[#] | string | <sup>*(optional)*</sup>  |
+| params?.ssids[#] | string | <sup>*(optional)*</sup> The SSID to scan |
 
 ### Result
 
@@ -1243,8 +1153,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssids | array | Known SSIDS |
-| result.ssids[#] | string |  |
+| result.ssids | array | A list of known SSIDs |
+| result.ssids[#] | string | The WiFi SSID Name |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1284,7 +1194,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
 | params.security | integer | The security mode. See `getSupportedsecurityModes` |
 
@@ -1305,7 +1215,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
   "id": 42,
   "method": "org.rdk.NetworkManager.1.AddToKnownSSIDs",
   "params": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "passphrase": "password",
     "security": 6
   }
@@ -1336,7 +1246,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 
 ### Result
 
@@ -1355,7 +1265,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
   "id": 42,
   "method": "org.rdk.NetworkManager.1.RemoveKnownSSID",
   "params": {
-    "ssid": "123412341234"
+    "ssid": "myHomeSSID"
   }
 }
 ```
@@ -1384,7 +1294,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The paired SSID |
+| params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
 | params.security | integer | The security mode. See `getSupportedsecurityModes` |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
@@ -1415,7 +1325,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "id": 42,
   "method": "org.rdk.NetworkManager.1.WiFiConnect",
   "params": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "passphrase": "password",
     "security": 6,
     "ca_cert": "...",
@@ -1500,10 +1410,10 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssid | string | The paired SSID |
-| result.bssid | string | The paired BSSID |
+| result.ssid | string | The WiFi SSID Name |
+| result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | The RSSI value in dBm |
+| result.strength | string | The Signal RSSI value in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
 | result.noise | string | The average noise strength in dBm |
@@ -1528,8 +1438,8 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "ssid": "123412341234",
-    "bssid": "ff:ff:ff:ff:ff:ff",
+    "ssid": "myHomeSSID",
+    "bssid": "AA:BB:CC:DD:EE:FF",
     "security": "5",
     "strength": "-27.000000",
     "frequency": "2.442000",
@@ -1658,8 +1568,8 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.ssid | string | The paired SSID |
-| result.strength | string | The RSSI value in dBm |
+| result.ssid | string | The WiFi SSID Name |
+| result.strength | string | The Signal RSSI value in dBm |
 | result.quality | string | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
@@ -1682,7 +1592,7 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "ssid": "123412341234",
+    "ssid": "myHomeSSID",
     "strength": "-27.000000",
     "quality": "Excellent",
     "success": true
@@ -1974,10 +1884,10 @@ Triggered when scan completes or when scan cancelled.
 | params | object |  |
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
-| params.ssids[#].ssid | string | Ssid |
-| params.ssids[#].security | integer | Security |
-| params.ssids[#].strength | string | Strength |
-| params.ssids[#].frequency | string | Frequency |
+| params.ssids[#].ssid | string | Discovered SSID |
+| params.ssids[#].security | integer | The security mode. See `getSupportedsecurityModes` |
+| params.ssids[#].strength | string | The Signal RSSI value in dBm |
+| params.ssids[#].frequency | string | The supported frequency for this SSID in GHz |
 
 ### Example
 
@@ -2034,9 +1944,9 @@ Triggered when WIFI connection Signal Strength get changed.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | Signal Strength changed SSID |
-| params.strength | string | Signal Strength |
-| params.quality | string | Signal quality |
+| params.ssid | string | The WiFi SSID Name |
+| params.strength | string | The Signal RSSI value in dBm |
+| params.quality | string | Signal strength Quality |
 
 ### Example
 
@@ -2045,7 +1955,7 @@ Triggered when WIFI connection Signal Strength get changed.
   "jsonrpc": "2.0",
   "method": "client.events.1.onWiFiSignalStrengthChange",
   "params": {
-    "ssid": "home-new_123",
+    "ssid": "myHomeSSID",
     "strength": "-27.000000",
     "quality": "Excellent"
   }

@@ -53,11 +53,11 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             LOG_ENTRY_FUNCTION();
+
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
             }
-            connectivityMonitor.stopContinuousConnectivityMonitor();
         }
 
         /**
@@ -244,27 +244,20 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @in */, InternetStatus &result /* @out */)
+         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            nsm_internetState isconnected;
-            nsm_ipversion tmpVersion = NSM_IPRESOLVE_WHATEVER;
+            Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
+            bool ipVersionNotSpecified = false;
             if(0 == strcasecmp("IPv4", ipversion.c_str()))
-                tmpVersion = NSM_IPRESOLVE_V4;
+                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             else if(0 == strcasecmp("IPv6", ipversion.c_str()))
-                tmpVersion = NSM_IPRESOLVE_V6;
-
-            isconnected = connectivityMonitor.getInternetState(tmpVersion);
-            if (FULLY_CONNECTED == isconnected)
-                result = INTERNET_FULLY_CONNECTED;
-            else if (CAPTIVE_PORTAL == isconnected)
-                result = INTERNET_CAPTIVE_PORTAL;
-            else if (LIMITED_INTERNET == isconnected)
-                result = INTERNET_LIMITED;
+                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V6;
             else
-                result = INTERNET_NOT_AVAILABLE;
+                ipVersionNotSpecified = true;
 
-            if (NSM_IPRESOLVE_V6 == tmpVersion)
+            result = connectivityMonitor.getInternetState(curlIPversion, ipVersionNotSpecified);
+            if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
                 ipversion = "IPv4";
@@ -278,26 +271,6 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uri = connectivityMonitor.getCaptivePortalURI();
             return Core::ERROR_NONE;
-        }
-
-        /* @brief Start The Internet Connectivity Monitoring */
-        uint32_t NetworkManagerImplementation::StartConnectivityMonitoring(const uint32_t interval/* @in */)
-        {
-            LOG_ENTRY_FUNCTION();
-            if (connectivityMonitor.startContinuousConnectivityMonitor(interval))
-                return Core::ERROR_NONE;
-            else
-                return Core::ERROR_GENERAL;
-        }
-
-        /* @brief Stop The Internet Connectivity Monitoring */
-        uint32_t NetworkManagerImplementation::StopConnectivityMonitoring(void) const
-        {
-            LOG_ENTRY_FUNCTION();
-            if (connectivityMonitor.stopContinuousConnectivityMonitor())
-                return Core::ERROR_NONE;
-            else
-                return Core::ERROR_GENERAL;
         }
 
         /* @brief Get the Public IP used for external world communication */
@@ -614,8 +587,7 @@ namespace WPEFramework
                     m_ethConnected = false;
                 else if(interface == "wlan0")
                     m_wlanConnected = false;
-
-                connectivityMonitor.startConnectivityMonitor();
+                connectivityMonitor.switchToInitialCheck();
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
@@ -653,6 +625,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             if (Exchange::INetworkManager::IP_ACQUIRED == status) {
+                // Switch the connectivity monitor to initial check
                 // if ipaddress is aquired means there should be interface connected
                 if(interface == "eth0")
                     m_ethConnected = true;
@@ -665,9 +638,7 @@ namespace WPEFramework
                 else
                     m_defaultInterface = interface;
 
-                // Start the connectivity monitor with 'true' to indicate the interface is up.
-                // The monitor will conntinoue even after no internet retry completed, Exit when fully connectd.
-                connectivityMonitor.startConnectivityMonitor();
+                connectivityMonitor.switchToInitialCheck();
             }
 
             _notificationLock.Lock();
