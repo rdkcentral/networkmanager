@@ -681,10 +681,12 @@ namespace WPEFramework
             if (!ssid.empty())
             {
                 response["ssid"] = ssid;
-                if((security.find("WPA-PSK") != std::string::npos) && (security.find("SAE") != std::string::npos))
-                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK;
-                else if(security.find("NONE"))
+                //As enterprise data is not persisted, WPA_EAP mode is not considered here
+                if(security.find("NONE"))
                     response["securityMode"] = WIFI_SECURITY_MODE_NONE;
+                else
+                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK; /* WPA3(SAE) has backward compatibility for PSK. So WPA-PSK is considered as 
+                                                                              default */
                 response["passphrase"] = passphrase;
                 response["success"] = true;
                 rc = Core::ERROR_NONE;
