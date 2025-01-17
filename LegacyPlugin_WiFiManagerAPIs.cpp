@@ -28,6 +28,11 @@ using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_PATCH 0
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
+#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
+#define WIFI_SECURITY_MODE_NONE    0
+#define WIFI_SECURITY_MODE_WPA_PSK 6
+#define WIFI_SECURITY_MODE_SAE     14
+
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -624,6 +629,7 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("Not able to open the file %s", WPA_SUPPLICANT_CONF);
                 response["success"] = false;
+                rc = Core::ERROR_NOT_EXIST;
                 return rc;
             }
 
@@ -684,9 +690,11 @@ namespace WPEFramework
                 //As enterprise data is not persisted, WPA_EAP mode is not considered here
                 if(security.find("NONE"))
                     response["securityMode"] = WIFI_SECURITY_MODE_NONE;
+                else if(security == "SAE")
+                    response["securityMode"] = WIFI_SECURITY_MODE_SAE;
                 else
-                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK; /* WPA3(SAE) has backward compatibility for PSK. So WPA-PSK is considered as 
-                                                                              default */
+                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK; /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is 
+                                                                                considered as default */
                 response["passphrase"] = passphrase;
                 response["success"] = true;
                 rc = Core::ERROR_NONE;

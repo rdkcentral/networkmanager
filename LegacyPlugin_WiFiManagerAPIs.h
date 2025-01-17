@@ -22,10 +22,6 @@
 #include "Module.h"
 #include "NetworkManagerTimer.h"
 
-#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
-#define WIFI_SECURITY_MODE_WPA_PSK 6
-#define WIFI_SECURITY_MODE_NONE    0
-
 /*! Error code: A recoverable, unexpected error occurred,
  * as defined by one of the following values */
 typedef enum _WiFiErrorCode_t {
