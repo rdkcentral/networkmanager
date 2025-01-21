@@ -106,7 +106,7 @@ namespace WPEFramework
         }
 
         m_Endpoints.clear();
-        for (auto endpoint : endpoints) {
+        for (const auto &endpoint : endpoints) {
             if(!endpoint.empty() && endpoint.size() > 3)
                 m_Endpoints.push_back(endpoint.c_str());
             else
@@ -268,6 +268,15 @@ namespace WPEFramework
         return size * nmemb;
     }
 
+    static bool curlSetOpt(CURL *curl, CURLoption option, auto value) {
+        CURLcode response = curl_easy_setopt(curl, option, value);
+        if (response != CURLE_OK) {
+            NMLOG_ERROR("Error setting option %d with error: %s", option, curl_easy_strerror(response));
+            return false;
+        }
+        return true;
+    }
+
     Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion)
     {
         long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
@@ -293,31 +302,43 @@ namespace WPEFramework
                 NMLOG_ERROR("endpoint = <%s> curl_easy_init returned NULL", endpoint.c_str());
                 continue;
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
-            curl_easy_setopt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
+            if(curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str()))
+                NMLOG_DEBUG("CURLOPT_URL set succeeded");
+            if(curlSetOpt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str()))
+                NMLOG_DEBUG("CURLOPT_PRIVATE set succeeded");
             /* set our custom set of headers */
-            curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
+            if(curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk))
+                NMLOG_DEBUG("CURLOPT_HTTPHEADER set succeeded");
+            if(curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0"))
+                NMLOG_DEBUG("CURLOPT_USERAGENT set succeeded");
             if(!headReq)
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
-                curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
+                if(curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L))
+                    NMLOG_DEBUG("CURLOPT_HTTPGET set succeeded");
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            if(curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction))
+                NMLOG_DEBUG("CURLOPT_WRITEFUNCTION set succeeded");
+            if(curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time()))
+                NMLOG_DEBUG("CURLOPT_TIMEOUT_MS set succeeded");
             if (IP_ADDRESS_V4 == ipversion) {
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                if(curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4))
+                    NMLOG_DEBUG("CURLOPT_IPRESOLVE set succeeded for IPv4");
                 NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else if (IP_ADDRESS_V6 == ipversion) {
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+                if(curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6))
+                    NMLOG_DEBUG("CURLOPT_IPRESOLVE set succeeded for IPv6");
                 NMLOG_DEBUG("curlopt ipversion = IPv6 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else
                 NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
 
             if(curlVerboseEnabled())
-                curl_easy_setopt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+            {
+                if(curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L))
+                    NMLOG_DEBUG("CURLOPT_VERBOSE set succeeded");
+            }
             if (CURLM_OK != (mc = curl_multi_add_handle(curl_multi_handle, curl_easy_handle)))
             {
                 NMLOG_ERROR("endpoint = <%s> curl_multi_add_handle returned %d (%s)", endpoint.c_str(), mc, curl_multi_strerror(mc));
@@ -472,6 +493,7 @@ namespace WPEFramework
         m_cmRunning = false;
         m_notify = true;
         m_InternetState = INTERNET_UNKNOWN;
+        m_ipversion = IP_ADDRESS_V4;
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         startConnectivityMonitor();
