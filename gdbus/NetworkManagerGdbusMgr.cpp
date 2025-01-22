@@ -38,7 +38,7 @@ namespace WPEFramework
                 NMLOG_FATAL("Error connecting to system D-Bus bus: %s ", error->message);
                 g_error_free(error);
             }
-            flags = static_cast<GDBusProxyFlags>(G_DBUS_PROXY_FLAGS_NONE);
+            flags = G_DBUS_PROXY_FLAGS_NONE;
         }
 
         DbusMgr::~DbusMgr() {
@@ -63,7 +63,7 @@ namespace WPEFramework
                 return NULL;
             }
 
-            flags = static_cast<GDBusProxyFlags>(G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES | G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START);
+            flags = G_DBUS_PROXY_FLAGS_NONE;
             return connection;
         }
 
@@ -254,6 +254,73 @@ namespace WPEFramework
                 return NULL;
             }
 
+            return proxy;
+        }
+
+        GDBusProxy* DbusMgr::getNetworkManagerDhcpv4Proxy(const char* dhcpConfigPath)
+        {
+            GError* error = nullptr;
+            GDBusProxy *proxy = g_dbus_proxy_new_sync(
+                    getConnection(),
+                    flags,
+                    nullptr,
+                    "org.freedesktop.NetworkManager",
+                    dhcpConfigPath,
+                    "org.freedesktop.NetworkManager.DHCP4Config",
+                    nullptr,
+                    &error);
+
+            if (proxy == nullptr) {
+                g_dbus_error_strip_remote_error(error);
+                NMLOG_FATAL("Error creating dhcpv4 proxy: %s", error->message);
+                g_clear_error(&error);
+                return nullptr;
+            }
+            return proxy;
+        }
+
+        GDBusProxy* DbusMgr::getNetworkManagerDhcpv6Proxy(const char* dhcpConfigPath)
+        {
+            GError* error = nullptr;
+            GDBusProxy *proxy = g_dbus_proxy_new_sync(
+                    getConnection(),
+                    flags,
+                    nullptr,
+                    "org.freedesktop.NetworkManager",
+                    dhcpConfigPath,
+                    "org.freedesktop.NetworkManager.DHCP6Config",
+                    nullptr,
+                    &error);
+
+            if (proxy == nullptr) {
+                g_dbus_error_strip_remote_error(error);
+                NMLOG_FATAL("Error creating dhcpv6 proxy: %s", error->message);
+                g_clear_error(&error);
+                return nullptr;
+            }
+            return proxy;
+        }
+
+        GDBusProxy* DbusMgr::getNetworkManagerPropertyProxy(const char* devicePath)
+        {
+            GError* error = nullptr;
+            GDBusProxy* proxy = g_dbus_proxy_new_sync(
+                    getConnection(),
+                    flags,
+                    nullptr,
+                    "org.freedesktop.NetworkManager",
+                    devicePath,
+                    "org.freedesktop.DBus.Properties",
+                    nullptr,
+                    &error
+            );
+
+            if (proxy == nullptr) {
+                g_dbus_error_strip_remote_error(error);
+                NMLOG_ERROR("Failed to create property proxy: %s", error->message);
+                g_clear_error(&error);
+                return nullptr;
+            }
             return proxy;
         }
 
