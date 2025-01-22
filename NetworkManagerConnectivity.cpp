@@ -17,12 +17,10 @@
 * limitations under the License.
 **/
 
-#include <curl/curl.h>
 #include <resolv.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
-#include <curl/curl.h>
 #include <thread>
 #include <algorithm>
 

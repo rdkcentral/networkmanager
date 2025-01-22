@@ -27,6 +27,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <fstream>
+#include <curl/curl.h>
 
 #include "INetworkManager.h"
 
