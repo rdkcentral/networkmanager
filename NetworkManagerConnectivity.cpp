@@ -17,12 +17,10 @@
 * limitations under the License.
 **/
 
-#include <curl/curl.h>
 #include <resolv.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
-#include <curl/curl.h>
 #include <thread>
 #include <algorithm>
 
@@ -106,7 +104,7 @@ namespace WPEFramework
         }
 
         m_Endpoints.clear();
-        for (auto endpoint : endpoints) {
+        for (const auto &endpoint : endpoints) {
             if(!endpoint.empty() && endpoint.size() > 3)
                 m_Endpoints.push_back(endpoint.c_str());
             else
@@ -293,31 +291,33 @@ namespace WPEFramework
                 NMLOG_ERROR("endpoint = <%s> curl_easy_init returned NULL", endpoint.c_str());
                 continue;
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
-            curl_easy_setopt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
+            curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
+            curlSetOpt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
             /* set our custom set of headers */
-            curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
+            curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
+            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
             if(!headReq)
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
-                curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
+                curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
             if (IP_ADDRESS_V4 == ipversion) {
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
                 NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else if (IP_ADDRESS_V6 == ipversion) {
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
                 NMLOG_DEBUG("curlopt ipversion = IPv6 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else
                 NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
 
             if(curlVerboseEnabled())
-                curl_easy_setopt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+            {
+                curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+            }
             if (CURLM_OK != (mc = curl_multi_add_handle(curl_multi_handle, curl_easy_handle)))
             {
                 NMLOG_ERROR("endpoint = <%s> curl_multi_add_handle returned %d (%s)", endpoint.c_str(), mc, curl_multi_strerror(mc));
@@ -472,6 +472,7 @@ namespace WPEFramework
         m_cmRunning = false;
         m_notify = true;
         m_InternetState = INTERNET_UNKNOWN;
+        m_ipversion = IP_ADDRESS_V4;
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         startConnectivityMonitor();
