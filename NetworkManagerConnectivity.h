@@ -108,6 +108,15 @@ namespace WPEFramework
             std::string captivePortalURI;
             Exchange::INetworkManager::InternetStatus internetSate;
             int curlErrorCode = 0;
+            template<typename curlValue>
+            void curlSetOpt(CURL *curl, CURLoption option, curlValue value)
+            {
+                CURLcode response = curl_easy_setopt(curl, option, value);
+                if (response != CURLE_OK) {
+                    NMLOG_ERROR("Error setting option %d with error: %s", option, curl_easy_strerror(response));
+                }
+                return;
+            }
         };
 
         class ConnectivityMonitor
