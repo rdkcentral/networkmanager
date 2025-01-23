@@ -684,7 +684,7 @@ namespace WPEFramework
             {
                 response["ssid"] = ssid;
                 //As enterprise data is not persisted, WPA_EAP mode is not considered here
-                if(security.find("NONE"))
+                if(security == "NONE")
                     response["securityMode"] = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
                 else if(security == "SAE")
                     response["securityMode"] = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
