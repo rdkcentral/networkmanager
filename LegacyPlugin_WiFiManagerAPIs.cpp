@@ -29,10 +29,6 @@ using namespace WPEFramework::Plugin;
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
 #define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
-#define WIFI_SECURITY_MODE_NONE    0
-#define WIFI_SECURITY_MODE_WPA_PSK 6
-#define WIFI_SECURITY_MODE_SAE     14
-
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -689,12 +685,12 @@ namespace WPEFramework
                 response["ssid"] = ssid;
                 //As enterprise data is not persisted, WPA_EAP mode is not considered here
                 if(security.find("NONE"))
-                    response["securityMode"] = WIFI_SECURITY_MODE_NONE;
+                    response["securityMode"] = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
                 else if(security == "SAE")
-                    response["securityMode"] = WIFI_SECURITY_MODE_SAE;
+                    response["securityMode"] = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
                 else
-                    response["securityMode"] = WIFI_SECURITY_MODE_WPA_PSK; /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is 
-                                                                                considered as default */
+                    response["securityMode"] = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                                                    /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is considered as default */
                 response["passphrase"] = passphrase;
                 response["success"] = true;
                 rc = Core::ERROR_NONE;

@@ -75,15 +75,6 @@ namespace NetworkManagerLogger {
       return t;
     }
 
-    const char* methodName(const std::string& prettyFunction)
-    {
-        size_t colons = prettyFunction.find("::");
-        size_t begin = prettyFunction.substr(0,colons).rfind(" ") + 1;
-        size_t end = prettyFunction.rfind("(") - begin;
-
-        return prettyFunction.substr(begin,end).c_str();
-    }
-
     void Init()
     {
 #ifdef USE_RDK_LOGGER

@@ -27,6 +27,8 @@
 #include "NetworkManagerGdbusMgr.h"
 #include "INetworkManager.h"
 
+#define ROUTE_METRIC_PRIORITY_HIGH 10
+#define ROUTE_METRIC_PRIORITY_LOW  100
 namespace WPEFramework
 {
     namespace Plugin
@@ -44,6 +46,13 @@ namespace WPEFramework
                 NetworkManagerClient(const NetworkManagerClient&) = delete;
                 NetworkManagerClient& operator=(const NetworkManagerClient&) = delete;
 
+                bool getAvailableInterfaces(std::vector<Exchange::INetworkManager::InterfaceDetails>& interfaceList);
+                bool setPrimaryInterface(const std::string& interface);
+                bool setInterfaceState(const std::string& interface, bool enable);
+                bool setIPSettings(const std::string& interface, const Exchange::INetworkManager::IPAddress& address);
+                bool getPrimaryInterface(std::string& interface);
+                bool getInterfaceState(const std::string& interface, bool& isEnabled);
+                bool getIPSettings(const std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result);
                 bool getKnownSSIDs(std::list<std::string>& ssids);
                 bool getAvailableSSIDs(std::list<std::string>& ssids);
                 bool getConnectedSSID(Exchange::INetworkManager::WiFiSSIDInfo& ssidinfo);
