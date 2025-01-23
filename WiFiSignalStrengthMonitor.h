@@ -35,7 +35,7 @@ namespace WPEFramework
         class WiFiSignalStrengthMonitor
         {
             public:
-                WiFiSignalStrengthMonitor():isRunning(false) {}
+                WiFiSignalStrengthMonitor():isRunning(false), stopThread(false) {}
                 ~WiFiSignalStrengthMonitor(){ NMLOG_INFO("~WiFiSignalStrengthMonitor"); }
                 void startWiFiSignalStrengthMonitor(int interval);
                 void getSignalData(std::string &ssid, Exchange::INetworkManager::WiFiSignalQuality &quality, std::string &strengthOut);

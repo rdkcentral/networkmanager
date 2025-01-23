@@ -17,16 +17,17 @@
 * limitations under the License.
 **/
 
-#include <curl/curl.h>
 #include <resolv.h>
-#include <netinet/in.h>
+#include <netdb.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
-#include <fstream>
+#include <thread>
+#include <algorithm>
 
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerLogger.h"
+#include "INetworkManager.h"
 
 namespace WPEFramework
 {
@@ -35,27 +36,30 @@ namespace WPEFramework
 
     extern NetworkManagerImplementation* _instance;
 
-    static const char* getInternetStateString(nsm_internetState state)
+    constexpr auto INTERNET_NOT_AVAILABLE = Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE;
+    constexpr auto INTERNET_LIMITED = Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED;
+    constexpr auto INTERNET_CAPTIVE_PORTAL = Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL;
+    constexpr auto INTERNET_FULLY_CONNECTED = Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
+    constexpr auto INTERNET_UNKNOWN = Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN;
+
+    constexpr auto IP_ADDRESS_V4 = Exchange::INetworkManager::IPVersion::IP_ADDRESS_V4;
+    constexpr auto IP_ADDRESS_V6 = Exchange::INetworkManager::IPVersion::IP_ADDRESS_V6;
+
+    static const char* getInternetStateString(Exchange::INetworkManager::InternetStatus state)
     {
         switch(state)
         {
-            case NO_INTERNET: return "NO_INTERNET";
-            case LIMITED_INTERNET: return "LIMITED_INTERNET";
-            case CAPTIVE_PORTAL: return "CAPTIVE_PORTAL";
-            case FULLY_CONNECTED: return "FULLY_CONNECTED";
+            case INTERNET_NOT_AVAILABLE: return "NO_INTERNET";
+            case INTERNET_LIMITED: return "LIMITED_INTERNET";
+            case INTERNET_CAPTIVE_PORTAL: return "CAPTIVE_PORTAL";
+            case INTERNET_FULLY_CONNECTED: return "FULLY_CONNECTED";
             default: return "UNKNOWN";
         }
     }
 
-    bool EndpointCache::isEndpointCashFileExist()
+    void EndpointManager::writeEndpointsToFile(const std::vector<std::string>& endpoints)
     {
-        std::ifstream fileStream(CachefilePath);
-        return fileStream.is_open();
-    }
-
-    void EndpointCache::writeEnpointsToFile(const std::vector<std::string>& endpoints)
-    {
-        std::ofstream outputFile(CachefilePath);
+        std::ofstream outputFile(m_CachefilePath);
         if (outputFile.is_open())
         {
             for (const std::string& str : endpoints)
@@ -70,10 +74,10 @@ namespace WPEFramework
         }
     }
 
-    std::vector<std::string> EndpointCache::readEnpointsFromFile()
+    std::vector<std::string> EndpointManager::readEndpointsFromFile()
     {
         std::vector<std::string> readStrings;
-        std::ifstream inputFile(CachefilePath);
+        std::ifstream inputFile(m_CachefilePath);
         if (inputFile.is_open())
         {
             std::string line;
@@ -90,9 +94,152 @@ namespace WPEFramework
         return readStrings;
     }
 
-    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, nsm_ipversion ipversion)
+    void EndpointManager::setConnectivityMonitorEndpoints(const std::vector<std::string>& endpoints)
     {
-        internetSate = UNKNOWN;
+        const std::lock_guard<std::mutex> lock(m_endpointMutex);
+        if(endpoints.empty())
+        {
+            NMLOG_ERROR("Empty endpoints");
+            return;
+        }
+
+        m_Endpoints.clear();
+        for (const auto &endpoint : endpoints) {
+            if(!endpoint.empty() && endpoint.size() > 3)
+                m_Endpoints.push_back(endpoint.c_str());
+            else
+                NMLOG_ERROR("endpoint not vallied = %s", endpoint.c_str());
+        }
+
+        // write the endpoints to a file
+        writeEndpointsToFile(m_Endpoints);
+
+        std::string endpointsStr;
+        for (const auto& endpoint : m_Endpoints)
+            endpointsStr.append(endpoint).append(" ");
+        NMLOG_INFO("Connectivity monitor endpoints updated -: %d :- %s", static_cast<int>(m_Endpoints.size()), endpointsStr.c_str());
+    }
+
+    EndpointManager::EndpointManager()
+    {
+        m_CachefilePath = NMCONNECTIVITY_MONITOR_CACHE_FILE;
+        m_Endpoints.clear(); // default value will be loaded from NetworkManagerImplementation configuration
+
+        std::ifstream inputFile(m_CachefilePath);
+        if (inputFile.is_open())
+        {
+            std::string line;
+            std::vector<std::string> endpoints{};
+            while (std::getline(inputFile, line))
+            {
+                if(!line.empty() && line.size() > 3)
+                    endpoints.push_back(line);
+            }
+            NMLOG_WARNING("cached connectivity endpoints loaded ..");
+            setConnectivityMonitorEndpoints(endpoints);
+            inputFile.close();
+        }
+        else
+        {
+            NMLOG_ERROR("no endpoint cache file found");
+        }
+    }
+
+    std::vector<std::string> EndpointManager::getConnectivityMonitorEndpoints()
+    {
+        const std::lock_guard<std::mutex> lock(m_endpointMutex);
+        return m_Endpoints;
+    }
+
+    bool DnsResolver::resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion)
+    {
+        struct addrinfo sockAddrProps, *resultAddr= NULL;
+        char ipStr[INET6_ADDRSTRLEN] = {0};
+
+        if(ipversion == IP_ADDRESS_V4)
+            sockAddrProps.ai_family = AF_INET;
+        else if(ipversion == IP_ADDRESS_V6)
+            sockAddrProps.ai_family = AF_INET6;
+        else
+            sockAddrProps.ai_family = AF_UNSPEC;
+
+        sockAddrProps.ai_socktype = SOCK_STREAM;
+        sockAddrProps.ai_flags = 0;
+        sockAddrProps.ai_protocol = 0;
+
+        int ret = getaddrinfo(uri.c_str(), NULL, &sockAddrProps, &resultAddr);
+        if (ret != 0) {
+            NMLOG_WARNING("Resolved IP Failed getaddrinfo: %s", gai_strerror(ret));
+            return false;
+        }
+
+        NMLOG_DEBUG("Resolved IP addresses for %s", uri.c_str());
+
+        for (struct addrinfo * resutIP = resultAddr; resutIP != NULL; resutIP = resutIP->ai_next)
+        {
+            void *addr= NULL;
+            if (resutIP->ai_family == AF_INET) {
+                struct sockaddr_in *ipv4 = (struct sockaddr_in *)resutIP->ai_addr;
+                addr = &(ipv4->sin_addr);
+                ipv4Resolved = true;
+            } else if (resutIP->ai_family == AF_INET6) {
+                struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)resutIP->ai_addr;
+                addr = &(ipv6->sin6_addr);
+                ipv6Resolved = true;
+            } else {
+                continue;
+            }
+
+            inet_ntop(resutIP->ai_family, addr, ipStr, sizeof(ipStr));
+            NMLOG_DEBUG("Resolved IP --> %s", ipStr);
+        }
+
+        freeaddrinfo(resultAddr);
+        return true;
+    }
+
+    std::string DnsResolver::convertUrIToDomainName(std::string& url)
+    {
+        size_t domainStart = 0;
+        size_t protocolEnd = url.find("://");
+        if (protocolEnd != std::string::npos) {  
+            domainStart = protocolEnd + 3;
+        }
+
+        size_t domainEnd = url.find('/', domainStart);
+        if (domainEnd != std::string::npos)
+            return url.substr(domainStart, domainEnd - domainStart);
+        else
+            return url.substr(domainStart);
+    }
+
+    DnsResolver::DnsResolver(std::string url, Exchange::INetworkManager::IPVersion ipversion, int curlErrorCode)
+    {
+        NMLOG_DEBUG("url %s - ipversion %d - curl error %d ", url.c_str(), ipversion, curlErrorCode);
+        if(url.empty()) {
+            NMLOG_ERROR("URI/hostname missing");
+            return;
+        }
+        switch (curlErrorCode)
+        {
+            case CURLE_COULDNT_RESOLVE_HOST:    // 6 - Could not resolve host
+            case CURLE_OPERATION_TIMEDOUT:      // 28 - Operation timeout. time-out period
+            case CURLE_RECV_ERROR:              // 56 - Failure with receiving network data
+            {
+                m_domain = convertUrIToDomainName(url);
+                resolveIP(m_domain, ipversion);
+                break;
+            }
+            default:
+                ipv4Resolved = false;
+                ipv6Resolved = false;
+                break;
+        }
+    }
+
+    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion)
+    {
+        internetSate = INTERNET_UNKNOWN;
         if(endpoints.size() < 1) {
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
             return;
@@ -119,7 +266,7 @@ namespace WPEFramework
         return size * nmemb;
     }
 
-    nsm_internetState TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, nsm_ipversion ipversion)
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion)
     {
         long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
 
@@ -127,7 +274,7 @@ namespace WPEFramework
         if (!curl_multi_handle)
         {
             NMLOG_ERROR("curl_multi_init returned NULL");
-            return NO_INTERNET;
+            return INTERNET_NOT_AVAILABLE;
         }
 
         CURLMcode mc;
@@ -144,29 +291,33 @@ namespace WPEFramework
                 NMLOG_ERROR("endpoint = <%s> curl_easy_init returned NULL", endpoint.c_str());
                 continue;
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
-            curl_easy_setopt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
+            curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
+            curlSetOpt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
             /* set our custom set of headers */
-            curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
+            curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
+            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
             if(!headReq)
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
-                curl_easy_setopt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
+                curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
-            curl_easy_setopt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curl_easy_setopt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
-            if ((ipversion == CURL_IPRESOLVE_V4) || (ipversion == CURL_IPRESOLVE_V6))
-            {
-                NMLOG_DEBUG("curlopt ipversion = %s reqtyp = %s", ipversion == CURL_IPRESOLVE_V4?"IPv4":"IPv6", headReq? "HEAD":"GET");
-                curl_easy_setopt(curl_easy_handle, CURLOPT_IPRESOLVE, ipversion);
+            curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            if (IP_ADDRESS_V4 == ipversion) {
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
+            }
+            else if (IP_ADDRESS_V6 == ipversion) {
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+                NMLOG_DEBUG("curlopt ipversion = IPv6 reqtyp = %s", headReq? "HEAD":"GET");
             }
             else
-            {
                 NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
-            }
+
             if(curlVerboseEnabled())
-                curl_easy_setopt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+            {
+                curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+            }
             if (CURLM_OK != (mc = curl_multi_add_handle(curl_multi_handle, curl_easy_handle)))
             {
                 NMLOG_ERROR("endpoint = <%s> curl_multi_add_handle returned %d (%s)", endpoint.c_str(), mc, curl_multi_strerror(mc));
@@ -205,8 +356,10 @@ namespace WPEFramework
                         }
                     }
                 }
-                else
+                else {
                     NMLOG_ERROR("endpoint = <%s> curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    curlErrorCode = static_cast<int>(msg->data.result);
+                }
                 http_responses.push_back(response_code);
             }
             time_earlier = time_now;
@@ -264,9 +417,9 @@ namespace WPEFramework
     *      Return Internet State: FULLY_CONNECTED - 50 %
     */
 
-    nsm_internetState TestConnectivity::checkInternetStateFromResponseCode(const std::vector<int>& responses)
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkInternetStateFromResponseCode(const std::vector<int>& responses)
     {
-        nsm_internetState InternetConnectionState = NO_INTERNET;
+        Exchange::INetworkManager::InternetStatus InternetConnectionState = INTERNET_NOT_AVAILABLE;
         nsm_connectivity_httpcode http_response_code = HttpStatus_response_error;
 
         int max_count = 0;
@@ -289,20 +442,20 @@ namespace WPEFramework
             switch (http_response_code)
             {
                 case HttpStatus_204_No_Content:
-                    InternetConnectionState = FULLY_CONNECTED;
+                    InternetConnectionState = INTERNET_FULLY_CONNECTED;
                     NMLOG_INFO("Internet State: FULLY_CONNECTED - %.1f%%", (percentage*100));
                 break;
                 case HttpStatus_200_OK:
-                    InternetConnectionState = LIMITED_INTERNET;
+                    InternetConnectionState = INTERNET_LIMITED;
                     NMLOG_INFO("Internet State: LIMITED_INTERNET - %.1f%%", (percentage*100));
                 break;
                 case HttpStatus_511_Authentication_Required:
                 case HttpStatus_302_Found:
-                    InternetConnectionState = CAPTIVE_PORTAL;
+                    InternetConnectionState = INTERNET_CAPTIVE_PORTAL;
                     NMLOG_INFO("Internet State: CAPTIVE_PORTAL - %.1f%%", (percentage*100));
                 break;
                 default:
-                    InternetConnectionState = NO_INTERNET;
+                    InternetConnectionState = INTERNET_NOT_AVAILABLE;
                     if(http_response_code == -1)
                         NMLOG_ERROR("Internet State: NO_INTERNET (curl error)");
                     else
@@ -315,202 +468,112 @@ namespace WPEFramework
 
     ConnectivityMonitor::ConnectivityMonitor()
     {
-        if(endpointCache.isEndpointCashFileExist())
-        {
-            std::vector<std::string> cachedEndPnt = endpointCache.readEnpointsFromFile();
-            setConnectivityMonitorEndpoints(cachedEndPnt);
-            NMLOG_WARNING("cached connectivity endpoints loaded ..");
-        }
-
-        doContinuousMonitor = false;
-        doConnectivityMonitor = false;
-        m_InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv4InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv6InternetState = nsm_internetState::UNKNOWN;
+        NMLOG_WARNING("ConnectivityMonitor");
+        m_cmRunning = false;
+        m_notify = true;
+        m_InternetState = INTERNET_UNKNOWN;
+        m_ipversion = IP_ADDRESS_V4;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
+        startConnectivityMonitor();
     }
 
     ConnectivityMonitor::~ConnectivityMonitor()
     {
         NMLOG_WARNING("~ConnectivityMonitor");
-        doContinuousMonitor = false;
-        doConnectivityMonitor = false;
-        cvConnectivityMonitor.notify_one();
-        cvContinuousMonitor.notify_one();
-        if (continuousMonitorThrd.joinable())
-            continuousMonitorThrd.join();
-        if (connectivityMonitorThrd.joinable())
-            connectivityMonitorThrd.join();
+        stopConnectivityMonitor();
     }
 
     std::vector<std::string> ConnectivityMonitor::getConnectivityMonitorEndpoints()
     {
-        const std::lock_guard<std::mutex> lock(endpointMutex);
-        std::vector<std::string> endpoints;
-        for (auto endpoint : connectivityMonitorEndpt) {
-            endpoints.push_back(endpoint);
-        }
-        return endpoints;
+        return m_endpoint.getConnectivityMonitorEndpoints();
     }
 
     void ConnectivityMonitor::setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints)
     {
-        const std::lock_guard<std::mutex> lock(endpointMutex);
-        connectivityMonitorEndpt.clear();
-        for (auto endpoint : endpoints) {
-            if(!endpoint.empty() && endpoint.size() > 3)
-                connectivityMonitorEndpt.push_back(endpoint.c_str());
-            else
-                NMLOG_ERROR("endpoint not vallied = %s", endpoint.c_str());
-        }
-
-        // write the endpoints to a file
-        endpointCache.writeEnpointsToFile(connectivityMonitorEndpt);
-
-        std::string endpointsStr;
-        for (const auto& endpoint : connectivityMonitorEndpt)
-            endpointsStr.append(endpoint).append(" ");
-        NMLOG_INFO("Connectivity monitor endpoints -: %d :- %s", static_cast<int>(connectivityMonitorEndpt.size()), endpointsStr.c_str());
+        m_endpoint.setConnectivityMonitorEndpoints(endpoints);
     }
 
-    bool ConnectivityMonitor::isConnectedToInternet(nsm_ipversion ipversion)
+    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
-        if (nsm_internetState::FULLY_CONNECTED == getInternetState(ipversion))
-        {
-            NMLOG_INFO("isConnectedToInternet %s = true", (ipversion == nsm_ipversion::NSM_IPRESOLVE_WHATEVER)?"":(ipversion == nsm_ipversion::NSM_IPRESOLVE_V4? "IPv4":"IPv6"));
-            return true;
+        if(ipVersionNotSpecified) {
+            ipversion = m_ipversion;
+            NMLOG_DEBUG("ipversion %s - %s", ipversion == IP_ADDRESS_V4? "IPv4":"IPv6", getInternetStateString(m_InternetState.load()));
+            return m_InternetState.load();
         }
-        NMLOG_WARNING("isConnectedToInternet %s = false",(ipversion == nsm_ipversion::NSM_IPRESOLVE_WHATEVER)?"":(ipversion == nsm_ipversion::NSM_IPRESOLVE_V4? "IPv4":"IPv6") );
-        return false;
-    }
-
-    nsm_internetState ConnectivityMonitor::getInternetState(nsm_ipversion& ipversion)
-    {
-        nsm_internetState internetState = nsm_internetState::UNKNOWN;
-        // If monitor connectivity is running take the cache value
-
-        if ( doContinuousMonitor && (nsm_ipversion::NSM_IPRESOLVE_V4 == ipversion || nsm_ipversion::NSM_IPRESOLVE_WHATEVER == ipversion)
-                                           && m_Ipv4InternetState != nsm_internetState::UNKNOWN ) {
-            NMLOG_WARNING("Reading Ipv4 internet state cached value %s", getInternetStateString(m_Ipv4InternetState));
-            internetState = m_Ipv4InternetState;
-            ipversion = NSM_IPRESOLVE_V4;
-        }
-        else if ( doContinuousMonitor && (nsm_ipversion::NSM_IPRESOLVE_V6 == ipversion || nsm_ipversion::NSM_IPRESOLVE_WHATEVER == ipversion)
-                                           && m_Ipv6InternetState != nsm_internetState::UNKNOWN ) {
-            NMLOG_WARNING("Reading Ipv6 internet state cached value %s", getInternetStateString(m_Ipv6InternetState));
-            internetState = m_Ipv6InternetState;
-            ipversion = NSM_IPRESOLVE_V6;
-        }
+        else if(ipversion == IP_ADDRESS_V4)
+            return m_Ipv4InternetState.load();
+        else if(ipversion == IP_ADDRESS_V6)
+            return m_Ipv6InternetState.load();
         else
-        {
-            TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, NMCONNECTIVITY_CURL_GET_REQUEST, ipversion);
-            internetState = testInternet.getInternetState();
-            // TODO : Lets not hard code here.
-            ipversion = NSM_IPRESOLVE_V4;
-        }
-        return internetState;
+            return INTERNET_UNKNOWN;
     }
 
     std::string ConnectivityMonitor::getCaptivePortalURI()
     {
-        TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, NMCONNECTIVITY_CURL_GET_REQUEST, NSM_IPRESOLVE_WHATEVER);
-        if(nsm_internetState::CAPTIVE_PORTAL == testInternet.getInternetState())
+        if(m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL || m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
         {
-            NMLOG_WARNING("captive portal URI = %s", testInternet.getCaptivePortal().c_str());
-            return testInternet.getCaptivePortal();
+            NMLOG_INFO("captive portal URI = %s", m_captiveURI.c_str());
+            return m_captiveURI;
         }
+
         NMLOG_WARNING("No captive portal found !");
         return std::string("");
     }
 
-    bool ConnectivityMonitor::startContinuousConnectivityMonitor(int timeoutInSeconds)
-    {
-        if(_instance != nullptr )
-            NMLOG_INFO("interface status eth - %s wlan - %s ", _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
-        continuousMonitorTimeout.store(timeoutInSeconds >= NMCONNECTIVITY_MONITOR_MIN_INTERVAL ? timeoutInSeconds : NMCONNECTIVITY_MONITOR_DEFAULT_INTERVAL);
-        if (doContinuousMonitor)
-        {
-            if(doConnectivityMonitor)
-            {
-                NMLOG_INFO("continuous monitor new timeout updated %d Sec", continuousMonitorTimeout.load());
-            }
-            else
-            {
-                NMLOG_INFO("continuous monitor restarted with %d Sec", continuousMonitorTimeout.load());
-                cvContinuousMonitor.notify_one();
-            }
-            return true;
-        }
-
-        if (continuousMonitorThrd.joinable()) {
-            NMLOG_WARNING("continuous monitor joinable thread running");
-            doContinuousMonitor = false;
-            continuousMonitorThrd.join();
-        }
-
-        doContinuousMonitor = true;
-        continuousMonitorThrd = std::thread(&ConnectivityMonitor::continuousMonitorFunction, this);
-        NMLOG_INFO("continuous connectivity monitor started with %d Sec", continuousMonitorTimeout.load());
-        if(!continuousMonitorThrd.joinable()) {
-            NMLOG_ERROR("continuous connectivity monitor start Failed");
-            return false;
-        }
-        return true;
-    }
-
-    bool ConnectivityMonitor::stopContinuousConnectivityMonitor()
-    {
-        doContinuousMonitor = false;
-        cvContinuousMonitor.notify_one();
-        if (continuousMonitorThrd.joinable())
-            continuousMonitorThrd.join();
-        NMLOG_INFO("continuous connectivity monitor stopped");
-        return true;
-    }
-
-    /*
-     *
-     * call startConnectivityMonitor function
-     *  -->  when IP address accuired
-     *  -->  when etherenet/wifi disconnected
-     */
     bool ConnectivityMonitor::startConnectivityMonitor()
     {
-        m_InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv4InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv6InternetState = nsm_internetState::UNKNOWN;
-        if (doConnectivityMonitor)
+        if (m_cmRunning)
         {
-            cvConnectivityMonitor.notify_one();
-            NMLOG_DEBUG("trigger connectivity monitor thread");
+            m_cmCv.notify_one();
+            NMLOG_DEBUG("connectivity monitor is already running");
             return true;
         }
 
-        if (connectivityMonitorThrd.joinable()) { // cleanup of previous thread
-            doConnectivityMonitor = false;
-            connectivityMonitorThrd.join();
-        }
-
-        doConnectivityMonitor = true;
-        connectivityMonitorThrd = std::thread(&ConnectivityMonitor::connectivityMonitorFunction, this);
-        if(!connectivityMonitorThrd.joinable()) {
-            NMLOG_ERROR("connectivity monitor start failed");
-            return false;
-        }
+        m_cmRunning = true;
+        m_cmThrdID = std::thread(&ConnectivityMonitor::connectivityMonitorFunction, this);
 
         if(_instance != nullptr) {
-            NMLOG_INFO("connectivity monitor started %d sec - eth %s - wlan %s", NMCONNECTIVITY_MONITOR_MIN_INTERVAL, 
-                                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+            NMLOG_INFO("connectivity monitor started - eth %s - wlan %s", 
+                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+        }
+
+        NMLOG_INFO("connectivity monitor is started");
+        return true;
+    }
+
+    bool ConnectivityMonitor::stopConnectivityMonitor()
+    {
+        m_cmRunning = false;
+        m_cmCv.notify_one();
+        if(m_cmThrdID.joinable())
+            m_cmThrdID.join();
+        m_InternetState = INTERNET_UNKNOWN;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
+        NMLOG_INFO("connectivity monitor stoped !!!");
+        return true;
+    }
+
+    bool ConnectivityMonitor::switchToInitialCheck()
+    {
+        m_switchToInitial = true;
+        m_notify = true; // m_notify internet state because some network state change may happen
+        m_cmCv.notify_one();
+        if(_instance != nullptr) {
+            NMLOG_INFO("switching to initial check - eth %s - wlan %s",
+                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
         }
         return true;
     }
 
-    void ConnectivityMonitor::notifyInternetStatusChangedEvent(nsm_internetState newInternetState)
+    void ConnectivityMonitor::notifyInternetStatusChangedEvent(Exchange::INetworkManager::InternetStatus newInternetState)
     {
-        static Exchange::INetworkManager::InternetStatus oldState = Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN;
+        static Exchange::INetworkManager::InternetStatus oldState = INTERNET_UNKNOWN;
         if(_instance != nullptr)
         {
-            NMLOG_INFO("notify internet state %s", getInternetStateString(newInternetState));
-            Exchange::INetworkManager::InternetStatus newState = static_cast<Exchange::INetworkManager::InternetStatus>(newInternetState);
+            NMLOG_INFO("notifying internet state %s", getInternetStateString(newInternetState));
+            Exchange::INetworkManager::InternetStatus newState = newInternetState;
             _instance->ReportInternetStatusChange(oldState , newState);
             m_InternetState = newInternetState;
             oldState = newState; // 'm_InternetState' not exactly previous state, it may change to unknow when interface changed
@@ -519,223 +582,181 @@ namespace WPEFramework
             NMLOG_FATAL("NetworkManagerImplementation Instance NULL notifyInternetStatusChange failed.");
     }
 
-    void ConnectivityMonitor::continuousMonitorFunction()
+    void ConnectivityMonitor::connectivityMonitorFunction()
     {
-        int TempInterval = continuousMonitorTimeout.load();
-        std::mutex connMutex;
-        nsm_ipversion ipResolveTyp = NSM_IPRESOLVE_WHATEVER;
-        int notifyPreRetry = 1;
-        nsm_internetState currentInternetState = nsm_internetState::UNKNOWN;
+        int timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+        Exchange::INetworkManager::InternetStatus currentInternetState = INTERNET_NOT_AVAILABLE;
+        int InitialRetryCount = 0;
+        int IdealRetryCount = 0;
+        m_switchToInitial = true;
+        m_InternetState = INTERNET_UNKNOWN;
+        m_Ipv4InternetState = INTERNET_UNKNOWN;
+        m_Ipv6InternetState = INTERNET_UNKNOWN;
+        m_notify = true;
 
-        do
-        {
-            if(_instance != nullptr && (!_instance->m_ethConnected && !_instance->m_wlanConnected)) // no wifi no ethernet connected
-            {
-                NMLOG_DEBUG("no interface connected; no ccm check");
-                m_Ipv4InternetState = NO_INTERNET;
-                m_Ipv6InternetState = NO_INTERNET;
-                std::unique_lock<std::mutex> lock(connMutex);
-                cvContinuousMonitor.wait_for(lock, std::chrono::seconds(continuousMonitorTimeout.load()));
-                ipResolveTyp = NSM_IPRESOLVE_WHATEVER;
-                continue;
+        while (m_cmRunning) {
+            // Check if no interfaces are connected
+            if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+                NMLOG_DEBUG("no interface connected, no ccm check");
+                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                m_InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                currentInternetState = INTERNET_NOT_AVAILABLE;
+                if (InitialRetryCount == 0)
+                    m_notify = true;
+                InitialRetryCount = 1;
             }
+            else if (m_switchToInitial)
+            {
+                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(currentInternetState));
+                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
-            if(doConnectivityMonitor)
-            {
-                NMLOG_DEBUG("connectivity monitor running so skiping ccm check");
-                m_Ipv4InternetState = nsm_internetState::UNKNOWN;
-                m_Ipv6InternetState = nsm_internetState::UNKNOWN;
-                std::unique_lock<std::mutex> lock(connMutex);
-                cvContinuousMonitor.wait_for(lock, std::chrono::seconds(continuousMonitorTimeout.load()));
-                ipResolveTyp = NSM_IPRESOLVE_WHATEVER; /* some interface change happense */
-                continue;
-            }
-            else if (ipResolveTyp == NSM_IPRESOLVE_WHATEVER)
-            {
-                nsm_internetState ipV4InternetState = nsm_internetState::UNKNOWN;
-                nsm_internetState ipV6InternetState = nsm_internetState::UNKNOWN;
+                // Lambda functions to check connectivity for IPv4 and IPv6
                 auto curlCheckThrdIpv4 = [&]() {
-                    TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, 
-                                                                                    NMCONNECTIVITY_CURL_GET_REQUEST, NSM_IPRESOLVE_V4);
-                    ipV4InternetState = testInternet.getInternetState();
+                    TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
+                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, IP_ADDRESS_V4);
+                    m_Ipv4InternetState = testInternet.getInternetState();
+                    if(m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
+                        m_captiveURI = testInternet.getCaptivePortal();
                 };
 
                 auto curlCheckThrdIpv6 = [&]() {
-                    TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, 
-                                                                                        NMCONNECTIVITY_CURL_GET_REQUEST, NSM_IPRESOLVE_V6);
-                    ipV6InternetState = testInternet.getInternetState();
+                    TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
+                                                  NMCONNECTIVITY_CURL_HEAD_REQUEST, IP_ADDRESS_V6);
+                    m_Ipv6InternetState = testInternet.getInternetState();
+                    if(m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
+                        m_captiveURI = testInternet.getCaptivePortal();
                 };
+
+                // Start threads for IPv4 and IPv6 checks
                 std::thread ipv4thread(curlCheckThrdIpv4);
                 std::thread ipv6thread(curlCheckThrdIpv6);
+
                 // Wait for both threads to finish
                 ipv4thread.join();
                 ipv6thread.join();
-                if(ipV4InternetState == FULLY_CONNECTED) {
-                    ipResolveTyp = NSM_IPRESOLVE_V4;
-                    currentInternetState = ipV4InternetState;
-                    NMLOG_INFO("connectivity monitor default ip resolve IPV4");
-                }
-                else if(ipV6InternetState == FULLY_CONNECTED) {
-                    ipResolveTyp = NSM_IPRESOLVE_V6;
-                    currentInternetState = ipV6InternetState;
-                    NMLOG_INFO("connectivity monitor default ip resolve IPV6");
-                }
-                else /* not changing ip resolve type */
-                    currentInternetState = ipV4InternetState;
-            }
-            else /* IPV4 or IPV6 based on default values */
-            {
-                TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                                                                    NMCONNECTIVITY_CURL_HEAD_REQUEST, ipResolveTyp);
-                currentInternetState = testInternet.getInternetState();
-                if(ipResolveTyp == NSM_IPRESOLVE_V4)
-                    m_Ipv4InternetState = currentInternetState;
-                else if(ipResolveTyp == NSM_IPRESOLVE_V6)
-                    m_Ipv6InternetState = currentInternetState;
-            }
 
-            if (currentInternetState == NO_INTERNET)
-            {
-                if(m_InternetState == FULLY_CONNECTED && notifyPreRetry < NMCONNECTIVITY_NO_INTERNET_RETRY_COUNT)
-                {
-                    /* it will prevent posting notification */
-                    currentInternetState = m_InternetState;
-                    TempInterval = 5;
-                    NMLOG_INFO("No internet retrying connection check %d ...", notifyPreRetry);
-                    notifyPreRetry++;
-                    /* no internet state retry do it in ipv4 and ipv6 sepratly in two thread */
-                    ipResolveTyp = NSM_IPRESOLVE_WHATEVER;
+                // Determine the current internet state based on the results
+                if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+                    InitialRetryCount = 1; // continue same check for 5 sec
+                } else {
+                    if (m_Ipv4InternetState == INTERNET_FULLY_CONNECTED || m_Ipv6InternetState == INTERNET_FULLY_CONNECTED)
+                    {
+                        currentInternetState = INTERNET_FULLY_CONNECTED;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_FULLY_CONNECTED) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
+                    }
+                    else if (m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL || m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
+                    {
+                        currentInternetState = INTERNET_CAPTIVE_PORTAL;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_CAPTIVE_PORTAL) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
+                    } else if (m_Ipv4InternetState == INTERNET_LIMITED || m_Ipv6InternetState == INTERNET_LIMITED) {
+                        currentInternetState = INTERNET_LIMITED;
+                        m_ipversion = (m_Ipv4InternetState == INTERNET_LIMITED) ? IP_ADDRESS_V4 : IP_ADDRESS_V6;
+                    } else {
+                        currentInternetState = INTERNET_NOT_AVAILABLE;
+                        m_ipversion = IP_ADDRESS_V4;
+                    }
+
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+
+                    if (currentInternetState != m_InternetState) {
+                        NMLOG_DEBUG("initial connectivity state change %s", getInternetStateString(m_InternetState));
+                        m_InternetState = currentInternetState;
+                        InitialRetryCount = 1; // reset retry count to get continuous 3 same state
+                    }
+                    InitialRetryCount++;
                 }
-                else
-                {
-                    notifyPreRetry = 1;
-                    TempInterval = continuousMonitorTimeout.load();
+
+                if (InitialRetryCount > NM_CONNECTIVITY_MONITOR_RETRY_COUNT) {
+                    m_switchToInitial = false;
+                    m_notify = true;
+                    InitialRetryCount = 0;
+                    IdealRetryCount = 0;
                 }
             }
+            // Ideal case monitoring
             else {
-                notifyPreRetry = 1;
-                TempInterval = continuousMonitorTimeout.load();
-            }
 
-            if(m_InternetState != currentInternetState)
-            {
-                /* Notify Internet state change */
-                notifyInternetStatusChangedEvent(currentInternetState);
-            }
+                timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
+                InitialRetryCount = 0;
 
-            //NMLOG_INFO("icm %d, ccm %d", doConnectivityMonitor.load(), doContinuousMonitor.load());
-            if(!doContinuousMonitor)
-                break;
+                TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
+                                                NMCONNECTIVITY_CURL_HEAD_REQUEST, m_ipversion);
+                currentInternetState = testInternet.getInternetState();
 
-            /* wait for next interval */
-            std::unique_lock<std::mutex> lock(connMutex);
-            if (cvContinuousMonitor.wait_for(lock, std::chrono::seconds(TempInterval)) != std::cv_status::timeout)
-                NMLOG_INFO("continous connectivity monitor recieved signal. skping %d sec interval", TempInterval);
+                if (currentInternetState == INTERNET_CAPTIVE_PORTAL) // if captive portal found copy the URL
+                    m_captiveURI = testInternet.getCaptivePortal();
 
-        } while(doContinuousMonitor);
-
-        m_Ipv4InternetState = nsm_internetState::UNKNOWN;
-        m_Ipv6InternetState = nsm_internetState::UNKNOWN;
-        NMLOG_DEBUG("continous connectivity monitor exit");
-    }
-
-    void ConnectivityMonitor::connectivityMonitorFunction()
-    {
-        int TempInterval = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-        std::mutex connMutex;
-        bool notifyNow = true;
-        int notifyPreRetry = 1;
-        nsm_internetState currentInternetState = nsm_internetState::UNKNOWN;
-        nsm_internetState tempInternetState = nsm_internetState::UNKNOWN;
-
-        do
-        {
-            TestConnectivity testInternet(getConnectivityMonitorEndpoints(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS, 
-                                                                            NMCONNECTIVITY_CURL_GET_REQUEST, NSM_IPRESOLVE_WHATEVER);
-            currentInternetState = testInternet.getInternetState();
-            if(currentInternetState == CAPTIVE_PORTAL)
-            {
-                /* set to every 30 sec interval */
-                TempInterval = NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL;
-            }
-            else if(currentInternetState == LIMITED_INTERNET)
-            {
-                TempInterval = NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL;
-            }
-            else // fullyconnect / noInternet
-            {
-                if(notifyPreRetry <= NMCONNECTIVITY_CONN_MONITOR_RETRY_COUNT - 1)
+                if (currentInternetState != m_InternetState)
                 {
-                    if(tempInternetState != currentInternetState ) // check for continous same state
+                    if (currentInternetState == INTERNET_NOT_AVAILABLE && m_InternetState == INTERNET_FULLY_CONNECTED)
                     {
-                        tempInternetState = currentInternetState;
-                        notifyPreRetry = 1;
-                        NMLOG_INFO("Connectivity check retrying %d ...", notifyPreRetry);
-                    }
-                    else
-                    {
-                        notifyPreRetry++;
-                        NMLOG_INFO("Connectivity check retrying %d ...", notifyPreRetry);
-                    }
-
-                    if(m_InternetState != nsm_internetState::UNKNOWN)
-                        currentInternetState = m_InternetState;
-                    TempInterval = 5;
-                }
-                else if(tempInternetState != currentInternetState) // last state have change
-                {
-                    tempInternetState = currentInternetState;
-                    notifyPreRetry = 1;
-                    TempInterval = 5;
-                    NMLOG_INFO("Connectivity check retrying %d ...", notifyPreRetry);
-                }
-                else
-                {
-                    if(currentInternetState == FULLY_CONNECTED)
-                    {
-                        doConnectivityMonitor = false;  // self exit
-                        notifyNow = true; // post current state when retry complete
-                    }
-                    else if(_instance != nullptr && (_instance->m_ethConnected | _instance->m_wlanConnected))
-                    {
-                        /* interface is connected and still no internet, continue check every 30 sec */
-                        TempInterval = NMCONNECTIVITY_CONN_MONITOR_RETRY_INTERVAL;
-                        /* notify if retry completed and state stil no internet state */
-                        if(notifyPreRetry == NMCONNECTIVITY_CONN_MONITOR_RETRY_COUNT)
-                        {
-                            notifyPreRetry++;
-                            notifyNow = true;
+                        DnsResolver dnsResolver(getConnectivityMonitorEndpoints()[0], m_ipversion, testInternet.getCurlError() ); // only first endpoint with specific ipversion
+                        if (dnsResolver()) {
+                            NMLOG_INFO("DNS resolved, success !!!");
+                            IdealRetryCount = 0;
+                            currentInternetState = INTERNET_FULLY_CONNECTED;
                         }
+                        else
+                        {
+                            NMLOG_WARNING("DNS resolve failed !!!");
+                            timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
+                            IdealRetryCount++;
+                            if (IdealRetryCount >= NM_CONNECTIVITY_MONITOR_RETRY_COUNT) {
+                                IdealRetryCount = 0;
+                                m_InternetState = INTERNET_NOT_AVAILABLE;
+                                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE; // reset all states to NO_INTERNET
+                                currentInternetState = INTERNET_NOT_AVAILABLE;
+                                m_switchToInitial = true; // switch to initial check after 3 retries
+                                InitialRetryCount = 1; // reset initial retry count it will not post the event
+                                m_notify = true;
+                                NMLOG_DEBUG("No internet retrying completed notifying !!!");
+                            } else {
+                                NMLOG_INFO("No internet retrying connection check %d ...", IdealRetryCount);
+                            }
+                        }
+                    } else {
+                        // a state change happened but it is not fully connected to no internet
+                        // switch to initial check to get the correct state
+                        m_switchToInitial = true;
+                        InitialRetryCount = 0;
+                        IdealRetryCount = 0;
+                        timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
+
+                        if (m_ipversion == IP_ADDRESS_V4)
+                            m_Ipv4InternetState = currentInternetState;
+                        else if (m_ipversion == IP_ADDRESS_V6)
+                            m_Ipv6InternetState = currentInternetState;
+                        else
+                            m_InternetState = currentInternetState;
                     }
-                    else // no interface connected
-                    {
-                        doConnectivityMonitor = false;
-                        notifyNow = true;
-                    }
+                } else { // ideal case no change in network state
+                    IdealRetryCount = 0;
+                    m_InternetState = currentInternetState;
                 }
             }
 
-            if(m_InternetState != currentInternetState || notifyNow)
-            {
-                notifyNow = false;
-                notifyInternetStatusChangedEvent(currentInternetState);
+            if (m_notify) {
+                m_InternetState = currentInternetState;
+                notifyInternetStatusChangedEvent(m_InternetState);
+                m_notify = false;
             }
 
-            if(!doConnectivityMonitor)
+            if (!m_cmRunning)
                 break;
-            /* wait for next interval */
-            std::unique_lock<std::mutex> lock(connMutex);
-            if (cvConnectivityMonitor.wait_for(lock, std::chrono::seconds(TempInterval)) != std::cv_status::timeout) {
-                NMLOG_INFO("connectivity monitor recieved signal. skping %d sec interval", TempInterval);
-                notifyPreRetry = 1;
-                notifyNow = true;  // new signal came should notify in next check
-            }
-            
-        } while(doConnectivityMonitor);
 
-        if(!doContinuousMonitor)
-            m_InternetState = nsm_internetState::UNKNOWN; // no continous monitor running reset to unknow
-        NMLOG_DEBUG("initial connectivity monitor exit");
+            // Wait for next interval
+            std::unique_lock<std::mutex> lock(m_cmMutex);
+            if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
+                NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
+            }
+        }
     }
 
     } // namespace Plugin
