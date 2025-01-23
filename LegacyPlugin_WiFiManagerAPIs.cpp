@@ -16,6 +16,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 **/
+#include <fstream>
 #include "LegacyPlugin_WiFiManagerAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
@@ -27,6 +28,7 @@ using namespace WPEFramework::Plugin;
 #define API_VERSION_NUMBER_PATCH 0
 #define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
 #define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
+#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -209,6 +211,7 @@ namespace WPEFramework
             Register("saveSSID",                          &WiFiManager::saveSSID, this);
             Register("startScan",                         &WiFiManager::startScan, this);
             Register("stopScan",                          &WiFiManager::stopScan, this);
+            Register("retrieveSSID",                      &WiFiManager::retrieveSSID, this);
         }
 
         /**
@@ -230,6 +233,7 @@ namespace WPEFramework
             Unregister("saveSSID");
             Unregister("startScan");
             Unregister("stopScan");
+            Unregister("retrieveSSID");
         }
 
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
@@ -605,6 +609,95 @@ namespace WPEFramework
                 rc = Core::ERROR_UNAVAILABLE;
 
             returnJson(rc);
+        }
+
+        uint32_t WiFiManager::retrieveSSID (const JsonObject& parameters, JsonObject& response)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            std::string line;
+            std::string securityPattern = "key_mgmt=";
+            std::string ssidPattern = "ssid=";
+            std::string passphrasePattern = "psk=";
+            std::string security, ssid, passphrase;
+
+            std::ifstream configFile(WPA_SUPPLICANT_CONF);
+            if (!configFile.is_open())
+            {
+                NMLOG_ERROR("Not able to open the file %s", WPA_SUPPLICANT_CONF);
+                response["success"] = false;
+                rc = Core::ERROR_NOT_EXIST;
+                return rc;
+            }
+
+            while (std::getline(configFile, line))
+            {
+                NMLOG_DEBUG("Attempting to read the configuration to populate SSID specific information");
+                size_t pos;
+
+                // Fetch ssid value
+                pos = line.find(ssidPattern);
+                if (pos != std::string::npos)
+                {
+                    pos += ssidPattern.length();
+                    size_t end = line.find('"', pos + 1);
+                    if (end == std::string::npos)
+                    {
+                        end = line.length();
+                    }
+                    ssid = line.substr(pos + 1, end - pos - 1);
+                    NMLOG_DEBUG("SSID found");
+                    continue;
+                }
+
+                if (!ssid.empty()) {
+                    // Fetch security value
+                    pos = line.find(securityPattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += securityPattern.length();
+                        size_t end = line.find(' ', pos);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        security = line.substr(pos, end - pos);
+                        continue;
+                    }
+
+                    // Fetch passphare value
+                    pos = line.find(passphrasePattern);
+                    if (pos != std::string::npos)
+                    {
+                        pos += passphrasePattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        passphrase = line.substr(pos + 1, end - pos - 1);
+                    }
+                    NMLOG_DEBUG("Fetched SSID = %s, security = %s", ssid.c_str(), security.c_str());
+                }
+            }
+            configFile.close();
+            if (!ssid.empty())
+            {
+                response["ssid"] = ssid;
+                //As enterprise data is not persisted, WPA_EAP mode is not considered here
+                if(security == "NONE")
+                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE);
+                else if(security == "SAE")
+                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE);
+                else
+                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES);
+                                                    /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is considered as default */
+                response["passphrase"] = passphrase;
+                response["success"] = true;
+                rc = Core::ERROR_NONE;
+            }
+            else
+                response["success"] = false;
+            return rc;
         }
 
         /** Private */
