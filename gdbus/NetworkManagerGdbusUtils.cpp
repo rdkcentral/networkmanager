@@ -20,12 +20,14 @@
 #include <glib.h>
 #include <gio/gio.h>
 #include <string>
+#include <cstring>
 #include <nm-dbus-interface.h>
 
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusUtils.h"
 #include "NetworkManagerGdbusMgr.h"
 #include <arpa/inet.h>
+#include <netinet/in.h> // for struct in_addr
 
 namespace WPEFramework
 {
@@ -214,20 +216,55 @@ namespace WPEFramework
             return true;
         }
 
+        bool GnomeUtils::getCachedPropertyBoolean(GDBusProxy* proxy, const char* property, bool *value)
+        {
+            GVariant* result = nullptr;
+            result = g_dbus_proxy_get_cached_property(proxy, property);
+            if (result == nullptr) {
+                NMLOG_ERROR("Failed to get '%s' properties", property);
+                return false;
+            }
+
+            if (g_variant_is_of_type(result, G_VARIANT_TYPE_BOOLEAN)) {
+                *value = g_variant_get_boolean(result);
+            }
+            else
+                NMLOG_WARNING("Unexpected type returned property: %s", g_variant_get_type_string(result));
+            g_variant_unref(result);
+            return true;
+        }
+
         bool GnomeUtils::getDevicePropertiesByPath(DbusMgr& m_dbus, const char* devicePath, deviceInfo& properties)
         {
             GVariant *devicesVar = NULL;
             GDBusProxy* nmProxy = NULL;
-            u_int32_t value;
+            u_int32_t value = 0;
+            bool managedValue;
 
             nmProxy = m_dbus.getNetworkManagerDeviceProxy(devicePath);
             if(nmProxy == NULL)
                 return false;
 
             if(GnomeUtils::getCachedPropertyU(nmProxy, "DeviceType", &value))
-               properties.deviceType = static_cast<NMDeviceType>(value);
+                properties.deviceType = static_cast<NMDeviceType>(value);
             else
-                 NMLOG_ERROR("'DeviceType' property failed");
+                NMLOG_ERROR("'DeviceType' property failed");
+
+            if(GnomeUtils::getCachedPropertyBoolean(nmProxy, "Managed", &managedValue))
+                properties.managed = managedValue;
+            else
+                NMLOG_ERROR("'Managed' property failed");
+            devicesVar = g_dbus_proxy_get_cached_property(nmProxy, "HwAddress");
+            if (devicesVar) {
+                const gchar *mac = g_variant_get_string(devicesVar, NULL);
+                if(mac != NULL)
+                {
+                    properties.MAC = mac;
+                }
+                g_variant_unref(devicesVar);
+            }
+            else
+                NMLOG_ERROR("'mac' property failed");
 
             devicesVar = g_dbus_proxy_get_cached_property(nmProxy, "Interface");
             if (devicesVar) {
@@ -236,7 +273,6 @@ namespace WPEFramework
                 {
                     properties.interface = iface;
                 }
-                //NMLOG_DEBUG("Interface: %s", iface);
                 g_variant_unref(devicesVar);
             }
             else
@@ -302,49 +338,39 @@ namespace WPEFramework
             return ret;
         }
 
-        bool GnomeUtils::getDeviceByIpIface(DbusMgr& m_dbus, const gchar *iface_name, std::string& path)
+        bool GnomeUtils::getDeviceByIpIface(DbusMgr& m_dbus, const gchar *ifaceName, std::string& path)
         {
-            // TODO Fix Error calling method: 
-            // GDBus.Error:org.freedesktop.NetworkManager.UnknownDevice: No device found for the requested iface 
-            // in wsl linux
-            GError *error = NULL;
-            GVariant *result;
-            gchar *device_path = NULL;
-            bool ret = false;
+            GError *error = nullptr;
+            GDBusProxy* nmProxy  = m_dbus.getNetworkManagerProxy();
+            if(nmProxy == NULL)
+                return false;
 
-            result = g_dbus_connection_call_sync(
-                m_dbus.getConnection(),
-                "org.freedesktop.NetworkManager",               // D-Bus name
-                "/org/freedesktop/NetworkManager",              // Object path
-                "org.freedesktop.NetworkManager",               // Interface
-                "GetDeviceByIpIface",                           // Method name
-                g_variant_new("(s)", iface_name),               // Input parameter (the interface name)
-                G_VARIANT_TYPE("(o)"),                          // Expected return type (object path)
-                G_DBUS_CALL_FLAGS_NONE,
-                -1,                                             // Default timeout
-                NULL,
-                &error
-            );
+            GVariant *result = g_dbus_proxy_call_sync(
+                    nmProxy,
+                    "GetDeviceByIpIface",
+                    g_variant_new("(s)", ifaceName),
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
 
-            if (error != NULL) {
-                NMLOG_ERROR("calling GetDeviceByIpIface: %s", error->message);
-                g_error_free(error);
-                return ret;
+            if (result == nullptr) {
+                NMLOG_ERROR("Error calling GetDeviceByIpIface: %s", error->message);
+                g_clear_error(&error);
+                g_object_unref(nmProxy);
+                return false;
             }
 
-            if (g_variant_is_of_type (result, (const GVariantType *) "(o)"))
-            {
-                g_variant_get(result, "(o)", &device_path);
-                if(device_path != NULL)
-                {
-                    path = std::string(device_path);
-                    ret = true;
-                    g_free(device_path);
-                }
-            }
-            //NMLOG_DEBUG("%s device path %s", iface_name, path.c_str());
+            gchar *devicePath;
+            g_variant_get(result, "(o)", &devicePath);
+
             g_variant_unref(result);
-            return ret;
+            g_object_unref(nmProxy);
+
+            path = std::string(devicePath);
+            g_free(devicePath);
+
+            return true;
         }
 
         bool GnomeUtils::getApDetails(DbusMgr& m_dbus, const char* apPath, Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo)
@@ -546,6 +572,167 @@ namespace WPEFramework
             return true;
         }
 
+        bool GnomeUtils::activateConnection(DbusMgr& m_dbus, const std::string& connectionProfile, const std::string& devicePath)
+        {
+            GError* error = nullptr;
+            GDBusProxy* nmProxy  = m_dbus.getNetworkManagerProxy();
+            if(nmProxy == NULL)
+                return false;
+
+            GVariant* result = g_dbus_proxy_call_sync(
+                    nmProxy,
+                    "ActivateConnection",
+                    g_variant_new("(ooo)", connectionProfile.c_str(), devicePath.c_str(), "/"),
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error
+                    );
+
+            if (error) {
+                NMLOG_ERROR("ActivateConnection Error: %s", error->message);
+                g_error_free(error);
+            } else if (result != nullptr) {
+                g_variant_unref(result);
+            }
+            return true;
+        }
+
+        bool GnomeUtils::getSettingsConnectionPath(DbusMgr &m_dbus, std::string& connectionPath, const std::string& interface)
+        {
+            GDBusProxy *nmProxy = nullptr;
+            bool found = false;
+            nmProxy = m_dbus.getNetworkManagerProxy();
+            if(nmProxy == nullptr)
+                return false;
+            GVariant *activeConnections = g_dbus_proxy_get_cached_property(nmProxy, "ActiveConnections");
+            if (activeConnections == nullptr) {
+                NMLOG_ERROR("Error retrieving active connections");
+                g_object_unref(nmProxy);
+                return false;
+            }
+
+            GVariantIter iter;
+            g_variant_iter_init(&iter, activeConnections);
+            gchar *activeConnectionPath = nullptr;
+            while (g_variant_iter_loop(&iter, "o", &activeConnectionPath)) {
+                GDBusProxy *activeConnectionProxy = m_dbus.getNetworkManagerActiveConnProxy(activeConnectionPath);
+
+                if (activeConnectionProxy == nullptr) {
+                    NMLOG_ERROR("Error creating active connection proxy");
+                    continue;
+                }
+
+                GVariant *devicesVar = g_dbus_proxy_get_cached_property(activeConnectionProxy, "Devices");
+                if (devicesVar == nullptr) {
+                    NMLOG_ERROR("Error retrieving devices property");
+                    g_object_unref(activeConnectionProxy);
+                    continue;
+                }
+
+                GVariantIter devicesIter;
+                g_variant_iter_init(&devicesIter, devicesVar);
+                gchar *devicePath = nullptr;
+
+                while (g_variant_iter_loop(&devicesIter, "o", &devicePath)) {
+                    GDBusProxy *deviceProxy = m_dbus.getNetworkManagerDeviceProxy(devicePath);
+
+                    if (deviceProxy == nullptr) {
+                        NMLOG_ERROR("Error creating device proxy");
+                        continue;
+                    }
+
+                    GVariant *ifaceProperty = g_dbus_proxy_get_cached_property(deviceProxy, "Interface");
+                    if (ifaceProperty) {
+                        const gchar *iface = g_variant_get_string(ifaceProperty, nullptr);
+                        if (interface == iface) {
+                            found = true;
+                            GVariant *connectionProperty = g_dbus_proxy_get_cached_property(activeConnectionProxy, "Connection");
+                            if (connectionProperty) {
+                                connectionPath = g_variant_get_string(connectionProperty, nullptr);
+                                g_variant_unref(connectionProperty);
+                            } else {
+                                NMLOG_ERROR("Error retrieving connection property");
+                            }
+
+                            g_variant_unref(ifaceProperty);
+                            g_object_unref(deviceProxy);
+                            break;
+                        }
+                        g_variant_unref(ifaceProperty);
+                    }
+
+                    g_object_unref(deviceProxy);
+                }
+                g_variant_unref(devicesVar);
+                g_object_unref(activeConnectionProxy);
+
+                if (found) {
+                    break;
+                }
+            }
+
+            g_variant_unref(activeConnections);
+            g_object_unref(nmProxy);
+            return true;
+        }
+
+        // Convert IPv4 string to network byte order (NBO)
+        uint32_t GnomeUtils::ip4StrToNBO(const std::string &ipAddress)
+        {
+            struct in_addr addr;
+            if (inet_pton(AF_INET, ipAddress.c_str(), &addr) != 1) {
+                NMLOG_ERROR("Invalid IPv4 address format: %s", ipAddress.c_str());
+            }
+            return addr.s_addr;
+        }
+
+        // Convert an IPv6 string address to an array of bytes
+        std::array<guint8, 16> GnomeUtils::ip6StrToNBO(const std::string &ipAddress)
+        {
+            struct in6_addr addr6;
+            inet_pton(AF_INET6, ipAddress.c_str(), &addr6);
+            std::array<guint8, 16> ip6{};
+            std::memcpy(ip6.data(), &addr6, 16);
+            return ip6;
+        }
+
+        // Helper function to convert a raw IPv4 address to human-readable format
+        std::string GnomeUtils::ip4ToString(uint32_t ip) {
+            ip = ntohl(ip); // Convert from network to host byte order
+            char buf[INET_ADDRSTRLEN] = {0};
+            snprintf(buf, sizeof(buf), "%u.%u.%u.%u",
+                    (ip >> 24) & 0xFF,
+                    (ip >> 16) & 0xFF,
+                    (ip >>  8) & 0xFF,
+                    ip & 0xFF);
+            return std::string(buf);
+        }
+
+        // Helper function to convert a raw IPv6 address to human-readable format
+        std::string GnomeUtils::ip6ToString(const uint8_t *ipv6) {
+            char buf[INET6_ADDRSTRLEN];
+            inet_ntop(AF_INET6, ipv6, buf, sizeof(buf));
+            return std::string(buf);
+        }
+
+        // Helper function to add elements from GVariant to GVariantBuilder
+        void GnomeUtils::addGvariantToBuilder(GVariant *variant, GVariantBuilder *builder, gboolean excludeRouteMetric) {
+            GVariantIter iter;
+
+            const gchar *key;
+            GVariant *value;
+            g_variant_iter_init(&iter, variant);
+
+            // Iterate through key-value pairs in the dictionary
+            while (g_variant_iter_loop(&iter, "{&sv}", &key, &value)) {
+                if (excludeRouteMetric && strcmp(key, "route-metric") == 0) {
+                    // Skip adding this key-value pair if exclude_route_metric is TRUE and key is "route-metric"
+                    continue;
+                }
+                g_variant_builder_add(builder, "{sv}", key, value);
+            }
+        }
     } // Plugin
 } // WPEFramework
 
