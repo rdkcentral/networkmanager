@@ -73,6 +73,7 @@ namespace WPEFramework {
             uint32_t getPairedSSIDInfo(const JsonObject& parameters, JsonObject& response);
             uint32_t isPaired(const JsonObject& parameters, JsonObject& response);
             uint32_t getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response);
+            uint32_t retrieveSSID(const JsonObject& parameters, JsonObject& response);
             //End methods
 
             //Begin events
