@@ -88,8 +88,6 @@ namespace WPEFramework {
             static std::string getInterfaceMapping(const std::string &interface);
             static bool ErrorCodeMapping(const uint32_t ipvalue , uint32_t &opvalue);
             void activatePrimaryPlugin();
-            static uint32_t mapToNewSecurityMode(const uint32_t legacySecurityMode);
-            static uint32_t mapToLegacySecurityMode(const uint32_t newSecurityMode);
 
         private:
             PluginHost::IShell* m_service;

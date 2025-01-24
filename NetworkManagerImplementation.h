@@ -257,8 +257,6 @@ namespace WPEFramework
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(void);
                 void filterScanResults(JsonArray &ssids);
-                static uint32_t mapToNewSecurityMode(const uint32_t legacyMode);
-                static uint32_t mapToLegacySecurityMode(const uint32_t securityMode);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
