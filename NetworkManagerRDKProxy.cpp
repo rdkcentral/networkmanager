@@ -424,6 +424,53 @@ namespace WPEFramework
             return Exchange::INetworkManager::WIFI_STATE_INVALID;
         }
 
+        static uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
+        {
+            if (securityMode == 0)
+                return 0; /* NET_WIFI_SECURITY_NONE */
+            else if (securityMode == 1)
+                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
+            else if (securityMode == 2)
+                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
+            else if (securityMode == 3)
+                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
+
+            return 0; /* NET_WIFI_SECURITY_NONE */
+        }
+
+        static uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
+        {
+            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_128))
+            {
+                return 0; /* WIFI_SECURITY_NONE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
+            {
+                return 1; /* WIFI_SECURITY_WPA_PSK */
+            }
+            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
+            {
+                return 2; /* WIFI_SECURITY_SAE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
+            {
+                return 3; /* WIFI_SECURITY_EAP */
+            }
+
+            return 0; /* WIFI_SECURITY_NONE */
+        }
+
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
         {
             LOG_ENTRY_FUNCTION();
@@ -1184,53 +1231,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 NMLOG_ERROR ("GetKnownSSIDs failed");
             }
             return rc;
-        }
-
-        static uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
-        {
-            if (securityMode == 0)
-                return 0; /* NET_WIFI_SECURITY_NONE */
-            else if (securityMode == 1)
-                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
-            else if (securityMode == 2)
-                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
-            else if (securityMode == 3)
-                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
-
-            return 0; /* NET_WIFI_SECURITY_NONE */
-        }
-
-        static uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
-        {
-            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
-                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
-                (legacyMode == NET_WIFI_SECURITY_WEP_128))
-            {
-                return 0; /* WIFI_SECURITY_NONE */
-            }
-            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
-            {
-                return 1; /* WIFI_SECURITY_WPA_PSK */
-            }
-            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
-            {
-                return 2; /* WIFI_SECURITY_SAE */
-            }
-            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
-            {
-                return 3; /* WIFI_SECURITY_EAP */
-            }
-
-            return 0; /* WIFI_SECURITY_NONE */
         }
 
         uint32_t NetworkManagerImplementation::AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */)
