@@ -22,19 +22,6 @@
 #include "Module.h"
 #include "NetworkManagerTimer.h"
 
-/*! Error code: A recoverable, unexpected error occurred,
- * as defined by one of the following values */
-typedef enum _WiFiErrorCode_t {
-    WIFI_SSID_CHANGED,              /**< The SSID of the network changed */
-    WIFI_CONNECTION_LOST,           /**< The connection to the network was lost */
-    WIFI_CONNECTION_FAILED,         /**< The connection failed for an unknown reason */
-    WIFI_CONNECTION_INTERRUPTED,    /**< The connection was interrupted */
-    WIFI_INVALID_CREDENTIALS,       /**< The connection failed due to invalid credentials */
-    WIFI_NO_SSID,                   /**< The SSID does not exist */
-    WIFI_UNKNOWN,                   /**< Any other error */
-    WIFI_AUTH_FAILED                /**< The connection failed due to auth failure */
-} WiFiErrorCode_t;
-
 namespace WPEFramework {
 
     namespace Plugin {
@@ -101,6 +88,8 @@ namespace WPEFramework {
             static std::string getInterfaceMapping(const std::string &interface);
             static bool ErrorCodeMapping(const uint32_t ipvalue , uint32_t &opvalue);
             void activatePrimaryPlugin();
+            uint32_t mapToNewSecurityMode(const uint32_t legacySecurityMode);
+            uint32_t mapToLegacySecurityMode(const uint32_t newSecurityMode);
 
         private:
             PluginHost::IShell* m_service;

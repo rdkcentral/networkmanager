@@ -448,12 +448,8 @@ namespace WPEFramework
             NMSettingWirelessSecurity *sSecurity = NULL;
             switch(ssidinfo.security)
             {
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
                     if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
                     {
@@ -463,7 +459,7 @@ namespace WPEFramework
 
                     sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                     nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
-                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE == ssidinfo.security)
+                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
                     {
                         NMLOG_INFO("key-mgmt: %s", "sae");
                         g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"sae", NULL);
@@ -477,11 +473,7 @@ namespace WPEFramework
                     g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
                     break;
                 }
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP:
                 {
                     NMSetting8021x *s8021X = NULL;
                     GError *error = NULL;

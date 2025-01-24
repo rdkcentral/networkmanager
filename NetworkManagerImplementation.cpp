@@ -555,21 +555,10 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             std::vector<WIFISecurityModeInfo> modeInfo {
-                                                            {WIFI_SECURITY_NONE,                  "WIFI_SECURITY_NONE"},
-                                                            {WIFI_SECURITY_WEP_64,                "WIFI_SECURITY_WEP_64"},
-                                                            {WIFI_SECURITY_WEP_128,               "WIFI_SECURITY_WEP_128"},
-                                                            {WIFI_SECURITY_WPA_PSK_TKIP,          "WIFI_SECURITY_WPA_PSK_TKIP"},
-                                                            {WIFI_SECURITY_WPA_PSK_AES,           "WIFI_SECURITY_WPA_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA2_PSK_TKIP,         "WIFI_SECURITY_WPA2_PSK_TKIP"},
-                                                            {WIFI_SECURITY_WPA2_PSK_AES,          "WIFI_SECURITY_WPA2_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA_ENTERPRISE_TKIP,   "WIFI_SECURITY_WPA_ENTERPRISE_TKIP"},
-                                                            {WIFI_SECURITY_WPA_ENTERPRISE_AES,    "WIFI_SECURITY_WPA_ENTERPRISE_AES"},
-                                                            {WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,  "WIFI_SECURITY_WPA2_ENTERPRISE_TKIP"},
-                                                            {WIFI_SECURITY_WPA2_ENTERPRISE_AES,   "WIFI_SECURITY_WPA2_ENTERPRISE_AES"},
-                                                            {WIFI_SECURITY_WPA_WPA2_PSK,          "WIFI_SECURITY_WPA_WPA2_PSK"},
-                                                            {WIFI_SECURITY_WPA_WPA2_ENTERPRISE,   "WIFI_SECURITY_WPA_WPA2_ENTERPRISE"},
-                                                            {WIFI_SECURITY_WPA3_PSK_AES,          "WIFI_SECURITY_WPA3_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA3_SAE,              "WIFI_SECURITY_WPA3_SAE"}
+                                                            {WIFI_SECURITY_NONE,     "NONE"},
+                                                            {WIFI_SECURITY_WPA_PSK,  "WPA_PSK"},
+                                                            {WIFI_SECURITY_SAE,      "SAE"},
+                                                            {WIFI_SECURITY_EAP,      "EAP"},
                                                         };
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
