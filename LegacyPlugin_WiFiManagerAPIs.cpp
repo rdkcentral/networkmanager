@@ -711,18 +711,20 @@ namespace WPEFramework
                 size_t pos;
 
                 // Fetch ssid value
-                pos = line.find(ssidPattern);
-                if (pos != std::string::npos)
-                {
-                    pos += ssidPattern.length();
-                    size_t end = line.find('"', pos + 1);
-                    if (end == std::string::npos)
+                if (ssid.empty()) {
+                    pos = line.find(ssidPattern);
+                    if (pos != std::string::npos)
                     {
-                        end = line.length();
+                        pos += ssidPattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        ssid = line.substr(pos + 1, end - pos - 1);
+                        NMLOG_DEBUG("SSID found");
+                        continue;
                     }
-                    ssid = line.substr(pos + 1, end - pos - 1);
-                    NMLOG_DEBUG("SSID found");
-                    continue;
                 }
 
                 if (!ssid.empty()) {
