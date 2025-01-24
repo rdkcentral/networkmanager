@@ -269,7 +269,7 @@ namespace WPEFramework
             Unregister("retrieveSSID");
         }
 
-        static inline uint32_t WiFiManager::mapToLegacySecurityMode(const uint32_t securityMode)
+        static inline uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
         {
             if (securityMode == 0)
                 return 0; /* NET_WIFI_SECURITY_NONE */
@@ -283,7 +283,7 @@ namespace WPEFramework
             return 0; /* NET_WIFI_SECURITY_NONE */
         }
 
-        static inline uint32_t WiFiManager::mapToNewSecurityMode(const uint32_t legacyMode)
+        static inline uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
         {
             if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
                 (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
