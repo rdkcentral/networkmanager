@@ -269,6 +269,53 @@ namespace WPEFramework
             Unregister("retrieveSSID");
         }
 
+        static inline uint32_t WiFiManager::mapToLegacySecurityMode(const uint32_t securityMode)
+        {
+            if (securityMode == 0)
+                return 0; /* NET_WIFI_SECURITY_NONE */
+            else if (securityMode == 1)
+                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
+            else if (securityMode == 2)
+                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
+            else if (securityMode == 3)
+                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
+
+            return 0; /* NET_WIFI_SECURITY_NONE */
+        }
+
+        static inline uint32_t WiFiManager::mapToNewSecurityMode(const uint32_t legacyMode)
+        {
+            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_128))
+            {
+                return 0; /* WIFI_SECURITY_NONE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
+            {
+                return 1; /* WIFI_SECURITY_WPA_PSK */
+            }
+            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
+            {
+                return 2; /* WIFI_SECURITY_SAE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
+            {
+                return 3; /* WIFI_SECURITY_EAP */
+            }
+
+            return 0; /* WIFI_SECURITY_NONE */
+        }
+
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
@@ -499,53 +546,6 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        static inline uint32_t WiFiManager::mapToLegacySecurityMode(const uint32_t securityMode)
-        {
-            if (securityMode == 0)
-                return 0; /* NET_WIFI_SECURITY_NONE */
-            else if (securityMode == 1)
-                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
-            else if (securityMode == 2)
-                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
-            else if (securityMode == 3)
-                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
-
-            return 0; /* NET_WIFI_SECURITY_NONE */
-        }
-
-        static inline uint32_t WiFiManager::mapToNewSecurityMode(const uint32_t legacyMode)
-        {
-            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
-                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
-                (legacyMode == NET_WIFI_SECURITY_WEP_128))
-            {
-                return 0; /* WIFI_SECURITY_NONE */
-            }
-            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
-            {
-                return 1; /* WIFI_SECURITY_WPA_PSK */
-            }
-            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
-            {
-                return 2; /* WIFI_SECURITY_SAE */
-            }
-            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
-                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
-            {
-                return 3; /* WIFI_SECURITY_EAP */
-            }
-
-            return 0; /* WIFI_SECURITY_NONE */
-        }
-
         uint32_t WiFiManager::saveSSID (const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -711,18 +711,20 @@ namespace WPEFramework
                 size_t pos;
 
                 // Fetch ssid value
-                pos = line.find(ssidPattern);
-                if (pos != std::string::npos)
-                {
-                    pos += ssidPattern.length();
-                    size_t end = line.find('"', pos + 1);
-                    if (end == std::string::npos)
+                if (ssid.empty()) {
+                    pos = line.find(ssidPattern);
+                    if (pos != std::string::npos)
                     {
-                        end = line.length();
+                        pos += ssidPattern.length();
+                        size_t end = line.find('"', pos + 1);
+                        if (end == std::string::npos)
+                        {
+                            end = line.length();
+                        }
+                        ssid = line.substr(pos + 1, end - pos - 1);
+                        NMLOG_DEBUG("SSID found");
+                        continue;
                     }
-                    ssid = line.substr(pos + 1, end - pos - 1);
-                    NMLOG_DEBUG("SSID found");
-                    continue;
                 }
 
                 if (!ssid.empty()) {
