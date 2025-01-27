@@ -960,11 +960,13 @@ namespace WPEFramework
         void wifiManager::wpsAction()
         {
             FILE *fp = nullptr;
+            const std::string securityPattern = "key_mgmt=";
+            const std::string ssidPattern = "ssid=";
+            const std::string passphrasePattern = "psk=";
             std::string line = "";
-            std::string securityPattern = "key_mgmt=";
-            std::string ssidPattern = "ssid=";
-            std::string passphrasePattern = "psk=";
-            std::string security = "", ssid = "", passphrase = "";
+            std::string security = "";
+            std::string ssid = "";
+            std::string passphrase = "";
             std::string wpaCliResult = "";
             gboolean wpsConnect = false;
             struct timespec startTime = {}, endTime = {};
@@ -1003,7 +1005,7 @@ namespace WPEFramework
                     for (guint apCount = 0; apCount < aps->len; apCount++) {
                         NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(aps, apCount));
                         guint32 flags = nm_access_point_get_flags(ap);
-                        GBytes *ssid;
+                        GBytes *ssidBytes;
                         gsize size;
                         std::string ssidStr;
 
@@ -1017,8 +1019,8 @@ namespace WPEFramework
                                 apList[wpsApCount].bssid[sizeof(apList[wpsApCount].bssid) - 1] = '\0';
                             }
                             NMLOG_DEBUG("PBC enabled access point bssid = %s", bssid);
-                            ssid = nm_access_point_get_ssid(ap);
-                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
+                            ssidBytes = nm_access_point_get_ssid(ap);
+                            const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidBytes, &size));
                             std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
                             strncpy(apList[wpsApCount].ssid, ssidTmp.c_str(), sizeof(apList[wpsApCount].ssid) - 1);
                             apList[wpsApCount].ssid[sizeof(apList[wpsApCount].ssid) - 1] = '\0';
@@ -1111,19 +1113,21 @@ namespace WPEFramework
                         size_t pos;
 
                         // Fetch ssid value
-                        pos = line.find(ssidPattern);
-                        if (pos != std::string::npos)
-                        {
-                            pos += ssidPattern.length();
-                            size_t end = line.find('"', pos + 1);
-                            if (end == std::string::npos)
+                        if (ssid.empty()) {
+                            pos = line.find(ssidPattern);
+                            if (pos != std::string::npos)
                             {
-                                end = line.length();
+                                pos += ssidPattern.length();
+                                size_t end = line.find('"', pos + 1);
+                                if (end == std::string::npos)
+                                {
+                                    end = line.length();
+                                }
+                                ssid = line.substr(pos + 1, end - pos - 1);
+                                wpsConnect = true;
+                                NMLOG_DEBUG("SSID found");
+                                continue;
                             }
-                            ssid = line.substr(pos + 1, end - pos - 1);
-                            wpsConnect = true;
-                            NMLOG_DEBUG("SSID found");
-                            continue;
                         }
 
                         if (wpsConnect) {
