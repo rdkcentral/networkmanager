@@ -97,21 +97,10 @@ namespace WPEFramework
 
             enum WIFISecurityMode : uint8_t
             {
-                WIFI_SECURITY_NONE,
-                WIFI_SECURITY_WEP_64,
-                WIFI_SECURITY_WEP_128,
-                WIFI_SECURITY_WPA_PSK_TKIP,
-                WIFI_SECURITY_WPA_PSK_AES,
-                WIFI_SECURITY_WPA2_PSK_TKIP,
-                WIFI_SECURITY_WPA2_PSK_AES,
-                WIFI_SECURITY_WPA_ENTERPRISE_TKIP,
-                WIFI_SECURITY_WPA_ENTERPRISE_AES,
-                WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,
-                WIFI_SECURITY_WPA2_ENTERPRISE_AES,
-                WIFI_SECURITY_WPA_WPA2_PSK,
-                WIFI_SECURITY_WPA_WPA2_ENTERPRISE,
-                WIFI_SECURITY_WPA3_PSK_AES,
-                WIFI_SECURITY_WPA3_SAE
+                WIFI_SECURITY_NONE          /* @text: NONE */,
+                WIFI_SECURITY_WPA_PSK       /* @text: WPA-PSK */,
+                WIFI_SECURITY_SAE           /* @text: SAE */,
+                WIFI_SECURITY_EAP           /* @text: EAP */,
             };
 
             struct EXTERNAL WiFiScanResults {

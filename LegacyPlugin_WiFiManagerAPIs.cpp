@@ -43,6 +43,39 @@ using namespace WPEFramework::Plugin;
         return rc;                                  \
     }
 
+/*! Error code: A recoverable, unexpected error occurred,
+ * as defined by one of the following values */
+typedef enum _WiFiErrorCode_t {
+    WIFI_SSID_CHANGED,              /**< The SSID of the network changed */
+    WIFI_CONNECTION_LOST,           /**< The connection to the network was lost */
+    WIFI_CONNECTION_FAILED,         /**< The connection failed for an unknown reason */
+    WIFI_CONNECTION_INTERRUPTED,    /**< The connection was interrupted */
+    WIFI_INVALID_CREDENTIALS,       /**< The connection failed due to invalid credentials */
+    WIFI_NO_SSID,                   /**< The SSID does not exist */
+    WIFI_UNKNOWN,                   /**< Any other error */
+    WIFI_AUTH_FAILED                /**< The connection failed due to auth failure */
+} WiFiErrorCode_t;
+
+typedef enum _SsidSecurity
+{
+    NET_WIFI_SECURITY_NONE = 0,
+    NET_WIFI_SECURITY_WEP_64,
+    NET_WIFI_SECURITY_WEP_128,
+    NET_WIFI_SECURITY_WPA_PSK_TKIP,
+    NET_WIFI_SECURITY_WPA_PSK_AES,
+    NET_WIFI_SECURITY_WPA2_PSK_TKIP,
+    NET_WIFI_SECURITY_WPA2_PSK_AES,
+    NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP,
+    NET_WIFI_SECURITY_WPA_ENTERPRISE_AES,
+    NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,
+    NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES,
+    NET_WIFI_SECURITY_WPA_WPA2_PSK,
+    NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE,
+    NET_WIFI_SECURITY_WPA3_PSK_AES,
+    NET_WIFI_SECURITY_WPA3_SAE,
+    NET_WIFI_SECURITY_NOT_SUPPORTED = 99,
+} SsidSecurity;
+
 namespace WPEFramework
 {
     class Job : public Core::IDispatch {
@@ -236,6 +269,53 @@ namespace WPEFramework
             Unregister("retrieveSSID");
         }
 
+        static inline uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
+        {
+            if (securityMode == 0)
+                return 0; /* NET_WIFI_SECURITY_NONE */
+            else if (securityMode == 1)
+                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
+            else if (securityMode == 2)
+                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
+            else if (securityMode == 3)
+                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
+
+            return 0; /* NET_WIFI_SECURITY_NONE */
+        }
+
+        static inline uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
+        {
+            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_128))
+            {
+                return 0; /* WIFI_SECURITY_NONE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
+            {
+                return 1; /* WIFI_SECURITY_WPA_PSK */
+            }
+            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
+            {
+                return 2; /* WIFI_SECURITY_SAE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
+            {
+                return 3; /* WIFI_SECURITY_EAP */
+            }
+
+            return 0; /* WIFI_SECURITY_NONE */
+        }
+
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
@@ -293,7 +373,7 @@ namespace WPEFramework
                 ssid.passphrase = parameters["passphrase"].String();
 
             if (parameters.HasLabel("securityMode"))
-                ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["securityMode"].Number());
+                ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (mapToNewSecurityMode(parameters["securityMode"].Number()));
 
             ssid.persist = true;
 
@@ -330,7 +410,7 @@ namespace WPEFramework
                 response["bssid"] = ssidInfo.bssid;
                 response["rate"] = ssidInfo.rate;
                 response["noise"] = ssidInfo.noise;
-                response["security"] = JsonValue(ssidInfo.security);
+                response["security"] = JsonValue(mapToLegacySecurityMode(ssidInfo.security));
                 response["signalStrength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
             }
@@ -425,30 +505,26 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::ISecurityModeIterator* securityModes{};
+            JsonObject security_modes;
+            security_modes["NET_WIFI_SECURITY_NONE"]                 = (int)NET_WIFI_SECURITY_NONE;
+            security_modes["NET_WIFI_SECURITY_WEP_64"]               = (int)NET_WIFI_SECURITY_WEP_64;
+            security_modes["NET_WIFI_SECURITY_WEP_128"]              = (int)NET_WIFI_SECURITY_WEP_128;
+            security_modes["NET_WIFI_SECURITY_WPA_PSK_TKIP"]         = (int)NET_WIFI_SECURITY_WPA_PSK_TKIP;
+            security_modes["NET_WIFI_SECURITY_WPA_PSK_AES"]          = (int)NET_WIFI_SECURITY_WPA_PSK_AES;
+            security_modes["NET_WIFI_SECURITY_WPA2_PSK_TKIP"]        = (int)NET_WIFI_SECURITY_WPA2_PSK_TKIP;
+            security_modes["NET_WIFI_SECURITY_WPA2_PSK_AES"]         = (int)NET_WIFI_SECURITY_WPA2_PSK_AES;
+            security_modes["NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP"]  = (int)NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP;
+            security_modes["NET_WIFI_SECURITY_WPA_ENTERPRISE_AES"]   = (int)NET_WIFI_SECURITY_WPA_ENTERPRISE_AES;
+            security_modes["NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP"] = (int)NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP;
+            security_modes["NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES"]  = (int)NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES;
+            security_modes["NET_WIFI_SECURITY_WPA_WPA2_PSK"]         = (int)NET_WIFI_SECURITY_WPA_WPA2_PSK;
+            security_modes["NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE"]  = (int)NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE;
+            security_modes["NET_WIFI_SECURITY_WPA3_PSK_AES"]         = (int)NET_WIFI_SECURITY_WPA3_PSK_AES;
+            security_modes["NET_WIFI_SECURITY_WPA3_SAE"]             = (int)NET_WIFI_SECURITY_WPA3_SAE;
+            security_modes["NET_WIFI_SECURITY_NOT_SUPPORTED"]        = (int)NET_WIFI_SECURITY_NOT_SUPPORTED;
 
-            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr)
-            {
-                rc = _nwmgr->GetSupportedSecurityModes(securityModes);
-                _nwmgr->Release();
-            }
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            response["security_modes"] = security_modes;
 
-            if (Core::ERROR_NONE == rc)
-            {
-                if (securityModes != nullptr)
-                {
-                    JsonObject modes{};
-                    Exchange::INetworkManager::WIFISecurityModeInfo _resultItem_{};
-                    while (securityModes->Next(_resultItem_) == true)
-                    {
-                        response.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
-                    }
-                    securityModes->Release();
-                }
-            }
             returnJson(rc);
         }
 
@@ -480,7 +556,7 @@ namespace WPEFramework
             {
                 ssid.ssid            = parameters["ssid"].String();
                 ssid.passphrase      = parameters["passphrase"].String();
-                ssid.security        = static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
+                ssid.security        = static_cast <Exchange::INetworkManager::WIFISecurityMode> (mapToNewSecurityMode(parameters["security"].Number()));
 
                 auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
                 if (_nwmgr)
@@ -689,9 +765,9 @@ namespace WPEFramework
                 if(security == "NONE")
                     response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE);
                 else if(security == "SAE")
-                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE);
+                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE);
                 else
-                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES);
+                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK);
                                                     /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is considered as default */
                 response["passphrase"] = passphrase;
                 response["success"] = true;
@@ -829,10 +905,21 @@ namespace WPEFramework
         void WiFiManager::onAvailableSSIDs(const JsonObject& parameters)
         {
             string json;
+            JsonArray ssidsUpdated;
+            JsonObject newParameters;
+            JsonArray ssids = parameters["ssids"].Array();
             parameters.ToString(json);
             NMLOG_INFO("Posting onAvailableSSIDs Event as %s", json.c_str());
+            for (int i = 0; i < ssids.Length(); i++)
+            {
+                JsonObject object = ssids[i].Object();
+                uint32_t security = object["security"].Number();
+                object["security"] = mapToLegacySecurityMode(security);
+                ssidsUpdated.Add(object);
+            }
+            newParameters["ssids"] = ssidsUpdated;
             if(_gWiFiInstance)
-                _gWiFiInstance->Notify("onAvailableSSIDs", parameters);
+                _gWiFiInstance->Notify("onAvailableSSIDs", newParameters);
             else
                 NMLOG_WARNING("Ignoring %s", __FUNCTION__);
 

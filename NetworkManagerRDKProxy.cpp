@@ -424,6 +424,53 @@ namespace WPEFramework
             return Exchange::INetworkManager::WIFI_STATE_INVALID;
         }
 
+        static inline uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
+        {
+            if (securityMode == 0)
+                return 0; /* NET_WIFI_SECURITY_NONE */
+            else if (securityMode == 1)
+                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
+            else if (securityMode == 2)
+                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
+            else if (securityMode == 3)
+                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
+
+            return 0; /* NET_WIFI_SECURITY_NONE */
+        }
+
+        static inline uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
+        {
+            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_128))
+            {
+                return 0; /* WIFI_SECURITY_NONE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
+            {
+                return 1; /* WIFI_SECURITY_WPA_PSK */
+            }
+            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
+            {
+                return 2; /* WIFI_SECURITY_SAE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
+            {
+                return 3; /* WIFI_SECURITY_EAP */
+            }
+
+            return 0; /* WIFI_SECURITY_NONE */
+        }
+
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
         {
             LOG_ENTRY_FUNCTION();
@@ -512,6 +559,8 @@ namespace WPEFramework
                         NMLOG_INFO ("IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs");
                         std::string serialized(e->data.wifiSSIDList.ssid_list);
                         JsonObject eventDocument;
+                        JsonArray ssidsUpdated;
+                        uint32_t security;
                         WPEC::OptionalType<WPEJ::Error> error;
                         if (!WPEJ::IElement::FromString(serialized, eventDocument, error)) {
                             NMLOG_ERROR("Failed to parse JSON document containing SSIDs. Due to: %s", WPEJ::ErrorDisplayMessage(error).c_str());
@@ -524,7 +573,14 @@ namespace WPEFramework
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
 
-                        ::_instance->ReportAvailableSSIDs(ssids);
+                        for (int i = 0; i < ssids.Length(); i++)
+                        {
+                            JsonObject object = ssids[i].Object();
+                            security = object["security"].Number();
+                            object["security"] = mapToNewSecurityMode(security);
+                            ssidsUpdated.Add(object);
+                        }
+                        ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
@@ -1186,7 +1242,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             strncpy(param.data.connect.ssid, ssid.ssid.c_str(), SSID_SIZE - 1);
             strncpy(param.data.connect.passphrase, ssid.passphrase.c_str(), PASSPHRASE_BUFF - 1);
-            param.data.connect.security_mode = (SsidSecurity) ssid.security;
+            param.data.connect.security_mode = (SsidSecurity) mapToLegacySecurityMode(ssid.security);
 
             IARM_Result_t retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_saveSSID, (void *)&param, sizeof(param));
             if((retVal == IARM_RESULT_SUCCESS) && param.status)
@@ -1238,7 +1294,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             {
                 ssid.ssid.copy(param.data.connect.ssid, sizeof(param.data.connect.ssid) - 1);
                 ssid.passphrase.copy(param.data.connect.passphrase, sizeof(param.data.connect.passphrase) - 1);
-                param.data.connect.security_mode = (SsidSecurity)ssid.security;
+                param.data.connect.security_mode = (SsidSecurity)mapToLegacySecurityMode(ssid.security);
                 if(!ssid.eap_identity.empty())
                     ssid.eap_identity.copy(param.data.connect.eapIdentity, sizeof(param.data.connect.eapIdentity) - 1);
                 if(!ssid.ca_cert.empty())
@@ -1303,7 +1359,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
                 ssidInfo.ssid             = string(connectedSsid.ssid);
                 ssidInfo.bssid            = string(connectedSsid.bssid);
-                ssidInfo.security         = (WIFISecurityMode) connectedSsid.securityMode;
+                ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
                 ssidInfo.strength         = to_string(connectedSsid.signalStrength);
                 ssidInfo.rate             = to_string(connectedSsid.rate);
                 ssidInfo.noise            = to_string(connectedSsid.noise);

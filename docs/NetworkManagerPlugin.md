@@ -1615,21 +1615,10 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.security_modes | object | The supported security modes and its associated integer value |
-| result.security_modes?.NET_WIFI_SECURITY_NONE | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WEP_64 | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WEP_128 | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_PSK_TKIP | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_PSK_AES | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA2_PSK_TKIP | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA2_PSK_AES | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_ENTERPRISE_AES | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_WPA2_PSK | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA3_PSK_AES | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.NET_WIFI_SECURITY_WPA3_SAE | integer | <sup>*(optional)*</sup>  |
+| result.security_modes.NONE | integer | Security mode for open network  |
+| result.security_modes.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition  |
+| result.security_modes.SAE | integer | Supports security mode WPA3-Personal  |
+| result.security_modes.EAP | integer | Supports security mode WPA enterpise  |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1652,21 +1641,10 @@ This method takes no parameters.
   "id": 42,
   "result": {
     "security_modes": {
-      "NET_WIFI_SECURITY_NONE": 0,
-      "NET_WIFI_SECURITY_WEP_64": 1,
-      "NET_WIFI_SECURITY_WEP_128": 2,
-      "NET_WIFI_SECURITY_WPA_PSK_TKIP": 3,
-      "NET_WIFI_SECURITY_WPA_PSK_AES": 4,
-      "NET_WIFI_SECURITY_WPA2_PSK_TKIP": 5,
-      "NET_WIFI_SECURITY_WPA2_PSK_AES": 6,
-      "NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP": 7,
-      "NET_WIFI_SECURITY_WPA_ENTERPRISE_AES": 8,
-      "NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP": 9,
-      "NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES": 10,
-      "NET_WIFI_SECURITY_WPA_WPA2_PSK": 11,
-      "NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE": 12,
-      "NET_WIFI_SECURITY_WPA3_PSK_AES": 13,
-      "NET_WIFI_SECURITY_WPA3_SAE": 14
+      "NONE": 0,
+      "WPA_PSK": 1,
+      "SAE": 2,
+      "EAP": 3
     },
     "success": true
   }

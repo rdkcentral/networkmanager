@@ -42,24 +42,6 @@ ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::InternetStatus)
     { Exchange::INetworkManager::InternetStatus::INTERNET_UNKNOWN, _TXT("UNKNOWN") },
 ENUM_CONVERSION_END(Exchange::INetworkManager::InternetStatus)
 
-ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::WIFISecurityMode)
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE, _TXT("0") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_64, _TXT("1") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_128, _TXT("2") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP, _TXT("3") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES, _TXT("4") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP, _TXT("5") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES, _TXT("6") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_TKIP, _TXT("7") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_ENTERPRISE_AES, _TXT("8") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_TKIP, _TXT("9") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_ENTERPRISE_AES, _TXT("10") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK, _TXT("11") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE, _TXT("12") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_PSK_AES, _TXT("13") },
-    { Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE, _TXT("14") },
-ENUM_CONVERSION_END(Exchange::INetworkManager::WIFISecurityMode)
-
 ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::WiFiWPS)
     { Exchange::INetworkManager::WiFiWPS::WIFI_WPS_PBC, _TXT("PBC") },
     { Exchange::INetworkManager::WiFiWPS::WIFI_WPS_PIN, _TXT("PIN") },

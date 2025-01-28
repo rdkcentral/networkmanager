@@ -1645,13 +1645,8 @@ namespace WPEFramework
 
             switch(ssidinfo.security)
             {
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
                     if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
                     {
@@ -1662,7 +1657,7 @@ namespace WPEFramework
                         return false;
                     }
 
-                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE == ssidinfo.security)
+                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
                     {
                         NMLOG_DEBUG("802-11-wireless-security key-mgmt: 'sae'");
                         g_variant_builder_add (&settingsBuilder, "{sv}", "key-mgmt", g_variant_new_string("sae"));
