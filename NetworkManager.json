@@ -1251,23 +1251,32 @@
                         "type": "object",
                         "properties": {
                             "NONE": {
+                                "summary": "Security mode for open network",
                                 "type": "integer",
                                 "example": 0 
                             },
                             "WPA_PSK": {
+                                "summary": "Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition",
                                 "type": "integer",
                                 "example": 1
                             },
                             "SAE": {
+                                "summary": "Supports security mode WPA3-Personal",
                                 "type": "integer",
                                 "example": 2
                             },
                             "EAP": {
+                                "summary": "Supports security mode WPA enterpise",
                                 "type": "integer",
                                 "example": 3
                             }
                         },
-                        "required": []
+                        "required": [
+                            "NONE",
+                            "WPA_PSK",
+                            "SAE",
+                            "EAP"
+                        ]
                     },
                     "success":{
                         "$ref": "#/definitions/success"

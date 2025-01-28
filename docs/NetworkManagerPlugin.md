@@ -1615,10 +1615,10 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.security_modes | object | The supported security modes and its associated integer value |
-| result.security_modes?.NONE | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.WPA_PSK | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.SAE | integer | <sup>*(optional)*</sup>  |
-| result.security_modes?.EAP | integer | <sup>*(optional)*</sup>  |
+| result.security_modes.NONE | integer | Security mode for open network  |
+| result.security_modes.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition  |
+| result.security_modes.SAE | integer | Supports security mode WPA3-Personal  |
+| result.security_modes.EAP | integer | Supports security mode WPA enterpise  |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
