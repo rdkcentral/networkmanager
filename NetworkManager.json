@@ -1250,68 +1250,33 @@
                         "summary": "The supported security modes and its associated integer value.",
                         "type": "object",
                         "properties": {
-                            "NET_WIFI_SECURITY_NONE": {
+                            "NONE": {
+                                "summary": "Security mode for open network",
                                 "type": "integer",
                                 "example": 0 
                             },
-                            "NET_WIFI_SECURITY_WEP_64": {
+                            "WPA_PSK": {
+                                "summary": "Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition",
                                 "type": "integer",
                                 "example": 1
                             },
-                            "NET_WIFI_SECURITY_WEP_128": {
+                            "SAE": {
+                                "summary": "Supports security mode WPA3-Personal",
                                 "type": "integer",
                                 "example": 2
                             },
-                            "NET_WIFI_SECURITY_WPA_PSK_TKIP": {
+                            "EAP": {
+                                "summary": "Supports security mode WPA enterpise",
                                 "type": "integer",
                                 "example": 3
-                            },
-                            "NET_WIFI_SECURITY_WPA_PSK_AES": {
-                                "type": "integer",
-                                "example": 4
-                            },
-                            "NET_WIFI_SECURITY_WPA2_PSK_TKIP": {
-                                "type": "integer",
-                                "example": 5
-                            },
-                            "NET_WIFI_SECURITY_WPA2_PSK_AES": {
-                                "type": "integer",
-                                "example": 6
-                            },
-                            "NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP": {
-                                "type": "integer",
-                                "example": 7
-                            },
-                            "NET_WIFI_SECURITY_WPA_ENTERPRISE_AES": {
-                                "type": "integer",
-                                "example": 8
-                            },
-                            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP": {
-                                "type": "integer",
-                                "example": 9
-                            },
-                            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES": {
-                                "type": "integer",
-                                "example": 10
-                            },
-                            "NET_WIFI_SECURITY_WPA_WPA2_PSK": {
-                                "type": "integer",
-                                "example": 11
-                            },
-                            "NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE": {
-                                "type": "integer",
-                                "example": 12
-                            },
-                            "NET_WIFI_SECURITY_WPA3_PSK_AES": {
-                                "type": "integer",
-                                "example": 13
-                            },
-                            "NET_WIFI_SECURITY_WPA3_SAE": {
-                                "type": "integer",
-                                "example": 14
                             }
                         },
-                        "required": []
+                        "required": [
+                            "NONE",
+                            "WPA_PSK",
+                            "SAE",
+                            "EAP"
+                        ]
                     },
                     "success":{
                         "$ref": "#/definitions/success"

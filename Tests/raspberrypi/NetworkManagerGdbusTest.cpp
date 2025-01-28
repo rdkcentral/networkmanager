@@ -100,16 +100,16 @@ WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
 {
     int securityChoice;
     std::cout << "Select Security Type:" << std::endl;
-    std::cout << "1. WPA/WPA2 PSK AES" << std::endl;
-    std::cout << "2. WPA/WPA2 PSK TKIP" << std::endl;
+    std::cout << "1. WPA-PSK" << std::endl;
+    std::cout << "2. SAE" << std::endl;
     std::cout << "3. Open (No Security)" << std::endl;
     std::cin >> securityChoice;
 
     switch (securityChoice) {
         case 1:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK_AES;
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
         case 2:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK_TKIP;
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_SAE;
         case 3:
             return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_NONE;
         default:
