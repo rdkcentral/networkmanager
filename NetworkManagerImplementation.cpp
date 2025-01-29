@@ -176,8 +176,7 @@ namespace WPEFramework
             }
 
             /* As all the configuration is set, lets instantiate platform */
-            std::thread platformThread = std::thread(&NetworkManagerImplementation::platform_init, this);
-            platformThread.join();
+            NetworkManagerImplementation::platform_init();
             return(Core::ERROR_NONE);
         }
 
