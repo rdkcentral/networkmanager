@@ -624,8 +624,10 @@ namespace WPEFramework
                             nm_remote_connection_delete (NM_REMOTE_CONNECTION(connection), NULL, &error);
                             if (error)
                                 NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
-                            else
+                            else {
                                 NMLOG_INFO ("RemoveKnownSSID is success");
+                                connection = NULL;
+                            }
                         }
                     }
                 }
