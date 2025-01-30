@@ -619,11 +619,15 @@ namespace WPEFramework
                              * libnm reuses the existing connection if new settings match the AP properties;
                              * remove the old one because now only one connection per SSID is supported. 
                              */
+                            GError *error = NULL;
                             NMLOG_WARNING(" '%s' connection exist but properties miss match; deleting...", ssidInfo.ssid.c_str());
-                            nm_remote_connection_delete_async(NM_REMOTE_CONNECTION(connection),
-                                                        NULL,
-                                                        removeKnownSSIDCb,
-                                                        this);
+                            nm_remote_connection_delete (NM_REMOTE_CONNECTION(connection), NULL, &error);
+                            if (error)
+                                NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
+                            else {
+                                NMLOG_INFO ("RemoveKnownSSID is success");
+                                connection = NULL;
+                            }
                         }
                     }
                 }

@@ -743,7 +743,8 @@ namespace WPEFramework
                 * Useful if NetworkManager plugin or WPEFramework is restarted 
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
-                getInitialConnectionState();
+                std::thread connStateThread = std::thread(&NetworkManagerImplementation::getInitialConnectionState, this);
+                connStateThread.join(); // seprate thread will not use the wpeframework thread pool
             }
         }
 
