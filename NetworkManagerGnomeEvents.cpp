@@ -627,7 +627,7 @@ namespace WPEFramework
                 ssidList.Add(ssidObj);
         }
 
-        NMLOG_INFO("No of AP Available = %d", static_cast<int>(accessPoints->len));
+        NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
