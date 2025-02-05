@@ -62,6 +62,10 @@ pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBNM REQUIRED libnm)
 pkg_check_modules(GLIB REQUIRED gio-2.0)
 else()
+pkg_check_modules(GLIB REQUIRED glib-2.0)
+pkg_check_modules(LIBSOUP REQUIRED libsoup-2.4)
+pkg_check_modules(GUPNP REQUIRED gupnp-1.0)
+pkg_check_modules(GSSDP REQUIRED gssdp-1.2)
 find_package(IARMBus REQUIRED)
 endif ()
 
@@ -107,6 +111,7 @@ add_library(${MODULE_NAME} SHARED
                             NetworkManagerStunClient.cpp
                             WiFiSignalStrengthMonitor.cpp
                             Module.cpp
+                            UpnpDiscoveryManager.cpp
                             ${PROXY_STUB_SOURCES})
 
 target_link_libraries(${MODULE_NAME}  PRIVATE
