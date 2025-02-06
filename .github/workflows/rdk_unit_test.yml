@@ -15,20 +15,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Configure cache
-        if: ${{ !env.ACT }}
-        id: cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            build/Thunder
-            build/ThunderInterfaces
-            build/ThunderTools
-            install
-            !install/etc/WPEFramework/plugins
-            !install/usr/lib/wpeframework/plugins
-          key: ${{ runner.os }}-${{ env.THUNDER_REF }}
-
       - name: Install packages
         run: |
           sudo apt update
@@ -56,7 +42,7 @@ jobs:
         with:
           path: networkmanager
           
-      - name: Apply Patches
+      - name: Apply Thunder Patches
         run: |
           cd ${{github.workspace}}/Thunder
           git apply ${{github.workspace}}/networkmanager/Tests/patches/thunder/Remove-SmartLinkType.patch
