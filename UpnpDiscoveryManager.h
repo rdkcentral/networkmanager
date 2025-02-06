@@ -20,6 +20,7 @@
 #define __UPNP_H__
 
 #include <libgupnp/gupnp.h>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -29,18 +30,11 @@
 class UpnpDiscoveryManager
 {
 public:
-    static UpnpDiscoveryManager* getInstance()
-    {
-        static UpnpDiscoveryManager instance;
-        return &instance;
-    }
     void findGatewayDevice(const std::string& interface);
-    UpnpDiscoveryManager(const UpnpDiscoveryManager&) = delete;
-    void operator=(const UpnpDiscoveryManager&) = delete;
+     UpnpDiscoveryManager();
+    ~UpnpDiscoveryManager();
 
 private:
-    UpnpDiscoveryManager();
-    ~UpnpDiscoveryManager();
     void initialiseUpnp(const std::string& interface);
     void clearUpnpExistingRequests();
     static void* runMainLoop(void *arg);
