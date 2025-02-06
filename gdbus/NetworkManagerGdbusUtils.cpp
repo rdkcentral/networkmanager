@@ -369,6 +369,7 @@ namespace WPEFramework
         {
             guint32 flags= 0, wpaFlags= 0, rsnFlags= 0, freq= 0, bitrate= 0;
             uint8_t strength = 0;
+            gint16  noise = 0;
             NM80211Mode mode = NM_802_11_MODE_UNKNOWN;
             bool ret = false;
             GVariant* ssidVariant = NULL;
@@ -425,6 +426,7 @@ namespace WPEFramework
                 wifiInfo.frequency = std::to_string((double)freq/1000);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
+                wifiInfo.noise = std::to_string(noise); /* ToDo: Returning 0 as of now. Need to change to return actual noise value */
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());
