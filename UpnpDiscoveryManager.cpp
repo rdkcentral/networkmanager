@@ -52,7 +52,7 @@ void UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
 {
     GError *error = NULL;
     // Create a gupnp context
-    m_context = gupnp_context_new(interface.c_str(), 0, &error);
+    m_context = gupnp_context_new(NULL, interface.c_str(), 0, &error);
     if (!m_context) {
         LOG_ERR("Error creating Upnp context: %s", error->message);
         g_clear_error(&error);
