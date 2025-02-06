@@ -131,16 +131,3 @@ void UpnpDiscoveryManager::stopSearchGatewayDevice()
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), FALSE);
     }
 }
-
-int main()
-{
-    UpnpDiscoveryManager* obj = UpnpDiscoveryManager::getInstance();
-    //Fetch the gateway details
-    obj->findGatewayDevice("en0");
-    LOG_INFO("AM HERE");
-    while(true)
-    {
-       sleep(10);
-    }
-}
-
