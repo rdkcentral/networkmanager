@@ -596,12 +596,13 @@ namespace WPEFramework
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
+	    {
                 m_ethConnected = true;
+		NMLOG_ERROR("MYTEST: Calling findGatewayDevice for eth0");
+	    	m_upnpDiscoveryManager.findGatewayDevice("eth0");
+	    }
             else if (currentActiveinterface == "wlan0")
                 m_wlanConnected = true;
-		
-            NMLOG_ERROR("MYTEST: Calling findGatewayDevice");
-	    m_upnpDiscoveryManager.findGatewayDevice(currentActiveinterface);
 
             // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
             // m_defaultInterface = currentActiveinterface;
@@ -678,6 +679,8 @@ namespace WPEFramework
             {
                 m_wlanConnected = true;
                 m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+		NMLOG_ERROR("MYTEST: Calling findGatewayDevice for wlan0");
+	    	m_upnpDiscoveryManager.findGatewayDevice("wlan0");
             }
             else
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
