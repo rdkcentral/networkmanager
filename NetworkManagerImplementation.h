@@ -34,6 +34,7 @@ using namespace std;
 #include "WiFiSignalStrengthMonitor.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+#include "UpnpDiscoveryManager.h"
 
 namespace WPEFramework
 {
