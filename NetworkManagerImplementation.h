@@ -276,6 +276,7 @@ namespace WPEFramework
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 WiFiSignalStrengthMonitor m_wifiSignalMonitor;
+                UpnpDiscoveryManager m_upnpDiscoveryManager;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
     }
