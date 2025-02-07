@@ -818,7 +818,10 @@ namespace WPEFramework
                 response["strength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
                 response["rate"] = ssidInfo.rate;
-                response["noise"] = ssidInfo.noise;
+                if(ssidInfo.noise <= 0 || ssidInfo.noise >= -180)
+                    response["noise"] = ssidInfo.noise;
+                else
+                    response["noise"] = -180;
             }
             returnJson(rc);
         }
