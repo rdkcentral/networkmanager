@@ -596,11 +596,7 @@ namespace WPEFramework
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
-	    {
                 m_ethConnected = true;
-		NMLOG_ERROR("MYTEST: Calling findGatewayDevice for eth0");
-	    	m_upnpDiscoveryManager.findGatewayDevice("eth0");
-	    }
             else if (currentActiveinterface == "wlan0")
                 m_wlanConnected = true;
 
@@ -631,6 +627,8 @@ namespace WPEFramework
                     m_defaultInterface = interface;
 
                 connectivityMonitor.switchToInitialCheck();
+		NMLOG_ERROR("MYTEST: Calling findGatewayDevice for %s", interface.c_str());
+	    	m_upnpDiscoveryManager.findGatewayDevice("interface");
             }
 
             _notificationLock.Lock();
