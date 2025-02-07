@@ -1363,10 +1363,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
                 ssidInfo.strength         = to_string(connectedSsid.signalStrength);
                 ssidInfo.rate             = to_string(connectedSsid.rate);
-                if(connectedSsid.noise <= 0 || connectedSsid.noise >= m_defaultNoise)
+                if(connectedSsid.noise <= 0 || connectedSsid.noise >= DEFAULT_NOISE)
                     ssidInfo.noise        = to_string(connectedSsid.noise);
                 else
-                    ssidInfo.noise        = to_string(m_defaultNoise);
+                    ssidInfo.noise        = to_string(0);
                 ssidInfo.frequency        = to_string((double)connectedSsid.frequency/1000);
 
                 NMLOG_INFO ("GetConnectedSSID Success");

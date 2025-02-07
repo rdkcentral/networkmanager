@@ -41,7 +41,6 @@ namespace WPEFramework
             m_stunBindTimeout = 30;
             m_stunCacheTimeout = 0;
             m_defaultInterface = "";
-            m_defaultNoise = -180;
             m_publicIP = "";
             m_ethConnected = false;
             m_wlanConnected = false;

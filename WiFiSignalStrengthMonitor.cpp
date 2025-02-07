@@ -26,8 +26,6 @@
 #include "WiFiSignalStrengthMonitor.h"
 
 #define BUFFER_SIZE 512
-#define rssid_command "wpa_cli signal_poll"
-#define ssid_command "wpa_cli status"
 
 namespace WPEFramework
 {

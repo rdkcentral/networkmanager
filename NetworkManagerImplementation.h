@@ -35,6 +35,8 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
+#define DEFAULT_NOISE   -180
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -262,7 +264,6 @@ namespace WPEFramework
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
                 Core::CriticalSection _notificationLock;
                 string m_defaultInterface;
-                int16_t m_defaultNoise;
                 string m_publicIP;
                 stun::client stunClient;
                 string m_stunEndpoint;

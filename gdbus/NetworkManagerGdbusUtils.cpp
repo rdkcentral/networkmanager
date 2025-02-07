@@ -427,10 +427,10 @@ namespace WPEFramework
                 wifiInfo.frequency = std::to_string((double)freq/1000);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
-                if(noise <= 0 || noise >= m_defaultNoise)
+                if(noise <= 0 || noise >= DEFAULT_NOISE)
                     wifiInfo.noise = std::to_string(noise);
                 else
-                    wifiInfo.noise = std::to_string(m_defaultNoise);
+                    wifiInfo.noise = std::to_string(0);
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());
