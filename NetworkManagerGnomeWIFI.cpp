@@ -188,6 +188,7 @@ namespace WPEFramework
         {
             guint32     flags, wpaFlags, rsnFlags, freq, bitrate;
             guint8      strength;
+            gint16      noise;
             GBytes     *ssid;
             const char *hwaddr;
             NM80211Mode mode;
@@ -201,6 +202,7 @@ namespace WPEFramework
             mode      = nm_access_point_get_mode(AccessPoint);
             bitrate   = nm_access_point_get_max_bitrate(AccessPoint);
             strength  = nm_access_point_get_strength(AccessPoint);
+            noise     = 0; /* ToDo: Returning as 0 as of now. Need to fetch actual noise value */
 
             /* Convert to strings */
             if (ssid) {
@@ -229,6 +231,10 @@ namespace WPEFramework
             NMLOG_DEBUG("bssid: %s", wifiInfo.bssid.c_str());
             wifiInfo.frequency = std::to_string((double)freq/1000);
             wifiInfo.rate = std::to_string(bitrate);
+            if(noise <= 0 || noise >= DEFAULT_NOISE)
+                wifiInfo.noise = std::to_string(noise);
+            else
+                wifiInfo.noise = std::to_string(0);
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));

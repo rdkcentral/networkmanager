@@ -40,7 +40,6 @@ namespace WPEFramework
                 void startWiFiSignalStrengthMonitor(int interval);
                 void getSignalData(std::string &ssid, Exchange::INetworkManager::WiFiSignalQuality &quality, std::string &strengthOut);
             private:
-                std::string retrieveValues(const char *command, const char* keyword, char *output_buffer, size_t output_buffer_size);
                 std::thread monitorThread;
                 std::atomic<bool> stopThread;
                 std::atomic<bool> isRunning;

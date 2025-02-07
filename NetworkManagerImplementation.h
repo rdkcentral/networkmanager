@@ -35,6 +35,8 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
+#define DEFAULT_NOISE   -180
+
 namespace WPEFramework
 {
     namespace Plugin

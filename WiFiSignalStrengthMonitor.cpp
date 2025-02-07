@@ -26,8 +26,6 @@
 #include "WiFiSignalStrengthMonitor.h"
 
 #define BUFFER_SIZE 512
-#define rssid_command "wpa_cli signal_poll"
-#define ssid_command "wpa_cli status"
 
 namespace WPEFramework
 {
@@ -38,38 +36,25 @@ namespace WPEFramework
         static const float signalStrengthThresholdFair = -67.0f;
         extern NetworkManagerImplementation* _instance;
 
-        std::string WiFiSignalStrengthMonitor::retrieveValues(const char *command, const char* keyword, char *output_buffer, size_t output_buffer_size)
-        {
-            std::string key, value;
-            std::string keystr = "";
-
-            FILE *fp = popen(command, "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",command);
-                return keystr;
-            }
-
-            while ((!feof(fp)) && (fgets(output_buffer, output_buffer_size, fp) != NULL))
-            {
-                std::istringstream mystream(output_buffer);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                    if (key == keyword) {
-                        keystr = value;
-                        break;
-                    }
-            }
-            pclose(fp);
-
-            return keystr;
-        }
-
         void WiFiSignalStrengthMonitor::getSignalData(std::string &ssid, Exchange::INetworkManager::WiFiSignalQuality &quality, std::string &strengthOut)
         {
             float signalStrengthOut = 0.0f;
             char buff[BUFFER_SIZE] = {'\0'};
+            string signalStrength = "";
 
-            ssid = retrieveValues(ssid_command, "ssid", buff, sizeof (buff));
+            if (_instance != nullptr)
+            {
+                Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
+                _instance->GetConnectedSSID(ssidInfo);
+                ssid = ssidInfo.ssid;
+                signalStrength = ssidInfo.strength;
+            }
+            else
+            {
+                NMLOG_FATAL("NetworkManagerImplementation pointer error !");
+                return;
+            }
+
             if (ssid.empty())
             {
                 quality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
@@ -77,7 +62,6 @@ namespace WPEFramework
                 return;
             }
 
-            string signalStrength = retrieveValues(rssid_command, "RSSI", buff, sizeof (buff));
             if (!signalStrength.empty()) {
                 signalStrengthOut = std::stof(signalStrength.c_str());
                 strengthOut = signalStrength;
