@@ -375,9 +375,6 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        const float signalStrengthThresholdExcellent = -50.0f;
-        const float signalStrengthThresholdGood = -60.0f;
-        const float signalStrengthThresholdFair = -67.0f;
         NetworkManagerImplementation* _instance = nullptr;
 
         Exchange::INetworkManager::WiFiState to_wifi_state(WiFiStatusCode_t code) {
@@ -1384,41 +1381,48 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             WiFiSSIDInfo  ssidInfo{};
-            float signalStrengthOut = 0.0f;
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatSignalStrength = 0.0f;
+            unsigned int signalStrengthOut = 0;
 
             if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo))
             {
-                ssid            = ssidInfo.ssid;
-                signalStrength  = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatSignalStrength = (rssi - noise);
+                if (floatSignalStrength < 0)
+                    floatSignalStrength = 0.0;
 
-                if (!signalStrength.empty())
-                {
-                    signalStrengthOut = std::stof(signalStrength.c_str());
-                    NMLOG_INFO ("WiFiSignalStrength in dB = %f",signalStrengthOut);
-                }
+                signalStrengthOut = static_cast<unsigned int>(floatSignalStrength);
+                NMLOG_INFO ("WiFiSignalStrength in dB = %u",signalStrengthOut);
 
                 if (signalStrengthOut == 0)
                 {
                     quality = WIFI_SIGNAL_DISCONNECTED;
                     signalStrength = "0";
                 }
-                else if (signalStrengthOut >= signalStrengthThresholdExcellent && signalStrengthOut < 0)
-                {
-                    quality = WIFI_SIGNAL_EXCELLENT;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdGood && signalStrengthOut < signalStrengthThresholdExcellent)
-                {
-                    quality = WIFI_SIGNAL_GOOD;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdFair && signalStrengthOut < signalStrengthThresholdGood)
-                {
-                    quality = WIFI_SIGNAL_FAIR;
-                }
-                else
+                else if (signalStrengthOut > 0 && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
                 {
                     quality = WIFI_SIGNAL_WEAK;
                 }
+                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+                {
+                    quality = WIFI_SIGNAL_FAIR;
+                }
+                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+                {
+                    quality = WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = WIFI_SIGNAL_EXCELLENT;
+                }
 
+                signalStrength = std::to_string(signalStrengthOut);
                 NMLOG_INFO ("GetWiFiSignalStrength success");
                 rc = Core::ERROR_NONE;
             }
