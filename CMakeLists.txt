@@ -105,7 +105,6 @@ add_library(${MODULE_NAME} SHARED
                             NetworkManagerImplementation.cpp
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
-                            WiFiSignalStrengthMonitor.cpp
                             Module.cpp
                             ${PROXY_STUB_SOURCES})
 

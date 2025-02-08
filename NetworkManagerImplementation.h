@@ -37,6 +37,10 @@ using namespace std;
 
 #define DEFAULT_NOISE   -180
 
+#define SIGNALSTRENGTHTHRESHOLDEXCELLENT    40
+#define SIGNALSTRENGTHTHRESHOLDGOOD         25
+#define SIGNALSTRENGTHTHRESHOLDFAIR         18
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -259,6 +263,9 @@ namespace WPEFramework
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(void);
                 void filterScanResults(JsonArray &ssids);
+                void startWiFiSignalStrengthMonitor(int interval);
+                void stopWiFiSignalStrengthMonitor();
+                void monitorThreadFunction(int interval);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
@@ -273,6 +280,10 @@ namespace WPEFramework
                 std::thread m_registrationThread;
                 string m_filterfrequency;
                 std::vector<std::string> m_filterSsidslist;
+                std::thread m_monitorThread;
+                std::atomic<bool> m_stopThread{false};
+                std::atomic<bool> m_isRunning{false};
+                bool m_monitoringStarted = false;
 
             public:
                 std::atomic<bool> m_ethConnected;

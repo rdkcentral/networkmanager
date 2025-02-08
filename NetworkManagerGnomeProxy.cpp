@@ -35,9 +35,6 @@ namespace WPEFramework
     {
         wifiManager *wifi = nullptr;
         GnomeNetworkManagerEvents *nmEvent = nullptr;
-        const float signalStrengthThresholdExcellent = -50.0f;
-        const float signalStrengthThresholdGood = -60.0f;
-        const float signalStrengthThresholdFair = -67.0f;
         NetworkManagerImplementation* _instance = nullptr;
 
         void NetworkManagerInternalEventHandler(const char *owner, int eventId, void *data, size_t len)
@@ -664,27 +661,49 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatSignalStrength = 0.0f;
+            unsigned int signalStrengthOut = 0;
 
             WiFiSSIDInfo ssidInfo;
             if(wifi->wifiConnectedSSIDInfo(ssidInfo))
             {
-                ssid = ssidInfo.ssid;
-                signalStrength = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatSignalStrength = (rssi - noise);
+                if (floatSignalStrength < 0)
+                    floatSignalStrength = 0.0;
 
-	            float signalStrengthFloat = 0.0f;
-                if(!signalStrength.empty())
-                    signalStrengthFloat = std::stof(signalStrength.c_str());
+                signalStrengthOut = static_cast<unsigned int>(floatSignalStrength);
+                NMLOG_INFO ("WiFiSignalStrength in dB = %u",signalStrengthOut);
 
-                if (signalStrengthFloat == 0)
+                if (signalStrengthOut == 0)
+                {
                     quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                else if (signalStrengthFloat >= signalStrengthThresholdExcellent && signalStrengthFloat < 0)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
-                else if (signalStrengthFloat >= signalStrengthThresholdGood && signalStrengthFloat < signalStrengthThresholdExcellent)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
-                else if (signalStrengthFloat >= signalStrengthThresholdFair && signalStrengthFloat < signalStrengthThresholdGood)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
-                else
+                    signalStrength = "0";
+                }
+                else if (signalStrengthOut > 0 && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
+                {
                     quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+                }
+                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
+                }
+                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+                }
+
+                signalStrength = std::to_string(signalStrengthOut);
 
                 NMLOG_INFO ("GetWiFiSignalStrength success");
             
