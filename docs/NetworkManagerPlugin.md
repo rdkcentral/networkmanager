@@ -1296,7 +1296,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
-| params.security | integer | The security mode. See `getSupportedsecurityModes` |
+| params?.security | integer | <sup>*(optional)*</sup> The security mode is decided based on the highest security mode provided by the SSID |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1327,7 +1327,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
-    "security": 6,
+    "security": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",
@@ -1413,7 +1413,7 @@ This method takes no parameters.
 | result.ssid | string | The WiFi SSID Name |
 | result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | The Signal RSSI value in dBm |
+| result.strength | string | Signal to Noise Ratio(SNR) in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
 | result.noise | string | The average noise strength in dBm |
@@ -1549,12 +1549,12 @@ This method takes no parameters.
 <a name="method.GetWiFiSignalStrength"></a>
 ## *GetWiFiSignalStrength [<sup>method</sup>](#head.Methods)*
 
-Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the signal strength. The possible states are
-* 'Excellent'
-* 'Good'
-* 'Fair'
-* 'Weak'
-* 'Disconnected'
+Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
+* 'Excellent' - >40dBm
+* 'Good' - >25dBm <40dBm
+* 'Fair' - >18dBm <25dBm 
+* 'Weak' - >0dBm <18dBm
+* 'Disconnected' - 0dBm 
 .
 
 Also see: [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange)
@@ -1569,7 +1569,7 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.ssid | string | The WiFi SSID Name |
-| result.strength | string | The Signal RSSI value in dBm |
+| result.strength | string | Signal to Noise Ratio(SNR) in dBm |
 | result.quality | string | Signal strength Quality |
 | result.success | boolean | Whether the request succeeded |
 
@@ -1615,10 +1615,10 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.security_modes | object | The supported security modes and its associated integer value |
-| result.security_modes.NONE | integer | Security mode for open network  |
-| result.security_modes.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition  |
-| result.security_modes.SAE | integer | Supports security mode WPA3-Personal  |
-| result.security_modes.EAP | integer | Supports security mode WPA enterpise  |
+| result.security_modes.NONE | integer | Security mode for open network |
+| result.security_modes.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition |
+| result.security_modes.SAE | integer | Supports security mode WPA3-Personal |
+| result.security_modes.EAP | integer | Supports security mode WPA enterpise |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1864,7 +1864,7 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | Discovered SSID |
 | params.ssids[#].security | integer | The security mode. See `getSupportedsecurityModes` |
-| params.ssids[#].strength | string | The Signal RSSI value in dBm |
+| params.ssids[#].strength | string | Signal to Noise Ratio(SNR) in dBm |
 | params.ssids[#].frequency | string | The supported frequency for this SSID in GHz |
 
 ### Example
@@ -1923,7 +1923,7 @@ Triggered when WIFI connection Signal Strength get changed.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
-| params.strength | string | The Signal RSSI value in dBm |
+| params.strength | string | Signal to Noise Ratio(SNR) in dBm |
 | params.quality | string | Signal strength Quality |
 
 ### Example

@@ -658,14 +658,92 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */)
+        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            uint16_t signalStrengthOut = 0;
+
+            std::string key, value;
+            std::string ssid = "";
+            std::string noiseStr = "";
+            std::string rssiStr = "";
+            uint16_t rssi = 0;
+            uint16_t noise = 0;
+            char buff[BUFFER_SIZE] = {'\0'};
+
+            FILE *fp = NULL;
+            fp = popen(rssid_command, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s",rssid_command);
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buf);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                    if (key == "RSSI") {
+                        rssiStr = value;
+                    }
+                    else if (key == "NOISE") {
+                        noiseStr = value;
+                    }
+                    if (!rssiStr.empty() && !noiseStr.empty())
+                        break;
+            }
+            pclose(fp);
+            fp = popen(ssid_command, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s",ssid_command);
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buf);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                    if (key == "ssid") {
+                        ssid = value;
+                        break;
+                    }
+            }
+            pclose(fp);
+            rssi = std::stoi(rssiStr);
+            noise = std::stoi(noiseStr);
+            signalStrengthOut = (rssi - noise);
+            NMLOG_INFO ("WiFiSignalStrength in dB = %u",signalStrengthOut);
+
+            if (signalStrengthOut == 0)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
+                signalStrength = "0";
+            }
+            else if (signalStrengthOut > 0 && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+            }
+            else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
+            }
+            else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+            }
+            else
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+            }
+
+            signalStrength = std::to_string(signalStrengthOut);
+
+            NMLOG_INFO ("GetWiFiSignalStrength success");
+
+            rc = Core::ERROR_NONE;
+#if 0
             float rssi = 0.0f;
             float noise = 0.0f;
             float floatSignalStrength = 0.0f;
-            unsigned int signalStrengthOut = 0;
-
             WiFiSSIDInfo ssidInfo;
             if(wifi->wifiConnectedSSIDInfo(ssidInfo))
             {
@@ -709,6 +787,7 @@ namespace WPEFramework
             
                 rc = Core::ERROR_NONE;
             }
+#endif
             return rc;
         }
 

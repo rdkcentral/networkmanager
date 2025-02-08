@@ -687,7 +687,9 @@ namespace WPEFramework
             if (!m_isRunning) {
                 return; // No thread to stop
             }
+            std::lock_guard<std::mutex> lock(m_condVariableMutex);
             m_stopThread = true;
+            m_condVariable.notify_one();
             if (m_monitorThread.joinable()) {
                 m_monitorThread.join();
             }
@@ -700,16 +702,17 @@ namespace WPEFramework
             NMLOG_INFO("WiFiSignalStrengthMonitor thread started ! (%d)", interval);
             while (!m_stopThread) {
                 std::string ssid;
-                std::string signalStrength;
+                std::string strength;
+                std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 NMLOG_DEBUG("checking WiFi signal strength");
-                NetworkManagerImplementation::GetWiFiSignalStrength(ssid, signalStrength, newSignalQuality);
+                NetworkManagerImplementation::GetWiFiSignalStrength(ssid, strength, newSignalQuality);
 
                 if (oldSignalQuality != newSignalQuality) {
-                    NMLOG_INFO("Notifying WiFiSignalStrengthChangedEvent %s", signalStrength.c_str());
+                    NMLOG_INFO("Notifying WiFiSignalStrengthChangedEvent %s", strength.c_str());
                     oldSignalQuality = newSignalQuality;
-                    NetworkManagerImplementation::ReportWiFiSignalStrengthChange(ssid, signalStrength, newSignalQuality);
+                    NetworkManagerImplementation::ReportWiFiSignalStrengthChange(ssid, strength, newSignalQuality);
                 }
 
                 if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
@@ -719,7 +722,10 @@ namespace WPEFramework
                 }
 
                 // Wait for the specified interval or until notified to stop
-                std::this_thread::sleep_for(std::chrono::seconds(interval));
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
+                {
+                    NMLOG_INFO("WiFiSignalStrengthMonitor received stop signal or timed out");
+                }
             }
             m_isRunning = false;
         }
