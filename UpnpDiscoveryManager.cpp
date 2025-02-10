@@ -31,8 +31,8 @@ UpnpDiscoveryManager::UpnpDiscoveryManager()
     //Create timeout threads to handle telemetry logging
     g_timeout_add_seconds (LOGGING_PERIOD_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::logTelemetry), this);
 
-   // pthread_mutex_init(&mutex, NULL);
-    m_thread_upnp = g_thread_new("thread_gmain", UpnpDiscoveryManager::runMainLoop, this);
+    m_threadUpnp  = g_thread_new("thread_upnp", UpnpDiscoveryManager::runUpnp, this);
+    m_threadGmain = g_thread_new("thread_gmain", UpnpDiscoveryManager::runMainLoop, this);
 }
 
 UpnpDiscoveryManager::~UpnpDiscoveryManager()
@@ -45,6 +45,32 @@ UpnpDiscoveryManager::~UpnpDiscoveryManager()
     {
         g_main_loop_quit(m_mainLoop);
         g_main_loop_unref(m_mainLoop);
+    }
+}
+
+void UpnpDiscoveryManager::startUpnpDiscovery(const std::string& interface)
+{
+    std::lock_guard<std::mutex> lock(m_upnpCvMutex);
+    m_interface = interface;
+    m_upnpReady = true;
+    m_upnpCv.notify_one();
+}
+
+void* UpnpDiscoveryManager::runUpnp(void *arg)
+{
+    UpnpDiscoveryManager* manager = static_cast<UpnpDiscoveryManager*>(arg);
+    int timeoutInMin = 30;
+    while(true)
+    {
+        std::unique_lock<std::mutex> lock(manager->m_upnpCvMutex);  
+        if (manager->m_upnpCv.wait_for(lock, std::chrono::minutes(timeoutInMin)) == std::cv_status::timeout) {
+            LOG_INFO("upnp run thread timeout");
+        }
+        if (manager->m_upnpReady)
+        {
+            manager->findGatewayDevice(manager->m_interface);
+            manager->m_upnpReady = false;
+        }
     }
 }
 
@@ -69,6 +95,7 @@ void UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
                          G_CALLBACK(&UpnpDiscoveryManager::deviceProxyAvailableCallback), this);
 }
 
+
 void* UpnpDiscoveryManager::runMainLoop(void *arg)
 {
    g_main_loop_run(((UpnpDiscoveryManager *)arg)->m_mainLoop);
@@ -84,6 +111,7 @@ gboolean UpnpDiscoveryManager::logTelemetry(void *arg)
 
 void UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
 {
+    //Clear previous gupnp contexts if any
     clearUpnpExistingRequests();
 
     //Initialise gupnp context
@@ -105,7 +133,9 @@ void UpnpDiscoveryManager::clearUpnpExistingRequests()
         g_object_unref(m_controlPoint);
     }
     if (m_context)
+    {
         g_object_unref(m_context);
+    }
 }
 
 void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlPoint, GUPnPDeviceProxy *proxy)
@@ -130,4 +160,5 @@ void UpnpDiscoveryManager::stopSearchGatewayDevice()
     {
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), FALSE);
     }
+    LOG_INFO("Stopped searching for InternetGatewayDevice");
 }
