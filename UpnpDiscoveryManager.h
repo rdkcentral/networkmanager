@@ -23,6 +23,8 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <chrono>
+#include <condition_variable>
 
 #define LOG_ERR(msg, ...)    g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
@@ -30,15 +32,17 @@
 class UpnpDiscoveryManager
 {
 public:
-    void findGatewayDevice(const std::string& interface);
-     UpnpDiscoveryManager();
+    void startUpnpDiscovery(const std::string& interface);
+    UpnpDiscoveryManager();
     ~UpnpDiscoveryManager();
 
 private:
     void initialiseUpnp(const std::string& interface);
     void clearUpnpExistingRequests();
     static void* runMainLoop(void *arg);
+    static void* runUpnp(void *arg);
     static gboolean logTelemetry(void* arg);
+    void findGatewayDevice(const std::string& interface);
     void stopSearchGatewayDevice();
     void on_device_proxy_available(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy);
     static void deviceProxyAvailableCallback(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy, gpointer user_data) { 
@@ -48,13 +52,18 @@ private:
     GUPnPContext*       m_context;
     GUPnPControlPoint*  m_controlPoint;
     GMainLoop*          m_mainLoop;
-    GThread *           m_thread_upnp;
+    GThread *           m_threadGmain;
+    GThread *           m_threadUpnp;
     std::string         m_apMake;
     std::string         m_apModelName;
     std::string         m_apModelNumber;
     std::ostringstream  m_gatewayDetails;
     std::mutex          m_apMutex;
+    std::condition_variable m_upnpCv;
+    std::mutex          m_upnpCvMutex;
+    std::string         m_interface;
     static std::string const m_deviceInternetGateway;
     static const int    LOGGING_PERIOD_IN_SEC = 2; //15min * 60
+    bool                m_upnpReady;
 };
 #endif
