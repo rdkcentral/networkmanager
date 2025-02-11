@@ -1404,15 +1404,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     quality = WIFI_SIGNAL_DISCONNECTED;
                     strength = "0";
                 }
-                else if (strengthOut > 0 && strengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
+                else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
                 {
                     quality = WIFI_SIGNAL_WEAK;
                 }
-                else if (strengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && strengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
                 {
                     quality = WIFI_SIGNAL_FAIR;
                 }
-                else if (strengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && strengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
                 {
                     quality = WIFI_SIGNAL_GOOD;
                 }

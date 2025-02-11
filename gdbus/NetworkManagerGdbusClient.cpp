@@ -1865,15 +1865,15 @@ namespace WPEFramework
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
                     signalStrength = "0";
                 }
-                else if (signalStrengthOut > 0 && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
+                else if (signalStrengthOut > 0 && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
                 {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_WEAK;
                 }
-                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+                else if (signalStrengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
                 {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_FAIR;
                 }
-                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+                else if (signalStrengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
                 {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_GOOD;
                 }

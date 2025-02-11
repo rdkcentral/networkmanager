@@ -1413,7 +1413,7 @@ This method takes no parameters.
 | result.ssid | string | The WiFi SSID Name |
 | result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | Signal to Noise Ratio(SNR) in dBm |
+| result.strength | string | The Signal RSSI value in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
 | result.noise | string | The average noise strength in dBm |
@@ -1550,11 +1550,11 @@ This method takes no parameters.
 ## *GetWiFiSignalStrength [<sup>method</sup>](#head.Methods)*
 
 Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
-* 'Excellent' - >40dBm
-* 'Good' - >25dBm <40dBm
-* 'Fair' - >18dBm <25dBm 
-* 'Weak' - >0dBm <18dBm
-* 'Disconnected' - 0dBm 
+* 'Excellent' : More than 40 dBm
+* 'Good' : 40 dBm to 25 dBm
+* 'Fair' : 25 dBm to 18 dBm
+* 'Weak' : 18 dBm to 0 dBm
+* 'Disconnected' : 0 dBm
 .
 
 Also see: [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange)
