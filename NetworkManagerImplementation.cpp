@@ -627,11 +627,8 @@ namespace WPEFramework
                     m_defaultInterface = interface;
 
                 connectivityMonitor.switchToInitialCheck();
-		if (ipversion == "IPv4")
-		{
-		    NMLOG_ERROR("MYTEST: Calling findGatewayDevice for %s", interface.c_str());
-                    m_upnpDiscoveryManager.startUpnpDiscovery(interface);
-		}
+                NMLOG_ERROR("MYTEST: Calling findGatewayDevice for %s", interface.c_str());
+                m_upnpDiscoveryManager.startUpnpDiscovery(interface);
             }
 
             _notificationLock.Lock();
