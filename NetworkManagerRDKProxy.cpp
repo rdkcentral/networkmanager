@@ -18,7 +18,6 @@
 **/
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
-#include "WiFiSignalStrengthMonitor.h"
 #include "libIBus.h"
 
 using namespace WPEFramework;

@@ -20,7 +20,6 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
-#include "WiFiSignalStrengthMonitor.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;

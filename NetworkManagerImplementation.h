@@ -31,7 +31,6 @@ using namespace std;
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
-#include "WiFiSignalStrengthMonitor.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
@@ -290,7 +289,6 @@ namespace WPEFramework
             public:
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
-                WiFiSignalStrengthMonitor m_wifiSignalMonitor;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
     }
