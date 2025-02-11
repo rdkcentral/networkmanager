@@ -23,6 +23,7 @@
 
 using namespace std;
 using namespace WPEFramework;
+using namespace WPEFramework::Plugin;
 namespace WPEFramework
 {
    namespace Plugin
