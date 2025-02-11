@@ -25,6 +25,7 @@
 #include <vector>
 #include <chrono>
 #include <condition_variable>
+#include <telemetry_busmessage_sender.h>
 
 #define LOG_ERR(msg, ...)    g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
@@ -37,7 +38,7 @@ public:
     ~UpnpDiscoveryManager();
 
 private:
-    void initialiseUpnp(const std::string& interface);
+    bool initialiseUpnp(const std::string& interface);
     void clearUpnpExistingRequests();
     static void* runMainLoop(void *arg);
     static void* runUpnp(void *arg);
@@ -63,7 +64,7 @@ private:
     std::mutex          m_upnpCvMutex;
     std::string         m_interface;
     static std::string const m_deviceInternetGateway;
-    static const int    LOGGING_PERIOD_IN_SEC = 2; //15min * 60
+    static const int    LOGGING_PERIOD_IN_SEC = 30; //15min * 60
     bool                m_upnpReady;
 };
 #endif
