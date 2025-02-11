@@ -26,9 +26,11 @@ std::string const UpnpDiscoveryManager::m_deviceInternetGateway = "urn:schemas-u
 
 UpnpDiscoveryManager::UpnpDiscoveryManager()
 {
-    m_mainLoop = g_main_loop_new(NULL, FALSE); 
+    m_mainLoop = g_main_loop_new(NULL, FALSE);
 
-    //Create timeout threads to handle telemetry logging
+    // Initialize Telemtry	    
+    t2_init("NetworkManager-Plugin");
+    //Timer thread to handle telemetry logging
     g_timeout_add_seconds (LOGGING_PERIOD_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::logTelemetry), this);
 
     m_threadUpnp  = g_thread_new("thread_upnp", UpnpDiscoveryManager::runUpnp, this);
@@ -50,7 +52,6 @@ UpnpDiscoveryManager::~UpnpDiscoveryManager()
 
 void UpnpDiscoveryManager::startUpnpDiscovery(const std::string& interface)
 {
-    std::lock_guard<std::mutex> lock(m_upnpCvMutex);
     m_interface = interface;
     m_upnpReady = true;
     m_upnpCv.notify_one();
@@ -68,13 +69,14 @@ void* UpnpDiscoveryManager::runUpnp(void *arg)
         }
         if (manager->m_upnpReady)
         {
+	    sleep(3);
             manager->findGatewayDevice(manager->m_interface);
             manager->m_upnpReady = false;
         }
     }
 }
 
-void UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
+bool UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
 {
     GError *error = NULL;
     // Create a gupnp context
@@ -82,19 +84,21 @@ void UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
     if (!m_context) {
         LOG_ERR("Error creating Upnp context: %s", error->message);
         g_clear_error(&error);
+	return false;
     }
 
     // Create a control point for InternetGatewayDevice
     m_controlPoint = gupnp_control_point_new(m_context, m_deviceInternetGateway.c_str());
     if (!m_controlPoint) {
         LOG_ERR("Error creating control point");
+	return false;
     }
 
     // Connects a callback function to a signal for InternetGatewayDevice
     g_signal_connect(m_controlPoint, "device-proxy-available",
                          G_CALLBACK(&UpnpDiscoveryManager::deviceProxyAvailableCallback), this);
+    return true;
 }
-
 
 void* UpnpDiscoveryManager::runMainLoop(void *arg)
 {
@@ -104,8 +108,11 @@ void* UpnpDiscoveryManager::runMainLoop(void *arg)
 gboolean UpnpDiscoveryManager::logTelemetry(void *arg)
 {
     std::lock_guard<std::mutex> lock(((UpnpDiscoveryManager *)arg)->m_apMutex);
+    LOG_INFO("TELEMETRY-UPNP: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
     //T2 telemtery logging
-    LOG_INFO("TELEMETRY_UPNP_GATEWAY_DETAILS: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
+    T2ERROR t2error = t2_event_s("gateway_details_split", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
+    if (t2error != T2ERROR_SUCCESS)
+        LOG_ERR("t2_event_s(\"%s\", \"%s\") returned error code %d", "gateway_details_split", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str(), t2error);
     return TRUE;
 }
 
@@ -115,13 +122,18 @@ void UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     clearUpnpExistingRequests();
 
     //Initialise gupnp context
-    initialiseUpnp(interface);
-
-    // Start discovery to find InternetGatewayDevice
-    if (TRUE != gssdp_resource_browser_get_active(GSSDP_RESOURCE_BROWSER(m_controlPoint)))
+    if (true == initialiseUpnp(interface))
     {
-        LOG_INFO("Searching for InternetGatewayDevice");
-        gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), TRUE);
+        // Start discovery to find InternetGatewayDevice
+        if (TRUE != gssdp_resource_browser_get_active(GSSDP_RESOURCE_BROWSER(m_controlPoint)))
+        {
+            LOG_INFO("Searching for InternetGatewayDevice");
+            gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), TRUE);
+        }
+    }
+    else
+    {
+        LOG_INFO("Failed in initialising upnp");
     }
 }
 
