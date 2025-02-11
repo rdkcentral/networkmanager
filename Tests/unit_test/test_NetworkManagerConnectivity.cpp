@@ -29,6 +29,10 @@ namespace WPEFramework
    namespace Plugin
     {
         NetworkManagerImplementation* _instance = nullptr;
+        void NetworkManagerImplementation::ReportInternetStatusChange(const InternetStatus prevState, const InternetStatus currState)
+        {
+            return;
+        }
     }
 }
 
