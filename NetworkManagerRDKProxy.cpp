@@ -1382,8 +1382,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             WiFiSSIDInfo  ssidInfo{};
             float rssi = 0.0f;
             float noise = 0.0f;
-            float floatSignalStrength = 0.0f;
-            unsigned int signalStrengthOut = 0;
+            float floatStrength = 0.0f;
+            unsigned int strengthOut = 0;
 
             if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo))
             {
@@ -1392,27 +1392,27 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     rssi          = std::stof(ssidInfo.strength.c_str());
                 if (!ssidInfo.noise.empty())
                     noise         = std::stof(ssidInfo.noise.c_str());
-                floatSignalStrength = (rssi - noise);
-                if (floatSignalStrength < 0)
-                    floatSignalStrength = 0.0;
+                floatStrength = (rssi - noise);
+                if (floatStrength < 0)
+                    floatStrength = 0.0;
 
-                signalStrengthOut = static_cast<unsigned int>(floatSignalStrength);
-                NMLOG_INFO ("WiFiSignalStrength in dB = %u",signalStrengthOut);
+                strengthOut = static_cast<unsigned int>(floatStrength);
+                NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
 
-                if (signalStrengthOut == 0)
+                if (strengthOut == 0)
                 {
                     quality = WIFI_SIGNAL_DISCONNECTED;
-                    signalStrength = "0";
+                    strength = "0";
                 }
-                else if (signalStrengthOut > 0 && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
+                else if (strengthOut > 0 && strengthOut < SIGNALSTRENGTHTHRESHOLDFAIR)
                 {
                     quality = WIFI_SIGNAL_WEAK;
                 }
-                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
+                else if (strengthOut > SIGNALSTRENGTHTHRESHOLDFAIR && strengthOut < SIGNALSTRENGTHTHRESHOLDGOOD)
                 {
                     quality = WIFI_SIGNAL_FAIR;
                 }
-                else if (signalStrengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && signalStrengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
+                else if (strengthOut > SIGNALSTRENGTHTHRESHOLDGOOD && strengthOut < SIGNALSTRENGTHTHRESHOLDEXCELLENT)
                 {
                     quality = WIFI_SIGNAL_GOOD;
                 }
@@ -1421,7 +1421,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     quality = WIFI_SIGNAL_EXCELLENT;
                 }
 
-                signalStrength = std::to_string(signalStrengthOut);
+                strength = std::to_string(strengthOut);
                 NMLOG_INFO ("GetWiFiSignalStrength success");
                 rc = Core::ERROR_NONE;
             }
