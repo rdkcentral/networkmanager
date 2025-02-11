@@ -23,6 +23,7 @@
 #include <libnm/NetworkManager.h>
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
+#include "NetworkManagerSecretAgent.h"
 #include <iostream>
 #include <glib.h>
 #include <stdlib.h>
@@ -30,16 +31,8 @@
 #include <string.h>
 #include <atomic>
 
-#define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf"
-#define WPA_CLI_STATUS "wpa_cli status"
-#define MAX_WPS_AP_COUNT 3
-#define MAX_WPS_WAIT_DURATION 120
-
-typedef struct _wifi_wps_pbc_ap
-{
-    char bssid[32];
-    char ssid[32];
-} wifi_wps_pbc_ap_t;
+#define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
+#define WPS_RETRY_COUNT             10
 
 namespace WPEFramework
 {
@@ -57,18 +50,16 @@ namespace WPEFramework
             bool isWifiConnected();
             bool wifiDisconnect();
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
-            bool wifiConnect(Exchange::INetworkManager::WiFiConnectTo wifiData);
+            bool wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo);
             bool wifiScanRequest(std::string ssidReq = "");
-            bool isWifiScannedRecently(int timelimitInSec = 5); // default 10 sec as shotest scanning interval
+            bool isWifiScannedRecently(int timelimitInSec = 5); // default 5 sec as shotest scanning interval
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo);
             bool removeKnownSSID(const string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
-            bool initiateWPS();
-            bool cancelWPS();
-            void wpsAction();
-            std::string executeWpaCliCommand(const std::string& wpaCliCommand);
+            bool startWPS();
+            bool stopWPS();
             bool setInterfaceState(std::string interface, bool enabled);
             bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address);
         private:
@@ -93,19 +84,17 @@ namespace WPEFramework
             void operator=(wifiManager const&) = delete;
 
             bool createClientNewConnection();
-            std::atomic<bool> wpsStop = {false};
-            std::thread wpsThread;
 
         public:
             NMClient *m_client;
             GMainLoop *m_loop;
             gboolean m_createNewConnection;
             GMainContext *m_nmContext = nullptr;
-            GMainContext *m_wpsContext = nullptr;
             const char* m_objectPath;
             NMDevice *m_wifidevice;
             GSource *m_source;
             bool m_isSuccess = false;
+            SecretAgent m_secretAgent;
         };
     }   // Plugin
 }   // WPEFramework
