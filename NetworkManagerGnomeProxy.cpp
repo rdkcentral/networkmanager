@@ -397,7 +397,7 @@ namespace WPEFramework
             }
 
             if(ipversion.empty())
-                NMLOG_WARNING("ipversion is empty default value IPv4");
+                NMLOG_DEBUG("ipversion is empty default value IPv4");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
@@ -811,17 +811,26 @@ namespace WPEFramework
                 NMLOG_ERROR("WPS PIN method is not supported as of now");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
-            if(wifi->initiateWPS())
-                NMLOG_INFO ("startWPS success");
-            else
-                rc = Core::ERROR_RPC_CALL_FAILED;
+
+            if(!wifi->wifiScanRequest())
+            {
+                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+            }
+
+            if(wifi->startWPS())
+                NMLOG_INFO ("start WPS success");
+            else {
+                rc = Core::ERROR_GENERAL;
+                NMLOG_ERROR("start WPS failed");
+            }
+
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
             uint32_t rc = Core::ERROR_NONE;
-            if(wifi->cancelWPS())
+            if(wifi->stopWPS())
                 NMLOG_INFO ("cancelWPS success");
             else
                 rc = Core::ERROR_RPC_CALL_FAILED;
