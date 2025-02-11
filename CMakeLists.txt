@@ -36,7 +36,7 @@ include(CmakeHelperFunctions)
 
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
-
+option(USE_TELEMETRY "Enable telemetry" OFF )
 
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
@@ -100,6 +100,13 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
+if (USE_TELEMETRY)
+    find_package(telemetry_msgsender REQUIRED)
+    add_definitions(-DUSE_TELEMETRY)
+
+    include_directories(${TELEMETRY_INCLUDE_DIRS})
+endif (USE_TELEMETRY)
+
 include_directories(${PROJECT_SOURCE_DIR})
 # Build the main plugin that runs inside the WPEFramework daemon
 add_library(${MODULE_NAME} SHARED
@@ -111,10 +118,13 @@ add_library(${MODULE_NAME} SHARED
                             NetworkManagerStunClient.cpp
                             WiFiSignalStrengthMonitor.cpp
                             Module.cpp
-			                UpnpDiscoveryManager.cpp
+			    UpnpDiscoveryManager.cpp
                             ${PROXY_STUB_SOURCES})
 			    target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBSOUP_INCLUDE_DIRS} ${GUPNP_INCLUDE_DIRS} ${GSSDP_INCLUDE_DIRS})
 			    target_link_libraries(${MODULE_NAME} PRIVATE ${GLIB_LIBRARIES} ${LIBSOUP_LIBRARIES} ${GUPNP_LIBRARIES} ${GSSDP_LIBRARIES})
+if (USE_TELEMETRY)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${TELEMETRY_LIBRARIES})
+endif (USE_TELEMETRY)
 
 target_link_libraries(${MODULE_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
@@ -213,4 +223,3 @@ write_config(PLUGINS LegacyPlugin_WiFiManagerAPIs CLASSNAME WiFiManager LOCATOR 
 if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
-
