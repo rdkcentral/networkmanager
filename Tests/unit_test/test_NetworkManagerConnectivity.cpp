@@ -23,6 +23,13 @@
 
 using namespace std;
 using namespace WPEFramework;
+namespace WPEFramework
+{
+   namespace Plugin
+    {
+        NetworkManagerImplementation* _instance = nullptr;
+    }
+}
 
 class ConnectivityMonitorTest : public ::testing::Test {
 protected:
