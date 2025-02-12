@@ -627,6 +627,8 @@ namespace WPEFramework
                     m_defaultInterface = interface;
 
                 connectivityMonitor.switchToInitialCheck();
+                NMLOG_ERROR("MYTEST: Calling startUpnpDiscovery for %s", interface.c_str());
+                m_upnpDiscoveryManager.startUpnpDiscovery(interface);
             }
 
             _notificationLock.Lock();

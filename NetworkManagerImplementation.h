@@ -34,6 +34,7 @@ using namespace std;
 #include "WiFiSignalStrengthMonitor.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+#include "UpnpDiscoveryManager.h"
 
 #define DEFAULT_NOISE   -180
 
@@ -278,6 +279,7 @@ namespace WPEFramework
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 WiFiSignalStrengthMonitor m_wifiSignalMonitor;
+                UpnpDiscoveryManager m_upnpDiscoveryManager;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
     }
