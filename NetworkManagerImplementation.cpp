@@ -627,7 +627,7 @@ namespace WPEFramework
                     m_defaultInterface = interface;
 
                 connectivityMonitor.switchToInitialCheck();
-                NMLOG_ERROR("MYTEST: Calling findGatewayDevice for %s", interface.c_str());
+                NMLOG_ERROR("MYTEST: Calling startUpnpDiscovery for %s", interface.c_str());
                 m_upnpDiscoveryManager.startUpnpDiscovery(interface);
             }
 
@@ -677,8 +677,6 @@ namespace WPEFramework
             {
                 m_wlanConnected = true;
                 m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
-		NMLOG_ERROR("MYTEST: Calling findGatewayDevice for wlan0");
-	    	m_upnpDiscoveryManager.findGatewayDevice("wlan0");
             }
             else
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
