@@ -17,8 +17,9 @@
 * limitations under the License.
 **/
 
+#include <thread>
+#include <chrono>
 #include "NetworkManagerImplementation.h"
-#include "WiFiSignalStrengthMonitor.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -58,6 +59,7 @@ namespace WPEFramework
             {
                 m_registrationThread.join();
             }
+            stopWiFiSignalStrengthMonitor();
         }
 
         /**
@@ -668,16 +670,86 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
+        void NetworkManagerImplementation::startWiFiSignalStrengthMonitor(int interval)
+        {
+            if (m_isRunning) {
+                NMLOG_INFO("WiFiSignalStrengthMonitor Thread is already running.");
+                return;
+            }
+            m_isRunning = true;
+            m_stopThread = false;
+            m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+        }
+
+        void NetworkManagerImplementation::stopWiFiSignalStrengthMonitor()
+        {
+            if (!m_isRunning) {
+                return; // No thread to stop
+            }
+            std::lock_guard<std::mutex> lock(m_condVariableMutex);
+            m_stopThread = true;
+            m_condVariable.notify_one();
+            if (m_monitorThread.joinable()) {
+                m_monitorThread.join();
+            }
+            m_isRunning = false;
+        }
+
+        void NetworkManagerImplementation::monitorThreadFunction(int interval)
+        {
+            static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
+            NMLOG_INFO("WiFiSignalStrengthMonitor thread started ! (%d)", interval);
+            while (!m_stopThread) {
+                std::string ssid;
+                std::string strength;
+                std::unique_lock<std::mutex> lock(m_condVariableMutex);
+                Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
+
+                NMLOG_DEBUG("checking WiFi signal strength");
+                NetworkManagerImplementation::GetWiFiSignalStrength(ssid, strength, newSignalQuality);
+
+                if (oldSignalQuality != newSignalQuality) {
+                    NMLOG_INFO("Notifying WiFiSignalStrengthChangedEvent %s", strength.c_str());
+                    oldSignalQuality = newSignalQuality;
+                    NetworkManagerImplementation::ReportWiFiSignalStrengthChange(ssid, strength, newSignalQuality);
+                }
+
+                if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
+                    NMLOG_WARNING("WiFiSignalStrengthChanged to disconnect - WiFiSignalStrengthMonitor exiting");
+                    m_stopThread = true; // Signal thread to stop
+                    break; // Exit the loop
+                }
+
+                // Wait for the specified interval or until notified to stop
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
+                {
+                    NMLOG_INFO("WiFiSignalStrengthMonitor received stop signal or timed out");
+                }
+            }
+            m_isRunning = false;
+        }
+
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected = true;
-                m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+                if (!m_monitoringStarted)
+                {
+                    startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+                    m_monitoringStarted = true;
+                }
             }
             else
+            {
+                if (m_monitoringStarted)
+                {
+                    stopWiFiSignalStrengthMonitor();
+                    m_monitoringStarted = false;
+                }
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
+            }
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);

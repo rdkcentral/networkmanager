@@ -18,7 +18,6 @@
 **/
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
-#include "WiFiSignalStrengthMonitor.h"
 #include "libIBus.h"
 
 using namespace WPEFramework;
@@ -375,9 +374,6 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        const float signalStrengthThresholdExcellent = -50.0f;
-        const float signalStrengthThresholdGood = -60.0f;
-        const float signalStrengthThresholdFair = -67.0f;
         NetworkManagerImplementation* _instance = nullptr;
 
         Exchange::INetworkManager::WiFiState to_wifi_state(WiFiStatusCode_t code) {
@@ -1379,46 +1375,53 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */)
+        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             WiFiSSIDInfo  ssidInfo{};
-            float signalStrengthOut = 0.0f;
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatStrength = 0.0f;
+            unsigned int strengthOut = 0;
 
             if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo))
             {
-                ssid            = ssidInfo.ssid;
-                signalStrength  = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatStrength = (rssi - noise);
+                if (floatStrength < 0)
+                    floatStrength = 0.0;
 
-                if (!signalStrength.empty())
-                {
-                    signalStrengthOut = std::stof(signalStrength.c_str());
-                    NMLOG_INFO ("WiFiSignalStrength in dB = %f",signalStrengthOut);
-                }
+                strengthOut = static_cast<unsigned int>(floatStrength);
+                NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
 
-                if (signalStrengthOut == 0)
+                if (strengthOut == 0)
                 {
                     quality = WIFI_SIGNAL_DISCONNECTED;
-                    signalStrength = "0";
+                    strength = "0";
                 }
-                else if (signalStrengthOut >= signalStrengthThresholdExcellent && signalStrengthOut < 0)
-                {
-                    quality = WIFI_SIGNAL_EXCELLENT;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdGood && signalStrengthOut < signalStrengthThresholdExcellent)
-                {
-                    quality = WIFI_SIGNAL_GOOD;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdFair && signalStrengthOut < signalStrengthThresholdGood)
-                {
-                    quality = WIFI_SIGNAL_FAIR;
-                }
-                else
+                else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
                 {
                     quality = WIFI_SIGNAL_WEAK;
                 }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+                {
+                    quality = WIFI_SIGNAL_FAIR;
+                }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+                {
+                    quality = WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = WIFI_SIGNAL_EXCELLENT;
+                }
 
+                strength = std::to_string(strengthOut);
                 NMLOG_INFO ("GetWiFiSignalStrength success");
                 rc = Core::ERROR_NONE;
             }

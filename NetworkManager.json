@@ -122,13 +122,13 @@
             "type": "string",
             "example": "password"
         },
-        "security": {
+        "security":{
             "summary": "The security mode. See `getSupportedsecurityModes`.",
             "type": "integer",
             "example": 6
         },
         "strength":{
-            "summary": "The Signal RSSI value in dBm",
+            "summary": "Signal to Noise Ratio(SNR) in dBm",
             "type": "string",
             "example": "-27.000000"
         },
@@ -1014,7 +1014,9 @@
                         "$ref": "#/definitions/passphrase"
                     },
                     "security": {
-                        "$ref": "#/definitions/security"
+                        "summary": "The security mode is decided based on the highest security mode provided by the SSID",
+                        "type": "integer",
+                        "example": 2
                     },
                     "ca_cert": {
                         "summary": "The ca_cert to be used for EAP",
@@ -1069,8 +1071,7 @@
                 },
                 "required": [
                     "ssid",
-                    "passphrase",
-                    "security"
+                    "passphrase"
                 ]
             },
             "result": {
@@ -1121,7 +1122,9 @@
                         "example": "5"
                     },
                     "strength": {
-                        "$ref": "#/definitions/strength"
+                        "summary": "The Signal RSSI value in dBm",
+                        "type": "string",
+                        "example": "-27.000000"
                     },
                     "frequency": {
                         "$ref": "#/definitions/frequency"
@@ -1213,7 +1216,7 @@
             }
         },
         "GetWiFiSignalStrength":{
-            "summary": "Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the signal strength. The possible states are\n* 'Excellent'\n* 'Good'\n* 'Fair'\n* 'Weak'\n* 'Disconnected'\n",
+            "summary": "Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are\n* 'Excellent' : More than 40 dBm\n* 'Good' : 40 dBm to 25 dBm\n* 'Fair' : 25 dBm to 18 dBm\n* 'Weak' : 18 dBm to 0 dBm\n* 'Disconnected' : 0 dBm\n",
             "events":{
                 "onWiFiSignalStrengthChange" : "Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak."
             },
