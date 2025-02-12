@@ -890,11 +890,11 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
-            string signalStrength{};
+            string strength{};
             Exchange::INetworkManager::WiFiSignalQuality quality{};
 
             if (_networkManager)
-                rc = _networkManager->GetWiFiSignalStrength(ssid, signalStrength, quality);
+                rc = _networkManager->GetWiFiSignalStrength(ssid, strength, quality);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
@@ -902,7 +902,7 @@ namespace WPEFramework
             {
                 Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
                 response["ssid"] = ssid;
-                response["strength"] = signalStrength;
+                response["strength"] = strength;
                 response["quality"] = iquality.Data();
             }
             returnJson(rc);

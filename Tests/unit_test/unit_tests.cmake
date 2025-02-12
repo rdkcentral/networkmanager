@@ -19,10 +19,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(${NM_CLASS_UT}
-    Tests/unit_test/test_WiFiSignalStrengthMonitor.cpp
     Tests/unit_test/test_NetworkManagerConnectivity.cpp
     Tests/unit_test/test_NetworkManagerStunClient.cpp
-    WiFiSignalStrengthMonitor.cpp
     NetworkManagerLogger.cpp
     NetworkManagerConnectivity.cpp
     NetworkManagerStunClient.cpp
@@ -38,7 +36,6 @@ add_executable(${NM_RDKPROXY_UT}
     NetworkManagerImplementation.cpp
     NetworkManagerConnectivity.cpp
     NetworkManagerStunClient.cpp
-    WiFiSignalStrengthMonitor.cpp
     NetworkManagerRDKProxy.cpp
     ${PROXY_STUB_SOURCES}
 )

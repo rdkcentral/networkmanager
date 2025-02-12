@@ -23,6 +23,18 @@
 
 using namespace std;
 using namespace WPEFramework;
+using namespace WPEFramework::Plugin;
+namespace WPEFramework
+{
+   namespace Plugin
+    {
+        NetworkManagerImplementation* _instance = nullptr;
+        void NetworkManagerImplementation::ReportInternetStatusChange(const InternetStatus prevState, const InternetStatus currState)
+        {
+            return;
+        }
+    }
+}
 
 class ConnectivityMonitorTest : public ::testing::Test {
 protected:
