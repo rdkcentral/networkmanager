@@ -582,6 +582,12 @@ namespace WPEFramework
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
                 m_ethConnected = true;
 
+	    if ((interface == "eth0") || (interface == "wlan0"))
+            {
+                NMLOG_ERROR("MYTEST Calling NotifyInterfaceStateChangeEvent");
+                m_upnpDiscoveryManager.NotifyInterfaceStateChangeEvent();
+            }
+
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
             for (const auto callback : _notificationCallbacks) {
@@ -627,8 +633,9 @@ namespace WPEFramework
                     m_defaultInterface = interface;
 
                 connectivityMonitor.switchToInitialCheck();
-                NMLOG_ERROR("MYTEST: Calling startUpnpDiscovery for %s", interface.c_str());
-                m_upnpDiscoveryManager.startUpnpDiscovery(interface);
+
+		NMLOG_ERROR("MYTEST Calling NotifyIpAcquiredEvent");
+                m_upnpDiscoveryManager.NotifyIpAcquiredEvent(interface);
             }
 
             _notificationLock.Lock();
