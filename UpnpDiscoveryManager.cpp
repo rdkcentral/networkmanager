@@ -29,7 +29,7 @@ UpnpDiscoveryManager::UpnpDiscoveryManager()
     m_mainLoop = g_main_loop_new(NULL, FALSE);
 
     // Initialize Telemtry	    
-    t2_init("networkmanager-Plugin");
+    t2_init("networkmanager-plugin");
     //Timer thread to handle telemetry logging
     g_timeout_add_seconds (LOGGING_PERIOD_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::logTelemetry), this);
 
