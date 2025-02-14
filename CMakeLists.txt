@@ -36,7 +36,7 @@ include(CmakeHelperFunctions)
 
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
-option(USE_TELEMETRY "Enable telemetry" OFF )
+option(USE_TELEMETRY "Enable telemetry" ON )
 
 string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
@@ -103,7 +103,6 @@ endif (USE_RDK_LOGGER)
 if (USE_TELEMETRY)
     find_package(telemetry_msgsender REQUIRED)
     add_definitions(-DUSE_TELEMETRY)
-
     include_directories(${TELEMETRY_INCLUDE_DIRS})
 endif (USE_TELEMETRY)
 
@@ -122,9 +121,6 @@ add_library(${MODULE_NAME} SHARED
                             ${PROXY_STUB_SOURCES})
 			    target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBSOUP_INCLUDE_DIRS} ${GUPNP_INCLUDE_DIRS} ${GSSDP_INCLUDE_DIRS})
 			    target_link_libraries(${MODULE_NAME} PRIVATE ${GLIB_LIBRARIES} ${LIBSOUP_LIBRARIES} ${GUPNP_LIBRARIES} ${GSSDP_LIBRARIES})
-if (USE_TELEMETRY)
-    target_link_libraries(${MODULE_NAME} PRIVATE ${TELEMETRY_LIBRARIES})
-endif (USE_TELEMETRY)
 
 target_link_libraries(${MODULE_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
@@ -135,7 +131,10 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD 11
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
-
+				     
+if (USE_TELEMETRY)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${TELEMETRY_LIBRARIES})
+endif (USE_TELEMETRY)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
