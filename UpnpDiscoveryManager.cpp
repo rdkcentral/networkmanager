@@ -26,10 +26,17 @@ std::string const UpnpDiscoveryManager::m_deviceInternetGateway = "urn:schemas-u
 
 UpnpDiscoveryManager::UpnpDiscoveryManager()
 {
+    m_context = NULL;
+    m_controlPoint = NULL;
+    m_mainLoop = NULL;
+
     m_mainLoop = g_main_loop_new(NULL, FALSE);
 
-    // Initialize Telemtry	    
+#if USE_TELEMETRY
+    // Initialize Telemtry  
     t2_init("networkmanager-plugin");
+#endif
+
     //Timer thread to handle telemetry logging
     g_timeout_add_seconds (LOGGING_PERIOD_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::logTelemetry), this);
 
@@ -50,48 +57,68 @@ UpnpDiscoveryManager::~UpnpDiscoveryManager()
     }
 }
 
-void UpnpDiscoveryManager::startUpnpDiscovery(const std::string& interface)
+void UpnpDiscoveryManager::NotifyInterfaceStateChangeEvent()
 {
-    m_interface = interface;
-    m_upnpReady = true;
-    m_upnpCv.notify_one();
+    // Clear the upnp running status if there is any interface state change
+    std::lock_guard<std::mutex> lock(m_upnpStatusMutex);
+	m_upnpRunStatus = false;
+}
+
+void UpnpDiscoveryManager::NotifyIpAcquiredEvent(const std::string& interface)
+{
+    std::lock_guard<std::mutex> lock(m_upnpStatusMutex);
+    // Once IP is acquired, notify upnp thread to start discovery
+    if (m_upnpRunStatus == false)
+    {
+        m_upnpRunStatus = true;
+        m_interface = interface;
+        m_upnpCv.notify_one();
+    }
 }
 
 void* UpnpDiscoveryManager::runUpnp(void *arg)
 {
     UpnpDiscoveryManager* manager = static_cast<UpnpDiscoveryManager*>(arg);
-    int timeoutInMin = 30;
     while(true)
     {
         std::unique_lock<std::mutex> lock(manager->m_upnpCvMutex);  
-        if (manager->m_upnpCv.wait_for(lock, std::chrono::minutes(timeoutInMin)) == std::cv_status::timeout) {
-            LOG_INFO("upnp run thread timeout");
-        }
-        if (manager->m_upnpReady)
+        manager->m_upnpCv.wait(lock);
+        if (true == manager->m_upnpRunStatus)
         {
-	    sleep(3);
             manager->findGatewayDevice(manager->m_interface);
-            manager->m_upnpReady = false;
         }
     }
 }
 
-bool UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
+gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
 {
     GError *error = NULL;
-    // Create a gupnp context
-    m_context = gupnp_context_new(NULL, interface.c_str(), 0, &error);
-    if (!m_context) {
-        LOG_ERR("Error creating Upnp context: %s", error->message);
-        g_clear_error(&error);
-	return false;
+    uint8_t count = 0;
+    
+    do
+    {
+        // Create a gupnp context
+        m_context = gupnp_context_new(NULL, interface.c_str(), 0, &error);
+        if (!m_context) 
+        {
+            LOG_ERR("Error creating Upnp context: %s", error->message);
+            g_clear_error(&error);
+            count++;
+            sleep(1);
+        }
+    } while ((m_context == NULL) && (count < MAX_CONTEXT_FAIL));
+    if (count == MAX_CONTEXT_FAIL)
+    {
+        LOG_ERR("Context creation failed");
+	    return false;
     }
-
+    
     // Create a control point for InternetGatewayDevice
     m_controlPoint = gupnp_control_point_new(m_context, m_deviceInternetGateway.c_str());
-    if (!m_controlPoint) {
+    if (!m_controlPoint) 
+    {
         LOG_ERR("Error creating control point");
-	return false;
+	    return false;
     }
 
     // Connects a callback function to a signal for InternetGatewayDevice
@@ -102,18 +129,24 @@ bool UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
 
 void* UpnpDiscoveryManager::runMainLoop(void *arg)
 {
-   g_main_loop_run(((UpnpDiscoveryManager *)arg)->m_mainLoop);
+    // gmain loop need to be running for upnp discovery and telemetry logging
+    g_main_loop_run(((UpnpDiscoveryManager *)arg)->m_mainLoop);
 }
 
 gboolean UpnpDiscoveryManager::logTelemetry(void *arg)
 {
     std::lock_guard<std::mutex> lock(((UpnpDiscoveryManager *)arg)->m_apMutex);
-    LOG_INFO("TELEMETRY-UPNP: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
+    LOG_INFO("Connected to Gateway: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
+#if USE_TELEMETRY
+    LOG_INFO("Telemetry logging");   
     //T2 telemtery logging
     T2ERROR t2error = t2_event_s("gateway_details_split", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
     if (t2error != T2ERROR_SUCCESS)
+    {
         LOG_ERR("t2_event_s(\"%s\", \"%s\") returned error code %d", "gateway_details_split", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str(), t2error);
-    return TRUE;
+    }
+#endif
+    return true;
 }
 
 void UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
@@ -133,7 +166,7 @@ void UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     }
     else
     {
-        LOG_INFO("Failed in initialising upnp");
+        LOG_ERR("Failed in initialising upnp");
     }
 }
 
@@ -141,12 +174,15 @@ void UpnpDiscoveryManager::clearUpnpExistingRequests()
 {
     if (m_controlPoint)
     {
+        g_object_ref_sink(m_controlPoint);
         stopSearchGatewayDevice();
         g_object_unref(m_controlPoint);
+        m_controlPoint = NULL;
     }
     if (m_context)
     {
         g_object_unref(m_context);
+        m_context = NULL;
     }
 }
 
@@ -156,21 +192,32 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
     m_apModelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
     m_apModelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
     m_apMake = m_apMake.substr(0, m_apMake.find(','));
-    LOG_INFO("Connected to Gateway: %s, %s, %s", m_apMake.c_str(), m_apModelName.c_str(), m_apModelNumber.c_str());
     // Stop discovery to find InternetGatewayDevice
     stopSearchGatewayDevice(); 
     std::lock_guard<std::mutex> lock(m_apMutex);
     m_gatewayDetails.str("");
     m_gatewayDetails.clear();
-    m_gatewayDetails << "make=" << m_apMake << ",model_name=" << m_apModelName << ",model_number=" << m_apModelNumber;
+    m_gatewayDetails << m_apMake << "," << m_apModelName << "," << m_apModelNumber;
+    LOG_INFO("Received gateway details: %s", m_gatewayDetails.str().c_str());
 }
 
 void UpnpDiscoveryManager::stopSearchGatewayDevice() 
 {
-    LOG_INFO("Stop searching for InternetGatewayDevice");
     if (TRUE == gssdp_resource_browser_get_active(GSSDP_RESOURCE_BROWSER(m_controlPoint)))
     {
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), FALSE);
     }
-    LOG_INFO("Stopped searching for InternetGatewayDevice");
+}
+
+int main()
+{
+    UpnpDiscoveryManager obj;
+
+    while(true)
+    {
+        obj.HandleInterfaceStateChangeEvent(2);
+        obj.HandleIpAcquiredEvent("en0");
+        sleep(10);
+    }
+    return 1;
 }
