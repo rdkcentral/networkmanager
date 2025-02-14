@@ -25,46 +25,53 @@
 #include <vector>
 #include <chrono>
 #include <condition_variable>
+#if USE_TELEMETRY
 #include <telemetry_busmessage_sender.h>
+#endif
 
 #define LOG_ERR(msg, ...)    g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
+#define MAX_CONTEXT_FAIL 3
+
 class UpnpDiscoveryManager
 {
 public:
-    void startUpnpDiscovery(const std::string& interface);
+    void NotifyInterfaceStateChangeEvent();
+    void NotifyIpAcquiredEvent(const std::string& interface);
     UpnpDiscoveryManager();
     ~UpnpDiscoveryManager();
 
 private:
-    bool initialiseUpnp(const std::string& interface);
-    void clearUpnpExistingRequests();
     static void* runMainLoop(void *arg);
     static void* runUpnp(void *arg);
     static gboolean logTelemetry(void* arg);
+    gboolean initialiseUpnp(const std::string& interface);
+    void clearUpnpExistingRequests();
     void findGatewayDevice(const std::string& interface);
     void stopSearchGatewayDevice();
     void on_device_proxy_available(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy);
-    static void deviceProxyAvailableCallback(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy, gpointer user_data) { 
+    static void deviceProxyAvailableCallback(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy, gpointer user_data) 
+    { 
         auto *self = static_cast<UpnpDiscoveryManager *>(user_data);
         self->on_device_proxy_available(control_point, proxy);
     }
     GUPnPContext*       m_context;
     GUPnPControlPoint*  m_controlPoint;
     GMainLoop*          m_mainLoop;
-    GThread *           m_threadGmain;
-    GThread *           m_threadUpnp;
+    GThread*            m_threadGmain;
+    GThread*            m_threadUpnp;
     std::string         m_apMake;
     std::string         m_apModelName;
     std::string         m_apModelNumber;
-    std::ostringstream  m_gatewayDetails;
-    std::mutex          m_apMutex;
-    std::condition_variable m_upnpCv;
-    std::mutex          m_upnpCvMutex;
     std::string         m_interface;
+    std::mutex          m_apMutex;
+    std::mutex          m_upnpStatusMutex;
+    std::mutex          m_upnpCvMutex;
+    std::condition_variable m_upnpCv;
+    std::ostringstream  m_gatewayDetails;
     static std::string const m_deviceInternetGateway;
     static const int    LOGGING_PERIOD_IN_SEC = 30; //15min * 60
-    bool                m_upnpReady;
+    bool                m_upnpRunStatus;
 };
 #endif
