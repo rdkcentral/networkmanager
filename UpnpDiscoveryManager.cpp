@@ -136,7 +136,7 @@ void* UpnpDiscoveryManager::runMainLoop(void *arg)
 gboolean UpnpDiscoveryManager::logTelemetry(void *arg)
 {
     std::lock_guard<std::mutex> lock(((UpnpDiscoveryManager *)arg)->m_apMutex);
-    LOG_INFO("Connected to Gateway: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
+    LOG_INFO("Connected_to_Gateway: %s", ((UpnpDiscoveryManager *)arg)->m_gatewayDetails.str().c_str());
 #if USE_TELEMETRY
     LOG_INFO("Telemetry logging");   
     //T2 telemtery logging
