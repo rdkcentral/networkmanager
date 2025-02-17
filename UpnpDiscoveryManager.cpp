@@ -208,16 +208,3 @@ void UpnpDiscoveryManager::stopSearchGatewayDevice()
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), FALSE);
     }
 }
-
-int main()
-{
-    UpnpDiscoveryManager obj;
-
-    while(true)
-    {
-        obj.HandleInterfaceStateChangeEvent(2);
-        obj.HandleIpAcquiredEvent("en0");
-        sleep(10);
-    }
-    return 1;
-}
