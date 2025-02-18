@@ -203,6 +203,7 @@ namespace WPEFramework
             return rc;
         }
 
+#if 0
         uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -212,6 +213,7 @@ namespace WPEFramework
                 NMLOG_ERROR("GetWiFiSignalStrength failed");
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {
