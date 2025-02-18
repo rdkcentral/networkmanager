@@ -1833,7 +1833,6 @@ namespace WPEFramework
             return ret;
         }
 
-#if 0
         bool NetworkManagerClient::getWiFiSignalStrength(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
         {
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo;
@@ -1890,7 +1889,6 @@ namespace WPEFramework
 
             return true;
         }
-#endif
 
         bool NetworkManagerClient::getWifiState(Exchange::INetworkManager::WiFiState &state)
         {

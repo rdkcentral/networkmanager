@@ -26,6 +26,8 @@ using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
+#define RSSID_COMMAND       "wpa_cli signal_poll"
+#define SSID_COMMAND        "wpa_cli status"
 
 namespace WPEFramework
 {
@@ -695,6 +697,7 @@ namespace WPEFramework
             m_isRunning = false;
         }
 
+        /* The below implementation of GetWiFiSignalStrength is a temporary mitigation. Need to be revisited */
         uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -708,10 +711,10 @@ namespace WPEFramework
             char buff[512] = {'\0'};
 
             FILE *fp = NULL;
-            fp = popen(rssid_command, "r");
+            fp = popen(RSSID_COMMAND, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",rssid_command);
+                NMLOG_ERROR("Failed in getting output from command %s",RSSID_COMMAND);
                 return Core::ERROR_RPC_CALL_FAILED;
             }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
@@ -728,10 +731,10 @@ namespace WPEFramework
                         break;
             }
             pclose(fp);
-            fp = popen(ssid_command, "r");
+            fp = popen(SSID_COMMAND, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",ssid_command);                                                               return Core::ERROR_RPC_CALL_FAILED;
+                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);                                                               return Core::ERROR_RPC_CALL_FAILED;
             }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
                 std::istringstream mystream(buff);

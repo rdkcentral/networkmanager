@@ -40,8 +40,6 @@ using namespace std;
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
-#define rssid_command                              "wpa_cli signal_poll"
-#define ssid_command                               "wpa_cli status"
 
 namespace WPEFramework
 {
