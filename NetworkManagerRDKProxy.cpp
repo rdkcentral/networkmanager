@@ -1375,6 +1375,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
+#if 0
         uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             LOG_ENTRY_FUNCTION();
@@ -1431,6 +1432,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {

@@ -34,7 +34,7 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define DEFAULT_NOISE   -180
+#define DEFAULT_NOISE                              -180
 
 #define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
