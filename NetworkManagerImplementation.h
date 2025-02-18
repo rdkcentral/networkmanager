@@ -34,12 +34,14 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define DEFAULT_NOISE   -180
+#define DEFAULT_NOISE                              -180
 
 #define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
+#define rssid_command                              "wpa_cli signal_poll"
+#define ssid_command                               "wpa_cli status"
 
 namespace WPEFramework
 {
