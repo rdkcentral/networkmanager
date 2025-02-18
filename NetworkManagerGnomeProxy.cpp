@@ -187,6 +187,8 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            gboolean result;
+            GError *error = NULL;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(client == nullptr)
@@ -234,7 +236,24 @@ namespace WPEFramework
                     NULL);
             const char *uuid = nm_connection_get_uuid(conn);
             remoteConnection = nm_client_get_connection_by_uuid(client, uuid);
-            nm_remote_connection_commit_changes(remoteConnection, false, NULL, NULL);
+            if (!remoteConnection)
+                NMLOG_ERROR("Failed to get remote connection");
+            result = nm_remote_connection_commit_changes(remoteConnection, false, NULL, &error);
+            if (result)
+                rc = Core::ERROR_NONE;
+            else
+            {
+                if (error)
+                {
+                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                    g_error_free(error);
+                }
+                else
+                {
+                    NMLOG_ERROR("Failed to commit changes: unknown error");
+                }
+                rc = Core::ERROR_GENERAL;
+            }
 
             return rc;
         }
