@@ -525,11 +525,7 @@ namespace WPEFramework
                 }
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
                 {
-                    NMLOG_INFO("key-mgmt: %s", "none");
-                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
-                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
-                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"none", NULL);
-                    NMLOG_WARNING("open wifi network configuration");
+                    NMLOG_WARNING("open wifi network configuration key-mgmt: none");
                     break;
                 }
                 default:
