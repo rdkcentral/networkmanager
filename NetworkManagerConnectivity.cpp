@@ -237,7 +237,8 @@ namespace WPEFramework
         }
     }
 
-    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion)
+    TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, 
+        long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
         internetSate = INTERNET_UNKNOWN;
         if(endpoints.size() < 1) {
@@ -245,7 +246,7 @@ namespace WPEFramework
             return;
         }
 
-        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion);
+        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
     }
 
     static bool curlVerboseEnabled() {
@@ -266,7 +267,8 @@ namespace WPEFramework
         return size * nmemb;
     }
 
-    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion)
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
+                         long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
         long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
 
@@ -313,6 +315,17 @@ namespace WPEFramework
             }
             else
                 NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
+
+            if(interface == "wlan0")
+            {
+                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
+                NMLOG_DEBUG("curlopt interface = wlan0");
+            }
+            else if(interface == "eth0")
+            {
+                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "eth0");
+                NMLOG_DEBUG("curlopt interface = eth0");
+            }
 
             if(curlVerboseEnabled())
             {
@@ -494,8 +507,19 @@ namespace WPEFramework
         m_endpoint.setConnectivityMonitorEndpoints(endpoints);
     }
 
-    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
+    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(Exchange::INetworkManager::IPVersion& ipversion, std::string& interface, bool ipVersionNotSpecified)
     {
+        if(!interface.empty()) /* interface is specified, so doing a fresh curl check not taking cache value */
+        {
+            NMLOG_WARNING("getInternetState specified interface %s", interface.c_str());
+            if(ipVersionNotSpecified)
+                ipversion = m_ipversion; /* ipversion not specified, taking global ip version */
+
+            TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
+                                                NMCONNECTIVITY_CURL_HEAD_REQUEST, ipversion, interface);
+            return testInternet.getInternetState();
+        }
+
         if(ipVersionNotSpecified) {
             ipversion = m_ipversion;
             NMLOG_DEBUG("ipversion %s - %s", ipversion == IP_ADDRESS_V4? "IPv4":"IPv6", getInternetStateString(m_InternetState.load()));

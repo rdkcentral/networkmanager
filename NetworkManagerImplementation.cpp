@@ -246,7 +246,7 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */)
+         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string interface /* @in */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
@@ -258,7 +258,7 @@ namespace WPEFramework
             else
                 ipVersionNotSpecified = true;
 
-            result = connectivityMonitor.getInternetState(curlIPversion, ipVersionNotSpecified);
+            result = connectivityMonitor.getInternetState(curlIPversion, interface, ipVersionNotSpecified);
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else

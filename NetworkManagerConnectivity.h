@@ -98,13 +98,15 @@ namespace WPEFramework
             const TestConnectivity& operator=(const TestConnectivity&) = delete;
 
         public:
-            TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion);
+            TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq,
+                        Exchange::INetworkManager::IPVersion ipversion, std::string interface = "");
             ~TestConnectivity(){}
             std::string getCaptivePortal() {return captivePortalURI;}
             Exchange::INetworkManager::InternetStatus getInternetState(){return internetSate;}
             int getCurlError(){return curlErrorCode;}
         private:
-            Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion);
+            Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, 
+                            long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
             Exchange::INetworkManager::InternetStatus internetSate;
@@ -130,7 +132,7 @@ namespace WPEFramework
             bool switchToInitialCheck();
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
-            Exchange::INetworkManager::InternetStatus getInternetState(Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified = false);
+            Exchange::INetworkManager::InternetStatus getInternetState(Exchange::INetworkManager::IPVersion& ipversion, std::string& interface, bool ipVersionNotSpecified);
             std::string getCaptivePortalURI();
 
         private:
