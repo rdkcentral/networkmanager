@@ -66,7 +66,7 @@ namespace WPEFramework {
             //Begin events
             static void onWiFiStateChange(const JsonObject& parameters);
             static void onAvailableSSIDs(const JsonObject& parameters);
-            static void onWiFiSignalStrengthChange(const JsonObject& parameters);
+            static void onWiFiSignalQualityChange(const JsonObject& parameters);
 
             //End events
 

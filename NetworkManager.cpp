@@ -66,7 +66,6 @@ namespace WPEFramework
 
             // Syslog Startup messages are always printed by default
             SYSLOG(Logging::Startup, (_T("Initializing NetworkManager")));
-            SYSLOG(Logging::Startup, (_T("Initialize running in process %d"), Core::ProcessInfo().Id()));
             NetworkManagerLogger::Init();
             // Register the Connection::Notification first. Do this before we start our actual plugin
             // in case something goes wrong or is disconnected - this way we know we're at least registered
@@ -85,9 +84,10 @@ namespace WPEFramework
             // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
             {
+                SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
                 if (_networkManager->Configure(service) != Core::ERROR_NONE)
                 {
-                    SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
+                    SYSLOG(Logging::Shutdown, (_T("NetworkManager failed to configure")));
                     message = _T("NetworkManager failed to configure");
                 }
 
@@ -97,18 +97,22 @@ namespace WPEFramework
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
 
                 // Register Notifications
+                SYSLOG(Logging::Startup, (_T("Registering Notification to NetworkManager")));
                 _networkManager->Register(&_notification);
 
                 // Register all custom JSON-RPC methods
+                SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
                 RegisterAllMethods();
 
 
                 // Get IPlugin interface for this plugin
+                SYSLOG(Logging::Startup, (_T("Retrieve ComRPC Interface for NetworkManager")));
                 _networkManagerImpl = _networkManager->QueryInterface<PluginHost::IPlugin>();
             }
             else
             {
                 // Something went wrong, clean up
+                SYSLOG(Logging::Shutdown, (_T("NetworkManager out-of-process creation failed")));
                 TRACE(Trace::Error, (_T("Failed to initialize NetworkManager")));
                 _service->Unregister(&_notification);
                 _service = nullptr;
@@ -131,28 +135,34 @@ namespace WPEFramework
             ASSERT(_service == service);
             ASSERT(_networkManager != nullptr);
 
-            TRACE(Trace::Information, (_T("Deinitializing NetworkManager")));
-            TRACE(Trace::Information, (_T("Deinitialize running in process %d"), Core::ProcessInfo().Id()));
-
+            SYSLOG(Logging::Shutdown, (_T("Deinitializing NetworkManager")));
             if (_networkManager != nullptr)
             {
-                // TODO:: Work out exactly what triggers the shutdown of the out-of-process host
+                SYSLOG(Logging::Shutdown, (_T("Unregister Thunder Notifications for NetworkManager")));
                 _service->Unregister(&_notification);
+
+                SYSLOG(Logging::Shutdown, (_T("Unregister Event Notifications of NetworkManager")));
                 _networkManager->Unregister(&_notification);
 
                 // Unregister all our JSON-RPC methods
+                SYSLOG(Logging::Shutdown, (_T("Unregister JSON RPC Methods of NetworkManager")));
                 UnregisterAllMethods();
 
                 // Release the IPlugin
                 if(_networkManagerImpl)
                 {
+                    SYSLOG(Logging::Shutdown, (_T("Release of IPlugin of NetworkManager")));
                     _networkManagerImpl->Release();
                     _networkManagerImpl = nullptr;
                 }
 
                 RPC::IRemoteConnection* connection = service->RemoteConnection(_connectionId);
+
+                SYSLOG(Logging::Shutdown, (_T("Release of COMRPC Interface of NetworkManager")));
                 _networkManager->Release();
-                if (connection != nullptr) {
+                if (connection != nullptr)
+                {
+                    SYSLOG(Logging::Shutdown, (_T("Release of Thunder COMRPC Connection of NetworkManager")));
                     // Lets trigger the cleanup sequence for
                     // out-of-process code. Which will guard
                     // that unwilling processes, get shot if

@@ -424,7 +424,8 @@ namespace WPEFramework
                 GnomeUtils::getCachedPropertyU(proxy, "Frequency", &freq);
                 GnomeUtils::getCachedPropertyU(proxy, "MaxBitrate", &bitrate);
 
-                wifiInfo.frequency = std::to_string((double)freq/1000);
+                std::string freqStr = std::to_string((double)freq/1000);
+                wifiInfo.frequency = freqStr.substr(0, 5);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
                 if(noise <= 0 || noise >= DEFAULT_NOISE)

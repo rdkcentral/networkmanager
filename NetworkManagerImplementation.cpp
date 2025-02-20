@@ -50,18 +50,17 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            LOG_ENTRY_FUNCTION();
+            NMLOG_INFO((_T("NetworkManager Out-Of-Process Instantiation; SHA:" _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
-            LOG_ENTRY_FUNCTION();
-
+            NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
             }
-            stopWiFiSignalStrengthMonitor();
+            stopWiFiSignalQualityMonitor();
         }
 
         /**
@@ -532,7 +531,7 @@ namespace WPEFramework
 
                 double frequencyValue = std::stod(frequency);
 
-		//Debug to  print log
+                //Debug to  print log
                 NMLOG_DEBUG("Processing Frequency after double conversion: %lf\n", frequencyValue);
 
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
@@ -672,10 +671,10 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::startWiFiSignalStrengthMonitor(int interval)
+        void NetworkManagerImplementation::startWiFiSignalQualityMonitor(int interval)
         {
             if (m_isRunning) {
-                NMLOG_INFO("WiFiSignalStrengthMonitor Thread is already running.");
+                NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
                 return;
             }
             m_isRunning = true;
@@ -683,7 +682,7 @@ namespace WPEFramework
             m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
         }
 
-        void NetworkManagerImplementation::stopWiFiSignalStrengthMonitor()
+        void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
         {
             if (!m_isRunning) {
                 return; // No thread to stop
@@ -697,20 +696,22 @@ namespace WPEFramework
             m_isRunning = false;
         }
 
-        /* The below implementation of GetWiFiSignalStrength is a temporary mitigation. Need to be revisited */
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
+        /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            uint16_t strengthOut = 0;
+            int16_t strengthOut = 0;
 
             std::string key, value;
-            std::string noiseStr = "";
-            std::string rssiStr = "";
-            uint16_t rssi = 0;
-            uint16_t noise = 0;
+            string noiseStr{};
+            string rssiStr{};
+            int16_t readRSSI = 0;
+            int16_t readNoise = 0;
             char buff[512] = {'\0'};
 
             FILE *fp = NULL;
+
+            /* Noise n RSSI */
             fp = popen(RSSID_COMMAND, "r");
             if (!fp)
             {
@@ -731,10 +732,13 @@ namespace WPEFramework
                         break;
             }
             pclose(fp);
+
+            /* SSID */
             fp = popen(SSID_COMMAND, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);                                                               return Core::ERROR_RPC_CALL_FAILED;
+                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);
+                return Core::ERROR_RPC_CALL_FAILED;
             }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
                 std::istringstream mystream(buff);
@@ -745,11 +749,34 @@ namespace WPEFramework
                     }
             }
             pclose(fp);
-            rssi = std::stoi(rssiStr);
-            noise = std::stoi(noiseStr);
-            strengthOut = (rssi - noise);
-            NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
-                                                                                                                                                if (strengthOut == 0)
+
+            /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
+            if (rssiStr.empty())
+                rssiStr = "0";
+            if (noiseStr.empty())
+                noiseStr= "0";
+
+            readRSSI  = std::stoi(rssiStr);
+            readNoise = std::stoi(noiseStr);
+
+            /* Check the Noise is within range */
+            if(!(readNoise <= 0 || readNoise >= DEFAULT_NOISE))
+            {
+                NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
+                readNoise = 0;
+            }
+
+            /* Calculate the SNR */
+            strengthOut = readRSSI - readNoise;
+
+            /* Update the results */
+            strength = rssiStr;
+            noise = noiseStr;
+            snr = std::to_string(strengthOut);
+
+            NMLOG_INFO ("RSSI: %d dBm; Noise: %d dBm; SNR: %d dBm", readRSSI, readNoise, strengthOut);
+
+            if (strengthOut == 0)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
                 strength = "0";
@@ -771,10 +798,7 @@ namespace WPEFramework
                 quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
-            strength = std::to_string(strengthOut);
-
-            NMLOG_INFO ("GetWiFiSignalStrength success");
-
+            NMLOG_INFO ("GetWiFiSignalQuality success");
             rc = Core::ERROR_NONE;
 
             return rc;
@@ -783,24 +807,26 @@ namespace WPEFramework
         void NetworkManagerImplementation::monitorThreadFunction(int interval)
         {
             static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
-            NMLOG_INFO("WiFiSignalStrengthMonitor thread started ! (%d)", interval);
+            NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
             while (!m_stopThread) {
-                std::string ssid;
-                std::string strength;
+                std::string ssid{};
+                std::string strength{};
+                std::string noise{};
+                std::string snr{};
                 std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 NMLOG_DEBUG("checking WiFi signal strength");
-                GetWiFiSignalStrength(ssid, strength, newSignalQuality);
+                GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
                 if (oldSignalQuality != newSignalQuality) {
-                    NMLOG_INFO("Notifying WiFiSignalStrengthChangedEvent %s", strength.c_str());
+                    NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
                     oldSignalQuality = newSignalQuality;
-                    NetworkManagerImplementation::ReportWiFiSignalStrengthChange(ssid, strength, newSignalQuality);
+                    NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
                 }
 
                 if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
-                    NMLOG_WARNING("WiFiSignalStrengthChanged to disconnect - WiFiSignalStrengthMonitor exiting");
+                    NMLOG_WARNING("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
                     m_stopThread = true; // Signal thread to stop
                     break; // Exit the loop
                 }
@@ -808,7 +834,7 @@ namespace WPEFramework
                 // Wait for the specified interval or until notified to stop
                 if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
                 {
-                    NMLOG_INFO("WiFiSignalStrengthMonitor received stop signal or timed out");
+                    NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
                 }
             }
             m_isRunning = false;
@@ -822,7 +848,7 @@ namespace WPEFramework
                 m_wlanConnected = true;
                 if (!m_monitoringStarted)
                 {
-                    startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
                     m_monitoringStarted = true;
                 }
             }
@@ -830,7 +856,7 @@ namespace WPEFramework
             {
                 if (m_monitoringStarted)
                 {
-                    stopWiFiSignalStrengthMonitor();
+                    stopWiFiSignalQualityMonitor();
                     m_monitoringStarted = false;
                 }
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
@@ -844,12 +870,12 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onWiFiSignalStrengthChange %s", strength.c_str());
+            NMLOG_INFO("Posting onWiFiSignalQualityChange %s", strength.c_str());
             for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiSignalStrengthChange(ssid, strength, quality);
+                callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
         }
