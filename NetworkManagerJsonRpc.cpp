@@ -81,7 +81,7 @@ namespace WPEFramework
             Register("StartWPS",                          &NetworkManager::StartWPS, this);
             Register("StopWPS",                           &NetworkManager::StopWPS, this);
             Register("GetWifiState",                      &NetworkManager::GetWifiState, this);
-            Register("GetWiFiSignalStrength",             &NetworkManager::GetWiFiSignalStrength, this);
+            Register("GetWiFiSignalQuality",              &NetworkManager::GetWiFiSignalQuality, this);
             Register("GetSupportedSecurityModes",         &NetworkManager::GetSupportedSecurityModes, this);
         }
 
@@ -118,7 +118,7 @@ namespace WPEFramework
             Unregister("StartWPS");
             Unregister("StopWPS");
             Unregister("GetWifiState");
-            Unregister("GetWiFiSignalStrength");
+            Unregister("GetWiFiSignalQuality");
             Unregister("GetSupportedSecurityModes");
         }
 
@@ -885,25 +885,29 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        uint32_t NetworkManager::GetWiFiSignalStrength(const JsonObject& parameters, JsonObject& response)
+        uint32_t NetworkManager::GetWiFiSignalQuality(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
             string strength{};
+            string noise{};
+            string snr{};
             Exchange::INetworkManager::WiFiSignalQuality quality{};
 
             if (_networkManager)
-                rc = _networkManager->GetWiFiSignalStrength(ssid, strength, quality);
+                rc = _networkManager->GetWiFiSignalQuality(ssid, strength, noise, snr, quality);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
                 Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
-                response["ssid"] = ssid;
+                response["ssid"]     = ssid;
+                response["quality"]  = iquality.Data();
+                response["snr"]      = snr;
                 response["strength"] = strength;
-                response["quality"] = iquality.Data();
+                response["noise"]    = noise;
             }
             returnJson(rc);
         }
@@ -1006,16 +1010,18 @@ namespace WPEFramework
             Notify(_T("onWiFiStateChange"), parameters);
         }
 
-        void NetworkManager::onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManager::onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
             JsonObject parameters;
-            parameters["ssid"] = ssid;
+            parameters["ssid"]     = ssid;
+            parameters["quality"]  = iquality.Data();
+            parameters["snr"]      = snr;
             parameters["strength"] = strength;
-            parameters["quality"] = iquality.Data();
+            parameters["noise"]    = noise;
 
             LOG_INPARAM();
-            Notify(_T("onWiFiSignalStrengthChange"), parameters);
+            Notify(_T("onWiFiSignalQualityChange"), parameters);
         }
     }
 }

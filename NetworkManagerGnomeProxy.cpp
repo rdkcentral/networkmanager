@@ -681,7 +681,7 @@ namespace WPEFramework
         }
 
 #if 0
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             float rssi = 0.0f;
             float noise = 0.0f;
@@ -699,7 +699,7 @@ namespace WPEFramework
                     floatSignalStrength = 0.0;
 
                 strengthOut = static_cast<unsigned int>(floatSignalStrength);
-                NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",strengthOut);
 
                 if (strengthOut == 0)
                 {
@@ -725,7 +725,7 @@ namespace WPEFramework
 
                 signalStrength = std::to_string(strengthOut);
 
-                NMLOG_INFO ("GetWiFiSignalStrength success");
+                NMLOG_INFO ("GetWiFiSignalQuality success");
             
                 rc = Core::ERROR_NONE;
             }

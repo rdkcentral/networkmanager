@@ -16,7 +16,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 **/
-#include "WiFiSignalStrengthMonitor.h"
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
@@ -36,7 +35,7 @@ namespace WPEFramework
    namespace Plugin
     {
         NetworkManagerImplementation* _instance = nullptr;
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const WiFiSignalQuality quality)
         {
             return;
         }
@@ -48,20 +47,20 @@ namespace WPEFramework
     }
 }
 
-class WiFiSignalStrengthMonitorTest : public ::testing::Test {
+class WiFiSignalQualityMonitorTest : public ::testing::Test {
  protected:
-     WPEFramework::Plugin::WiFiSignalStrengthMonitor monitor;
+     WPEFramework::Plugin::WiFiSignalQualityMonitor monitor;
 };
 
-TEST_F(WiFiSignalStrengthMonitorTest, GetSignalData_Connected) {
+TEST_F(WiFiSignalQualityMonitorTest, GetSignalData_Connected) {
     std::string ssid = "TestSSID";
     Exchange::INetworkManager::WiFiSignalQuality quality;
     std::string strengthOut= "-55";
     monitor.getSignalData(ssid, quality, strengthOut);
 }
 
-TEST_F(WiFiSignalStrengthMonitorTest, StartWiFiSignalStrengthMonitor) {
-    monitor.startWiFiSignalStrengthMonitor(1);
+TEST_F(WiFiSignalQualityMonitorTest, StartWiFiSignalQualityMonitor) {
+    monitor.startWiFiSignalQualityMonitor(1);
 }
 
 int main(int argc, char **argv) {

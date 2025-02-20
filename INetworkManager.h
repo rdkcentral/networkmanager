@@ -252,7 +252,7 @@ namespace WPEFramework
             virtual uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& pin /* @in */) = 0;
             virtual uint32_t StopWPS(void) = 0;
             virtual uint32_t GetWifiState(WiFiState &state /* @out */) = 0;
-            virtual uint32_t GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */) = 0;
+            virtual uint32_t GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */) = 0;
             virtual uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& modes/* @out */) const = 0;
 
             /* @brief Set the network manager plugin log level */
@@ -276,7 +276,7 @@ namespace WPEFramework
                 // WiFi Notifications that other processes can subscribe to
                 virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */) = 0;
                 virtual void onWiFiStateChange(const WiFiState state /* @in */) = 0;
-                virtual void onWiFiSignalStrengthChange(const string ssid /* @in */, const string strength /* @in */, const WiFiSignalQuality quality /* @in */) = 0;
+                virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const string strength /* @in */, const string noise /* @in */, const string snr /* @in */, const WiFiSignalQuality quality /* @in */) = 0;
             };
 
             // Allow other processes to register/unregister from our notifications
