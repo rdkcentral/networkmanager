@@ -100,8 +100,8 @@ NetworkManager interface methods:
 | [GetConnectedSSID](#method.GetConnectedSSID) | Returns the connected SSID information |
 | [StartWPS](#method.StartWPS) | Initiates a connection using Wifi Protected Setup (WPS) |
 | [StopWPS](#method.StopWPS) | Cancels the in-progress WPS pairing operation |
-| [GetWiFiSignalStrength](#method.GetWiFiSignalStrength) | Get WiFiSignalStrength of connected SSID |
-| [GetSupportedsecurityModes](#method.GetSupportedsecurityModes) | Returns the Wifi security modes that the device supports |
+| [GetWiFiSignalQuality](#method.GetWiFiSignalQuality) | Get WiFi signal quality of currently connected SSID |
+| [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
 
 <a name="method.SetLogLevel"></a>
@@ -1196,7 +1196,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
-| params.security | integer | The security mode. See `getSupportedsecurityModes` |
+| params.security | integer | The security mode. See `GetSupportedSecurityModes` |
 
 ### Result
 
@@ -1217,7 +1217,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
-    "security": 6
+    "security": 2
   }
 }
 ```
@@ -1285,7 +1285,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 <a name="method.WiFiConnect"></a>
 ## *WiFiConnect [<sup>method</sup>](#head.Methods)*
 
-Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. When called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
+Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
@@ -1296,7 +1296,6 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
-| params?.security | integer | <sup>*(optional)*</sup> The security mode is decided based on the highest security mode provided by the SSID |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1327,7 +1326,6 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
-    "security": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",
@@ -1413,10 +1411,10 @@ This method takes no parameters.
 | result.ssid | string | The WiFi SSID Name |
 | result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | The Signal RSSI value in dBm |
+| result.strength | string | The WiFi Signal RSSI value in dBm |
 | result.frequency | string | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
-| result.noise | string | The average noise strength in dBm |
+| result.noise | string | The WiFi Signal Noise detected in dBm |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1440,11 +1438,11 @@ This method takes no parameters.
   "result": {
     "ssid": "myHomeSSID",
     "bssid": "AA:BB:CC:DD:EE:FF",
-    "security": "5",
-    "strength": "-27.000000",
-    "frequency": "2.442000",
-    "rate": "144.000000",
-    "noise": "-121.000000",
+    "security": "2",
+    "strength": "-32",
+    "frequency": "2.4420",
+    "rate": "144",
+    "noise": "-106",
     "success": true
   }
 }
@@ -1546,18 +1544,18 @@ This method takes no parameters.
 }
 ```
 
-<a name="method.GetWiFiSignalStrength"></a>
-## *GetWiFiSignalStrength [<sup>method</sup>](#head.Methods)*
+<a name="method.GetWiFiSignalQuality"></a>
+## *GetWiFiSignalQuality [<sup>method</sup>](#head.Methods)*
 
-Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
-* 'Excellent' : More than 40 dBm
-* 'Good' : 40 dBm to 25 dBm
-* 'Fair' : 25 dBm to 18 dBm
-* 'Weak' : 18 dBm to 0 dBm
+Get WiFi signal quality of currently connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
+* 'Excellent'    : More than 40 dBm
+* 'Good'         : 40 dBm to 25 dBm
+* 'Fair'         : 25 dBm to 18 dBm
+* 'Weak'         : 18 dBm to 0 dBm
 * 'Disconnected' : 0 dBm
 .
 
-Also see: [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange)
+Also see: [onWiFiSignalQualityChange](#event.onWiFiSignalQualityChange)
 
 ### Parameters
 
@@ -1569,8 +1567,10 @@ This method takes no parameters.
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.ssid | string | The WiFi SSID Name |
-| result.strength | string | Signal to Noise Ratio(SNR) in dBm |
-| result.quality | string | Signal strength Quality |
+| result.quality | string | WiFi Quality based on Signal to Noise Ratio (SNR) |
+| result.snr | string | Signal to Noise Ratio(SNR) in dBm |
+| result.strength | string | The WiFi Signal RSSI value in dBm |
+| result.noise | string | The WiFi Signal Noise detected in dBm |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1581,7 +1581,7 @@ This method takes no parameters.
 {
   "jsonrpc": "2.0",
   "id": 42,
-  "method": "org.rdk.NetworkManager.1.GetWiFiSignalStrength"
+  "method": "org.rdk.NetworkManager.1.GetWiFiSignalQuality"
 }
 ```
 
@@ -1593,15 +1593,17 @@ This method takes no parameters.
   "id": 42,
   "result": {
     "ssid": "myHomeSSID",
-    "strength": "-27.000000",
     "quality": "Excellent",
+    "snr": "74",
+    "strength": "-32",
+    "noise": "-106",
     "success": true
   }
 }
 ```
 
-<a name="method.GetSupportedsecurityModes"></a>
-## *GetSupportedsecurityModes [<sup>method</sup>](#head.Methods)*
+<a name="method.GetSupportedSecurityModes"></a>
+## *GetSupportedSecurityModes [<sup>method</sup>](#head.Methods)*
 
 Returns the Wifi security modes that the device supports.
 
@@ -1629,7 +1631,7 @@ This method takes no parameters.
 {
   "jsonrpc": "2.0",
   "id": 42,
-  "method": "org.rdk.NetworkManager.1.GetSupportedsecurityModes"
+  "method": "org.rdk.NetworkManager.1.GetSupportedSecurityModes"
 }
 ```
 
@@ -1727,7 +1729,7 @@ NetworkManager interface events:
 | [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 | [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when scan completes or when scan cancelled |
 | [onWiFiStateChange](#event.onWiFiStateChange) | Triggered when WIFI connection state get changed |
-| [onWiFiSignalStrengthChange](#event.onWiFiSignalStrengthChange) | Triggered when WIFI connection Signal Strength get changed |
+| [onWiFiSignalQualityChange](#event.onWiFiSignalQualityChange) | Triggered when WIFI Signal quality changed which is decided based on SNR value which is defined in `GetWiFiSignalQuality` |
 
 <a name="event.onInterfaceStateChange"></a>
 ## *onInterfaceStateChange [<sup>event</sup>](#head.Notifications)*
@@ -1863,8 +1865,8 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | Discovered SSID |
-| params.ssids[#].security | integer | The security mode. See `getSupportedsecurityModes` |
-| params.ssids[#].strength | string | Signal to Noise Ratio(SNR) in dBm |
+| params.ssids[#].security | integer | The security mode. See `GetSupportedSecurityModes` |
+| params.ssids[#].strength | string | The WiFi Signal RSSI value in dBm |
 | params.ssids[#].frequency | string | The supported frequency for this SSID in GHz |
 
 ### Example
@@ -1877,9 +1879,9 @@ Triggered when scan completes or when scan cancelled.
     "ssids": [
       {
         "ssid": "myAP-2.4",
-        "security": 6,
-        "strength": "-27.000000",
-        "frequency": "2.442000"
+        "security": 2,
+        "strength": "-32",
+        "frequency": "2.4420"
       }
     ]
   }
@@ -1912,10 +1914,10 @@ Triggered when WIFI connection state get changed. The possible states are define
 }
 ```
 
-<a name="event.onWiFiSignalStrengthChange"></a>
-## *onWiFiSignalStrengthChange [<sup>event</sup>](#head.Notifications)*
+<a name="event.onWiFiSignalQualityChange"></a>
+## *onWiFiSignalQualityChange [<sup>event</sup>](#head.Notifications)*
 
-Triggered when WIFI connection Signal Strength get changed.
+Triggered when WIFI Signal quality changed which is decided based on SNR value which is defined in `GetWiFiSignalQuality`.
 
 ### Parameters
 
@@ -1923,19 +1925,23 @@ Triggered when WIFI connection Signal Strength get changed.
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
-| params.strength | string | Signal to Noise Ratio(SNR) in dBm |
-| params.quality | string | Signal strength Quality |
+| params.quality | string | WiFi Quality based on Signal to Noise Ratio (SNR) |
+| params.snr | string | Signal to Noise Ratio(SNR) in dBm |
+| params.strength | string | The WiFi Signal RSSI value in dBm |
+| params.noise | string | The WiFi Signal Noise detected in dBm |
 
 ### Example
 
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "client.events.1.onWiFiSignalStrengthChange",
+  "method": "client.events.1.onWiFiSignalQualityChange",
   "params": {
     "ssid": "myHomeSSID",
-    "strength": "-27.000000",
-    "quality": "Excellent"
+    "quality": "Excellent",
+    "snr": "74",
+    "strength": "-32",
+    "noise": "-106"
   }
 }
 ```

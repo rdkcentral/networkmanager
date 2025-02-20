@@ -94,9 +94,9 @@ namespace WPEFramework
                     _parent.onWiFiStateChange(state);
                 }
 
-                void onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
-                    _parent.onWiFiSignalStrengthChange(ssid, strength, quality);
+                    _parent.onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
                 }
 
                 // The activated/deactived methods are part of the RPC::IRemoteConnection::INotification
@@ -261,7 +261,7 @@ namespace WPEFramework
             uint32_t StartWPS(const JsonObject& parameters, JsonObject& response);
             uint32_t StopWPS(const JsonObject& parameters, JsonObject& response);
             uint32_t GetWifiState(const JsonObject& parameters, JsonObject& response);
-            uint32_t GetWiFiSignalStrength(const JsonObject& parameters, JsonObject& response);
+            uint32_t GetWiFiSignalQuality(const JsonObject& parameters, JsonObject& response);
             uint32_t GetSupportedSecurityModes(const JsonObject& parameters, JsonObject& response);
 
             void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
@@ -270,7 +270,7 @@ namespace WPEFramework
             void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
             void onAvailableSSIDs(const string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
-            void onWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
+            void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         private:
             uint32_t _connectionId;

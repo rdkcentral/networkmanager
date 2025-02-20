@@ -804,11 +804,11 @@ namespace WPEFramework
 
                 if (!m_subsWiFiStrengthChange)
                 {
-                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onWiFiSignalStrengthChange"), &WiFiManager::onWiFiSignalStrengthChange);
+                    errCode = m_networkmanager->Subscribe<JsonObject>(5000, _T("onWiFiSignalQualityChange"), &WiFiManager::onWiFiSignalQualityChange);
                     if (Core::ERROR_NONE == errCode)
                         m_subsWiFiStrengthChange = true;
                     else
-                        NMLOG_ERROR("Subscribe to onWiFiSignalStrengthChange failed, errCode: %u", errCode);
+                        NMLOG_ERROR("Subscribe to onWiFiSignalQualityChange failed, errCode: %u", errCode);
                 }
             }
             else
@@ -926,7 +926,7 @@ namespace WPEFramework
             return;
         }
 
-        void WiFiManager::onWiFiSignalStrengthChange(const JsonObject& parameters)
+        void WiFiManager::onWiFiSignalQualityChange(const JsonObject& parameters)
         {
             JsonObject legacyParams;
             legacyParams["signalStrength"] = parameters["strength"];
