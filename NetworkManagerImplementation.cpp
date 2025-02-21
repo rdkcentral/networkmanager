@@ -246,7 +246,7 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string interface /* @in */, InternetStatus &result /* @out */)
+        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
@@ -258,11 +258,20 @@ namespace WPEFramework
             else
                 ipVersionNotSpecified = true;
 
+            if(interface != "wlan0" && interface != "eth0")
+            {
+                NMLOG_WARNING("Invalid Interface argument %s", interface.c_str());
+                interface.clear();
+            }
+
             result = connectivityMonitor.getInternetState(curlIPversion, interface, ipVersionNotSpecified);
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
                 ipversion = "IPv4";
+
+            if(interface.empty())
+                interface = m_defaultInterface;
 
             return Core::ERROR_NONE;
         }

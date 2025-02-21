@@ -463,10 +463,14 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string ipversion = parameters["ipversion"].String();
-            string interface = parameters["interface"].String();
             Exchange::INetworkManager::InternetStatus result;
-            
+            string ipversion{};
+            string interface{};
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
+            if (parameters.HasLabel("interface"))
+                interface = parameters["interface"].String();
 
             if (_networkManager)
                 rc = _networkManager->IsConnectedToInternet(ipversion, interface, result);
@@ -477,8 +481,7 @@ namespace WPEFramework
             {
                 Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> status(result);
                 response["ipversion"] = ipversion;
-                if(!interface.empty())
-                    response["interface"] = interface;
+                response["interface"] = interface;
                 response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result);
                 response["state"] = JsonValue(status);
                 response["status"] = status.Data();
