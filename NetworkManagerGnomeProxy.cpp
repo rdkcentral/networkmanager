@@ -168,10 +168,10 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
+                if(m_wlanConnected)
+                    interface = wifiname;
                 if(m_ethConnected)
                     interface = ethname;
-                else if(m_wlanConnected)
-                    interface = wifiname;
             }
 
             m_defaultInterface = interface;
