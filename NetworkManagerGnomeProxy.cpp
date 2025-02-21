@@ -167,7 +167,11 @@ namespace WPEFramework
             if(ifacePtr == NULL)
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
-                return Core::ERROR_GENERAL;
+                /* Temporary mitigation for nm_connection_get_interface_name failure */
+                if(m_wlanConnected)
+                    ifacePtr = wifiname.c_str();
+                if(m_ethConnected)
+                    ifacePtr = ethname.c_str();
             }
 
             interface = ifacePtr;
