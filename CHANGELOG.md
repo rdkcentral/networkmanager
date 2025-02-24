@@ -14,6 +14,15 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.10.0] - 2025-02-24
+### Added
+- Implemented Security Agent to support WPS
+- Implemented WiFi Signal Quality Monitoring using SNR value.
+- Implemented L1 unit test code
+- Fixed SetPrimaryInterface for Gnome support
+- Fixed WiFiConnect failure to connect to unsecured SSIDs
+- Fixed GetPrimaryInterface to gracefully handle libnm failure
+
 ## [0.9.0] - 2025-01-30
 ### Added
 - Enhanced Internet Connectivity Monitoring
