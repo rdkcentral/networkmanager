@@ -1,0 +1,7 @@
+[Unit]
+Description=UPNP Discovery Service %i
+
+[Service]
+Type=oneshot
+ExecStart="/usr/bin/upnpdiscover %i"
+ExecStop=/usr/bin/killall upnp
