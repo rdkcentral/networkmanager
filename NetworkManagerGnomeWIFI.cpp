@@ -217,7 +217,9 @@ namespace WPEFramework
             }
 
             wifiInfo.bssid = (hwaddr != nullptr) ? hwaddr : "-----";
-            wifiInfo.frequency = std::to_string((double)freq/1000);
+            std::string freqStr = std::to_string((double)freq/1000);
+            wifiInfo.frequency = freqStr.substr(0, 5);
+
             wifiInfo.rate = std::to_string(bitrate);
             if(noise <= 0 || noise >= DEFAULT_NOISE)
                 wifiInfo.noise = std::to_string(noise);
@@ -525,11 +527,7 @@ namespace WPEFramework
                 }
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
                 {
-                    NMLOG_INFO("key-mgmt: %s", "none");
-                    sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
-                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
-                    g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"none", NULL);
-                    NMLOG_WARNING("open wifi network configuration");
+                    NMLOG_WARNING("open wifi network configuration key-mgmt: none");
                     break;
                 }
                 default:

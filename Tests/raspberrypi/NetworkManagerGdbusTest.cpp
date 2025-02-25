@@ -63,9 +63,9 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
         }
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
-            NMLOG_INFO("calling 'ReportWiFiSignalStrengthChange' cb");
+            NMLOG_INFO("calling 'ReportWiFiSignalQualityChange' cb");
         }
 
         NetworkManagerImplementation* _instance = nullptr;
@@ -275,7 +275,7 @@ int main()
             case 10: {
                 std::string ssid, signalStrength;
                 Exchange::INetworkManager::WiFiSignalQuality quality;
-                if (nmClient->getWiFiSignalStrength(ssid, signalStrength, quality)) {
+                if (nmClient->getWiFiSignalQuality(ssid, signalStrength, quality)) {
                     NMLOG_INFO("SSID: %s, Signal Strength: %s, Quality: %d", ssid.c_str(), signalStrength.c_str(), quality);
                 } else {
                     NMLOG_ERROR("Failed to get WiFi signal strength");

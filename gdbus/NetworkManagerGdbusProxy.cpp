@@ -203,15 +203,17 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
+#if 0
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(_nmGdbusClient->getWiFiSignalStrength(ssid, strength, quality))
+            if(_nmGdbusClient->getWiFiSignalQuality(ssid, strength, quality))
                 rc = Core::ERROR_NONE;
             else
-                NMLOG_ERROR("GetWiFiSignalStrength failed");
+                NMLOG_ERROR("GetWiFiSignalQuality failed");
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {

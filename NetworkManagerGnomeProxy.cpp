@@ -24,9 +24,6 @@
 #include <fstream>
 #include <sstream>
 
-#define rssid_command "wpa_cli signal_poll"
-#define ssid_command "wpa_cli status"
-
 static NMClient *client = NULL;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -170,7 +167,11 @@ namespace WPEFramework
             if(ifacePtr == NULL)
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
-                return Core::ERROR_GENERAL;
+                /* Temporary mitigation for nm_connection_get_interface_name failure */
+                if(m_wlanConnected)
+                    ifacePtr = wifiname.c_str();
+                if(m_ethConnected)
+                    ifacePtr = ethname.c_str();
             }
 
             interface = ifacePtr;
@@ -190,6 +191,8 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            gboolean result;
+            GError *error = NULL;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(client == nullptr)
@@ -237,7 +240,27 @@ namespace WPEFramework
                     NULL);
             const char *uuid = nm_connection_get_uuid(conn);
             remoteConnection = nm_client_get_connection_by_uuid(client, uuid);
-            nm_remote_connection_commit_changes(remoteConnection, false, NULL, NULL);
+            if (!remoteConnection)
+            {
+                NMLOG_ERROR("Failed to get remote connection");
+                return rc;
+            }
+            result = nm_remote_connection_commit_changes(remoteConnection, false, NULL, &error);
+            if (result)
+                rc = Core::ERROR_NONE;
+            else
+            {
+                if (error)
+                {
+                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                    g_error_free(error);
+                }
+                else
+                {
+                    NMLOG_ERROR("Failed to commit changes: unknown error");
+                }
+                rc = Core::ERROR_GENERAL;
+            }
 
             return rc;
         }
@@ -661,88 +684,9 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
-        {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            uint16_t strengthOut = 0;
-
-            std::string key, value;
-            std::string noiseStr = "";
-            std::string rssiStr = "";
-            uint16_t rssi = 0;
-            uint16_t noise = 0;
-            char buff[512] = {'\0'};
-
-            FILE *fp = NULL;
-            fp = popen(rssid_command, "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",rssid_command);
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
-            {
-                std::istringstream mystream(buff);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                    if (key == "RSSI") {
-                        rssiStr = value;
-                    }
-                    else if (key == "NOISE") {
-                        noiseStr = value;
-                    }
-                    if (!rssiStr.empty() && !noiseStr.empty())
-                        break;
-            }
-            pclose(fp);
-            fp = popen(ssid_command, "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",ssid_command);
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
-            {
-                std::istringstream mystream(buff);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                    if (key == "ssid") {
-                        ssid = value;
-                        break;
-                    }
-            }
-            pclose(fp);
-            rssi = std::stoi(rssiStr);
-            noise = std::stoi(noiseStr);
-            strengthOut = (rssi - noise);
-            NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
-
-            if (strengthOut == 0)
-            {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                strength = "0";
-            }
-            else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
-            {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
-            }
-            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
-            {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
-            }
-            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
-            {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
-            }
-            else
-            {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
-            }
-
-            strength = std::to_string(strengthOut);
-
-            NMLOG_INFO ("GetWiFiSignalStrength success");
-
-            rc = Core::ERROR_NONE;
 #if 0
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
+        {
             float rssi = 0.0f;
             float noise = 0.0f;
             float floatSignalStrength = 0.0f;
@@ -759,7 +703,7 @@ namespace WPEFramework
                     floatSignalStrength = 0.0;
 
                 strengthOut = static_cast<unsigned int>(floatSignalStrength);
-                NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",strengthOut);
 
                 if (strengthOut == 0)
                 {
@@ -785,13 +729,13 @@ namespace WPEFramework
 
                 signalStrength = std::to_string(strengthOut);
 
-                NMLOG_INFO ("GetWiFiSignalStrength success");
+                NMLOG_INFO ("GetWiFiSignalQuality success");
             
                 rc = Core::ERROR_NONE;
             }
-#endif
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {

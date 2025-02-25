@@ -262,7 +262,7 @@ typedef struct _WiFiConnectedSSIDInfo
     char bssid[BSSID_BUFF];   /**< The the Basic Service Set ID (mac address). */
     char band[BUFF_MIN];      /**< The frequency band at which the client is conneted to. */
     int securityMode;         /**< Current WiFi Security Mode used for connection. */
-    int  frequency;                    /**< The Frequency wt which the client is connected to. */
+    int  frequency;           /**< The Frequency wt which the client is connected to. */
     float rate;               /**< The Physical data rate in Mbps */
     float noise;              /**< The average noise strength in dBm. */
     float signalStrength;     /**< The RSSI value in dBm. */
@@ -1357,13 +1357,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.ssid             = string(connectedSsid.ssid);
                 ssidInfo.bssid            = string(connectedSsid.bssid);
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
-                ssidInfo.strength         = to_string(connectedSsid.signalStrength);
-                ssidInfo.rate             = to_string(connectedSsid.rate);
+                ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
+                ssidInfo.rate             = to_string((int)connectedSsid.rate);
                 if(connectedSsid.noise <= 0 || connectedSsid.noise >= DEFAULT_NOISE)
-                    ssidInfo.noise        = to_string(connectedSsid.noise);
+                    ssidInfo.noise        = to_string((int)connectedSsid.noise);
                 else
                     ssidInfo.noise        = to_string(0);
-                ssidInfo.frequency        = to_string((double)connectedSsid.frequency/1000);
+
+                std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
+                ssidInfo.frequency        = freqStr.substr(0, 5);
 
                 NMLOG_INFO ("GetConnectedSSID Success");
                 rc = Core::ERROR_NONE;
@@ -1375,7 +1377,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
+#if 0
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -1397,7 +1400,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     floatStrength = 0.0;
 
                 strengthOut = static_cast<unsigned int>(floatStrength);
-                NMLOG_INFO ("WiFiSignalStrength in dB = %u",strengthOut);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",strengthOut);
 
                 if (strengthOut == 0)
                 {
@@ -1422,15 +1425,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 }
 
                 strength = std::to_string(strengthOut);
-                NMLOG_INFO ("GetWiFiSignalStrength success");
+                NMLOG_INFO ("GetWiFiSignalQuality success");
                 rc = Core::ERROR_NONE;
             }
             else
             {
-                NMLOG_ERROR ("GetWiFiSignalStrength failed");
+                NMLOG_ERROR ("GetWiFiSignalQuality failed");
             }
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {

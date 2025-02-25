@@ -62,7 +62,7 @@ namespace WPEFramework
                 bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
                 bool wifiDisconnect();
                 bool getWifiState(Exchange::INetworkManager::WiFiState &state);
-                bool getWiFiSignalStrength(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
+                bool getWiFiSignalQuality(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
                 bool startWPS();
                 bool stopWPS();
 

@@ -1833,7 +1833,7 @@ namespace WPEFramework
             return ret;
         }
 
-        bool NetworkManagerClient::getWiFiSignalStrength(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
+        bool NetworkManagerClient::getWiFiSignalQuality(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
         {
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo;
             float rssi = 0.0f;
@@ -1858,7 +1858,7 @@ namespace WPEFramework
                     floatSignalStrength = 0.0;
 
                 signalStrengthOut = static_cast<unsigned int>(floatSignalStrength);
-                NMLOG_INFO ("WiFiSignalStrength in dB = %u",signalStrengthOut);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",signalStrengthOut);
 
                 if (signalStrengthOut == 0)
                 {
