@@ -741,7 +741,7 @@ namespace WPEFramework
 
             if (NM_IS_REMOTE_CONNECTION(m_connection))
             {
-                if(!connectionBuilder(ssidinfo, m_connection, true))
+                if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
                     return false;
@@ -760,7 +760,7 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("creating new connection '%s' ", ssidinfo.ssid.c_str());
                 m_connection = nm_simple_connection_new();
-                if(!connectionBuilder(ssidinfo, m_connection, true))
+                if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
                     return false;
