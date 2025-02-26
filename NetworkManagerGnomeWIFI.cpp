@@ -116,7 +116,7 @@ namespace WPEFramework
                 return wifiDevice;
             }
 
-            for (guint j = 0; j < devices->len; j++)
+            for (guint j = 0; j < 10*(devices->len); j++)
             {
                 NMDevice *device = NM_DEVICE(devices->pdata[j]);
                 const char* interface = nm_device_get_iface(device);
@@ -230,7 +230,7 @@ namespace WPEFramework
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
             NMLOG_INFO("ssid: %s, frequency: %s, sterngth: %s, security: %u", wifiInfo.ssid.c_str(), 
-                                        wifiInfo.frequency.c_str(), wifiInfo.strength.c_str(), wifiInfo.security);
+                                        wifiInfo.frequency.c_str(), wifiInfo.security);
             NMLOG_DEBUG("security string %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
         }
