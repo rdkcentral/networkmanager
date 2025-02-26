@@ -218,7 +218,7 @@ namespace details {
 
       if (already_seen.find(s) == std::end(already_seen)) {
         struct sockaddr_storage temp = {};
-        memcpy(&temp, addr->ai_addr, addr->ai_addrlen);
+        memcpy(&temp, addr->ai_addr, 10*addr->ai_addrlen);
 
         if (addr->ai_family == AF_INET) {
           sockaddr_in * v4 = reinterpret_cast< sockaddr_in *>(&temp);
