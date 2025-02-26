@@ -342,7 +342,6 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
 
-            ssid = parameters["ssid"].String();
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {

@@ -730,15 +730,12 @@ namespace WPEFramework
             string ssid{};
 
             if (parameters.HasLabel("ssid"))
-            {
                 ssid = parameters["ssid"].String();
-                if (_networkManager)
-                    rc = _networkManager->RemoveKnownSSID(ssid);
-                else
-                    rc = Core::ERROR_UNAVAILABLE;
-            }
+
+            if (_networkManager)
+                rc = _networkManager->RemoveKnownSSID(ssid);
             else
-                rc = Core::ERROR_BAD_REQUEST;
+                rc = Core::ERROR_UNAVAILABLE;
 
             returnJson(rc);
         }
