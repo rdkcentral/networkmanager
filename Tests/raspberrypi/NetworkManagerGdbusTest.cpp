@@ -63,9 +63,9 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
         }
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
-            NMLOG_INFO("calling 'ReportWiFiSignalStrengthChange' cb");
+            NMLOG_INFO("calling 'ReportWiFiSignalQualityChange' cb");
         }
 
         NetworkManagerImplementation* _instance = nullptr;
@@ -100,16 +100,16 @@ WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
 {
     int securityChoice;
     std::cout << "Select Security Type:" << std::endl;
-    std::cout << "1. WPA/WPA2 PSK AES" << std::endl;
-    std::cout << "2. WPA/WPA2 PSK TKIP" << std::endl;
+    std::cout << "1. WPA-PSK" << std::endl;
+    std::cout << "2. SAE" << std::endl;
     std::cout << "3. Open (No Security)" << std::endl;
     std::cin >> securityChoice;
 
     switch (securityChoice) {
         case 1:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK_AES;
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
         case 2:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK_TKIP;
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_SAE;
         case 3:
             return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_NONE;
         default:
@@ -275,7 +275,7 @@ int main()
             case 10: {
                 std::string ssid, signalStrength;
                 Exchange::INetworkManager::WiFiSignalQuality quality;
-                if (nmClient->getWiFiSignalStrength(ssid, signalStrength, quality)) {
+                if (nmClient->getWiFiSignalQuality(ssid, signalStrength, quality)) {
                     NMLOG_INFO("SSID: %s, Signal Strength: %s, Quality: %d", ssid.c_str(), signalStrength.c_str(), quality);
                 } else {
                     NMLOG_ERROR("Failed to get WiFi signal strength");

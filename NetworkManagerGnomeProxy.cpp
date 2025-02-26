@@ -35,9 +35,6 @@ namespace WPEFramework
     {
         wifiManager *wifi = nullptr;
         GnomeNetworkManagerEvents *nmEvent = nullptr;
-        const float signalStrengthThresholdExcellent = -50.0f;
-        const float signalStrengthThresholdGood = -60.0f;
-        const float signalStrengthThresholdFair = -67.0f;
         NetworkManagerImplementation* _instance = nullptr;
 
         void NetworkManagerInternalEventHandler(const char *owner, int eventId, void *data, size_t len)
@@ -170,7 +167,11 @@ namespace WPEFramework
             if(ifacePtr == NULL)
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
-                return Core::ERROR_GENERAL;
+                /* Temporary mitigation for nm_connection_get_interface_name failure */
+                if(m_wlanConnected)
+                    ifacePtr = wifiname.c_str();
+                if(m_ethConnected)
+                    ifacePtr = ethname.c_str();
             }
 
             interface = ifacePtr;
@@ -190,6 +191,8 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            gboolean result;
+            GError *error = NULL;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(client == nullptr)
@@ -237,7 +240,27 @@ namespace WPEFramework
                     NULL);
             const char *uuid = nm_connection_get_uuid(conn);
             remoteConnection = nm_client_get_connection_by_uuid(client, uuid);
-            nm_remote_connection_commit_changes(remoteConnection, false, NULL, NULL);
+            if (!remoteConnection)
+            {
+                NMLOG_ERROR("Failed to get remote connection");
+                return rc;
+            }
+            result = nm_remote_connection_commit_changes(remoteConnection, false, NULL, &error);
+            if (result)
+                rc = Core::ERROR_NONE;
+            else
+            {
+                if (error)
+                {
+                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                    g_error_free(error);
+                }
+                else
+                {
+                    NMLOG_ERROR("Failed to commit changes: unknown error");
+                }
+                rc = Core::ERROR_GENERAL;
+            }
 
             return rc;
         }
@@ -397,7 +420,7 @@ namespace WPEFramework
             }
 
             if(ipversion.empty())
-                NMLOG_WARNING("ipversion is empty default value IPv4");
+                NMLOG_DEBUG("ipversion is empty default value IPv4");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
@@ -661,37 +684,58 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */)
+#if 0
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatSignalStrength = 0.0f;
             WiFiSSIDInfo ssidInfo;
             if(wifi->wifiConnectedSSIDInfo(ssidInfo))
             {
-                ssid = ssidInfo.ssid;
-                signalStrength = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatSignalStrength = (rssi - noise);
+                if (floatSignalStrength < 0)
+                    floatSignalStrength = 0.0;
 
-	            float signalStrengthFloat = 0.0f;
-                if(!signalStrength.empty())
-                    signalStrengthFloat = std::stof(signalStrength.c_str());
+                strengthOut = static_cast<unsigned int>(floatSignalStrength);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",strengthOut);
 
-                if (signalStrengthFloat == 0)
+                if (strengthOut == 0)
+                {
                     quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                else if (signalStrengthFloat >= signalStrengthThresholdExcellent && signalStrengthFloat < 0)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
-                else if (signalStrengthFloat >= signalStrengthThresholdGood && signalStrengthFloat < signalStrengthThresholdExcellent)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
-                else if (signalStrengthFloat >= signalStrengthThresholdFair && signalStrengthFloat < signalStrengthThresholdGood)
-                    quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
-                else
+                    signalStrength = "0";
+                }
+                else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
+                {
                     quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+                }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
+                }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+                }
 
-                NMLOG_INFO ("GetWiFiSignalStrength success");
+                signalStrength = std::to_string(strengthOut);
+
+                NMLOG_INFO ("GetWiFiSignalQuality success");
             
                 rc = Core::ERROR_NONE;
             }
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {
@@ -711,17 +755,26 @@ namespace WPEFramework
                 NMLOG_ERROR("WPS PIN method is not supported as of now");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
-            if(wifi->initiateWPS())
-                NMLOG_INFO ("startWPS success");
-            else
-                rc = Core::ERROR_RPC_CALL_FAILED;
+
+            if(!wifi->wifiScanRequest())
+            {
+                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+            }
+
+            if(wifi->startWPS())
+                NMLOG_INFO ("start WPS success");
+            else {
+                rc = Core::ERROR_GENERAL;
+                NMLOG_ERROR("start WPS failed");
+            }
+
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
             uint32_t rc = Core::ERROR_NONE;
-            if(wifi->cancelWPS())
+            if(wifi->stopWPS())
                 NMLOG_INFO ("cancelWPS success");
             else
                 rc = Core::ERROR_RPC_CALL_FAILED;

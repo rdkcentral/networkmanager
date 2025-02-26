@@ -26,6 +26,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusUtils.h"
 #include "NetworkManagerGdbusMgr.h"
+#include "NetworkManagerImplementation.h"
 #include <arpa/inet.h>
 #include <netinet/in.h> // for struct in_addr
 
@@ -156,41 +157,33 @@ namespace WPEFramework
             {
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
             }
-            else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP40) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP40)) )
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_64;
-            }
-            else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP104) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP104)) )
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_128;
-            }
             else if((wpaFlags & NM_802_11_AP_SEC_PAIR_TKIP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_TKIP))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
             }
             else if((wpaFlags & NM_802_11_AP_SEC_PAIR_CCMP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_CCMP))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
             }
             else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
             }
             else if(rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
             }
             else if((wpaFlags & NM_802_11_AP_SEC_GROUP_CCMP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_CCMP))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
             }
             else if((wpaFlags & NM_802_11_AP_SEC_GROUP_TKIP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_TKIP))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
             }
             else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
             {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
             }
             else
                 NMLOG_WARNING("security mode not defined (flag: %d, wpaFlags: %d, rsnFlags: %d)", flags, wpaFlags, rsnFlags);
@@ -377,6 +370,7 @@ namespace WPEFramework
         {
             guint32 flags= 0, wpaFlags= 0, rsnFlags= 0, freq= 0, bitrate= 0;
             uint8_t strength = 0;
+            gint16  noise = 0;
             NM80211Mode mode = NM_802_11_MODE_UNKNOWN;
             bool ret = false;
             GVariant* ssidVariant = NULL;
@@ -430,9 +424,14 @@ namespace WPEFramework
                 GnomeUtils::getCachedPropertyU(proxy, "Frequency", &freq);
                 GnomeUtils::getCachedPropertyU(proxy, "MaxBitrate", &bitrate);
 
-                wifiInfo.frequency = std::to_string((double)freq/1000);
+                std::string freqStr = std::to_string((double)freq/1000);
+                wifiInfo.frequency = freqStr.substr(0, 5);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
+                if(noise <= 0 || noise >= DEFAULT_NOISE)
+                    wifiInfo.noise = std::to_string(noise);
+                else
+                    wifiInfo.noise = std::to_string(0);
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());

@@ -23,7 +23,7 @@ find_package(WPEFramework)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 0)
-set(VERSION_MINOR 8)
+set(VERSION_MINOR 10)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -105,7 +105,6 @@ add_library(${MODULE_NAME} SHARED
                             NetworkManagerImplementation.cpp
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
-                            WiFiSignalStrengthMonitor.cpp
                             Module.cpp
                             ${PROXY_STUB_SOURCES})
 
@@ -137,7 +136,8 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             NetworkManagerGnomeProxy.cpp 
             NetworkManagerGnomeWIFI.cpp
             NetworkManagerGnomeEvents.cpp
-            NetworkManagerGnomeUtils.cpp )
+            NetworkManagerGnomeUtils.cpp
+            NetworkManagerSecretAgent.cpp )
         target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
         target_link_libraries(${MODULE_NAME} PRIVATE ${LIBNM_LIBRARIES})
     endif()

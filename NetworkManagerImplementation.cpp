@@ -17,14 +17,17 @@
 * limitations under the License.
 **/
 
+#include <thread>
+#include <chrono>
 #include "NetworkManagerImplementation.h"
-#include "WiFiSignalStrengthMonitor.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
+#define RSSID_COMMAND       "wpa_cli signal_poll"
+#define SSID_COMMAND        "wpa_cli status"
 
 namespace WPEFramework
 {
@@ -47,17 +50,17 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            LOG_ENTRY_FUNCTION();
+            NMLOG_INFO((_T("NetworkManager Out-Of-Process Instantiation; SHA:" _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
-            LOG_ENTRY_FUNCTION();
-
+            NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
             }
+            stopWiFiSignalQualityMonitor();
         }
 
         /**
@@ -176,8 +179,7 @@ namespace WPEFramework
             }
 
             /* As all the configuration is set, lets instantiate platform */
-            std::thread platformThread = std::thread(&NetworkManagerImplementation::platform_init, this);
-            platformThread.join();
+            NetworkManagerImplementation::platform_init();
             return(Core::ERROR_NONE);
         }
 
@@ -529,7 +531,7 @@ namespace WPEFramework
 
                 double frequencyValue = std::stod(frequency);
 
-		//Debug to  print log
+                //Debug to  print log
                 NMLOG_DEBUG("Processing Frequency after double conversion: %lf\n", frequencyValue);
 
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
@@ -555,21 +557,10 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             std::vector<WIFISecurityModeInfo> modeInfo {
-                                                            {WIFI_SECURITY_NONE,                  "WIFI_SECURITY_NONE"},
-                                                            {WIFI_SECURITY_WEP_64,                "WIFI_SECURITY_WEP_64"},
-                                                            {WIFI_SECURITY_WEP_128,               "WIFI_SECURITY_WEP_128"},
-                                                            {WIFI_SECURITY_WPA_PSK_TKIP,          "WIFI_SECURITY_WPA_PSK_TKIP"},
-                                                            {WIFI_SECURITY_WPA_PSK_AES,           "WIFI_SECURITY_WPA_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA2_PSK_TKIP,         "WIFI_SECURITY_WPA2_PSK_TKIP"},
-                                                            {WIFI_SECURITY_WPA2_PSK_AES,          "WIFI_SECURITY_WPA2_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA_ENTERPRISE_TKIP,   "WIFI_SECURITY_WPA_ENTERPRISE_TKIP"},
-                                                            {WIFI_SECURITY_WPA_ENTERPRISE_AES,    "WIFI_SECURITY_WPA_ENTERPRISE_AES"},
-                                                            {WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,  "WIFI_SECURITY_WPA2_ENTERPRISE_TKIP"},
-                                                            {WIFI_SECURITY_WPA2_ENTERPRISE_AES,   "WIFI_SECURITY_WPA2_ENTERPRISE_AES"},
-                                                            {WIFI_SECURITY_WPA_WPA2_PSK,          "WIFI_SECURITY_WPA_WPA2_PSK"},
-                                                            {WIFI_SECURITY_WPA_WPA2_ENTERPRISE,   "WIFI_SECURITY_WPA_WPA2_ENTERPRISE"},
-                                                            {WIFI_SECURITY_WPA3_PSK_AES,          "WIFI_SECURITY_WPA3_PSK_AES"},
-                                                            {WIFI_SECURITY_WPA3_SAE,              "WIFI_SECURITY_WPA3_SAE"}
+                                                            {WIFI_SECURITY_NONE,     "NONE"},
+                                                            {WIFI_SECURITY_WPA_PSK,  "WPA_PSK"},
+                                                            {WIFI_SECURITY_SAE,      "SAE"},
+                                                            {WIFI_SECURITY_EAP,      "EAP"},
                                                         };
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
@@ -680,16 +671,196 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
+        void NetworkManagerImplementation::startWiFiSignalQualityMonitor(int interval)
+        {
+            if (m_isRunning) {
+                NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
+                return;
+            }
+            m_isRunning = true;
+            m_stopThread = false;
+            m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+        }
+
+        void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
+        {
+            if (!m_isRunning) {
+                return; // No thread to stop
+            }
+            std::lock_guard<std::mutex> lock(m_condVariableMutex);
+            m_stopThread = true;
+            m_condVariable.notify_one();
+            if (m_monitorThread.joinable()) {
+                m_monitorThread.join();
+            }
+            m_isRunning = false;
+        }
+
+        /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
+        {
+            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            int16_t strengthOut = 0;
+
+            std::string key, value;
+            string noiseStr{};
+            string rssiStr{};
+            int16_t readRSSI = 0;
+            int16_t readNoise = 0;
+            char buff[512] = {'\0'};
+
+            FILE *fp = NULL;
+
+            /* Noise n RSSI */
+            fp = popen(RSSID_COMMAND, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s",RSSID_COMMAND);
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buff);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                    if (key == "RSSI") {
+                        rssiStr = value;
+                    }
+                    else if (key == "NOISE") {
+                        noiseStr = value;
+                    }
+                    if (!rssiStr.empty() && !noiseStr.empty())
+                        break;
+            }
+            pclose(fp);
+
+            /* SSID */
+            fp = popen(SSID_COMMAND, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
+                std::istringstream mystream(buff);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                    if (key == "ssid") {
+                        ssid = value;
+                        break;
+                    }
+            }
+            pclose(fp);
+
+            /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
+            if (rssiStr.empty())
+                rssiStr = "0";
+            if (noiseStr.empty())
+                noiseStr= "0";
+
+            readRSSI  = std::stoi(rssiStr);
+            readNoise = std::stoi(noiseStr);
+
+            /* Check the Noise is within range */
+            if(!(readNoise <= 0 || readNoise >= DEFAULT_NOISE))
+            {
+                NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
+                readNoise = 0;
+            }
+
+            /* Calculate the SNR */
+            strengthOut = readRSSI - readNoise;
+
+            /* Update the results */
+            strength = rssiStr;
+            noise = noiseStr;
+            snr = std::to_string(strengthOut);
+
+            NMLOG_INFO ("RSSI: %d dBm; Noise: %d dBm; SNR: %d dBm", readRSSI, readNoise, strengthOut);
+
+            if (strengthOut == 0)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
+                strength = "0";
+            }
+            else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+            }
+            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
+            }
+            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+            }
+            else
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+            }
+
+            NMLOG_INFO ("GetWiFiSignalQuality success");
+            rc = Core::ERROR_NONE;
+
+            return rc;
+        }
+
+        void NetworkManagerImplementation::monitorThreadFunction(int interval)
+        {
+            static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
+            NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
+            while (!m_stopThread) {
+                std::string ssid{};
+                std::string strength{};
+                std::string noise{};
+                std::string snr{};
+                std::unique_lock<std::mutex> lock(m_condVariableMutex);
+                Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
+
+                NMLOG_DEBUG("checking WiFi signal strength");
+                GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
+
+                if (oldSignalQuality != newSignalQuality) {
+                    NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
+                    oldSignalQuality = newSignalQuality;
+                    NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
+                }
+
+                if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
+                    NMLOG_WARNING("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
+                    m_stopThread = true; // Signal thread to stop
+                    break; // Exit the loop
+                }
+
+                // Wait for the specified interval or until notified to stop
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
+                {
+                    NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
+                }
+            }
+            m_isRunning = false;
+        }
+
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected = true;
-                m_wifiSignalMonitor.startWiFiSignalStrengthMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+                if (!m_monitoringStarted)
+                {
+                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
+                    m_monitoringStarted = true;
+                }
             }
             else
+            {
+                if (m_monitoringStarted)
+                {
+                    stopWiFiSignalQualityMonitor();
+                    m_monitoringStarted = false;
+                }
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
+            }
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
@@ -699,12 +870,12 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onWiFiSignalStrengthChange %s", strength.c_str());
+            NMLOG_INFO("Posting onWiFiSignalQualityChange %s", strength.c_str());
             for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiSignalStrengthChange(ssid, strength, quality);
+                callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
         }

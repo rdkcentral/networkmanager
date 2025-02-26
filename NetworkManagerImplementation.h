@@ -31,9 +31,15 @@ using namespace std;
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
-#include "WiFiSignalStrengthMonitor.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+
+#define DEFAULT_NOISE                              -180
+
+#define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
+#define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
+#define NM_WIFI_SNR_THRESHOLD_GOOD                 25
+#define NM_WIFI_SNR_THRESHOLD_FAIR                 18
 
 namespace WPEFramework
 {
@@ -209,7 +215,7 @@ namespace WPEFramework
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;
                 uint32_t StopWPS(void) override;
                 uint32_t GetWifiState(WiFiState &state) override;
-                uint32_t GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */) override;
+                uint32_t GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */) override;
 
                 uint32_t SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */) override;
                 uint32_t GetStunEndpoint (string &endpoint /* @out */, uint32_t& port /* @out */, uint32_t& bindTimeout /* @out */, uint32_t& cacheTimeout /* @out */) const override;
@@ -249,7 +255,7 @@ namespace WPEFramework
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
-                void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
             private:
                 void platform_init(void);
@@ -257,6 +263,9 @@ namespace WPEFramework
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(void);
                 void filterScanResults(JsonArray &ssids);
+                void startWiFiSignalQualityMonitor(int interval);
+                void stopWiFiSignalQualityMonitor();
+                void monitorThreadFunction(int interval);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
@@ -271,11 +280,16 @@ namespace WPEFramework
                 std::thread m_registrationThread;
                 string m_filterfrequency;
                 std::vector<std::string> m_filterSsidslist;
+                std::thread m_monitorThread;
+                std::atomic<bool> m_stopThread{false};
+                std::atomic<bool> m_isRunning{false};
+                bool m_monitoringStarted = false;
+                std::mutex m_condVariableMutex;
+                std::condition_variable m_condVariable;
 
             public:
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
-                WiFiSignalStrengthMonitor m_wifiSignalMonitor;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
     }

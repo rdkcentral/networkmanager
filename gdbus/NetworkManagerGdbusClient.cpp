@@ -27,6 +27,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusClient.h"
 #include "NetworkManagerGdbusUtils.h"
+#include "NetworkManagerImplementation.h"
 
 namespace WPEFramework
 {
@@ -1645,13 +1646,8 @@ namespace WPEFramework
 
             switch(ssidinfo.security)
             {
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_PSK_AES:
-                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
+                case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
                     if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
                     {
@@ -1662,7 +1658,7 @@ namespace WPEFramework
                         return false;
                     }
 
-                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE == ssidinfo.security)
+                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
                     {
                         NMLOG_DEBUG("802-11-wireless-security key-mgmt: 'sae'");
                         g_variant_builder_add (&settingsBuilder, "{sv}", "key-mgmt", g_variant_new_string("sae"));
@@ -1837,12 +1833,13 @@ namespace WPEFramework
             return ret;
         }
 
-        bool NetworkManagerClient::getWiFiSignalStrength(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
+        bool NetworkManagerClient::getWiFiSignalQuality(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
         {
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo;
-            const float signalStrengthThresholdExcellent = -50.0f;
-            const float signalStrengthThresholdGood = -60.0f;
-            const float signalStrengthThresholdFair = -67.0f;
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatSignalStrength = 0.0f;
+            unsigned int signalStrengthOut = 0;
 
             if(!getConnectedSSID(ssidInfo))
             {
@@ -1851,23 +1848,42 @@ namespace WPEFramework
             }
             else
             {
-                ssid = ssidInfo.ssid;
-                signalStrength = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatSignalStrength = (rssi - noise);
+                if (floatSignalStrength < 0)
+                    floatSignalStrength = 0.0;
 
-                float signalStrengthFloat = 0.0f;
-                if(!signalStrength.empty())
-                    signalStrengthFloat = std::stof(signalStrength.c_str());
+                signalStrengthOut = static_cast<unsigned int>(floatSignalStrength);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",signalStrengthOut);
 
-                if (signalStrengthFloat == 0)
+                if (signalStrengthOut == 0)
+                {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                else if (signalStrengthFloat >= signalStrengthThresholdExcellent && signalStrengthFloat < 0)
-                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
-                else if (signalStrengthFloat >= signalStrengthThresholdGood && signalStrengthFloat < signalStrengthThresholdExcellent)
-                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_GOOD;
-                else if (signalStrengthFloat >= signalStrengthThresholdFair && signalStrengthFloat < signalStrengthThresholdGood)
-                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_FAIR;
-                else
+                    signalStrength = "0";
+                }
+                else if (signalStrengthOut > 0 && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
+                {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+                }
+                else if (signalStrengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+                {
+                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_FAIR;
+                }
+                else if (signalStrengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+                {
+                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+                }
+
+                signalStrength = std::to_string(signalStrengthOut);
+
                 NMLOG_INFO("strength success %s dBm", signalStrength.c_str());
             }
 

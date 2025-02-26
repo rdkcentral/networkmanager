@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json",
-        "version": "0.8.0"
+        "version": "0.10.0"
     },
     "definitions": {
         "success": {
@@ -122,25 +122,35 @@
             "type": "string",
             "example": "password"
         },
-        "security": {
-            "summary": "The security mode. See `getSupportedsecurityModes`.",
+        "security":{
+            "summary": "The security mode. See `GetSupportedSecurityModes`.",
             "type": "integer",
-            "example": 6
+            "example": 2
         },
         "strength":{
-            "summary": "The Signal RSSI value in dBm",
+            "summary": "The WiFi Signal RSSI value in dBm",
             "type": "string",
-            "example": "-27.000000"
+            "example": "-32"
+        },
+        "noise":{
+            "summary": "The WiFi Signal Noise detected in dBm",
+            "type": "string",
+            "example": "-106"
+        },
+        "snr":{
+            "summary": "Signal to Noise Ratio(SNR) in dBm",
+            "type": "string",
+            "example": "74"
         },
         "quality":{
-            "summary": "Signal strength Quality",
+            "summary": "WiFi Quality based on Signal to Noise Ratio (SNR)",
             "type": "string",
             "example": "Excellent"
         },
         "frequency":{
             "summary": "The supported frequency for this SSID in GHz",
             "type": "string",
-            "example": "2.442000"
+            "example": "2.4420"
         },
         "errors": {
             "summary": "Error string of scan failure",
@@ -1000,7 +1010,7 @@
             }
         },
         "WiFiConnect":{
-            "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. When called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.",
+            "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED ."
             },
@@ -1012,9 +1022,6 @@
                     },
                     "passphrase": {
                         "$ref": "#/definitions/passphrase"
-                    },
-                    "security": {
-                        "$ref": "#/definitions/security"
                     },
                     "ca_cert": {
                         "summary": "The ca_cert to be used for EAP",
@@ -1069,8 +1076,7 @@
                 },
                 "required": [
                     "ssid",
-                    "passphrase",
-                    "security"
+                    "passphrase"
                 ]
             },
             "result": {
@@ -1118,7 +1124,7 @@
                     "security":{
                         "summary": "The security mode. See the `connect` method",
                         "type": "string",
-                        "example": "5"
+                        "example": "2"
                     },
                     "strength": {
                         "$ref": "#/definitions/strength"
@@ -1129,12 +1135,10 @@
                     "rate":{
                         "summary": "The physical data rate in Mbps",
                         "type": "string",
-                        "example": "144.000000"
+                        "example": "144"
                     },
                     "noise":{
-                        "summary": "The average noise strength in dBm",
-                        "type": "string",
-                        "example": "-121.000000"
+                        "$ref": "#/definitions/noise"
                     },
                     "success":{
                         "$ref": "#/definitions/success"
@@ -1212,10 +1216,10 @@
                 ]
             }
         },
-        "GetWiFiSignalStrength":{
-            "summary": "Get WiFiSignalStrength of connected SSID. The signal quality is identifed based on the signal strength. The possible states are\n* 'Excellent'\n* 'Good'\n* 'Fair'\n* 'Weak'\n* 'Disconnected'\n",
+        "GetWiFiSignalQuality":{
+            "summary": "Get WiFi signal quality of currently connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are\n* 'Excellent'    : More than 40 dBm\n* 'Good'         : 40 dBm to 25 dBm\n* 'Fair'         : 25 dBm to 18 dBm\n* 'Weak'         : 18 dBm to 0 dBm\n* 'Disconnected' : 0 dBm\n",
             "events":{
-                "onWiFiSignalStrengthChange" : "Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak."
+                "onWiFiSignalQualityChange" : "Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak."
             },
             "result": {
                 "type": "object",
@@ -1223,11 +1227,17 @@
                     "ssid": {
                         "$ref": "#/definitions/ssid"
                     },
+                    "quality":{
+                        "$ref": "#/definitions/quality"
+                    },
+                    "snr": {
+                        "$ref": "#/definitions/snr"
+                    },
                     "strength": {
                         "$ref": "#/definitions/strength"
                     },
-                    "quality":{
-                        "$ref": "#/definitions/quality"
+                    "noise": {
+                        "$ref": "#/definitions/noise"
                     },
                     "success":{
                         "$ref": "#/definitions/success"
@@ -1235,13 +1245,15 @@
                 },
                 "required": [
                     "ssid",
-                    "strength",
                     "quality",
+                    "snr",
+                    "strength",
+                    "noise",
                     "success"
                 ]
             }
         },
-        "GetSupportedsecurityModes":{
+        "GetSupportedSecurityModes":{
             "summary": "Returns the Wifi security modes that the device supports.",
             "result": {
                 "type": "object",
@@ -1250,68 +1262,33 @@
                         "summary": "The supported security modes and its associated integer value.",
                         "type": "object",
                         "properties": {
-                            "NET_WIFI_SECURITY_NONE": {
+                            "NONE": {
+                                "summary": "Security mode for open network",
                                 "type": "integer",
                                 "example": 0 
                             },
-                            "NET_WIFI_SECURITY_WEP_64": {
+                            "WPA_PSK": {
+                                "summary": "Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition",
                                 "type": "integer",
                                 "example": 1
                             },
-                            "NET_WIFI_SECURITY_WEP_128": {
+                            "SAE": {
+                                "summary": "Supports security mode WPA3-Personal",
                                 "type": "integer",
                                 "example": 2
                             },
-                            "NET_WIFI_SECURITY_WPA_PSK_TKIP": {
+                            "EAP": {
+                                "summary": "Supports security mode WPA enterpise",
                                 "type": "integer",
                                 "example": 3
-                            },
-                            "NET_WIFI_SECURITY_WPA_PSK_AES": {
-                                "type": "integer",
-                                "example": 4
-                            },
-                            "NET_WIFI_SECURITY_WPA2_PSK_TKIP": {
-                                "type": "integer",
-                                "example": 5
-                            },
-                            "NET_WIFI_SECURITY_WPA2_PSK_AES": {
-                                "type": "integer",
-                                "example": 6
-                            },
-                            "NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP": {
-                                "type": "integer",
-                                "example": 7
-                            },
-                            "NET_WIFI_SECURITY_WPA_ENTERPRISE_AES": {
-                                "type": "integer",
-                                "example": 8
-                            },
-                            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP": {
-                                "type": "integer",
-                                "example": 9
-                            },
-                            "NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES": {
-                                "type": "integer",
-                                "example": 10
-                            },
-                            "NET_WIFI_SECURITY_WPA_WPA2_PSK": {
-                                "type": "integer",
-                                "example": 11
-                            },
-                            "NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE": {
-                                "type": "integer",
-                                "example": 12
-                            },
-                            "NET_WIFI_SECURITY_WPA3_PSK_AES": {
-                                "type": "integer",
-                                "example": 13
-                            },
-                            "NET_WIFI_SECURITY_WPA3_SAE": {
-                                "type": "integer",
-                                "example": 14
                             }
                         },
-                        "required": []
+                        "required": [
+                            "NONE",
+                            "WPA_PSK",
+                            "SAE",
+                            "EAP"
+                        ]
                     },
                     "success":{
                         "$ref": "#/definitions/success"
@@ -1523,25 +1500,33 @@
                 ]
             }
         },
-        "onWiFiSignalStrengthChange":{
-            "summary": "Triggered when WIFI connection Signal Strength get changed.",
+        "onWiFiSignalQualityChange":{
+            "summary": "Triggered when WIFI Signal quality changed which is decided based on SNR value which is defined in `GetWiFiSignalQuality`",
             "params": {
                 "type": "object",
                 "properties": {
                     "ssid":{
                         "$ref": "#/definitions/ssid"
                     },
+                    "quality":{
+                        "$ref": "#/definitions/quality"
+                    },
+                    "snr":{
+                        "$ref": "#/definitions/snr"
+                    },
                     "strength":{
                         "$ref": "#/definitions/strength"
                     },
-                    "quality":{
-                        "$ref": "#/definitions/quality"
+                    "noise":{
+                        "$ref": "#/definitions/noise"
                     }
                 },
                 "required": [
                     "ssid",
+                    "quality",
+                    "snr",
                     "strength",
-                    "quality"
+                    "noise"
                 ]
             }
         }

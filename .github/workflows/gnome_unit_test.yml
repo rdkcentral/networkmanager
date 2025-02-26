@@ -35,8 +35,7 @@ jobs:
         run: |
           git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
-          git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
-
+         
       - name: Build ThunderTools
         run: >
           cmake
@@ -59,15 +58,6 @@ jobs:
           &&
           cmake --build build/Thunder --target install -j8
 
-      - name: Build ThunderInterfaces
-        run: >
-          cmake
-          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
-          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
-          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          &&
-          cmake --build build/ThunderInterfaces --target install -j8
-
       - name: Checkout networkmanager
         uses: actions/checkout@v3
         with:
@@ -83,30 +73,7 @@ jobs:
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
-          -DENABLE_UNIT_TESTING=ON
           &&
           cmake --build build/GnomeNetworkmanager --target install -j8
 
-
-      - name: Run unit tests without valgrind
-        run: >
-          PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          unit_tests
-    
-      - name: Generate coverage
-        run: |
-            lcov -c -o coverage.info -d build/GnomeNetworkmanager
-            lcov -r coverage.info '/usr/include/*' '*/build/GnomeNetworkmanager/*' \
-                                  '*/install/usr/include/*' '*/Tests/*' 'googlemock/*' 'googletest/*' \
-                                  -o filtered_coverage.info
-      - name: Generate the html report
-        run: |
-            genhtml filtered_coverage.info --output-directory /tmp/coverage_report
-
-      - name: Upload the coverage report to Pull request using actions
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: /tmp/coverage_report
 

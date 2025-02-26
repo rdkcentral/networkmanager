@@ -18,7 +18,6 @@
 **/
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
-#include "WiFiSignalStrengthMonitor.h"
 #include "libIBus.h"
 
 using namespace WPEFramework;
@@ -263,7 +262,7 @@ typedef struct _WiFiConnectedSSIDInfo
     char bssid[BSSID_BUFF];   /**< The the Basic Service Set ID (mac address). */
     char band[BUFF_MIN];      /**< The frequency band at which the client is conneted to. */
     int securityMode;         /**< Current WiFi Security Mode used for connection. */
-    int  frequency;                    /**< The Frequency wt which the client is connected to. */
+    int  frequency;           /**< The Frequency wt which the client is connected to. */
     float rate;               /**< The Physical data rate in Mbps */
     float noise;              /**< The average noise strength in dBm. */
     float signalStrength;     /**< The RSSI value in dBm. */
@@ -375,9 +374,6 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        const float signalStrengthThresholdExcellent = -50.0f;
-        const float signalStrengthThresholdGood = -60.0f;
-        const float signalStrengthThresholdFair = -67.0f;
         NetworkManagerImplementation* _instance = nullptr;
 
         Exchange::INetworkManager::WiFiState to_wifi_state(WiFiStatusCode_t code) {
@@ -422,6 +418,53 @@ namespace WPEFramework
                     return Exchange::INetworkManager::WIFI_STATE_ERROR;
             }
             return Exchange::INetworkManager::WIFI_STATE_INVALID;
+        }
+
+        static inline uint32_t mapToLegacySecurityMode(const uint32_t securityMode)
+        {
+            if (securityMode == 0)
+                return 0; /* NET_WIFI_SECURITY_NONE */
+            else if (securityMode == 1)
+                return 6; /* NET_WIFI_SECURITY_WPA2_PSK_AES */
+            else if (securityMode == 2)
+                return 14; /* NET_WIFI_SECURITY_WPA3_SAE */
+            else if (securityMode == 3)
+                return 12; /* NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE */
+
+            return 0; /* NET_WIFI_SECURITY_NONE */
+        }
+
+        static inline uint32_t mapToNewSecurityMode(const uint32_t legacyMode)
+        {
+            if ((legacyMode == NET_WIFI_SECURITY_NONE)      ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_64)    ||
+                (legacyMode == NET_WIFI_SECURITY_WEP_128))
+            {
+                return 0; /* WIFI_SECURITY_NONE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_PSK_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_PSK_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_PSK_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_PSK)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA3_PSK_AES))
+            {
+                return 1; /* WIFI_SECURITY_WPA_PSK */
+            }
+            else if (legacyMode == NET_WIFI_SECURITY_WPA3_SAE)
+            {
+                return 2; /* WIFI_SECURITY_SAE */
+            }
+            else if ((legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_ENTERPRISE_AES)   ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP) ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES)  ||
+                     (legacyMode == NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE))
+            {
+                return 3; /* WIFI_SECURITY_EAP */
+            }
+
+            return 0; /* WIFI_SECURITY_NONE */
         }
 
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
@@ -512,6 +555,8 @@ namespace WPEFramework
                         NMLOG_INFO ("IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs");
                         std::string serialized(e->data.wifiSSIDList.ssid_list);
                         JsonObject eventDocument;
+                        JsonArray ssidsUpdated;
+                        uint32_t security;
                         WPEC::OptionalType<WPEJ::Error> error;
                         if (!WPEJ::IElement::FromString(serialized, eventDocument, error)) {
                             NMLOG_ERROR("Failed to parse JSON document containing SSIDs. Due to: %s", WPEJ::ErrorDisplayMessage(error).c_str());
@@ -524,7 +569,14 @@ namespace WPEFramework
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
 
-                        ::_instance->ReportAvailableSSIDs(ssids);
+                        for (int i = 0; i < ssids.Length(); i++)
+                        {
+                            JsonObject object = ssids[i].Object();
+                            security = object["security"].Number();
+                            object["security"] = mapToNewSecurityMode(security);
+                            ssidsUpdated.Add(object);
+                        }
+                        ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
                     }
                     case IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged:
@@ -687,7 +739,8 @@ namespace WPEFramework
                 * Useful if NetworkManager plugin or WPEFramework is restarted
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
-                getInitialConnectionState();
+                std::thread connStateThread = std::thread(&NetworkManagerImplementation::getInitialConnectionState, this);
+                connStateThread.join(); // seprate thread will not use the wpeframework thread pool
             }
         }
 
@@ -1186,7 +1239,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             strncpy(param.data.connect.ssid, ssid.ssid.c_str(), SSID_SIZE - 1);
             strncpy(param.data.connect.passphrase, ssid.passphrase.c_str(), PASSPHRASE_BUFF - 1);
-            param.data.connect.security_mode = (SsidSecurity) ssid.security;
+            param.data.connect.security_mode = (SsidSecurity) mapToLegacySecurityMode(ssid.security);
 
             IARM_Result_t retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_saveSSID, (void *)&param, sizeof(param));
             if((retVal == IARM_RESULT_SUCCESS) && param.status)
@@ -1238,7 +1291,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             {
                 ssid.ssid.copy(param.data.connect.ssid, sizeof(param.data.connect.ssid) - 1);
                 ssid.passphrase.copy(param.data.connect.passphrase, sizeof(param.data.connect.passphrase) - 1);
-                param.data.connect.security_mode = (SsidSecurity)ssid.security;
+                param.data.connect.security_mode = (SsidSecurity)mapToLegacySecurityMode(ssid.security);
                 if(!ssid.eap_identity.empty())
                     ssid.eap_identity.copy(param.data.connect.eapIdentity, sizeof(param.data.connect.eapIdentity) - 1);
                 if(!ssid.ca_cert.empty())
@@ -1303,11 +1356,16 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
                 ssidInfo.ssid             = string(connectedSsid.ssid);
                 ssidInfo.bssid            = string(connectedSsid.bssid);
-                ssidInfo.security         = (WIFISecurityMode) connectedSsid.securityMode;
-                ssidInfo.strength         = to_string(connectedSsid.signalStrength);
-                ssidInfo.rate             = to_string(connectedSsid.rate);
-                ssidInfo.noise            = to_string(connectedSsid.noise);
-                ssidInfo.frequency        = to_string((double)connectedSsid.frequency/1000);
+                ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
+                ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
+                ssidInfo.rate             = to_string((int)connectedSsid.rate);
+                if(connectedSsid.noise <= 0 || connectedSsid.noise >= DEFAULT_NOISE)
+                    ssidInfo.noise        = to_string((int)connectedSsid.noise);
+                else
+                    ssidInfo.noise        = to_string(0);
+
+                std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
+                ssidInfo.frequency        = freqStr.substr(0, 5);
 
                 NMLOG_INFO ("GetConnectedSSID Success");
                 rc = Core::ERROR_NONE;
@@ -1319,55 +1377,64 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::GetWiFiSignalStrength(string& ssid /* @out */, string& signalStrength /* @out */, WiFiSignalQuality& quality /* @out */)
+#if 0
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             WiFiSSIDInfo  ssidInfo{};
-            float signalStrengthOut = 0.0f;
+            float rssi = 0.0f;
+            float noise = 0.0f;
+            float floatStrength = 0.0f;
+            unsigned int strengthOut = 0;
 
             if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo))
             {
-                ssid            = ssidInfo.ssid;
-                signalStrength  = ssidInfo.strength;
+                ssid              = ssidInfo.ssid;
+                if (!ssidInfo.strength.empty())
+                    rssi          = std::stof(ssidInfo.strength.c_str());
+                if (!ssidInfo.noise.empty())
+                    noise         = std::stof(ssidInfo.noise.c_str());
+                floatStrength = (rssi - noise);
+                if (floatStrength < 0)
+                    floatStrength = 0.0;
 
-                if (!signalStrength.empty())
-                {
-                    signalStrengthOut = std::stof(signalStrength.c_str());
-                    NMLOG_INFO ("WiFiSignalStrength in dB = %f",signalStrengthOut);
-                }
+                strengthOut = static_cast<unsigned int>(floatStrength);
+                NMLOG_INFO ("WiFiSignalQuality in dB = %u",strengthOut);
 
-                if (signalStrengthOut == 0)
+                if (strengthOut == 0)
                 {
                     quality = WIFI_SIGNAL_DISCONNECTED;
-                    signalStrength = "0";
+                    strength = "0";
                 }
-                else if (signalStrengthOut >= signalStrengthThresholdExcellent && signalStrengthOut < 0)
-                {
-                    quality = WIFI_SIGNAL_EXCELLENT;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdGood && signalStrengthOut < signalStrengthThresholdExcellent)
-                {
-                    quality = WIFI_SIGNAL_GOOD;
-                }
-                else if (signalStrengthOut >= signalStrengthThresholdFair && signalStrengthOut < signalStrengthThresholdGood)
-                {
-                    quality = WIFI_SIGNAL_FAIR;
-                }
-                else
+                else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
                 {
                     quality = WIFI_SIGNAL_WEAK;
                 }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+                {
+                    quality = WIFI_SIGNAL_FAIR;
+                }
+                else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+                {
+                    quality = WIFI_SIGNAL_GOOD;
+                }
+                else
+                {
+                    quality = WIFI_SIGNAL_EXCELLENT;
+                }
 
-                NMLOG_INFO ("GetWiFiSignalStrength success");
+                strength = std::to_string(strengthOut);
+                NMLOG_INFO ("GetWiFiSignalQuality success");
                 rc = Core::ERROR_NONE;
             }
             else
             {
-                NMLOG_ERROR ("GetWiFiSignalStrength failed");
+                NMLOG_ERROR ("GetWiFiSignalQuality failed");
             }
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {

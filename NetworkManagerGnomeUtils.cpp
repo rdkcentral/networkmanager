@@ -60,30 +60,17 @@ namespace WPEFramework
 
         uint8_t nmUtils::wifiSecurityModeFromAp(guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
         {
-                uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
-                if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
-                else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP40) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP40)) )
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_64;
-                else if( (flags & NM_802_11_AP_FLAGS_PRIVACY) && ((wpaFlags & NM_802_11_AP_SEC_PAIR_WEP104) || (rsnFlags & NM_802_11_AP_SEC_PAIR_WEP104)) )
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WEP_128;
-                else if((wpaFlags & NM_802_11_AP_SEC_PAIR_TKIP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_TKIP))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_TKIP;
-                else if((wpaFlags & NM_802_11_AP_SEC_PAIR_CCMP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_CCMP))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK_AES;
-                else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_ENTERPRISE;
-                else if(rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_WPA2_PSK;
-                else if((wpaFlags & NM_802_11_AP_SEC_GROUP_CCMP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_CCMP))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_AES;
-                else if((wpaFlags & NM_802_11_AP_SEC_GROUP_TKIP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_TKIP))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA2_PSK_TKIP;
-                else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
-                    security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA3_SAE;
-                else
-                    NMLOG_WARNING("security mode not defined (flag: %d, wpaFlags: %d, rsnFlags: %d)", flags, wpaFlags, rsnFlags);
-                return security;
+            uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
+            if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
+            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
+            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X)
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
+            else
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+            // NMLOG_DEBUG("ap security str %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
+            return security;
         }
 
         // Function to convert percentage (0-100) to dBm string
