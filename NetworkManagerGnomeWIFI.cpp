@@ -303,12 +303,21 @@ namespace WPEFramework
 
         bool wifiManager::wifiDisconnect()
         {
+            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
             if(!createClientNewConnection())
                 return false;
 
             NMDevice *wifiNMDevice = getWifiDevice();
             if(wifiNMDevice == NULL) {
                 NMLOG_WARNING("wifi state is unmanaged !");
+                return true;
+            }
+
+            NMLOG_DEBUG("wifi device current state is %d !", deviceState);
+            deviceState = nm_device_get_state(wifiNMDevice);
+            if (deviceState <= NM_DEVICE_STATE_DISCONNECTED || deviceState == NM_DEVICE_STATE_FAILED || deviceState == NM_DEVICE_STATE_DEACTIVATING)
+            {
+                NMLOG_WARNING("wifi already disconnected !");
                 return true;
             }
 
@@ -370,24 +379,6 @@ namespace WPEFramework
             }
 
             g_main_loop_quit(_wifiManager->m_loop);
-        }
-
-        static void removeKnownSSIDCb(GObject *client, GAsyncResult *result, gpointer user_data)
-        {
-            GError *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            NMRemoteConnection *connection = NM_REMOTE_CONNECTION(client);
-            if (!nm_remote_connection_delete_finish(connection, result, &error)) {
-                NMLOG_ERROR("RemoveKnownSSID failed %s", error->message);
-                _wifiManager->m_isSuccess = false;
-            }
-            else
-            {
-                NMLOG_INFO ("RemoveKnownSSID is success");
-                _wifiManager->m_isSuccess = true;
-            }
-
-            _wifiManager->quit(NULL);
         }
 
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
@@ -780,47 +771,60 @@ namespace WPEFramework
         bool wifiManager::removeKnownSSID(const string& ssid)
         {
             NMConnection *m_connection = NULL;
-            m_isSuccess = false;
+            bool ssidSpecified = false;
 
             if(!createClientNewConnection())
                 return false;
 
-            if(ssid.empty())
-            {
-                NMLOG_ERROR("ssid is empty");
-                return false;
-            }
+            if(!ssid.empty())
+                ssidSpecified = true;
+            else
+                NMLOG_WARNING("ssid is not specified, Deleting all availble wifi connection !");
 
             const GPtrArray  *allconnections = nm_client_get_connections(m_client);
             for (guint i = 0; i < allconnections->len; i++)
             {
+                GError *error = NULL;
                 NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
+                if(connection == NULL)
+                {
+                    NMLOG_WARNING("ssid connection null !");
+                    continue;
+                }
                 if (!NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
                     continue; // if not wireless connection skipt
                 const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
                 if(connId == NULL)
-                    continue;
-                NMLOG_DEBUG("wireless connection '%s'", connId);
-                if (strcmp(connId, ssid.c_str()) == 0)
                 {
-                    m_connection = g_object_ref(connection);
-                    if (NM_IS_REMOTE_CONNECTION(m_connection))
-                    {
-                        NMLOG_INFO("deleting '%s' connection...", ssid.c_str());
-                        nm_remote_connection_delete_async(NM_REMOTE_CONNECTION(m_connection),
-                                                    NULL,
-                                                    removeKnownSSIDCb,
-                                                    this);
+                    NMLOG_WARNING("ssid connection id null !");
+                    continue;
+                }
+
+                NMLOG_DEBUG("wireless connection '%s'", connId);
+                if (ssidSpecified && strcmp(connId, ssid.c_str()) != 0)
+                    continue;
+
+                m_connection = g_object_ref(connection);
+                if (NM_IS_REMOTE_CONNECTION(connection))
+                {
+                    nm_remote_connection_delete(NM_REMOTE_CONNECTION(connection), NULL, &error);
+                    if(error) {
+                        NMLOG_ERROR("deleting connection failed %s", error->message);
                     }
-                    wait(m_loop);
-                    break; // multiple connection with same name not handiled
+                    else
+                        NMLOG_INFO("delete '%s' connection ...", connId);
                 }
             }
 
             if(!m_connection)
-                NMLOG_INFO("'%s' no such connection profile", ssid.c_str());
+            {
+                if(ssidSpecified)
+                    NMLOG_WARNING("'%s' no such connection profile", ssid.c_str());
+                else
+                    NMLOG_WARNING("No wifi connection profiles found !!"); 
+            }
 
-            return m_isSuccess;
+            return true;
         }
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
@@ -1302,7 +1306,7 @@ namespace WPEFramework
                 if (connections == NULL || connections->len == 0)
                 {
                     NMLOG_WARNING("no connections availble to edit ");
-                    return false;
+                    return true;
                 }
 
                 for (guint i = 0; i < connections->len; i++)
@@ -1310,7 +1314,9 @@ namespace WPEFramework
                     NMConnection *tmpConn = NM_CONNECTION(connections->pdata[i]);
                     if(tmpConn == nullptr)
                         continue;
-                    settings = nm_connection_get_setting_connection(connection);
+                    settings = nm_connection_get_setting_connection(tmpConn);
+                    if(settings == NULL)
+                        continue;
                     if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
                         connection = tmpConn;
 
@@ -1332,10 +1338,14 @@ namespace WPEFramework
                 activeConnection = nm_device_get_active_connection(device);
                 if(activeConnection == NULL)
                 {
-                    NMLOG_ERROR("no active connection for wifi");
+                    NMLOG_WARNING("no active connection for wifi");
                     return false;
                 }
                 remoteConn = nm_active_connection_get_connection(activeConnection);
+                if(remoteConn == NULL) {
+                    NMLOG_WARNING("no remote connection for wifi");
+                    return false;
+                }
                 connection = NM_CONNECTION(remoteConn);
             }
             else
@@ -1344,14 +1354,14 @@ namespace WPEFramework
             if(connection == nullptr)
             {
                 NMLOG_WARNING("not a single connection availble for %s", interface.c_str());
-                return false;
+                return true;
             }
 
             if(address.autoconfig)
             {
                 NMSettingIP4Config *sIp4 = nullptr;
                 NMSettingIP6Config *sIp6 = nullptr;
-                if (nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
+                if(address.ipversion.empty() || nmUtils::caseInsensitiveCompare("IPv4", address.ipversion))
                 {
                     if(checkAutoConnectEnabledInIPv4Conn(connection)) // already auto connect true connection
                     {
