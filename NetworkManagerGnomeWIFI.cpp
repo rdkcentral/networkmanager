@@ -310,6 +310,9 @@ namespace WPEFramework
             NMDevice *wifiNMDevice = getWifiDevice();
             if(wifiNMDevice == NULL) {
                 NMLOG_WARNING("wifi state is unmanaged !");
+                // EPG Expecting an event for wifi disconnection state
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
                 return true;
             }
 
@@ -318,6 +321,9 @@ namespace WPEFramework
             if (deviceState <= NM_DEVICE_STATE_DISCONNECTED || deviceState == NM_DEVICE_STATE_FAILED || deviceState == NM_DEVICE_STATE_DEACTIVATING)
             {
                 NMLOG_WARNING("wifi already disconnected !");
+                // EPG Expecting an event for wifi disconnection state
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
                 return true;
             }
 
