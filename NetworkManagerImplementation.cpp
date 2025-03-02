@@ -827,20 +827,25 @@ namespace WPEFramework
                     if(_instance->GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality) != Core::ERROR_NONE)
                     {
                         NMLOG_ERROR("Failed to get WiFi signal strength");
-                        continue;
                     }
+                    else
+                    {
+                        if (oldSignalQuality != newSignalQuality) {
+                            NMLOG_INFO("Notifying strength: %s - noise: %s - snr: %s", strength.c_str(), noise.c_str(), snr.c_str());
+                            oldSignalQuality = newSignalQuality;
+                            _instance->ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
+                        }
 
-                    if (oldSignalQuality != newSignalQuality) {
-                        NMLOG_INFO("Notifying strength: %s - noise: %s - snr: %s", strength.c_str(), noise.c_str(), snr.c_str());
-                        oldSignalQuality = newSignalQuality;
-                        _instance->ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
+                        if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
+                            NMLOG_DEBUG("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
+                            m_wifiMonitorstopThread = true; // Signal thread to stop
+                            break; // Exit the loop
+                        }
                     }
-
-                    if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
-                        NMLOG_DEBUG("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
-                        m_wifiMonitorstopThread = true; // Signal thread to stop
-                        break; // Exit the loop
-                    }
+                }
+                else
+                {
+                    NMLOG_ERROR("NetworkManagerImplementation instance is NULL");
                 }
 
                 // Wait for next interval
