@@ -40,11 +40,33 @@ using namespace std;
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
+#define RSSID_COMMAND                   "wpa_cli signal_poll"
+#define SSID_COMMAND                    "wpa_cli status"
 
 namespace WPEFramework
 {
     namespace Plugin
     {
+        class WiFiSignalQualityMonitor
+        {
+            public:
+                WiFiSignalQualityMonitor(){}
+                ~WiFiSignalQualityMonitor(){stopWiFiSignalQualityMonitor();}
+                
+                void startWiFiSignalQualityMonitor();
+                void stopWiFiSignalQualityMonitor();
+                
+            private:
+                void monitorThreadFunction();
+                int m_interval = DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC;
+                // WiFi Signal Quality Monitor
+                std::atomic<bool> m_wifiMonitorstopThread{false};
+                std::atomic<bool> m_wifiMonitorisRunning{false};
+                std::mutex m_wifiMonitorMutex;
+                std::condition_variable m_wifiMonitorCv;
+                std::thread m_wifiMonitorThread;
+        };
+
         class NetworkManagerImplementation : public Exchange::INetworkManager
         {
             enum NetworkEvents
@@ -280,17 +302,12 @@ namespace WPEFramework
                 std::thread m_registrationThread;
                 string m_filterfrequency;
                 std::vector<std::string> m_filterSsidslist;
-                std::thread m_monitorThread;
-                std::atomic<bool> m_stopThread{false};
-                std::atomic<bool> m_isRunning{false};
-                bool m_monitoringStarted = false;
-                std::mutex m_condVariableMutex;
-                std::condition_variable m_condVariable;
 
             public:
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 mutable ConnectivityMonitor connectivityMonitor;
+                WiFiSignalQualityMonitor wifiSignalQualityMonitor;
         };
     }
 }

@@ -26,13 +26,12 @@ using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
-#define RSSID_COMMAND       "wpa_cli signal_poll"
-#define SSID_COMMAND        "wpa_cli status"
 
 namespace WPEFramework
 {
     namespace Plugin
     {
+        extern NetworkManagerImplementation* _instance;
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
@@ -60,7 +59,6 @@ namespace WPEFramework
             {
                 m_registrationThread.join();
             }
-            stopWiFiSignalQualityMonitor();
         }
 
         /**
@@ -671,31 +669,6 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::startWiFiSignalQualityMonitor(int interval)
-        {
-            if (m_isRunning) {
-                NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
-                return;
-            }
-            m_isRunning = true;
-            m_stopThread = false;
-            m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
-        }
-
-        void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
-        {
-            if (!m_isRunning) {
-                return; // No thread to stop
-            }
-            std::lock_guard<std::mutex> lock(m_condVariableMutex);
-            m_stopThread = true;
-            m_condVariable.notify_one();
-            if (m_monitorThread.joinable()) {
-                m_monitorThread.join();
-            }
-            m_isRunning = false;
-        }
-
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
         uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
@@ -804,61 +777,17 @@ namespace WPEFramework
             return rc;
         }
 
-        void NetworkManagerImplementation::monitorThreadFunction(int interval)
-        {
-            static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
-            NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
-            while (!m_stopThread) {
-                std::string ssid{};
-                std::string strength{};
-                std::string noise{};
-                std::string snr{};
-                std::unique_lock<std::mutex> lock(m_condVariableMutex);
-                Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
-
-                NMLOG_DEBUG("checking WiFi signal strength");
-                GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
-
-                if (oldSignalQuality != newSignalQuality) {
-                    NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
-                    oldSignalQuality = newSignalQuality;
-                    NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
-                }
-
-                if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
-                    NMLOG_WARNING("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
-                    m_stopThread = true; // Signal thread to stop
-                    break; // Exit the loop
-                }
-
-                // Wait for the specified interval or until notified to stop
-                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
-                {
-                    NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
-                }
-            }
-            m_isRunning = false;
-        }
-
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected = true;
-                if (!m_monitoringStarted)
-                {
-                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
-                    m_monitoringStarted = true;
-                }
+                wifiSignalQualityMonitor.startWiFiSignalQualityMonitor();
             }
             else
             {
-                if (m_monitoringStarted)
-                {
-                    stopWiFiSignalQualityMonitor();
-                    m_monitoringStarted = false;
-                }
+                wifiSignalQualityMonitor.stopWiFiSignalQualityMonitor();
                 m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
             }
 
@@ -878,6 +807,70 @@ namespace WPEFramework
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
+        }
+
+        void WiFiSignalQualityMonitor::monitorThreadFunction()
+        {
+            static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
+            NMLOG_INFO("WiFiSignalQualityMonitor thread started !");
+            while (!m_wifiMonitorstopThread) 
+            {
+                std::string ssid{};
+                std::string strength{};
+                std::string noise{};
+                std::string snr{};
+                Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
+
+                NMLOG_DEBUG("checking WiFi signal strength");
+                if (_instance != nullptr)
+                {
+                    if(_instance->GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality) != Core::ERROR_NONE)
+                    {
+                        NMLOG_ERROR("Failed to get WiFi signal strength");
+                        continue;
+                    }
+
+                    if (oldSignalQuality != newSignalQuality) {
+                        NMLOG_INFO("Notifying strength: %s - noise: %s - snr: %s", strength.c_str(), noise.c_str(), snr.c_str());
+                        oldSignalQuality = newSignalQuality;
+                        _instance->ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
+                    }
+
+                    if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
+                        NMLOG_DEBUG("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
+                        m_wifiMonitorstopThread = true; // Signal thread to stop
+                        break; // Exit the loop
+                    }
+                }
+
+                // Wait for next interval
+                std::unique_lock<std::mutex> lock(m_wifiMonitorMutex);
+                if (m_wifiMonitorCv.wait_for(lock, std::chrono::seconds(m_interval)) != std::cv_status::timeout) {
+                    NMLOG_DEBUG("WiFiSignalQuality monitor received signal..");
+                    m_wifiMonitorstopThread = true; // Signal thread to stop
+                }
+            }
+            NMLOG_INFO("WiFiSignalQuality monitor exited !");
+            m_wifiMonitorisRunning = false;
+        }
+
+        void WiFiSignalQualityMonitor::startWiFiSignalQualityMonitor()
+        {
+            m_wifiMonitorstopThread = false;
+            if (m_wifiMonitorisRunning) {
+                NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
+                return;
+            }
+            m_wifiMonitorisRunning = true;
+            m_wifiMonitorThread = std::thread(&WiFiSignalQualityMonitor::monitorThreadFunction, this);
+            m_wifiMonitorThread.detach();
+        }
+
+        void WiFiSignalQualityMonitor::stopWiFiSignalQualityMonitor()
+        {
+            std::unique_lock<std::mutex> lock(m_wifiMonitorMutex);
+            m_wifiMonitorstopThread = true;
+            m_wifiMonitorCv.notify_one();
         }
     }
 }
