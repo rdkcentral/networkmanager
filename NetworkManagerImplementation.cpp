@@ -771,7 +771,7 @@ namespace WPEFramework
                 quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
-            NMLOG_INFO ("GetWiFiSignalQuality success");
+            NMLOG_DEBUG("GetWiFiSignalQuality success");
             rc = Core::ERROR_NONE;
 
             return rc;
