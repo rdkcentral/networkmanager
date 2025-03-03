@@ -687,9 +687,11 @@ namespace WPEFramework
             if (!m_isRunning) {
                 return; // No thread to stop
             }
-            std::lock_guard<std::mutex> lock(m_condVariableMutex);
-            m_stopThread = true;
-            m_condVariable.notify_one();
+            {
+                std::lock_guard<std::mutex> lock(m_condVariableMutex);
+                m_stopThread = true;
+                m_condVariable.notify_one();
+            }
             if (m_monitorThread.joinable()) {
                 m_monitorThread.join();
             }
@@ -813,7 +815,6 @@ namespace WPEFramework
                 std::string strength{};
                 std::string noise{};
                 std::string snr{};
-                std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 NMLOG_DEBUG("checking WiFi signal strength");
@@ -831,6 +832,7 @@ namespace WPEFramework
                     break; // Exit the loop
                 }
 
+                std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 // Wait for the specified interval or until notified to stop
                 if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
                 {
