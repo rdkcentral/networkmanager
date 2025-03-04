@@ -11,17 +11,21 @@
 #define LOG_ERR(msg, ...)    g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define MAX_CONTEXT_FAIL 3
+#define MAX_CONTEXT_FAIL  5
+#define T2_EVENT_DATA_LEN 128
 
 class UpnpDiscoveryManager
 {
 public:
     UpnpDiscoveryManager();
     ~UpnpDiscoveryManager();
-    void findGatewayDevice(const std::string& interface);
+    bool findGatewayDevice(const std::string& interface);
+    void enterWait();
 
 private:
-    static gboolean logTelemetry(void* arg);
+    void logTelemetry(std::string message);
+    static gboolean discoveryTimeout(void* arg);
+    void exitWait();
     gboolean initialiseUpnp(const std::string& interface);
     void stopSearchGatewayDevice();
     void on_device_proxy_available(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy);
@@ -32,13 +36,14 @@ private:
     }
     GUPnPContext*       m_context;
     GUPnPControlPoint*  m_controlPoint;
-    std::mutex          m_apMutex;
+    GMainLoop*          m_mainLoop;
+    std::string         m_interface;
     std::string         m_apMake;
     std::string         m_apModelName;
     std::string         m_apModelNumber;
     std::ostringstream  m_gatewayDetails;
-    static std::string const m_deviceInternetGateway;
-    static const int    LOGGING_PERIOD_IN_SEC = 30; //15min * 60
-    bool                m_upnpRunStatus;
+    static const std::string m_deviceInternetGateway;
+    static const guint  DISCOVERY_PORT = 1901; 
+    static const int    DISCOVERY_TIMEOUT_IN_SEC = 180; 
 };
 #endif
