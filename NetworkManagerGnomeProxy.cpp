@@ -159,8 +159,14 @@ namespace WPEFramework
             remoteConn = nm_active_connection_get_connection(activeConn);
             if(remoteConn == NULL)
             {
-                NMLOG_ERROR("remote connection error");
-                return Core::ERROR_GENERAL;
+                NMLOG_WARNING("primary connection but remote connection error");
+                NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+                /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
+                if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
+                    m_defaultInterface = interface = ethname;
+                else
+                    m_defaultInterface = interface = wifiname; // default is wifi
+                return Core::ERROR_NONE;
             }
 
             const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
@@ -375,7 +381,7 @@ namespace WPEFramework
             NMDhcpConfig *dhcp4_config = NULL;
             NMDhcpConfig *dhcp6_config = NULL;
             const char* dhcpserver;
-            NMSettingConnection *settings;
+            NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
@@ -431,11 +437,22 @@ namespace WPEFramework
 
             for (guint i = 0; i < connections->len; i++)
             {
+                if(connections->pdata[i] == NULL)
+                    continue;
+
                 NMActiveConnection *connection = NM_ACTIVE_CONNECTION(connections->pdata[i]);
                 if (connection == nullptr)
                     continue;
-                settings = nm_connection_get_setting_connection(NM_CONNECTION(nm_active_connection_get_connection(connection)));
 
+                NMRemoteConnection* retConn = nm_active_connection_get_connection(connection);
+                if(retConn == NULL) {
+                    NMLOG_INFO("remote connection is null");
+                    continue;
+                }
+
+                settings = nm_connection_get_setting_connection(NM_CONNECTION(retConn));
+                if(settings == NULL)
+                    continue;
                 if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
                     conn = connection;
                     break;
