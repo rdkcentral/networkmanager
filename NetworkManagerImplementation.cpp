@@ -764,6 +764,8 @@ namespace WPEFramework
                 noiseStr= "0";
             if (snrStr.empty())
                 snrStr = "0";
+            if (strength.empty())
+                strength = "0";
 
             readNoise = std::stoi(noiseStr);
             strengthOut = std::stoi(snrStr);
