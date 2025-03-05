@@ -8,8 +8,8 @@
 #include <telemetry_busmessage_sender.h>
 #endif
 
-#define LOG_ERR(msg, ...)    g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
-#define LOG_INFO(msg, ...)   g_printerr("[%s:%d] " msg "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_ERR(msg, ...)    g_printerr( msg "\n", ##__VA_ARGS__)
+#define LOG_INFO(msg, ...)   g_printerr( msg "\n", ##__VA_ARGS__)
 
 #define MAX_CONTEXT_FAIL  5
 #define T2_EVENT_DATA_LEN 128
