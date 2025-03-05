@@ -705,7 +705,6 @@ namespace WPEFramework
             int16_t strengthOut = 0;
 
             std::string key, value;
-            string noiseStr{};
             string snrStr{};
             int16_t readNoise = 0;
             string bssid{};
@@ -746,7 +745,7 @@ namespace WPEFramework
                         strength = value;
                     }
                     else if (key == "noise") {
-                        noiseStr = value;
+                        noise = value;
                     }
                     else if (key == "ssid") {
                         ssid = value;
@@ -754,36 +753,36 @@ namespace WPEFramework
                     else if (key == "snr") {
                         snrStr = value;
                     }
-                    if (!strength.empty() && !noiseStr.empty() && !ssid.empty() && !snrStr.empty())
+                    if (!strength.empty() && !noise.empty() && !ssid.empty() && !snrStr.empty())
                         break;
             }
             pclose(fp);
 
             /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
-            if (noiseStr.empty())
-                noiseStr= "0";
+            if (noise.empty())
+                noise= "0";
             if (snrStr.empty())
                 snrStr = "0";
             if (strength.empty())
                 strength = "0";
 
-            readNoise = std::stoi(noiseStr);
+            readNoise = std::stoi(noise);
             strengthOut = std::stoi(snrStr);
 
             /* Check the Noise is within range */
             if(!(readNoise <= 0 && readNoise >= DEFAULT_NOISE))
             {
                 NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
-                readNoise = 0;
+                noise = "0";
             }
             if(!(strengthOut >= 0 && strengthOut <= MAX_SNR_VALUE))
             {
                 NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid mapping with rssi (%s)", strengthOut, strength.c_str());
                 strengthOut = std::stoi(strength); /* mapping rssi value when the SNR value is not proper */
+                strengthOut = (strengthOut < 0) ? -strengthOut : strengthOut;
             }
 
             snr = std::to_string(strengthOut);
-            noise = std::to_string(readNoise);
             NMLOG_INFO ("RSSI: %s dBm; Noise: %d dBm; SNR: %d dBm", strength.c_str(), readNoise, strengthOut);
 
             if (strengthOut == 0)
