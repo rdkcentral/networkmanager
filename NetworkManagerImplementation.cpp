@@ -774,11 +774,14 @@ namespace WPEFramework
                 NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
                 readNoise = 0;
             }
+            if(!(strengthOut >= 0 && strengthOut <= MAX_SNR_VALUE))
+            {
+                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid mapping with rssi (%s)", strengthOut, strength.c_str());
+                strengthOut = std::stoi(strength); /* mapping rssi value when the SNR value is not proper */
+            }
 
-            /* Update the results */
-            noise = noiseStr;
-            snr = snrStr;
-
+            snr = std::to_string(strengthOut);
+            noise = std::to_string(readNoise);
             NMLOG_INFO ("RSSI: %s dBm; Noise: %d dBm; SNR: %d dBm", strength.c_str(), readNoise, strengthOut);
 
             if (strengthOut == 0)
