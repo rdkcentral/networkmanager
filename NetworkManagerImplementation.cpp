@@ -28,6 +28,7 @@ using namespace NetworkManagerLogger;
 #define CIDR_NETMASK_IP_LEN 32
 #define RSSID_COMMAND       "wpa_cli signal_poll"
 #define SSID_COMMAND        "wpa_cli status"
+#define BSS_COMMAND         "wpa_cli bss"
 
 namespace WPEFramework
 {
@@ -706,34 +707,12 @@ namespace WPEFramework
 
             std::string key, value;
             string noiseStr{};
-            string rssiStr{};
-            int16_t readRSSI = 0;
+            string snrStr{};
             int16_t readNoise = 0;
+            string bssid{};
             char buff[512] = {'\0'};
 
             FILE *fp = NULL;
-
-            /* Noise n RSSI */
-            fp = popen(RSSID_COMMAND, "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",RSSID_COMMAND);
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
-            {
-                std::istringstream mystream(buff);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                    if (key == "RSSI") {
-                        rssiStr = value;
-                    }
-                    else if (key == "NOISE") {
-                        noiseStr = value;
-                    }
-                    if (!rssiStr.empty() && !noiseStr.empty())
-                        break;
-            }
-            pclose(fp);
 
             /* SSID */
             fp = popen(SSID_COMMAND, "r");
@@ -745,36 +724,61 @@ namespace WPEFramework
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                    if (key == "ssid") {
-                        ssid = value;
+                    if (key == "bssid") {
+                        bssid = value;
                         break;
                     }
             }
             pclose(fp);
 
+            /* Noise n RSSI */
+            std::string bssCommand = std::string(BSS_COMMAND) + " " + bssid;
+            fp = popen(bssCommand.c_str(), "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s",RSSID_COMMAND);
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buff);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                    if (key == "level") {
+                        strength = value;
+                    }
+                    else if (key == "noise") {
+                        noiseStr = value;
+                    }
+                    else id (key == "ssid") {
+                        ssid = value;
+                    }
+                    else id (key == "snr") {
+                        snrStr = value;
+                    }
+                    if (!strength.empty() && !noiseStr.empty() && !ssid.empty() && !snrStr.empty())
+                        break;
+            }
+            pclose(fp);
+
             /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
-            if (rssiStr.empty())
-                rssiStr = "0";
             if (noiseStr.empty())
                 noiseStr= "0";
+            if (snrStr.empty())
+                snrStr = "0";
 
-            readRSSI  = std::stoi(rssiStr);
             readNoise = std::stoi(noiseStr);
+            strengthOut = std::stoi(snrStr);
 
             /* Check the Noise is within range */
-            if(!(readNoise <= 0 || readNoise >= DEFAULT_NOISE))
+            if(!(readNoise <= 0 && readNoise >= DEFAULT_NOISE))
             {
                 NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
                 readNoise = 0;
             }
 
-            /* Calculate the SNR */
-            strengthOut = readRSSI - readNoise;
-
             /* Update the results */
-            strength = rssiStr;
             noise = noiseStr;
-            snr = std::to_string(strengthOut);
+            snr = snrStr;
 
             NMLOG_INFO ("RSSI: %d dBm; Noise: %d dBm; SNR: %d dBm", readRSSI, readNoise, strengthOut);
 
