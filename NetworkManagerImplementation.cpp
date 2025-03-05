@@ -702,7 +702,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            int16_t strengthOut = 0;
+            int16_t readSnr = 0;
 
             std::string key, value;
             string snrStr{};
@@ -767,7 +767,7 @@ namespace WPEFramework
                 strength = "0";
 
             readNoise = std::stoi(noise);
-            strengthOut = std::stoi(snrStr);
+            readSnr = std::stoi(snrStr);
 
             /* Check the Noise is within range */
             if(!(readNoise <= 0 && readNoise >= DEFAULT_NOISE))
@@ -775,30 +775,30 @@ namespace WPEFramework
                 NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
                 noise = "0";
             }
-            if(!(strengthOut >= 0 && strengthOut <= MAX_SNR_VALUE))
+            if(!(readSnr >= 0 && readSnr <= MAX_SNR_VALUE))
             {
-                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid mapping with rssi (%s)", strengthOut, strength.c_str());
-                strengthOut = std::stoi(strength); /* mapping rssi value when the SNR value is not proper */
-                strengthOut = (strengthOut < 0) ? -strengthOut : strengthOut;
+                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid mapping with rssi (%s)", readSnr, strength.c_str());
+                readSnr = std::stoi(strength); /* mapping rssi value when the SNR value is not proper */
+                readSnr = (readSnr < 0) ? -readSnr : readSnr;
             }
 
-            snr = std::to_string(strengthOut);
-            NMLOG_INFO ("RSSI: %s dBm; Noise: %d dBm; SNR: %d dBm", strength.c_str(), readNoise, strengthOut);
+            snr = std::to_string(readSnr);
+            NMLOG_INFO ("RSSI: %s dBm; Noise: %s dBm; SNR: %d dBm", strength.c_str(), noise.c_str(), readSnr);
 
-            if (strengthOut == 0)
+            if (readSnr == 0)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
                 strength = "0";
             }
-            else if (strengthOut > 0 && strengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
+            else if (readSnr > 0 && readSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
             }
-            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_FAIR && strengthOut < NM_WIFI_SNR_THRESHOLD_GOOD)
+            else if (readSnr > NM_WIFI_SNR_THRESHOLD_FAIR && readSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
             }
-            else if (strengthOut > NM_WIFI_SNR_THRESHOLD_GOOD && strengthOut < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+            else if (readSnr > NM_WIFI_SNR_THRESHOLD_GOOD && readSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
             }
