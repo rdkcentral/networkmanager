@@ -26,9 +26,11 @@ if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
     if [ "x$cmd" == "xadd" ]; then
         if [ ! -f $file ]; then
             touch /tmp/.upnpdiscover
+            pid=`pidof upnpdiscover`
+            if [ -n "$pid" ]; then
+                kill -9 $pid
+            fi 
             echo "Starting upnpdiscover on $ifc" >> /opt/logs/routerInfo.log
-            systemctl stop upnpdiscover_interface@$WIFI_INTERFACE
-            systemctl stop upnpdiscover_interface@$ETHERNET_INTERFACE
             systemctl start upnpdiscover_interface@$ifc
         fi
     fi
