@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.3)
 project(upnpdiscover)
 set(MODULE_NAME upnpdiscover)
 find_package(PkgConfig REQUIRED)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBSOUP REQUIRED libsoup-2.4)
 pkg_check_modules(GUPNP REQUIRED gupnp-1.0)
