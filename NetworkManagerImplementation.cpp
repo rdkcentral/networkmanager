@@ -783,7 +783,7 @@ namespace WPEFramework
             }
 
             snr = std::to_string(strengthOut);
-            NMLOG_INFO ("RSSI: %s dBm; Noise: %d dBm; SNR: %d dBm", strength.c_str(), readNoise, strengthOut);
+            NMLOG_INFO ("RSSI: %s dBm; Noise: %d dBm; SNR: %d dBm", strength.c_str(), noise.c_str(), strengthOut);
 
             if (strengthOut == 0)
             {
