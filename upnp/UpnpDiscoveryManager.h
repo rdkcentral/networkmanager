@@ -1,5 +1,5 @@
-#ifndef __UPNP_H__
-#define __UPNP_H__
+#ifndef __UPNPDISCOVERYMANAGER_H__
+#define __UPNPDISCOVERYMANAGER_H__
 
 #include <libgupnp/gupnp.h>
 #include <mutex>
@@ -46,4 +46,4 @@ private:
     static const guint  DISCOVERY_PORT = 1901; 
     static const int    DISCOVERY_TIMEOUT_IN_SEC = 180; 
 };
-#endif
+#endif /* __UPNPDISCOVERYMANAGER_H__ */
