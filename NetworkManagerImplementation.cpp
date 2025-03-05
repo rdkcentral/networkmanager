@@ -26,7 +26,6 @@ using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
-#define RSSID_COMMAND       "wpa_cli signal_poll"
 #define SSID_COMMAND        "wpa_cli status"
 #define BSS_COMMAND         "wpa_cli bss"
 
@@ -736,7 +735,7 @@ namespace WPEFramework
             fp = popen(bssCommand.c_str(), "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",RSSID_COMMAND);
+                NMLOG_ERROR("Failed in getting output from command %s",BSS_COMMAND);
                 return Core::ERROR_RPC_CALL_FAILED;
             }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
