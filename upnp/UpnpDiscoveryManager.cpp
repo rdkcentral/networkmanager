@@ -70,10 +70,10 @@ void UpnpDiscoveryManager::logTelemetry(std::string message)
 {
 #if USE_TELEMETRY 
     //T2 telemtery logging
-    T2ERROR t2error = t2_event_s("Router_Discovered", message);
+    T2ERROR t2error = t2_event_s("Router_Discovered", message.c_str());
     if (t2error != T2ERROR_SUCCESS)
     {
-        LOG_ERR("t2_event_s(\"%s\", \"%s\") returned error code %d", "Router_Discovered", message, t2error);
+        LOG_ERR("t2_event_s(\"%s\", \"%s\") returned error code %d", "Router_Discovered", message.c_str(), t2error);
     }
 #endif
 }
