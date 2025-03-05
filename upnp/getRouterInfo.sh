@@ -17,7 +17,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##############################################################################
+. /etc/device.properties
 
+cmd=$1
 ifc=$3
-echo "Starting upnpdiscover on $ifc"
-systemctl start upnpdiscover_interface@$ifc
+file="/tmp/.upnpdiscover"
+if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
+    if [ "x$cmd" == "xadd" ]; then
+        if [ ! -f $file ]; then
+            touch /tmp/.upnpdiscover
+            echo "Starting upnpdiscover on $ifc" >> /opt/logs/routerInfo.log
+            systemctl stop upnpdiscover_interface@$WIFI_INTERFACE
+            systemctl stop upnpdiscover_interface@$ETHERNET_INTERFACE
+            systemctl start upnpdiscover_interface@$ifc
+        fi
+    fi
+fi
