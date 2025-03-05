@@ -25,10 +25,14 @@
 
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusMgr.h"
+#include "NetworkManagerSecretAgent.h"
 #include "INetworkManager.h"
 
 #define ROUTE_METRIC_PRIORITY_HIGH 10
 #define ROUTE_METRIC_PRIORITY_LOW  100
+#define GDBUS_WPS_RETRY_WAIT_IN_MS        10 // 10 sec
+#define GDBUS_WPS_RETRY_COUNT             10
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -59,7 +63,7 @@ namespace WPEFramework
                 bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
                 bool removeKnownSSIDs(const std::string& ssid);
                 bool startWifiScan(const std::string ssid = "");
-                bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
+                bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, bool iswpsAP = false);
                 bool wifiDisconnect();
                 bool getWifiState(Exchange::INetworkManager::WiFiState &state);
                 bool getWiFiSignalQuality(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
@@ -69,7 +73,10 @@ namespace WPEFramework
             private:
                 NetworkManagerClient();
                 ~NetworkManagerClient();
-
+                void wpsProcess();
+                std::thread m_wpsthread;
+                std::atomic<bool> m_wpsProcessRun;
+                SecretAgent m_secretAgent;
                 DbusMgr m_dbus;
         };
     } // Plugin

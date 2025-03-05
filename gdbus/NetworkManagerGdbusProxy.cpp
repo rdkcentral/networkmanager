@@ -284,12 +284,38 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {
-            return Core::ERROR_NONE;
+            uint32_t rc = Core::ERROR_NONE;
+            if(method == WIFI_WPS_SERIALIZED_PIN || method == WIFI_WPS_PIN)
+            {
+                NMLOG_ERROR("WPS PIN method is not supported as of now");
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            _nmGdbusEvents->setwifiScanOptions(false);
+            if(!_nmGdbusClient->startWifiScan())
+            {
+                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+            }
+
+            if(_nmGdbusClient->startWPS())
+                NMLOG_INFO ("start WPS success");
+            else {
+                rc = Core::ERROR_GENERAL;
+                NMLOG_ERROR("start WPS failed");
+            }
+
+            return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
-            return Core::ERROR_NONE;
+            uint32_t rc = Core::ERROR_NONE;
+            if(_nmGdbusClient->stopWPS())
+                NMLOG_INFO ("stop success");
+            else {
+                NMLOG_ERROR("stop WPS failed");
+                rc = Core::ERROR_GENERAL;
+            }
+            return rc;
         }
     }
 }
