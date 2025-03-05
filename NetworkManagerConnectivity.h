@@ -132,7 +132,7 @@ namespace WPEFramework
             bool switchToInitialCheck();
             void setConnectivityMonitorEndpoints(const std::vector<std::string> &endpoints);
             std::vector<std::string> getConnectivityMonitorEndpoints();
-            Exchange::INetworkManager::InternetStatus getInternetState(Exchange::INetworkManager::IPVersion& ipversion, std::string& interface, bool ipVersionNotSpecified);
+            Exchange::INetworkManager::InternetStatus getInternetState(std::string& interface, Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified);
             std::string getCaptivePortalURI();
 
         private:

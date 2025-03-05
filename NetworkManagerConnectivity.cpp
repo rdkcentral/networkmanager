@@ -507,7 +507,7 @@ namespace WPEFramework
         m_endpoint.setConnectivityMonitorEndpoints(endpoints);
     }
 
-    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(Exchange::INetworkManager::IPVersion& ipversion, std::string& interface, bool ipVersionNotSpecified)
+    Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(std::string& interface, Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
         if(!interface.empty()) /* interface is specified, so doing a fresh curl check not taking cache value */
         {
