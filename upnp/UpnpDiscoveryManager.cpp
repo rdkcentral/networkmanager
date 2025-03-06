@@ -98,7 +98,6 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
         //Create timer to handle upnp discovery timeout
         g_timeout_add_seconds (DISCOVERY_TIMEOUT_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::discoveryTimeout), this);
         // Start discovery to find InternetGatewayDevice
-        LOG_INFO("Searching for InternetGatewayDevice");
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), TRUE);
         return true;
     }
