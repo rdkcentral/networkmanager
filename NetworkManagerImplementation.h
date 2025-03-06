@@ -226,7 +226,7 @@ namespace WPEFramework
                 uint32_t SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */) override;
 
                 /* @brief Get Internet Connectivty Status */ 
-                uint32_t IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */) override;
+                uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */) override;
                 /* @brief Get Authentication URL if the device is behind Captive Portal */
                 uint32_t GetCaptivePortalURI(string &endpoints/* @out */) const override;
 

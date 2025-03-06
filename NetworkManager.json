@@ -615,12 +615,15 @@
             }
         },
         "IsConnectedToInternet":{
-            "summary": "Seeks whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.",
+            "summary": "Seeks whether the device has internet connectivity. This API might take up to 5s to validate internet connectivity. If an interface is provided, connectivity is validated through that specific network interface. If an IP version is specified, connectivity is checked using that IP protocol.",
             "params": {
                 "type":"object",
                 "properties": {
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
+                    },
+                    "interface": {
+                        "$ref": "#/definitions/interface"
                     }
                 },
                 "required": [
@@ -631,6 +634,9 @@
                 "properties": {
                     "ipversion": {
                         "$ref": "#/definitions/ipversion"
+                    },
+                    "interface": {
+                        "$ref": "#/definitions/interface"
                     },
                     "connected": {
                         "summary": "`true` if internet connectivity is detected, otherwise `false`",
@@ -653,6 +659,7 @@
                 },
                 "required": [
                     "ipversion",
+                    "interface",
                     "connected",
                     "state",
                     "status",
