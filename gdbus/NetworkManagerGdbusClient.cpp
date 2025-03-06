@@ -1360,11 +1360,13 @@ namespace WPEFramework
             return ret;
         }
 
-        bool NetworkManagerClient::getAvailableSSIDs(std::list<std::string>& ssids)
+        bool NetworkManagerClient::getMatchingSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo& ssidInfo, std::string& apPathStr)
         {
             GError* error = nullptr;
             GDBusProxy* wProxy = nullptr;
             deviceInfo devProperty{};
+            Exchange::INetworkManager::WiFiSSIDInfo apInfo{};
+            bool ret = false;
 
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devProperty))
                 return false;
@@ -1392,19 +1394,26 @@ namespace WPEFramework
             g_variant_get(result, "(ao)", &iter);
 
             while (g_variant_iter_loop(iter, "o", &apPath)) {
-                Exchange::INetworkManager::WiFiSSIDInfo wifiInfo{};
                 if(apPath == NULL)
                     continue;
                 NMLOG_DEBUG("Access Point Path: %s", apPath);
-                if(GnomeUtils::getApDetails(m_dbus, apPath, wifiInfo))
-                    ssids.push_back(wifiInfo.ssid);
+                if(GnomeUtils::getApDetails(m_dbus, apPath, apInfo))
+                {
+                    if(ssidInfo.ssid == apInfo.ssid)
+                    {
+                        ssidInfo = apInfo;
+                        apPathStr = apPath;
+                        ret = true;
+                        break;
+                    }
+                }
             }
 
             g_variant_iter_free(iter);
             g_variant_unref(result);
             g_object_unref(wProxy);
 
-            return true;
+            return ret;
         }
 
         bool NetworkManagerClient::startWifiScan(const std::string ssid)
@@ -1932,7 +1941,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool NetworkManagerClient::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, bool iswpsAP)
+        bool NetworkManagerClient::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP)
         {
             // TODO check sudo nmcli device wifi connect HomeNet password rafi@123
             //            Error: Connection activation failed: Device disconnected by user or client error ?
@@ -1940,6 +1949,7 @@ namespace WPEFramework
             bool reuseConnection = false;
             deviceInfo deviceProp;
             std::string exsistingConn;
+            Exchange::INetworkManager::WiFiConnectTo ssidinfo = connectInfo;
 
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), deviceProp))
                 return false;
@@ -1964,6 +1974,22 @@ namespace WPEFramework
                     }
                 }
             }
+
+            /* if ap is avilable check the security is maching to user requested */
+            Exchange::INetworkManager::WiFiSSIDInfo apInfo{};
+            apInfo.ssid = ssidinfo.ssid;
+            std::string apPathStr = "/"; // default specific object path is "/"
+            if(getMatchingSSIDInfo(apInfo, apPathStr))
+            {
+                if(ssidinfo.security != apInfo.security)
+                {
+                    NMLOG_WARNING("user requested wifi security '%d' != AP supported security %d ", ssidinfo.security, apInfo.security);
+                    ssidinfo.security = apInfo.security;
+                    NMLOG_DEBUG("ap path %s", apPathStr.c_str());
+                }
+            }
+            else
+                NMLOG_WARNING("matching ssid (%s) not found in scanning result", ssidinfo.ssid.c_str());
 
             if(reuseConnection)
             {
@@ -2140,7 +2166,15 @@ namespace WPEFramework
         {
             m_wpsProcessRun = true;
             Exchange::INetworkManager::WiFiConnectTo ssidinfo{};
+            Exchange::INetworkManager::WiFiState state;
             NMLOG_INFO("WPS process started !");
+
+            if(!getWifiState(state))
+            {
+                NMLOG_ERROR("wifi state error ! wps process stoped !");
+                m_wpsProcessRun = false;
+                return;
+            }
 
             for(int retry =0; retry < GDBUS_WPS_RETRY_COUNT; retry++)
             {
@@ -2155,12 +2189,29 @@ namespace WPEFramework
                     NMLOG_DEBUG("WPS process retrying: %d ", retry+1);
                     continue;
                 }
+
+                if(!getWifiState(state))
+                {
+                    NMLOG_ERROR("wifi state error ! wps process stoped !");
+                    m_wpsProcessRun = false;
+                    return;
+                }
+
+                if(Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED != state)
+                {
+                    /* we need a wifi disconnected state to proceed wifi PBC process */
+                    wifiDisconnect();
+                }
+
                 ssidinfo.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+                ssidinfo.persist = true;
+                /* security mode will be updated in wifi connect function, if not mathing to wpa-psk */
                 wifiConnect(ssidinfo, true); // isWps = true
                 break;
             }
 
             NMLOG_INFO("wps process complete !!");
+            m_wpsProcessRun = false;
         }
 
         bool NetworkManagerClient::startWPS()

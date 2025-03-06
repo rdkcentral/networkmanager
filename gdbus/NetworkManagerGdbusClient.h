@@ -58,12 +58,11 @@ namespace WPEFramework
                 bool getInterfaceState(const std::string& interface, bool& isEnabled);
                 bool getIPSettings(const std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result);
                 bool getKnownSSIDs(std::list<std::string>& ssids);
-                bool getAvailableSSIDs(std::list<std::string>& ssids);
                 bool getConnectedSSID(Exchange::INetworkManager::WiFiSSIDInfo& ssidinfo);
                 bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
                 bool removeKnownSSIDs(const std::string& ssid);
                 bool startWifiScan(const std::string ssid = "");
-                bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, bool iswpsAP = false);
+                bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP = false);
                 bool wifiDisconnect();
                 bool getWifiState(Exchange::INetworkManager::WiFiState &state);
                 bool getWiFiSignalQuality(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
@@ -74,6 +73,7 @@ namespace WPEFramework
                 NetworkManagerClient();
                 ~NetworkManagerClient();
                 void wpsProcess();
+                bool getMatchingSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo& ssidInfo, std::string& apPathStr);
                 std::thread m_wpsthread;
                 std::atomic<bool> m_wpsProcessRun;
                 SecretAgent m_secretAgent;
