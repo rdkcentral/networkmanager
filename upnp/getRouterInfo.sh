@@ -20,10 +20,12 @@
 . /etc/device.properties
 
 cmd=$1
+mode=$2
 ifc=$3
+flags=$5
 file="/tmp/.upnpdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
-    if [ "x$cmd" == "xadd" ]; then
+    if [ "$cmd" == "add" ] && [ "$mode" == "ipv4" ] && [ "$flags" = "global" ]; then
         if [ ! -f $file ]; then
             touch /tmp/.upnpdiscover
             pid=`pidof upnpdiscover`
