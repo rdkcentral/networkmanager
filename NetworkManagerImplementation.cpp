@@ -246,23 +246,41 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */ 
-         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, InternetStatus &result /* @out */)
+        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             bool ipVersionNotSpecified = false;
-            if(0 == strcasecmp("IPv4", ipversion.c_str()))
-                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
-            else if(0 == strcasecmp("IPv6", ipversion.c_str()))
-                curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V6;
-            else
-                ipVersionNotSpecified = true;
 
-            result = connectivityMonitor.getInternetState(curlIPversion, ipVersionNotSpecified);
+            if(!ipversion.empty() && ipversion != "IPv4" && ipversion != "IPv6")
+            {
+                NMLOG_WARNING("Invalid Ipversion argument %s", ipversion.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
+            else
+            {
+                if(ipversion == "IPv4")
+                    curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
+                else if(ipversion == "IPv6")
+                    curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V6;
+                else
+                    ipVersionNotSpecified = true;
+            }
+
+            if(!interface.empty()&& interface != "wlan0" && interface != "eth0")
+            {
+                NMLOG_WARNING("Invalid Interface argument %s", interface.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
                 ipversion = "IPv4";
+
+            if(interface.empty())
+                interface = m_defaultInterface;
 
             return Core::ERROR_NONE;
         }
