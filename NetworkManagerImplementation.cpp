@@ -705,7 +705,6 @@ namespace WPEFramework
             int16_t readSnr = 0;
 
             std::string key, value;
-            string snrStr{};
             int16_t readNoise = 0;
             string bssid{};
             char buff[512] = {'\0'};
@@ -751,9 +750,9 @@ namespace WPEFramework
                         ssid = value;
                     }
                     else if (key == "snr") {
-                        snrStr = value;
+                        snr = value;
                     }
-                    if (!strength.empty() && !noise.empty() && !ssid.empty() && !snrStr.empty())
+                    if (!strength.empty() && !noise.empty() && !ssid.empty() && !snr.empty())
                         break;
             }
             pclose(fp);
@@ -761,29 +760,33 @@ namespace WPEFramework
             /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
             if (noise.empty())
                 noise= "0";
-            if (snrStr.empty())
-                snrStr = "0";
+            if (snr.empty())
+                snr = "0";
             if (strength.empty())
                 strength = "0";
 
             readNoise = std::stoi(noise);
-            readSnr = std::stoi(snrStr);
+            readSnr = std::stoi(snr);
 
             /* Check the Noise is within range */
-            if(!(readNoise <= 0 && readNoise >= DEFAULT_NOISE))
+            if(!(readNoise < 0 && readNoise >= DEFAULT_NOISE))
             {
                 NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
                 noise = "0";
             }
-            if(!(readSnr >= 0 && readSnr <= MAX_SNR_VALUE))
+
+            /* mapping rssi value when the SNR value is not proper */
+            if(!(readSnr > 0 && readSnr <= MAX_SNR_VALUE))
             {
-                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid mapping with rssi (%s)", readSnr, strength.c_str());
-                readSnr = std::stoi(strength); /* mapping rssi value when the SNR value is not proper */
+                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid; Lets map with RSSI (%s)", readSnr, strength.c_str());
+                readSnr = std::stoi(strength);
+                /* Take the absolute value */
                 readSnr = (readSnr < 0) ? -readSnr : readSnr;
+
+                snr = std::to_string(readSnr);
             }
 
-            snr = std::to_string(readSnr);
-            NMLOG_INFO ("RSSI: %s dBm; Noise: %s dBm; SNR: %d dBm", strength.c_str(), noise.c_str(), readSnr);
+            NMLOG_INFO ("RSSI: %s dBm; Noise: %s dBm; SNR: %s dBm", strength.c_str(), noise.c_str(), snr.c_str());
 
             if (readSnr == 0)
             {
