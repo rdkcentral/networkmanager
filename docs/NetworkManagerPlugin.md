@@ -767,7 +767,7 @@ This method used to set up to 5 endpoints for a connectivity test. Successful co
 <a name="method.IsConnectedToInternet"></a>
 ## *IsConnectedToInternet [<sup>method</sup>](#head.Methods)*
 
-Seeks whether the device has internet connectivity. This API might take up to 3s to validate internet connectivity.
+Seeks whether the device has internet connectivity. This API might take up to 5s to validate internet connectivity. If an interface is provided, connectivity is validated through that specific network interface. If an IP version is specified, connectivity is checked using that IP protocol.
 
 ### Parameters
 
@@ -775,6 +775,7 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
 | :-------- | :-------- | :-------- |
 | params | object |  |
 | params?.ipversion | string | <sup>*(optional)*</sup> Either IPv4 or IPv6 |
+| params?.interface | string | <sup>*(optional)*</sup> An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 
 ### Result
 
@@ -782,6 +783,7 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
 | :-------- | :-------- | :-------- |
 | result | object |  |
 | result.ipversion | string | Either IPv4 or IPv6 |
+| result.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
@@ -797,7 +799,8 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
   "id": 42,
   "method": "org.rdk.NetworkManager.1.IsConnectedToInternet",
   "params": {
-    "ipversion": "IPv4"
+    "ipversion": "IPv4",
+    "interface": "wlan0"
   }
 }
 ```
@@ -810,6 +813,7 @@ Seeks whether the device has internet connectivity. This API might take up to 3s
   "id": 42,
   "result": {
     "ipversion": "IPv4",
+    "interface": "wlan0",
     "connected": true,
     "state": 3,
     "status": "FULLY_CONNECTED",

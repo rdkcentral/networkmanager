@@ -281,13 +281,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                                                      "255.255.255.255",
                                                    };
 
-        static bool caseInsensitiveCompare(const std::string& str1, const char* str2)
-        {
-            std::string upperStr1 = str1;
-            std::transform(upperStr1.begin(), upperStr1.end(), upperStr1.begin(), ::toupper);
-            return upperStr1 == str2;
-        }
-
         uint32_t Network::getInterfaces (const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -573,6 +566,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             string ipversion{};
+            string interface{};
             Exchange::INetworkManager::InternetStatus status{};
 
             if (parameters.HasLabel("ipversion"))
@@ -581,7 +575,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr != nullptr)
             {
-                rc = _nwmgr->IsConnectedToInternet(ipversion, status);
+                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
                 _nwmgr->Release();
 
                 if (Core::ERROR_NONE == rc)
@@ -599,6 +593,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             string ipversion{};
+            string interface{};
             Exchange::INetworkManager::InternetStatus status{};
 
             if (parameters.HasLabel("ipversion"))
@@ -607,7 +602,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr != nullptr)
             {
-                rc = _nwmgr->IsConnectedToInternet(ipversion, status);
+                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
 
                 if (Core::ERROR_NONE == rc)
                 {
