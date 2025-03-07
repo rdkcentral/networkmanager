@@ -257,7 +257,11 @@ namespace WPEFramework
     static long current_time ()
     {
         struct timespec ts;
-        clock_gettime (CLOCK_MONOTONIC, &ts);
+        if (0 != clock_gettime (CLOCK_MONOTONIC, &ts))
+        {
+            NMLOG_ERROR("clock_gettime failed");
+            return 0;
+        }
         return (ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
     }
     static size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
@@ -270,7 +274,7 @@ namespace WPEFramework
     Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
-        long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
+        long deadline =  current_time() + timeout_ms , time_now = 0, time_earlier = 0;
 
         CURLM *curl_multi_handle = curl_multi_init();
         if (!curl_multi_handle)
@@ -304,7 +308,16 @@ namespace WPEFramework
                 curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
             curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            long setTimeOut = (deadline - current_time());
+            if (setTimeOut > 0 && setTimeOut <= timeout_ms) {
+                /* Set the CURLOPT_TIMEOUT_MS to the remaining time until the deadline, 
+                   ensuring it's within the allowed timeout_ms. */
+                curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, setTimeOut);
+            } else {
+                /* The calculated remaining time is invalid (either negative, zero, or exceeds timeout_ms).
+                   Set the CURLOPT_TIMEOUT_MS to the maximum allowed timeout_ms as a fallback. */
+                curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
+            }
             if (IP_ADDRESS_V4 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
                 NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
