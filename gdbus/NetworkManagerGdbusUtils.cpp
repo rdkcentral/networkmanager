@@ -428,7 +428,7 @@ namespace WPEFramework
                 wifiInfo.frequency = freqStr.substr(0, 5);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
-                if(noise <= 0 || noise >= DEFAULT_NOISE)
+                if(noise <= 0 && noise >= DEFAULT_NOISE)
                     wifiInfo.noise = std::to_string(noise);
                 else
                     wifiInfo.noise = std::to_string(0);
