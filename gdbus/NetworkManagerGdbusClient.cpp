@@ -1215,7 +1215,7 @@ namespace WPEFramework
                                 const guchar *ssid_data = static_cast<const guchar*>(g_variant_get_fixed_array(value, &ssid_length, sizeof(guchar)));
                                 if (ssid_data && ssid_length > 0 && ssid_length <= 32) {
                                     ssid.assign(reinterpret_cast<const char*>(ssid_data), ssid_length);
-                                    NMLOG_DEBUG("SSID: %s", ssid.c_str());
+                                    //NMLOG_DEBUG("SSID: %s", ssid.c_str());
                                 } else {
                                     NMLOG_ERROR("Invalid SSID length: %zu (maximum is 32)", ssid_length);
                                     ssid.empty();
@@ -1239,7 +1239,7 @@ namespace WPEFramework
                         {
                             G_VARIANT_LOOKUP(setting, "key-mgmt", "&s", &keyMgmt);
                             if(keyMgmt != NULL)
-                                NMLOG_DEBUG("802-11-wireless-security.key-mgmt: %s", keyMgmt);
+                                NMLOG_DEBUG("ssid: %s key-mgmt: %s", ssid.c_str(), keyMgmt);
                             g_variant_unref(setting);
                             setting = NULL;
                         }
@@ -1260,7 +1260,7 @@ namespace WPEFramework
             return ret;
         }
 
-        static bool deleteConnection(DbusMgr m_dbus, const std::string& path, std::string& ssid)
+        static bool deleteConnection(DbusMgr& m_dbus, const std::string& path, std::string& ssid)
         {
             GError *error = NULL;
             GDBusProxy *ConnProxy = NULL;
@@ -1360,11 +1360,13 @@ namespace WPEFramework
             return ret;
         }
 
-        bool NetworkManagerClient::getAvailableSSIDs(std::list<std::string>& ssids)
+        bool NetworkManagerClient::getMatchingSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo& ssidInfo, std::string& apPathStr)
         {
             GError* error = nullptr;
             GDBusProxy* wProxy = nullptr;
             deviceInfo devProperty{};
+            Exchange::INetworkManager::WiFiSSIDInfo apInfo{};
+            bool ret = false;
 
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devProperty))
                 return false;
@@ -1392,17 +1394,26 @@ namespace WPEFramework
             g_variant_get(result, "(ao)", &iter);
 
             while (g_variant_iter_loop(iter, "o", &apPath)) {
-                Exchange::INetworkManager::WiFiSSIDInfo wifiInfo{};
-                NMLOG_DEBUG("Access Point Path: %s", apPath);
-                if(GnomeUtils::getApDetails(m_dbus, apPath, wifiInfo))
-                    ssids.push_back(wifiInfo.ssid);
+                if(apPath == NULL)
+                    continue;
+                // NMLOG_DEBUG("Access Point Path: %s", apPath);
+                if(GnomeUtils::getApDetails(m_dbus, apPath, apInfo))
+                {
+                    if(ssidInfo.ssid == apInfo.ssid)
+                    {
+                        ssidInfo = apInfo;
+                        apPathStr = apPath;
+                        ret = true;
+                        break;
+                    }
+                }
             }
 
             g_variant_iter_free(iter);
             g_variant_unref(result);
             g_object_unref(wProxy);
 
-            return true;
+            return ret;
         }
 
         bool NetworkManagerClient::startWifiScan(const std::string ssid)
@@ -1536,7 +1547,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool addNewConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder connBuilder, const char* devicePath, bool persist)
+        bool addNewConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder& connBuilder, const char* devicePath, bool persist, const char* specificObject)
         {
             GDBusProxy* proxy = nullptr;
             GError* error = nullptr;
@@ -1546,7 +1557,13 @@ namespace WPEFramework
             if(proxy == NULL)
                 return false;
 
-            const char* specific_object = "/";
+            GVariant *connBuilderVariant = g_variant_builder_end(&connBuilder);
+            if(connBuilderVariant == NULL)
+            {
+                NMLOG_ERROR("Failed to build connection settings");
+                g_object_unref(proxy);
+                return false;
+            }
 
             GVariantBuilder optionsBuilder;
             g_variant_builder_init (&optionsBuilder, G_VARIANT_TYPE ("a{sv}"));
@@ -1558,8 +1575,17 @@ namespace WPEFramework
             //else
                 //g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("disk"));
 
+            GVariant *optionBuilderVariant = g_variant_builder_end(&optionsBuilder);
+            if(optionBuilderVariant == NULL)
+            {
+                NMLOG_ERROR("Failed to build options settings");
+                g_object_unref(proxy);
+                return false;
+            }
+
+            NMLOG_DEBUG("devicePath %s, specificObject %s", devicePath, specificObject);
             result = g_dbus_proxy_call_sync (proxy, "AddAndActivateConnection2",
-                g_variant_new("(a{sa{sv}}ooa{sv})", connBuilder, devicePath, specific_object, optionsBuilder),
+                g_variant_new("(@a{sa{sv}}oo@a{sv})", connBuilderVariant, devicePath?: "/", specificObject?: "/", optionBuilderVariant),
                 G_DBUS_CALL_FLAGS_NONE, -1, nullptr, &error);
 
             if (result == NULL) {
@@ -1571,6 +1597,8 @@ namespace WPEFramework
                 g_object_unref(proxy);
                 return false;
             }
+
+            NMLOG_DEBUG("AddAndActivateConnection2 success !!!");
 
             GVariant* pathVariant = NULL;
             GVariant* activeConnVariant = NULL;
@@ -1607,7 +1635,7 @@ namespace WPEFramework
             return std::string("");
         }
 
-        static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, GVariantBuilder& connBuilder)
+        static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, GVariantBuilder& connBuilder, bool iswpsAP = false)
         {
             GVariantBuilder settingsBuilder;
 
@@ -1649,15 +1677,6 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
-                    if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
-                    {
-                        NMLOG_WARNING("wifi securtity type password erro length > 8");
-                        GVariant *sVariant = g_variant_builder_end(&settingsBuilder);
-                        if(sVariant)
-                            g_variant_unref(sVariant);
-                        return false;
-                    }
-
                     if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
                     {
                         NMLOG_DEBUG("802-11-wireless-security key-mgmt: 'sae'");
@@ -1668,18 +1687,31 @@ namespace WPEFramework
                         NMLOG_DEBUG("802-11-wireless-security key-mgmt: 'wpa-psk'");
                         g_variant_builder_add (&settingsBuilder, "{sv}", "key-mgmt", g_variant_new_string("wpa-psk"));  // WPA + WPA2 + WPA3 personal
                     }
-                    g_variant_builder_add (&settingsBuilder, "{sv}", "psk", g_variant_new_string(ssidinfo.passphrase.c_str())); // password
+
+                    /* if ap is not a wps network */
+                    if(!iswpsAP)
+                    {
+                        if(ssidinfo.passphrase.empty() || ssidinfo.passphrase.length() < 8)
+                        {
+                            NMLOG_WARNING("wifi securtity type password erro length > 8");
+                            GVariant *sVariant = g_variant_builder_end(&settingsBuilder);
+                            if(sVariant)
+                                g_variant_unref(sVariant);
+                            return false;
+                        }
+                        g_variant_builder_add (&settingsBuilder, "{sv}", "psk", g_variant_new_string(ssidinfo.passphrase.c_str())); // password
+                    }
                     break;
                 }
-
                 case Exchange::INetworkManager::WIFI_SECURITY_NONE:
                 {
                     NMLOG_DEBUG("802-11-wireless-security key-mgmt: 'none'");
-                    g_variant_builder_add (&settingsBuilder, "{sv}", "key-mgmt", g_variant_new_string("none"));  // no password protection
+                   // g_variant_builder_add (&settingsBuilder, "{sv}", "key-mgmt", g_variant_new_string("none"));  // no password protection
                     break;
                 }
                 default:
                 {
+                    // ToDo handile Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP
                     NMLOG_WARNING("connection wifi securtity type not supported %d", ssidinfo.security);
                     GVariant *sVariant = g_variant_builder_end(&settingsBuilder);
                     if(sVariant)
@@ -1926,7 +1958,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool NetworkManagerClient::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo)
+        bool NetworkManagerClient::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP)
         {
             // TODO check sudo nmcli device wifi connect HomeNet password rafi@123
             //            Error: Connection activation failed: Device disconnected by user or client error ?
@@ -1934,6 +1966,7 @@ namespace WPEFramework
             bool reuseConnection = false;
             deviceInfo deviceProp;
             std::string exsistingConn;
+            Exchange::INetworkManager::WiFiConnectTo ssidinfo = connectInfo;
 
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), deviceProp))
                 return false;
@@ -1959,10 +1992,26 @@ namespace WPEFramework
                 }
             }
 
+            /* if ap is avilable check the security is maching to user requested */
+            Exchange::INetworkManager::WiFiSSIDInfo apInfo{};
+            apInfo.ssid = ssidinfo.ssid;
+            std::string apPathStr = "/"; // default specific object path is "/"
+            if(getMatchingSSIDInfo(apInfo, apPathStr))
+            {
+                if(ssidinfo.security != apInfo.security)
+                {
+                    NMLOG_WARNING("user requested wifi security '%d' != AP supported security %d ", ssidinfo.security, apInfo.security);
+                    ssidinfo.security = apInfo.security;
+                    // NMLOG_DEBUG("ap path %s", apPathStr.c_str());
+                }
+            }
+            else
+                NMLOG_WARNING("matching ssid (%s) not found in scanning result", ssidinfo.ssid.c_str());
+
             if(reuseConnection)
             {
                 NMLOG_INFO("activating connection...");
-                if(!connectionBuilder(ssidinfo, connBuilder)) {
+                if(!connectionBuilder(ssidinfo, connBuilder, iswpsAP)) {
                     NMLOG_WARNING("connection builder failed");
                     return false;
                 }
@@ -1976,11 +2025,11 @@ namespace WPEFramework
             }
             else
             {
-                if(!connectionBuilder(ssidinfo, connBuilder)) {
+                if(!connectionBuilder(ssidinfo, connBuilder, iswpsAP)) {
                     NMLOG_WARNING("connection builder failed");
                     return false;
                 }
-                if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist))
+                if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist, apPathStr.c_str()))
                     NMLOG_INFO("wifi connect request success");
                 else {
                     NMLOG_ERROR("wifi connect request failed");
@@ -2025,14 +2074,182 @@ namespace WPEFramework
             return true;
         }
 
-        bool NetworkManagerClient::startWPS()
+        static bool getWpsPbcSSIDDetails(DbusMgr& m_dbus, const char* apPath, std::string& wpsApSsid)
         {
-            return false;
+            guint32 flags = 0;
+            bool ret = false;
+            GVariant* ssidVariant = NULL;
+            GDBusProxy* proxy = m_dbus.getNetworkManagerAccessPointProxy(apPath);
+            if (proxy == NULL)
+                return false;
+
+            if (GnomeUtils::getCachedPropertyU(proxy, "Flags", &flags) && flags & NM_802_11_AP_FLAGS_WPS_PBC)
+            {
+                gsize ssid_length = 0;
+                ssidVariant = g_dbus_proxy_get_cached_property(proxy,"Ssid");
+                if (!ssidVariant) {
+                    NMLOG_ERROR("Failed to get AP ssid properties.");
+                    g_object_unref(proxy);
+                    return false;
+                }
+
+                const guchar *ssid_data = static_cast<const guchar*>(g_variant_get_fixed_array(ssidVariant, &ssid_length, sizeof(guchar)));
+                if (ssid_data && ssid_length > 0 && ssid_length <= 32)
+                {
+                    GVariant* result = NULL;
+                    gchar *_bssid = NULL;
+                    wpsApSsid.assign(reinterpret_cast<const char*>(ssid_data), ssid_length);
+                    result = g_dbus_proxy_get_cached_property(proxy,"HwAddress");
+                    if (!result) {
+                        NMLOG_ERROR("Failed to get AP properties.");
+                        g_object_unref(proxy);
+                        return false;
+                    }
+                    g_variant_get(result, "s", &_bssid);
+                    if(_bssid != NULL) {
+                        NMLOG_INFO("WPS PBC AP found ssid: %s, bssid: %s", wpsApSsid.c_str(), _bssid);
+                        ret = true;
+                        g_free(_bssid);
+                    }
+                    g_variant_unref(result);
+                }
+                else
+                    NMLOG_ERROR("WPS PBC Ap ssid Error !");
+
+                if(ssidVariant)
+                    g_variant_unref(ssidVariant);
+            }
+
+            if(proxy)
+               g_object_unref(proxy);
+
+            return ret;
         }
 
-        bool NetworkManagerClient::stopWPS()
+        static bool findWpsPbcSSID(DbusMgr& m_dbus, std::string& wpsApSsid)
         {
-            return false;
+            GError* error = nullptr;
+            GDBusProxy* wProxy = nullptr;
+            deviceInfo devProperty{};
+            bool isfound = false;
+
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devProperty))
+                return false;
+
+            if(devProperty.path.empty() || devProperty.state < NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_ERROR("no wifi device found");
+                return false;
+            }
+
+            wProxy = m_dbus.getNetworkManagerWirelessProxy(devProperty.path.c_str());
+            if (wProxy == NULL)
+                return false;
+
+            GVariant* result = g_dbus_proxy_call_sync(wProxy, "GetAllAccessPoints", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+            if (error) {
+                NMLOG_ERROR("Error creating proxy: %s", error->message);
+                g_error_free(error);
+                g_object_unref(wProxy);
+                return false;
+            }
+
+            GVariantIter* iter = NULL;
+            const gchar* apPath = NULL;
+            g_variant_get(result, "(ao)", &iter);
+
+            while (g_variant_iter_loop(iter, "o", &apPath))
+            {
+                guint32 flags = 0;
+                if(apPath == NULL)
+                    continue;
+                // NMLOG_DEBUG("Access Point Path: %s", apPath);
+                isfound = getWpsPbcSSIDDetails(m_dbus, apPath, wpsApSsid);
+                if(isfound)
+                    break;
+            }
+
+            if(!isfound)
+                NMLOG_WARNING("WPS PBC AP not found in scanned result !");
+
+            g_variant_iter_free(iter);
+            g_variant_unref(result);
+            g_object_unref(wProxy);
+
+            return isfound;
+        }
+
+        void NetworkManagerClient::wpsProcess()
+        {
+            m_wpsProcessRun = true;
+            Exchange::INetworkManager::WiFiConnectTo ssidinfo{};
+            Exchange::INetworkManager::WiFiState state;
+            NMLOG_INFO("WPS process started !");
+
+            if(!getWifiState(state))
+            {
+                NMLOG_ERROR("wifi state error ! wps process stoped !");
+                m_wpsProcessRun = false;
+                return;
+            }
+
+            for(int retry =0; retry < GDBUS_WPS_RETRY_COUNT; retry++)
+            {
+                if(m_wpsProcessRun.load() == false) // stop wps process if reuested
+                    break;
+                sleep(GDBUS_WPS_RETRY_WAIT_IN_MS);
+                if(m_wpsProcessRun.load() == false)
+                    break;
+                if(!findWpsPbcSSID(m_dbus, ssidinfo.ssid))
+                {
+                    startWifiScan();
+                    NMLOG_DEBUG("WPS process retrying: %d ", retry+1);
+                    continue;
+                }
+
+                if(!getWifiState(state))
+                {
+                    NMLOG_ERROR("wifi state error ! wps process stoped !");
+                    m_wpsProcessRun = false;
+                    return;
+                }
+
+                if(Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED != state)
+                {
+                    /* we need a wifi disconnected state to proceed wifi PBC process */
+                    wifiDisconnect();
+                }
+
+                ssidinfo.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+                ssidinfo.persist = true;
+                /* security mode will be updated in wifi connect function, if not mathing to wpa-psk */
+                wifiConnect(ssidinfo, true); // isWps = true
+                break;
+            }
+
+            NMLOG_INFO("wps process complete !!");
+            m_wpsProcessRun = false;
+        }
+
+        bool NetworkManagerClient::startWPS()
+        {
+            NMLOG_DEBUG("Start WPS %s", __FUNCTION__);
+            if(m_wpsProcessRun.load())
+            {
+                NMLOG_WARNING("wps process WPS already running");
+                return true;
+            }
+
+            m_secretAgent.RegisterAgent();
+            m_wpsthread = std::thread(&NetworkManagerClient::wpsProcess, this);
+            m_wpsthread.detach();
+            return true;
+        }
+
+        bool NetworkManagerClient::stopWPS() {
+            NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
+            m_wpsProcessRun = false; 
+            return m_secretAgent.UnregisterAgent();
         }
 
     } // WPEFramework
