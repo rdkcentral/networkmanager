@@ -14,6 +14,14 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.11.0] - 2025-03-07
+### Added
+- Implemented concurrent interface support in public APIs
+- Changed the approach to get the SNR value.
+- Fixed RemoveKnownSSID() API to clear all the SSIDs when called with empty input
+- Fixed minor bug in AddtoKnownSSID() API for Gnome backend
+- Fixed Network Reset Flow
+
 ## [0.10.0] - 2025-02-24
 ### Added
 - Implemented Security Agent to support WPS
