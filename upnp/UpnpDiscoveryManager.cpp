@@ -43,7 +43,7 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
             LOG_ERR("Error creating Upnp context: %s", error->message);
             g_clear_error(&error);
             errCount++;
-            sleep(1);
+            sleep(2);
         }
     } while ((m_context == NULL) && (errCount < MAX_CONTEXT_FAIL));
     if (errCount == MAX_CONTEXT_FAIL)
@@ -70,6 +70,7 @@ void UpnpDiscoveryManager::logTelemetry(std::string message)
 {
 #if USE_TELEMETRY 
     //T2 telemtery logging
+    LOG_INFO("TELEMETRY %s", message.c_str());
     T2ERROR t2error = t2_event_s("Router_Discovered", message.c_str());
     if (t2error != T2ERROR_SUCCESS)
     {
@@ -103,7 +104,9 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     }
     else
     {
-        LOG_ERR("Failed in initialising upnp");
+        LOG_INFO("Could not able to identify the Gateway details over %s", m_interface.c_str());
+        m_gatewayDetails << "Unknown";
+        logTelemetry(m_gatewayDetails.str().c_str()); 
         return false;
     }
 }
