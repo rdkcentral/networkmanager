@@ -1215,7 +1215,7 @@ namespace WPEFramework
                                 const guchar *ssid_data = static_cast<const guchar*>(g_variant_get_fixed_array(value, &ssid_length, sizeof(guchar)));
                                 if (ssid_data && ssid_length > 0 && ssid_length <= 32) {
                                     ssid.assign(reinterpret_cast<const char*>(ssid_data), ssid_length);
-                                    NMLOG_DEBUG("SSID: %s", ssid.c_str());
+                                    //NMLOG_DEBUG("SSID: %s", ssid.c_str());
                                 } else {
                                     NMLOG_ERROR("Invalid SSID length: %zu (maximum is 32)", ssid_length);
                                     ssid.empty();
@@ -1239,7 +1239,7 @@ namespace WPEFramework
                         {
                             G_VARIANT_LOOKUP(setting, "key-mgmt", "&s", &keyMgmt);
                             if(keyMgmt != NULL)
-                                NMLOG_DEBUG("802-11-wireless-security.key-mgmt: %s", keyMgmt);
+                                NMLOG_DEBUG("ssid: %s key-mgmt: %s", ssid.c_str(), keyMgmt);
                             g_variant_unref(setting);
                             setting = NULL;
                         }
@@ -1260,7 +1260,7 @@ namespace WPEFramework
             return ret;
         }
 
-        static bool deleteConnection(DbusMgr m_dbus, const std::string& path, std::string& ssid)
+        static bool deleteConnection(DbusMgr& m_dbus, const std::string& path, std::string& ssid)
         {
             GError *error = NULL;
             GDBusProxy *ConnProxy = NULL;
@@ -1396,7 +1396,7 @@ namespace WPEFramework
             while (g_variant_iter_loop(iter, "o", &apPath)) {
                 if(apPath == NULL)
                     continue;
-                NMLOG_DEBUG("Access Point Path: %s", apPath);
+                // NMLOG_DEBUG("Access Point Path: %s", apPath);
                 if(GnomeUtils::getApDetails(m_dbus, apPath, apInfo))
                 {
                     if(ssidInfo.ssid == apInfo.ssid)
@@ -1547,7 +1547,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool addNewConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder connBuilder, const char* devicePath, bool persist)
+        bool addNewConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder& connBuilder, const char* devicePath, bool persist, const char* specificObject)
         {
             GDBusProxy* proxy = nullptr;
             GError* error = nullptr;
@@ -1557,7 +1557,13 @@ namespace WPEFramework
             if(proxy == NULL)
                 return false;
 
-            const char* specific_object = "/";
+            GVariant *connBuilderVariant = g_variant_builder_end(&connBuilder);
+            if(connBuilderVariant == NULL)
+            {
+                NMLOG_ERROR("Failed to build connection settings");
+                g_object_unref(proxy);
+                return false;
+            }
 
             GVariantBuilder optionsBuilder;
             g_variant_builder_init (&optionsBuilder, G_VARIANT_TYPE ("a{sv}"));
@@ -1569,8 +1575,17 @@ namespace WPEFramework
             //else
                 //g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("disk"));
 
+            GVariant *optionBuilderVariant = g_variant_builder_end(&optionsBuilder);
+            if(optionBuilderVariant == NULL)
+            {
+                NMLOG_ERROR("Failed to build options settings");
+                g_object_unref(proxy);
+                return false;
+            }
+
+            NMLOG_DEBUG("devicePath %s, specificObject %s", devicePath, specificObject);
             result = g_dbus_proxy_call_sync (proxy, "AddAndActivateConnection2",
-                g_variant_new("(a{sa{sv}}ooa{sv})", connBuilder, devicePath, specific_object, optionsBuilder),
+                g_variant_new("(@a{sa{sv}}oo@a{sv})", connBuilderVariant, devicePath?: "/", specificObject?: "/", optionBuilderVariant),
                 G_DBUS_CALL_FLAGS_NONE, -1, nullptr, &error);
 
             if (result == NULL) {
@@ -1582,6 +1597,8 @@ namespace WPEFramework
                 g_object_unref(proxy);
                 return false;
             }
+
+            NMLOG_DEBUG("AddAndActivateConnection2 success !!!");
 
             GVariant* pathVariant = NULL;
             GVariant* activeConnVariant = NULL;
@@ -1985,7 +2002,7 @@ namespace WPEFramework
                 {
                     NMLOG_WARNING("user requested wifi security '%d' != AP supported security %d ", ssidinfo.security, apInfo.security);
                     ssidinfo.security = apInfo.security;
-                    NMLOG_DEBUG("ap path %s", apPathStr.c_str());
+                    // NMLOG_DEBUG("ap path %s", apPathStr.c_str());
                 }
             }
             else
@@ -2012,7 +2029,7 @@ namespace WPEFramework
                     NMLOG_WARNING("connection builder failed");
                     return false;
                 }
-                if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist))
+                if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist, apPathStr.c_str()))
                     NMLOG_INFO("wifi connect request success");
                 else {
                     NMLOG_ERROR("wifi connect request failed");
