@@ -11,7 +11,7 @@
 #define LOG_ERR(msg, ...)    g_printerr( msg "\n", ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_printerr( msg "\n", ##__VA_ARGS__)
 
-#define MAX_CONTEXT_FAIL  5
+#define MAX_CONTEXT_FAIL  15
 #define T2_EVENT_DATA_LEN 128
 
 class UpnpDiscoveryManager
