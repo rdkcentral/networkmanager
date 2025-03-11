@@ -42,7 +42,7 @@ public:
     void enterWait();
 
 private:
-    void logTelemetry(std::string& message);
+    void logTelemetry(std::string message);
     static gboolean discoveryTimeout(void* arg);
     void exitWait();
     gboolean initialiseUpnp(const std::string& interface);
