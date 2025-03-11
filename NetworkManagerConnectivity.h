@@ -107,6 +107,8 @@ namespace WPEFramework
         private:
             Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, 
                             long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
+            Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::string endpoint, 
+                            long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
             Exchange::INetworkManager::InternetStatus internetSate;

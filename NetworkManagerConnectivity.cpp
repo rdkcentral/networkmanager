@@ -245,8 +245,10 @@ namespace WPEFramework
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
             return;
         }
-
-        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
+        else if(endpoints.size() == 1)
+            internetSate = checkCurlResponse(endpoints.front(), timeout_ms, headReq, ipversion, interface);
+        else
+            internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
     }
 
     static bool curlVerboseEnabled() {
@@ -267,6 +269,107 @@ namespace WPEFramework
         return size * nmemb;
     }
 
+    /* single endpoint curl response check  */
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::string endpoint,
+                                long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
+    {
+            std::string logmsg="";
+            long http_response_code = -1;
+            Exchange::INetworkManager::InternetStatus internetStatus = INTERNET_NOT_AVAILABLE;
+            
+            CURL *curl_easy_handle = curl_easy_init();
+            if (!curl_easy_handle)
+            {
+                NMLOG_ERROR("endpoint = <%s> curl_easy_init returned NULL", endpoint.c_str());
+                return INTERNET_NOT_AVAILABLE;
+            }
+            struct curl_slist *chunk = NULL;
+            chunk = curl_slist_append(chunk, "Cache-Control: no-cache, no-store");
+            chunk = curl_slist_append(chunk, "Connection: close");
+            curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
+            /* set our custom set of headers */
+            curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
+            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
+            if(!headReq)
+            {
+                /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
+                curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
+                logmsg +="Request Type:  GET |";
+            }
+            else
+                logmsg +="Request Type:  HEAD |";
+            curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
+            if (IP_ADDRESS_V4 == ipversion) {
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+                logmsg +=" IP Version: IPv4 |";
+            }
+            else if (IP_ADDRESS_V6 == ipversion) {
+                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
+                logmsg +=" IP Version: IPv6 |";
+            }
+
+            if(interface == "wlan0") {
+                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
+                logmsg +=" Interface: wlan0 |";
+            }
+            else if(interface == "eth0") {
+                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "eth0");
+                logmsg +=" Interface: eth0 |";
+            }
+
+            if(curlVerboseEnabled())
+                curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
+
+            char *url = nullptr;
+            CURLcode res = curl_easy_perform(curl_easy_handle);
+            if (CURLE_OK == res)
+            {
+                if (curl_easy_getinfo(curl_easy_handle, CURLINFO_RESPONSE_CODE, &http_response_code) == CURLE_OK)
+                {
+                    if (HttpStatus_302_Found == http_response_code) {
+                        if ( (curl_easy_getinfo(curl_easy_handle, CURLINFO_REDIRECT_URL, &url) == CURLE_OK) && url != nullptr) {
+                            captivePortalURI = url;
+                            NMLOG_DEBUG("captive portal URI < %s >", captivePortalURI.c_str());
+                        }
+                        else
+                            NMLOG_WARNING("captive portal http code found; but URL is missing"); 
+                    }
+                }
+
+                switch (http_response_code)
+                {
+                    case HttpStatus_204_No_Content:
+                        internetStatus = INTERNET_FULLY_CONNECTED;
+                        NMLOG_INFO("%s Internet State: FULLY_CONNECTED", logmsg.c_str());
+                    break;
+                    case HttpStatus_200_OK:
+                        internetStatus = INTERNET_LIMITED;
+                        NMLOG_INFO("%s Internet State: LIMITED_INTERNET", logmsg.c_str());
+                    break;
+                    case HttpStatus_511_Authentication_Required:
+                    case HttpStatus_302_Found:
+                        internetStatus = INTERNET_CAPTIVE_PORTAL;
+                        NMLOG_INFO("%s Internet State: CAPTIVE_PORTAL", logmsg.c_str());
+                    break;
+                    default:
+                        internetStatus = INTERNET_NOT_AVAILABLE;
+                        if(http_response_code == -1)
+                            NMLOG_ERROR("%s Internet State: NO_INTERNET (curl error)", logmsg.c_str());
+                        else
+                            NMLOG_WARNING("%s Internet State: NO_INTERNET (http code: %d)", logmsg.c_str(), static_cast<int>(http_response_code));
+                    break;
+                }
+            }
+            else {
+                NMLOG_ERROR("endpoint = <%s> %s curl error = %d (%s)", endpoint.c_str(), logmsg.c_str(), res, curl_easy_strerror(res));
+                curlErrorCode = static_cast<int>(res);
+            }
+
+        return internetStatus;
+    }
+
+    /* multiple endpoint curl response check  */
     Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
