@@ -102,7 +102,7 @@ gboolean UpnpDiscoveryManager::discoveryTimeout(void *arg)
 {
     auto manager = static_cast<UpnpDiscoveryManager*>(arg); 
     manager->stopSearchGatewayDevice();
-    LOG_INFO("Could not able to identify the Gateway details over %s", manager->m_interface.c_str());
+    LOG_INFO("Router_Discovered : %s", manager->m_interface.c_str());
     manager->m_gatewayDetails << "Unknown";
     manager->logTelemetry(manager->m_gatewayDetails.str().c_str()); 
     manager->exitWait();
@@ -123,7 +123,7 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     }
     else
     {
-        LOG_INFO("Could not able to identify the Gateway details over %s", m_interface.c_str());
+        LOG_INFO("Router_Discovered : %s", m_interface.c_str());
         m_gatewayDetails << "Unknown";
         logTelemetry(m_gatewayDetails.str().c_str()); 
         return false;
@@ -141,7 +141,7 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
     // Stop discovery to find InternetGatewayDevice
     stopSearchGatewayDevice(); 
     m_gatewayDetails << m_apMake << "," << m_apModelName << "," << m_apModelNumber;
-    LOG_INFO("Connected to Gateway: %s", m_gatewayDetails.str().c_str());
+    LOG_INFO("Router_Discovered : %s", m_gatewayDetails.str().c_str());
     if (m_gatewayDetails.str().length() >= T2_EVENT_DATA_LEN)
     {
         m_gatewayDetails.str("");
