@@ -27,12 +27,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(GUPNP REQUIRED gupnp-1.0)
 pkg_check_modules(GSSDP REQUIRED gssdp-1.2)
-pkg_check_modules(LIBSOUP libsoup-1.2)
-if(LIBSOUP_FOUND)
-  # libsoup 2.x or later found
-else()
-  pkg_check_modules(LIBSOUP REQUIRED libsoup-3.0) # Check for libsoup 3.x
-endif()
+pkg_check_modules(GSSDP REQUIRED libsoup-2.4)
 
 option(USE_TELEMETRY "Enable telemetry" ON)
 
