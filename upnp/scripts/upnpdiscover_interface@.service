@@ -1,0 +1,6 @@
+[Unit]
+Description=UPNP Discovery Service %i
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/upnpdiscover %i
