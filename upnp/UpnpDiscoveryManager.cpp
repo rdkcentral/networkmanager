@@ -85,7 +85,7 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
     return true;
 }
 
-void UpnpDiscoveryManager::logTelemetry(std::string message)
+void UpnpDiscoveryManager::logTelemetry(std::string& message)
 {
 #if USE_TELEMETRY 
     //T2 telemtery logging
