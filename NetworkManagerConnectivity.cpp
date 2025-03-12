@@ -294,28 +294,28 @@ namespace WPEFramework
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
                 curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
-                logmsg +="Request Type:  GET |";
+                logmsg +="Request Type: get |";
             }
             else
-                logmsg +="Request Type:  HEAD |";
+                logmsg +="Request Type: head |";
             curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
             curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
             if (IP_ADDRESS_V4 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-                logmsg +=" IP Version: IPv4 |";
+                logmsg +=" ipversion: IPv4 |";
             }
             else if (IP_ADDRESS_V6 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
-                logmsg +=" IP Version: IPv6 |";
+                logmsg +=" ipversion: IPv6 |";
             }
 
             if(interface == "wlan0") {
                 curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
-                logmsg +=" Interface: wlan0 |";
+                logmsg +=" interface: wlan0 |";
             }
             else if(interface == "eth0") {
                 curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "eth0");
-                logmsg +=" Interface: eth0 |";
+                logmsg +=" interface: eth0 |";
             }
 
             if(curlVerboseEnabled())
