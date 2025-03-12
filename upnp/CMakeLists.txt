@@ -25,9 +25,9 @@ find_package(PkgConfig REQUIRED)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
+pkg_check_modules(LIBSOUP REQUIRED libsoup-2.4)
 pkg_check_modules(GUPNP REQUIRED gupnp-1.0)
 pkg_check_modules(GSSDP REQUIRED gssdp-1.2)
-pkg_check_modules(LIBSOUP REQUIRED libsoup-2.4)
 
 if (USE_TELEMETRY)
     find_package(telemetry_msgsender REQUIRED)
