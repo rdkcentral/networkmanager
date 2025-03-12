@@ -246,9 +246,9 @@ namespace WPEFramework
             return;
         }
         else if(endpoints.size() == 1)
-            internetSate = checkCurlResponse(endpoints.front(), timeout_ms, headReq, ipversion, interface);
+            internetSate = singleEndpointCurlCheck(endpoints.front(), timeout_ms, headReq, ipversion, interface);
         else
-            internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
+            internetSate = multiEndpointCurlCheck(endpoints, timeout_ms, headReq, ipversion, interface);
     }
 
     static bool curlVerboseEnabled() {
@@ -270,7 +270,7 @@ namespace WPEFramework
     }
 
     /* single endpoint curl response check  */
-    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::string endpoint,
+    Exchange::INetworkManager::InternetStatus TestConnectivity::singleEndpointCurlCheck(const std::string endpoint,
                                 long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
             std::string logmsg="";
@@ -370,7 +370,7 @@ namespace WPEFramework
     }
 
     /* multiple endpoint curl response check  */
-    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
+    Exchange::INetworkManager::InternetStatus TestConnectivity::multiEndpointCurlCheck(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
         long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
@@ -407,7 +407,14 @@ namespace WPEFramework
                 curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
             curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            long setTimeOut = (deadline - current_time());
+            if(setTimeOut <= 0)
+            {
+                NMLOG_ERROR("timeout value error %ld", setTimeOut);
+                curl_easy_cleanup(curl_easy_handle);
+                return INTERNET_NOT_AVAILABLE;
+            }
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, setTimeOut);
             if (IP_ADDRESS_V4 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
                 NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
