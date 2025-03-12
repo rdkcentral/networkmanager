@@ -90,7 +90,7 @@ void UpnpDiscoveryManager::logTelemetry(std::string message)
 #if USE_TELEMETRY 
     //T2 telemtery logging
     LOG_INFO("TELEMETRY %s", message.c_str());
-    T2ERROR t2error = t2_event_s("Router_Discovered", message.c_str());
+    T2ERROR t2error = t2_event_s("Router_Discovered", (char*)message.c_str());
     if (t2error != T2ERROR_SUCCESS)
     {
         LOG_ERR("t2_event_s(\"%s\", \"%s\") returned error code %d", "Router_Discovered", message.c_str(), t2error);
@@ -186,6 +186,7 @@ int main(int argc, char *argv[])
     if (true == ssdpDiscover.findGatewayDevice(argv[1]))
     {
         ssdpDiscover.enterWait();
+	return 0;
     }
     return 1;
 }
