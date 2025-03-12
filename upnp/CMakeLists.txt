@@ -29,8 +29,6 @@ pkg_check_modules(GUPNP REQUIRED gupnp-1.0)
 pkg_check_modules(GSSDP REQUIRED gssdp-1.2)
 pkg_check_modules(LIBSOUP REQUIRED libsoup-2.4)
 
-option(USE_TELEMETRY "Enable telemetry" ON)
-
 if (USE_TELEMETRY)
     find_package(telemetry_msgsender REQUIRED)
     add_definitions(-DUSE_TELEMETRY)
