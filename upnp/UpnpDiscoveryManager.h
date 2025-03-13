@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's LICENSE
 * file the following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2025 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -27,26 +27,34 @@
 #include <telemetry_busmessage_sender.h>
 #endif
 
-#define LOG_ERR(msg, ...)    g_printerr( msg "\n", ##__VA_ARGS__)
-#define LOG_INFO(msg, ...)   g_printerr( msg "\n", ##__VA_ARGS__)
+#define LOG_ERR(msg, ...)    g_printerr("ERROR: " "\n", ##__VA_ARGS__)
+#define LOG_INFO(msg, ...)   g_print("INFO: " msg "\n", ##__VA_ARGS__)
 
-#define MAX_CONTEXT_FAIL  15
-#define T2_EVENT_DATA_LEN 128
+#define UPNP_MAX_CONTEXT_FAIL  15
+#define UPNP_T2_EVENT_DATA_LEN 128
 
 class UpnpDiscoveryManager
 {
 public:
     UpnpDiscoveryManager();
     ~UpnpDiscoveryManager();
+    /* @brief Find the gateway details by sending SSDP discovery on wifi/ethernet interface */
     bool findGatewayDevice(const std::string& interface);
+    /* @brief Wait in gmain() loop */
     void enterWait();
 
 private:
+    /* @brief Telemetry Logging */
     void logTelemetry(std::string message);
+    /* @brief SSDP Discovery Timeout */
     static gboolean discoveryTimeout(void* arg);
+    /* @brief Exit the gmain() loop */
     void exitWait();
+    /* @brief Initialise GUPNP context */
     gboolean initialiseUpnp(const std::string& interface);
+    /* @brief Stop sending SSDP discovery */
     void stopSearchGatewayDevice();
+    /* @brief Callback getting invoked when SSDP reply is received from gateway */
     void on_device_proxy_available(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy);
     static void deviceProxyAvailableCallback(GUPnPControlPoint *control_point, GUPnPDeviceProxy *proxy, gpointer user_data) 
     { 
@@ -61,8 +69,8 @@ private:
     std::string         m_apModelName;
     std::string         m_apModelNumber;
     std::ostringstream  m_gatewayDetails;
-    static const std::string m_deviceInternetGateway;
-    static const guint  DISCOVERY_PORT = 1901; 
-    static const int    DISCOVERY_TIMEOUT_IN_SEC = 180; 
+    std::string         m_deviceInternetGateway;
+    static const guint  UPNP_DISCOVERY_PORT = 1901; 
+    static const int    UPNP_DISCOVERY_TIMEOUT_IN_SEC = 180; 
 };
 #endif /* __UPNPDISCOVERYMANAGER_H__ */
