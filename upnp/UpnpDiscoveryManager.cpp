@@ -98,7 +98,7 @@ void UpnpDiscoveryManager::logTelemetry(std::string message)
 #endif
 }
 
-/* @brief UPNP Discovery Timeout */
+/* @brief SSDP Discovery Timeout */
 gboolean UpnpDiscoveryManager::discoveryTimeout(void *arg)
 {
     auto manager = static_cast<UpnpDiscoveryManager*>(arg); 
@@ -132,7 +132,7 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     }
 }
 
-/* @brief Callback getting invoked when ssdp reply is received from gateway */
+/* @brief Callback getting invoked when SSDP reply is received from gateway */
 void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlPoint, GUPnPDeviceProxy *proxy)
 { 
     m_apMake = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
