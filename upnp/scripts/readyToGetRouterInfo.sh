@@ -3,7 +3,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2020 RDK Management
+# Copyright 2025 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 . /etc/device.properties
 
 ifc=$1
-file="/tmp/.upnpdiscover"
+file="/tmp/.routerdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
     if [ -f "$file" ]; then
         echo "Ready to read router details" >> /opt/logs/routerInfo.log
