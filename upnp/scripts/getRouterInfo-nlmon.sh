@@ -23,17 +23,17 @@ cmd=$1
 mode=$2
 ifc=$3
 flags=$5
-file="/tmp/.upnpdiscover"
+file="/tmp/.routerdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
     if [ "$cmd" == "add" ] && [ "$flags" = "global" ]; then
         if [ ! -f $file ]; then
-            touch /tmp/.upnpdiscover
-            pid=`pidof upnpdiscover`
+            touch /tmp/.routerdiscover
+            pid=`pidof routerdiscover`
             if [ -n "$pid" ]; then
                 kill -9 $pid
             fi 
-            echo "Starting upnpdiscover on $ifc" >> /opt/logs/routerInfo.log
-            systemctl start upnpdiscover_interface@$ifc
+            echo "Starting routerdiscover on $ifc" >> /opt/logs/routerInfo.log
+            systemctl start routerdiscover_interface@$ifc
         fi
     fi
 fi
