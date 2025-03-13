@@ -3,7 +3,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2020 RDK Management
+# Copyright 2025 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 . /etc/device.properties
 
 ifc=$1
-pid=`pidof upnpdiscover`
+pid=`pidof routerdiscover`
 if [ -n "$pid" ]; then
     kill -9 $pid
 fi 
-echo "Starting upnpdiscover on $ifc" >> /opt/logs/routerInfo.log
-systemctl start upnpdiscover_interface@$ifc
+echo "Starting routerdiscover on $ifc" >> /opt/logs/routerInfo.log
+systemctl start routerdiscover_interface@$ifc
