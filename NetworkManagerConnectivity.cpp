@@ -275,7 +275,7 @@ namespace WPEFramework
     Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
-        long deadline = 0, startTime = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
+        long deadline = 0, startTime = current_time(), time_now = 0, time_earlier = 0;
         std::string logmsg ="";
 
         CURLM *curl_multi_handle = curl_multi_init();
