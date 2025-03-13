@@ -105,9 +105,7 @@ namespace WPEFramework
             Exchange::INetworkManager::InternetStatus getInternetState(){return internetSate;}
             int getCurlError(){return curlErrorCode;}
         private:
-            Exchange::INetworkManager::InternetStatus singleEndpointCurlCheck(const std::string endpoint, 
-                            long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
-            Exchange::INetworkManager::InternetStatus multiEndpointCurlCheck(const std::vector<std::string>& endpoints, 
+            Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, 
                             long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;

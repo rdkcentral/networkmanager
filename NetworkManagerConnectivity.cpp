@@ -245,10 +245,8 @@ namespace WPEFramework
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
             return;
         }
-        else if(endpoints.size() == 1)
-            internetSate = singleEndpointCurlCheck(endpoints.front(), timeout_ms, headReq, ipversion, interface);
-        else
-            internetSate = multiEndpointCurlCheck(endpoints, timeout_ms, headReq, ipversion, interface);
+
+        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
     }
 
     static bool curlVerboseEnabled() {
@@ -269,111 +267,15 @@ namespace WPEFramework
         return size * nmemb;
     }
 
-    /* single endpoint curl response check  */
-    Exchange::INetworkManager::InternetStatus TestConnectivity::singleEndpointCurlCheck(const std::string endpoint,
-                                long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
-    {
-            std::string logmsg="";
-            long http_response_code = -1;
-            Exchange::INetworkManager::InternetStatus internetStatus = INTERNET_NOT_AVAILABLE;
-            
-            CURL *curl_easy_handle = curl_easy_init();
-            if (!curl_easy_handle)
-            {
-                NMLOG_ERROR("endpoint = <%s> curl_easy_init returned NULL", endpoint.c_str());
-                return INTERNET_NOT_AVAILABLE;
-            }
-            struct curl_slist *chunk = NULL;
-            chunk = curl_slist_append(chunk, "Cache-Control: no-cache, no-store");
-            chunk = curl_slist_append(chunk, "Connection: close");
-            curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
-            /* set our custom set of headers */
-            curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
-            if(!headReq)
-            {
-                /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
-                curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
-                logmsg +="Request Type: get |";
-            }
-            else
-                logmsg +="Request Type: head |";
-            curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
-            if (IP_ADDRESS_V4 == ipversion) {
-                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-                logmsg +=" ipversion: IPv4 |";
-            }
-            else if (IP_ADDRESS_V6 == ipversion) {
-                curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
-                logmsg +=" ipversion: IPv6 |";
-            }
-
-            if(interface == "wlan0") {
-                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
-                logmsg +=" interface: wlan0 |";
-            }
-            else if(interface == "eth0") {
-                curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "eth0");
-                logmsg +=" interface: eth0 |";
-            }
-
-            if(curlVerboseEnabled())
-                curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
-
-            char *url = nullptr;
-            CURLcode res = curl_easy_perform(curl_easy_handle);
-            if (CURLE_OK == res)
-            {
-                if (curl_easy_getinfo(curl_easy_handle, CURLINFO_RESPONSE_CODE, &http_response_code) == CURLE_OK)
-                {
-                    if (HttpStatus_302_Found == http_response_code) {
-                        if ( (curl_easy_getinfo(curl_easy_handle, CURLINFO_REDIRECT_URL, &url) == CURLE_OK) && url != nullptr) {
-                            captivePortalURI = url;
-                            NMLOG_DEBUG("captive portal URI < %s >", captivePortalURI.c_str());
-                        }
-                        else
-                            NMLOG_WARNING("captive portal http code found; but URL is missing"); 
-                    }
-                }
-
-                switch (http_response_code)
-                {
-                    case HttpStatus_204_No_Content:
-                        internetStatus = INTERNET_FULLY_CONNECTED;
-                        NMLOG_INFO("%s Internet State: FULLY_CONNECTED", logmsg.c_str());
-                    break;
-                    case HttpStatus_200_OK:
-                        internetStatus = INTERNET_LIMITED;
-                        NMLOG_INFO("%s Internet State: LIMITED_INTERNET", logmsg.c_str());
-                    break;
-                    case HttpStatus_511_Authentication_Required:
-                    case HttpStatus_302_Found:
-                        internetStatus = INTERNET_CAPTIVE_PORTAL;
-                        NMLOG_INFO("%s Internet State: CAPTIVE_PORTAL", logmsg.c_str());
-                    break;
-                    default:
-                        internetStatus = INTERNET_NOT_AVAILABLE;
-                        if(http_response_code == -1)
-                            NMLOG_ERROR("%s Internet State: NO_INTERNET (curl error)", logmsg.c_str());
-                        else
-                            NMLOG_WARNING("%s Internet State: NO_INTERNET (http code: %d)", logmsg.c_str(), static_cast<int>(http_response_code));
-                    break;
-                }
-            }
-            else {
-                NMLOG_ERROR("endpoint = <%s> %s curl error = %d (%s)", endpoint.c_str(), logmsg.c_str(), res, curl_easy_strerror(res));
-                curlErrorCode = static_cast<int>(res);
-            }
-
-        return internetStatus;
-    }
-
-    /* multiple endpoint curl response check  */
-    Exchange::INetworkManager::InternetStatus TestConnectivity::multiEndpointCurlCheck(const std::vector<std::string>& endpoints,
+    /*
+     *  It is calculated as the current time plus the specified timeout duration.
+     * This ensures that the entire operation does not exceed the given timeout, providing a hard limit
+     *        for the network connectivity check.
+     */
+    Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
-        long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
+        long deadline = 0, startTime = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
 
         CURLM *curl_multi_handle = curl_multi_init();
         if (!curl_multi_handle)
@@ -407,14 +309,7 @@ namespace WPEFramework
                 curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
             }
             curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            long setTimeOut = (deadline - current_time());
-            if(setTimeOut <= 0)
-            {
-                NMLOG_ERROR("timeout value error %ld", setTimeOut);
-                curl_easy_cleanup(curl_easy_handle);
-                return INTERNET_NOT_AVAILABLE;
-            }
-            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, setTimeOut);
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
             if (IP_ADDRESS_V4 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
                 NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
@@ -449,12 +344,19 @@ namespace WPEFramework
             }
             curl_easy_handles.push_back(curl_easy_handle);
         }
+        
         int handles, msgs_left;
         char *url = nullptr;
-    #if LIBCURL_VERSION_NUM < 0x074200
-        int numfds, repeats = 0;
-    #endif
         char *endpoint = nullptr;
+        if(current_time() - startTime > 1000) // 1 sec
+        {
+            NMLOG_WARNING("curl multi init take more than 1000 ms timeout %ld ms", current_time() - startTime);
+        }
+
+        /* The deadline variable represents the absolute time by which the curl_multi_perform 
+          operation must complete.providing a hard limit for the network connectivity check */
+        deadline = current_time() + timeout_ms;
+
         while (1)
         {
             if (CURLM_OK != (mc = curl_multi_perform(curl_multi_handle, &handles)))
@@ -489,27 +391,11 @@ namespace WPEFramework
             time_now = current_time();
             if (handles == 0 || time_now >= deadline)
                 break;
-    #if LIBCURL_VERSION_NUM < 0x074200
-            if (CURLM_OK != (mc = curl_multi_wait(curl_multi_handle, NULL, 0, deadline - time_now, &numfds)))
-            {
-                LOGERR("curl_multi_wait returned %d (%s)", mc, curl_multi_strerror(mc));
-                break;
-            }
-            if (numfds == 0)
-            {
-                repeats++;
-                if (repeats > 1)
-                    usleep(10*1000); /* sleep 10 ms */
-            }
-            else
-                repeats = 0;
-    #else
             if (CURLM_OK != (mc = curl_multi_poll(curl_multi_handle, NULL, 0, deadline - time_now, NULL)))
             {
                 NMLOG_ERROR("curl_multi_poll returned %d (%s)", mc, curl_multi_strerror(mc));
                 break;
             }
-    #endif
         }
 
         if(curlVerboseEnabled()) {
