@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's LICENSE
 * file the following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2025 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,8 +20,6 @@
 #include <sstream>
 #include "UpnpDiscoveryManager.h"
 
-const std::string UpnpDiscoveryManager::m_deviceInternetGateway = "urn:schemas-upnp-org:device:InternetGatewayDevice:1";
-
 UpnpDiscoveryManager::UpnpDiscoveryManager()
 {
     m_context = NULL;
@@ -29,6 +27,7 @@ UpnpDiscoveryManager::UpnpDiscoveryManager()
     m_mainLoop = NULL;
     m_gatewayDetails.str("");
     m_gatewayDetails.clear();
+    m_deviceInternetGateway = "urn:schemas-upnp-org:device:InternetGatewayDevice:1";
 #if USE_TELEMETRY
     // Initialize Telemtry  
     t2_init("upnpdiscover");
@@ -48,6 +47,7 @@ UpnpDiscoveryManager::~UpnpDiscoveryManager()
     }
 }
 
+/* @brief Initialise GUPNP context */
 gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
 {
     GError *error = NULL;
@@ -56,7 +56,7 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
     do
     {
         // Create a gupnp context
-        m_context = gupnp_context_new(NULL, interface.c_str(), DISCOVERY_PORT, &error);
+        m_context = gupnp_context_new(NULL, interface.c_str(), UPNP_DISCOVERY_PORT, &error);
         if (!m_context) 
         {
             LOG_ERR("Error creating Upnp context: %s", error->message);
@@ -64,8 +64,8 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
             errCount++;
             sleep(2);
         }
-    } while ((m_context == NULL) && (errCount < MAX_CONTEXT_FAIL));
-    if (errCount == MAX_CONTEXT_FAIL)
+    } while ((m_context == NULL) && (errCount < UPNP_MAX_CONTEXT_FAIL));
+    if (errCount == UPNP_MAX_CONTEXT_FAIL)
     {
         LOG_ERR("Context creation failed");
 	    return false;
@@ -85,6 +85,7 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
     return true;
 }
 
+/* @brief Telemetry Logging */
 void UpnpDiscoveryManager::logTelemetry(std::string message)
 {
 #if USE_TELEMETRY 
@@ -97,17 +98,19 @@ void UpnpDiscoveryManager::logTelemetry(std::string message)
 #endif
 }
 
+/* @brief UPNP Discovery Timeout */
 gboolean UpnpDiscoveryManager::discoveryTimeout(void *arg)
 {
     auto manager = static_cast<UpnpDiscoveryManager*>(arg); 
     manager->stopSearchGatewayDevice();
-    LOG_INFO("Router_Discovered : %s", manager->m_interface.c_str());
     manager->m_gatewayDetails << "Unknown";
+    LOG_INFO("Router_Discovered : %s", manager->m_gatewayDetails.str().c_str());
     manager->logTelemetry(manager->m_gatewayDetails.str().c_str()); 
     manager->exitWait();
     return true;
 }
 
+/* @brief Find the gateway details by sending SSDP discovery on wifi/ethernet interface */
 bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
 {
     m_interface = interface;
@@ -115,25 +118,27 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
     if (true == initialiseUpnp(interface))
     {
         //Create timer to handle upnp discovery timeout
-        g_timeout_add_seconds (DISCOVERY_TIMEOUT_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::discoveryTimeout), this);
+        g_timeout_add_seconds (UPNP_DISCOVERY_TIMEOUT_IN_SEC, GSourceFunc(&UpnpDiscoveryManager::discoveryTimeout), this);
         // Start discovery to find InternetGatewayDevice
         gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), TRUE);
         return true;
     }
     else
     {
-        LOG_INFO("Router_Discovered : %s", m_interface.c_str());
         m_gatewayDetails << "Unknown";
+	LOG_INFO("Router_Discovered : %s", m_gatewayDetails.str().c_str());
         logTelemetry(m_gatewayDetails.str().c_str()); 
         return false;
     }
 }
 
+/* @brief Callback getting invoked when ssdp reply is received from gateway */
 void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlPoint, GUPnPDeviceProxy *proxy)
 { 
     m_apMake = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
     m_apModelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
     m_apModelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
+    // Remove the string after symbol <,> For example: <manufacturer>NETGEAR,Inc.</manufacturer> 
     m_apMake = m_apMake.substr(0, m_apMake.find(','));
     m_apModelName = m_apModelName.substr(0, m_apModelName.find(','));
     m_apModelNumber = m_apModelNumber.substr(0, m_apModelNumber.find(','));
@@ -141,7 +146,7 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
     stopSearchGatewayDevice(); 
     m_gatewayDetails << m_apMake << "," << m_apModelName << "," << m_apModelNumber;
     LOG_INFO("Router_Discovered : %s", m_gatewayDetails.str().c_str());
-    if (m_gatewayDetails.str().length() >= T2_EVENT_DATA_LEN)
+    if (m_gatewayDetails.str().length() >= UPNP_T2_EVENT_DATA_LEN)
     {
         m_gatewayDetails.str("");
         m_gatewayDetails.clear();
@@ -151,11 +156,13 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
     exitWait();
 }
 
+/* @brief Stop sending SSDP discovery */
 void UpnpDiscoveryManager::stopSearchGatewayDevice() 
 {
     gssdp_resource_browser_set_active(GSSDP_RESOURCE_BROWSER(m_controlPoint), FALSE);
 }
 
+/* @brief Wait in gmain() loop */
 void UpnpDiscoveryManager::enterWait()
 {
     m_mainLoop = g_main_loop_new(NULL, FALSE);
@@ -163,6 +170,7 @@ void UpnpDiscoveryManager::enterWait()
     g_main_loop_run(m_mainLoop);
 }
 
+/* @brief Exit the gmain() loop */
 void UpnpDiscoveryManager::exitWait()
 {
     if (m_mainLoop) 
