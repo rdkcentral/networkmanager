@@ -353,9 +353,9 @@ namespace WPEFramework
         int handles, msgs_left;
         char *url = nullptr;
         char *endpntConf = nullptr;
-        if(current_time() - startTime > 1000) // 1 sec
+        if((current_time() - startTime) > 1000) // 1 sec
         {
-            NMLOG_WARNING("curl multi init take more than 1000 ms timeout %ld ms", current_time() - startTime);
+            NMLOG_WARNING("curl init taken more than 1000 ms; ie: %d ms", (int)(current_time() - startTime));
         }
 
         /* The deadline variable represents the absolute time by which the curl_multi_perform 
