@@ -267,10 +267,16 @@ namespace WPEFramework
         return size * nmemb;
     }
 
+    /*
+     *  It is calculated as the current time plus the specified timeout duration.
+     * This ensures that the entire operation does not exceed the given timeout, providing a hard limit
+     *        for the network connectivity check.
+     */
     Exchange::INetworkManager::InternetStatus TestConnectivity::checkCurlResponse(const std::vector<std::string>& endpoints,
                          long timeout_ms,  bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
-        long deadline = current_time() + timeout_ms, time_now = 0, time_earlier = 0;
+        long deadline = 0, startTime = current_time(), time_now = 0, time_earlier = 0;
+        std::string logmsg ="";
 
         CURLM *curl_multi_handle = curl_multi_init();
         if (!curl_multi_handle)
@@ -294,7 +300,7 @@ namespace WPEFramework
                 continue;
             }
             curlSetOpt(curl_easy_handle, CURLOPT_URL, endpoint.c_str());
-            curlSetOpt(curl_easy_handle, CURLOPT_PRIVATE, endpoint.c_str());
+            logmsg += endpoint;
             /* set our custom set of headers */
             curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
             curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
@@ -302,31 +308,35 @@ namespace WPEFramework
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
                 curlSetOpt(curl_easy_handle, CURLOPT_HTTPGET, 1L);
+                logmsg += ", Get";
             }
+            else
+                logmsg += ", Head";
             curlSetOpt(curl_easy_handle, CURLOPT_WRITEFUNCTION, writeFunction);
-            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, deadline - current_time());
+            curlSetOpt(curl_easy_handle, CURLOPT_TIMEOUT_MS, timeout_ms);
             if (IP_ADDRESS_V4 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-                NMLOG_DEBUG("curlopt ipversion = IPv4 reqtyp = %s", headReq? "HEAD":"GET");
+                logmsg +=", IPv4";
             }
             else if (IP_ADDRESS_V6 == ipversion) {
                 curlSetOpt(curl_easy_handle, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V6);
-                NMLOG_DEBUG("curlopt ipversion = IPv6 reqtyp = %s", headReq? "HEAD":"GET");
+                logmsg +=", IPv6";
             }
             else
-                NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
+                logmsg +=", IPv4/IPv6";
 
             if(interface == "wlan0")
             {
                 curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
-                NMLOG_DEBUG("curlopt interface = wlan0");
+                logmsg +=", wlan0";
             }
             else if(interface == "eth0")
             {
                 curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "eth0");
-                NMLOG_DEBUG("curlopt interface = eth0");
+                logmsg +=", eth0";
             }
-
+            
+            curlSetOpt(curl_easy_handle, CURLOPT_PRIVATE, logmsg.c_str());
             if(curlVerboseEnabled())
             {
                 curlSetOpt(curl_easy_handle, CURLOPT_VERBOSE, 1L);
@@ -339,12 +349,19 @@ namespace WPEFramework
             }
             curl_easy_handles.push_back(curl_easy_handle);
         }
+        
         int handles, msgs_left;
         char *url = nullptr;
-    #if LIBCURL_VERSION_NUM < 0x074200
-        int numfds, repeats = 0;
-    #endif
-        char *endpoint = nullptr;
+        char *endpntConf = nullptr;
+        if((current_time() - startTime) > 1000) // 1 sec
+        {
+            NMLOG_WARNING("curl init taken more than 1000 ms; ie: %d ms", (int)(current_time() - startTime));
+        }
+
+        /* The deadline variable represents the absolute time by which the curl_multi_perform 
+          operation must complete.providing a hard limit for the network connectivity check */
+        deadline = current_time() + timeout_ms;
+
         while (1)
         {
             if (CURLM_OK != (mc = curl_multi_perform(curl_multi_handle, &handles)))
@@ -357,7 +374,7 @@ namespace WPEFramework
                 long response_code = -1;
                 if (msg->msg != CURLMSG_DONE)
                     continue;
-                curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &endpoint);
+                curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIVATE, &endpntConf);
                 if (CURLE_OK == msg->data.result) {
                     if (curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &response_code) == CURLE_OK)
                     {
@@ -370,7 +387,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("%s, curl error = %d (%s)", endpntConf, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -379,27 +396,11 @@ namespace WPEFramework
             time_now = current_time();
             if (handles == 0 || time_now >= deadline)
                 break;
-    #if LIBCURL_VERSION_NUM < 0x074200
-            if (CURLM_OK != (mc = curl_multi_wait(curl_multi_handle, NULL, 0, deadline - time_now, &numfds)))
-            {
-                LOGERR("curl_multi_wait returned %d (%s)", mc, curl_multi_strerror(mc));
-                break;
-            }
-            if (numfds == 0)
-            {
-                repeats++;
-                if (repeats > 1)
-                    usleep(10*1000); /* sleep 10 ms */
-            }
-            else
-                repeats = 0;
-    #else
             if (CURLM_OK != (mc = curl_multi_poll(curl_multi_handle, NULL, 0, deadline - time_now, NULL)))
             {
                 NMLOG_ERROR("curl_multi_poll returned %d (%s)", mc, curl_multi_strerror(mc));
                 break;
             }
-    #endif
         }
 
         if(curlVerboseEnabled()) {
@@ -409,7 +410,7 @@ namespace WPEFramework
 
         for (const auto& curl_easy_handle : curl_easy_handles)
         {
-            curl_easy_getinfo(curl_easy_handle, CURLINFO_PRIVATE, &endpoint);
+            curl_easy_getinfo(curl_easy_handle, CURLINFO_PRIVATE, &endpntConf);
             //LOG_DBG("endpoint = <%s> terminating attempt", endpoint);
             curl_multi_remove_handle(curl_multi_handle, curl_easy_handle);
             curl_easy_cleanup(curl_easy_handle);
