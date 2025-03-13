@@ -18,8 +18,7 @@
 #############################################################################
 cmake_minimum_required(VERSION 3.3)
 
-project(upnpdiscover)
-set(MODULE_NAME upnpdiscover)
+set(MODULE_NAME routerdiscover)
 find_package(PkgConfig REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
