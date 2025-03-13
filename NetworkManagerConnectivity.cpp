@@ -323,8 +323,8 @@ namespace WPEFramework
                 logmsg +=", IPv6";
             }
             else
-            NMLOG_DEBUG("curlopt ipversion = whatever reqtyp = %s", headReq? "HEAD":"GET");
-            
+                logmsg +=", IPv4/IPv6";
+
             if(interface == "wlan0")
             {
                 curlSetOpt(curl_easy_handle, CURLOPT_INTERFACE, "wlan0");
