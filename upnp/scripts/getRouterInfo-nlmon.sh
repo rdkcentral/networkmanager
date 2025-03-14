@@ -28,12 +28,12 @@ if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
     if [ "$cmd" == "add" ] && [ "$flags" = "global" ]; then
         if [ ! -f $file ]; then
             touch /tmp/.routerdiscover
-            pid=`pidof routerdiscover`
+            pid=`pidof routerDiscovery`
             if [ -n "$pid" ]; then
                 kill -9 $pid
             fi 
-            echo "Starting routerdiscover on $ifc" >> /opt/logs/routerInfo.log
-            systemctl start routerdiscover_interface@$ifc
+            echo "Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
+            systemctl start routerDiscovery@$ifc
         fi
     fi
 fi
