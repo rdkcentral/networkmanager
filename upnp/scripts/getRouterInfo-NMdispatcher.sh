@@ -20,9 +20,9 @@
 . /etc/device.properties
 
 ifc=$1
-pid=`pidof routerdiscover`
+pid=`pidof routerDiscovery`
 if [ -n "$pid" ]; then
     kill -9 $pid
 fi 
-echo "Starting routerdiscover on $ifc" >> /opt/logs/routerInfo.log
-systemctl start routerdiscover_interface@$ifc
+echo "Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
+systemctl start routerDiscovery@$ifc
