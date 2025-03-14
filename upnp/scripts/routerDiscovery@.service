@@ -3,4 +3,4 @@ Description=Router Discovery Service %i
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/routerdiscover %i
+ExecStart=/usr/bin/routerDiscovery %i
