@@ -27,7 +27,7 @@
 #include <telemetry_busmessage_sender.h>
 #endif
 
-#define LOG_ERR(msg, ...)    g_printerr("ERROR: " "\n", ##__VA_ARGS__)
+#define LOG_ERR(msg, ...)    g_printerr("ERROR: " msg "\n", ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_print("INFO: " msg "\n", ##__VA_ARGS__)
 
 #define UPNP_MAX_CONTEXT_FAIL  15
