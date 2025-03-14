@@ -1,0 +1,11 @@
+message("Generate JsonRPC Documentation for NetworkManager.json")
+
+find_package(JsonGenerator REQUIRED)
+
+if(NOT GENERATOR_SEARCH_PATH)
+    set(GENERATOR_SEARCH_PATH ${CMAKE_SYSROOT}${CMAKE_INSTALL_PREFIX}/include/${NAMESPACE})
+endif()
+
+set(JSON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/NetworkManager.json")
+JsonGenerator(CODE INPUT ${JSON_FILE} OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH} CPPIFDIR "${CMAKE_CURRENT_SOURCE_DIR}" DOCS)
+

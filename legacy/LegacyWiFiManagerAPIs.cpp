@@ -17,7 +17,7 @@
 * limitations under the License.
 **/
 #include <fstream>
-#include "LegacyPlugin_WiFiManagerAPIs.h"
+#include "LegacyWiFiManagerAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
 

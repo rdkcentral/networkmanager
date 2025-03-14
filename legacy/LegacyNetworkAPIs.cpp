@@ -16,7 +16,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 **/
-#include "LegacyPlugin_NetworkAPIs.h"
+#include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
 

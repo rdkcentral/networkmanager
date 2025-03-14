@@ -6,9 +6,9 @@ set(NM_LEGACY_WIFI_UT "legacywifi_tests")
 set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
 
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLIB REQUIRED glib-2.0)
-pkg_check_modules(GIO REQUIRED gio-2.0)
-pkg_check_modules(LIBNM REQUIRED libnm)
+#pkg_check_modules(GLIB REQUIRED glib-2.0)
+#pkg_check_modules(GIO REQUIRED gio-2.0)
+#pkg_check_modules(LIBNM REQUIRED libnm)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -19,17 +19,17 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 
 add_executable(${NM_CLASS_UT}
-    Tests/unit_test/test_NetworkManagerConnectivity.cpp
-    Tests/unit_test/test_NetworkManagerStunClient.cpp
+    tests/unittest/test_NetworkManagerConnectivity.cpp
+    tests/unittest/test_NetworkManagerStunClient.cpp
     NetworkManagerLogger.cpp
     NetworkManagerConnectivity.cpp
     NetworkManagerStunClient.cpp
 )
 
 add_executable(${NM_RDKPROXY_UT}
-    Tests/unit_test/test_NetworkManager.cpp
-    Tests/mocks/thunder/Module.cpp
-    Tests/mocks/Iarm.cpp
+    tests/unittest/test_NetworkManager.cpp
+    tests/mocks/thunder/Module.cpp
+    tests/mocks/Iarm.cpp
     NetworkManager.cpp
     NetworkManagerLogger.cpp
     NetworkManagerJsonRpc.cpp
@@ -41,15 +41,15 @@ add_executable(${NM_RDKPROXY_UT}
 )
 
 add_executable(${NM_LEGACY_WIFI_UT}
-  Tests/unit_test/test_LegacyPlugin_WiFiManagerAPIs.cpp
-  Tests/mocks/thunder/Module.cpp
+  tests/unittest/test_LegacyPlugin_WiFiManagerAPIs.cpp
+  tests/mocks/thunder/Module.cpp
   NetworkManagerLogger.cpp
   LegacyPlugin_WiFiManagerAPIs.cpp
 )
 
 add_executable(${NM_LEGACY_NETWORK_UT}
-  Tests/unit_test/test_LegacyPlugin_NetworkAPIs.cpp
-  Tests/mocks/thunder/Module.cpp
+  tests/unittest/test_LegacyPlugin_NetworkAPIs.cpp
+  tests/mocks/thunder/Module.cpp
   NetworkManagerLogger.cpp
   LegacyPlugin_NetworkAPIs.cpp
 )
@@ -99,16 +99,16 @@ target_include_directories(${NM_RDKPROXY_UT} PRIVATE
     ${gtest_SOURCE_DIR}/../googlemock/include
     ${CMAKE_CURRENT_SOURCE_DIR}/install/usr/include/rdk/iarmbus
     Tests
-    Tests/mocks
-    Tests/mocks/thunder
+    tests/mocks
+    tests/mocks/thunder
 )
 target_include_directories(${NM_LEGACY_WIFI_UT} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
     Tests
-    Tests/mocks
-    Tests/mocks/thunder
+    tests/mocks
+    tests/mocks/thunder
 )
 
 target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
@@ -116,8 +116,8 @@ target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
     Tests
-    Tests/mocks
-    Tests/mocks/thunder
+    tests/mocks
+    tests/mocks/thunder
 )
 
 target_link_libraries(${NM_CLASS_UT} PRIVATE
