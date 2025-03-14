@@ -18,7 +18,7 @@
 #############################################################################
 cmake_minimum_required(VERSION 3.3)
 
-set(MODULE_NAME routerdiscover)
+set(MODULE_NAME routerDiscovery)
 find_package(PkgConfig REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
