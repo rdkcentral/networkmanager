@@ -21,8 +21,6 @@ cmake_minimum_required(VERSION 3.3)
 project(NetworkManager)
 find_package(WPEFramework)
 
-add_subdirectory(upnp)
-
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 11)
@@ -210,3 +208,6 @@ if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
 
+if(ENABLE_ROUTER_DISCOVERY_TOOL)
+    add_subdirectory(upnp)
+endif(ENABLE_ROUTER_DISCOVERY_TOOL)
