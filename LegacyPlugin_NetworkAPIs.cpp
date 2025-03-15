@@ -1058,10 +1058,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 		    {
         	        string interface;
         	        uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
-        	        if(!interface.empty())
+        	        if(!interface.empty() && rc == Core::ERROR_NONE)
 			{
-            	    	    string interfaceValue = interface;
-            	    	    string command = "systemctl set-environment INTERFACE=" + interfaceValue + " USER_HOSTS=connectivity.comcast.com";
+            	    	    string command = "systemctl set-environment INTERFACE=" + std::move(interface) + " USER_HOSTS=connectivity.comcast.com";
             	    	    NMLOG_DEBUG("Setting environment with command: %s", command.c_str());
             	    	    int ret = system(command.c_str());
             	    	    if(ret != -1)
