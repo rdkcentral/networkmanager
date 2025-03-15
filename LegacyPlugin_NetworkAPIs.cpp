@@ -1048,39 +1048,39 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             legacyParams.ToString(json);
 
             //Invoking NFRTool when Internet status "NO_INETERNET"
-	        if(parameters["status"].String() == "NO_INTERNET")
-	        {
-    		    NMLOG_DEBUG("NO_INTERNET status detected, preparing to invoke NFRTool.");
+	    if(parameters["status"].String() == "NO_INTERNET")
+	    {
+    		NMLOG_DEBUG("NO_INTERNET status detected, preparing to invoke NFRTool.");
                 std::thread([this]()
-		        {
-    		        auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    		        if(_nwmgr)
-		            {
-        	            string interface;
-        	            uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
-        	            if(!interface.empty() && rc == Core::ERROR_NONE)
-			            {
+		{
+    		    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+    		    if(_nwmgr)
+		    {
+        	        string interface;
+        	        uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
+        	        if(!interface.empty() && rc == Core::ERROR_NONE)
+			{
             	    	    string command = "systemctl set-environment INTERFACE=" + std::move(interface) + " USER_HOSTS=connectivity.comcast.com";
             	    	    NMLOG_DEBUG("Setting environment with command: %s", command.c_str());
             	    	    int ret = system(command.c_str());
             	    	    if(ret != -1)
-			                {
-                	            string startServiceCommand = "systemctl start nfrtool";
-                	            NMLOG_DEBUG("Starting nfrtool service with command: %s", startServiceCommand.c_str());
-                	            int retStartService = system(startServiceCommand.c_str());
-                	            if(retStartService != -1)
-				                {
+			    {
+                	        string startServiceCommand = "systemctl start nfrtool";
+                	        NMLOG_DEBUG("Starting nfrtool service with command: %s", startServiceCommand.c_str());
+                	        int retStartService = system(startServiceCommand.c_str());
+                	        if(retStartService != -1)
+				{
                                     NMLOG_INFO("Service nfrtool started successfully.");
-                	            }
-            	   	        }
-        	            }
-			            else
-			            {
+                	        }
+            	   	    }
+        	        }
+			else
+			{
             	            NMLOG_WARNING("Primary interface value is empty. Skipping setting environment variable.");
-        	            }
-    	 	        }	
-   		        }).detach();
-	        }
+        	        }
+    	 	    }	
+   		}).detach();
+	    }
             NMLOG_INFO("Posting onInternetStatusChanged as, %s", json.c_str());
             Notify("onInternetStatusChange", legacyParams);
             return;
