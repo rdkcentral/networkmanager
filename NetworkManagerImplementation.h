@@ -277,6 +277,8 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 WiFiSignalStrengthMonitor m_wifiSignalMonitor;
                 mutable ConnectivityMonitor connectivityMonitor;
+                bool m_IPv4Available;
+                bool m_IPv6Available;
         };
     }
 }
