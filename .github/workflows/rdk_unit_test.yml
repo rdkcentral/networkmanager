@@ -18,7 +18,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-0 libgupnp-1.2-dev libgssdp-1.2-0 libsoup-2.4-0
 
       - name: Configure Python
         uses: actions/setup-python@v4
@@ -118,7 +118,12 @@ jobs:
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           legacynetwork_tests
-          
+
+      - name: Run unit tests for routerDiscover
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${github.workspace}/install/usr/build${LD_LIBRARY_PATH}
+          testrouterDiscovery
           
       - name: Generate coverage
         run: |
