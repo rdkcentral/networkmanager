@@ -647,9 +647,9 @@ namespace WPEFramework
                     std::thread ipv6thread(curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
-                if(_instance->m_IPv4Available)
+                if (ipv4thread.joinable())
                     ipv4thread.join();
-                if(_instance->m_IPv6Available)
+                if (ipv6thread.joinable())
                     ipv6thread.join();
 
                 // Determine the current internet state based on the results
