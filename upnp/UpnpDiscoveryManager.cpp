@@ -56,7 +56,11 @@ gboolean UpnpDiscoveryManager::initialiseUpnp(const std::string& interface)
     do
     {
         // Create a gupnp context
+    #ifdef GUPNP_1_0
         m_context = gupnp_context_new(NULL, interface.c_str(), UPNP_DISCOVERY_PORT, &error);
+    #else
+        m_context = gupnp_context_new(interface.c_str(), UPNP_DISCOVERY_PORT, &error);
+    #endif
         if (!m_context) 
         {
             LOG_ERR("Error creating Upnp context: %s", error->message);
