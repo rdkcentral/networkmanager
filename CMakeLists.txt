@@ -23,7 +23,7 @@ find_package(WPEFramework)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 0)
-set(VERSION_MINOR 10)
+set(VERSION_MINOR 11)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -127,9 +127,10 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gdbus/NetworkManagerGdbusClient.cpp
             gdbus/NetworkManagerGdbusEvent.cpp
             gdbus/NetworkManagerGdbusMgr.cpp
-            gdbus/NetworkManagerGdbusUtils.cpp )
+            gdbus/NetworkManagerGdbusUtils.cpp
+            NetworkManagerSecretAgent.cpp )
             target_include_directories(${MODULE_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${GIO_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
-            target_link_libraries(${MODULE_NAME} PRIVATE ${GLIB_LIBRARIES} ${GIO_LIBRARIES})
+            target_link_libraries(${MODULE_NAME} PRIVATE ${GLIB_LIBRARIES} ${GIO_LIBRARIES} uuid)
     else()
         message("networkmanager building with libnm")
         target_sources(${MODULE_NAME} PRIVATE 
@@ -207,3 +208,6 @@ if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
 
+if(ENABLE_ROUTER_DISCOVERY_TOOL)
+    add_subdirectory(upnp)
+endif(ENABLE_ROUTER_DISCOVERY_TOOL)

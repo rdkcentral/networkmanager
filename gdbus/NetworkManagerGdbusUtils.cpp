@@ -154,39 +154,14 @@ namespace WPEFramework
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
             if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
-            {
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_PAIR_TKIP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_TKIP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_PAIR_CCMP) || (rsnFlags & NM_802_11_AP_SEC_PAIR_CCMP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            }
-            else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
-            }
-            else if(rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_GROUP_CCMP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_CCMP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            }
-            else if((wpaFlags & NM_802_11_AP_SEC_GROUP_TKIP) || (rsnFlags & NM_802_11_AP_SEC_GROUP_TKIP))
-            {
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            }
-            else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE) || (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
-            {
+            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
-            }
+            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X)
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
             else
-                NMLOG_WARNING("security mode not defined (flag: %d, wpaFlags: %d, rsnFlags: %d)", flags, wpaFlags, rsnFlags);
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+            // NMLOG_DEBUG("ap security str %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             return security;
         }
 
@@ -428,7 +403,7 @@ namespace WPEFramework
                 wifiInfo.frequency = freqStr.substr(0, 5);
                 wifiInfo.rate = std::to_string(bitrate);
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
-                if(noise <= 0 || noise >= DEFAULT_NOISE)
+                if(noise <= 0 && noise >= DEFAULT_NOISE)
                     wifiInfo.noise = std::to_string(noise);
                 else
                     wifiInfo.noise = std::to_string(0);

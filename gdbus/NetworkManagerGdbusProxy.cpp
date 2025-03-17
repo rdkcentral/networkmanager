@@ -37,11 +37,55 @@ namespace WPEFramework
             return;
         }
 
+        void NetworkManagerImplementation::getInitialConnectionState()
+        {
+            // check the connection state and post event
+            Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
+            uint32_t rc = GetAvailableInterfaces(_interfaces);
+
+            if (Core::ERROR_NONE == rc)
+            {
+                if (_interfaces != nullptr)
+                {
+                    Exchange::INetworkManager::InterfaceDetails iface{};
+                    while (_interfaces->Next(iface) == true)
+                    {
+                        Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
+                        if(iface.enabled)
+                        {
+                            NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
+                            // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
+                            if(iface.connected)
+                            {
+                                NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
+                                ReportActiveInterfaceChange(iface.name, iface.name);
+                                std::string ipversion = {};
+                                Exchange::INetworkManager::IPAddress addr;
+                                rc = GetIPSettings(iface.name, ipversion, addr);
+                                if (Core::ERROR_NONE == rc)
+                                {
+                                    if(!addr.ipaddress.empty()) {
+                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
+                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    _interfaces->Release();
+                }
+            }
+            else
+                NMLOG_INFO("GetAvailableInterfaces Failed");
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
             _nmGdbusClient = NetworkManagerClient::getInstance();
             _nmGdbusEvents = NetworkManagerEvents::getInstance();
+            getInitialConnectionState();
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -176,10 +220,23 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(_nmGdbusClient->wifiConnect(ssid))
-                rc = Core::ERROR_NONE;
+            if(ssid.ssid.empty())
+            {
+                NMLOG_WARNING("ssid is not sepecified; so attampting to connect know ssids !");
+                _nmGdbusEvents->setwifiScanOptions(false); /* Enable event posting */
+                if(_nmGdbusClient->startWifiScan())
+                    rc = Core::ERROR_NONE;
+                else
+                    NMLOG_ERROR("StartWiFiScan failed");
+            }
             else
-                NMLOG_ERROR("WiFiConnect failed");
+            {
+                if(_nmGdbusClient->wifiConnect(ssid))
+                    rc = Core::ERROR_NONE;
+                else
+                    NMLOG_ERROR("WiFiConnect failed");
+            }
+
             return rc;
         }
 
@@ -227,12 +284,38 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {
-            return Core::ERROR_NONE;
+            uint32_t rc = Core::ERROR_NONE;
+            if(method == WIFI_WPS_SERIALIZED_PIN || method == WIFI_WPS_PIN)
+            {
+                NMLOG_ERROR("WPS PIN method is not supported as of now");
+                return Core::ERROR_RPC_CALL_FAILED;
+            }
+            _nmGdbusEvents->setwifiScanOptions(false);
+            if(!_nmGdbusClient->startWifiScan())
+            {
+                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+            }
+
+            if(_nmGdbusClient->startWPS())
+                NMLOG_INFO ("start WPS success");
+            else {
+                rc = Core::ERROR_GENERAL;
+                NMLOG_ERROR("start WPS failed");
+            }
+
+            return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
-            return Core::ERROR_NONE;
+            uint32_t rc = Core::ERROR_NONE;
+            if(_nmGdbusClient->stopWPS())
+                NMLOG_INFO ("stop success");
+            else {
+                NMLOG_ERROR("stop WPS failed");
+                rc = Core::ERROR_GENERAL;
+            }
+            return rc;
         }
     }
 }
