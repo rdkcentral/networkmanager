@@ -593,6 +593,8 @@ namespace WPEFramework
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         m_notify = true;
+        std::thread ipv4thread;
+        std::thread ipv6thread;
 
         while (m_cmRunning) {
             // Check if no interfaces are connected
@@ -642,9 +644,9 @@ namespace WPEFramework
                 }
                 // Start threads for IPv4 and IPv6 checks
                 if(_instance->m_IPv4Available)
-                    std::thread ipv4thread(curlCheckThrdIpv4);
+                    ipv4thread = std::thread (curlCheckThrdIpv4);
                 if(_instance->m_IPv6Available)
-                    std::thread ipv6thread(curlCheckThrdIpv6);
+                    ipv6thread = std::thread (curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
                 if (ipv4thread.joinable())
