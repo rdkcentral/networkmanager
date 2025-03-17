@@ -629,13 +629,28 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
+                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
+                {
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                    m_InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+                    InitialRetryCount = 1;
+                }
                 // Start threads for IPv4 and IPv6 checks
-                std::thread ipv4thread(curlCheckThrdIpv4);
-                std::thread ipv6thread(curlCheckThrdIpv6);
+                if(_instance->m_IPv4Available)
+                    std::thread ipv4thread(curlCheckThrdIpv4);
+                if(_instance->m_IPv6Available)
+                    std::thread ipv6thread(curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
-                ipv4thread.join();
-                ipv6thread.join();
+                if(_instance->m_IPv4Available)
+                    ipv4thread.join();
+                if(_instance->m_IPv6Available)
+                    ipv6thread.join();
 
                 // Determine the current internet state based on the results
                 if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
@@ -668,6 +683,7 @@ namespace WPEFramework
                         NMLOG_DEBUG("initial connectivity state change %s", getInternetStateString(m_InternetState));
                         m_InternetState = currentInternetState;
                         InitialRetryCount = 1; // reset retry count to get continuous 3 same state
+                        m_notify = true;
                     }
                     InitialRetryCount++;
                 }
