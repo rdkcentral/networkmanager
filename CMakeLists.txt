@@ -53,6 +53,6 @@ endif (ENABLE_LEGACY_PLUGINS)
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
-    include(tests/unittest/unit_tests.cmake)
+    add_subdirectory(tests/unittest)
 endif(ENABLE_UNIT_TESTING)
 
