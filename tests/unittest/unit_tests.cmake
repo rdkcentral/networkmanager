@@ -5,6 +5,10 @@ set(NM_RDKPROXY_UT "rdkproxy_tests")
 set(NM_LEGACY_WIFI_UT "legacywifi_tests")
 set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
 
+
+find_package(${NAMESPACE}Core REQUIRED)
+find_package(${NAMESPACE}Plugins REQUIRED)
+find_package(CURL)
 find_package(PkgConfig REQUIRED)
 #pkg_check_modules(GLIB REQUIRED glib-2.0)
 #pkg_check_modules(GIO REQUIRED gio-2.0)
@@ -21,37 +25,37 @@ FetchContent_MakeAvailable(googletest)
 add_executable(${NM_CLASS_UT}
     tests/unittest/test_NetworkManagerConnectivity.cpp
     tests/unittest/test_NetworkManagerStunClient.cpp
-    NetworkManagerLogger.cpp
-    NetworkManagerConnectivity.cpp
-    NetworkManagerStunClient.cpp
+    plugin/NetworkManagerLogger.cpp
+    plugin/NetworkManagerConnectivity.cpp
+    plugin/NetworkManagerStunClient.cpp
 )
 
 add_executable(${NM_RDKPROXY_UT}
     tests/unittest/test_NetworkManager.cpp
     tests/mocks/thunder/Module.cpp
     tests/mocks/Iarm.cpp
-    NetworkManager.cpp
-    NetworkManagerLogger.cpp
-    NetworkManagerJsonRpc.cpp
-    NetworkManagerImplementation.cpp
-    NetworkManagerConnectivity.cpp
-    NetworkManagerStunClient.cpp
-    NetworkManagerRDKProxy.cpp
+    plugin/NetworkManager.cpp
+    plugin/NetworkManagerLogger.cpp
+    plugin/NetworkManagerJsonRpc.cpp
+    plugin/NetworkManagerImplementation.cpp
+    plugin/NetworkManagerConnectivity.cpp
+    plugin/NetworkManagerStunClient.cpp
+    plugin/rdk/NetworkManagerRDKProxy.cpp
     ${PROXY_STUB_SOURCES}
 )
 
 add_executable(${NM_LEGACY_WIFI_UT}
   tests/unittest/test_LegacyPlugin_WiFiManagerAPIs.cpp
   tests/mocks/thunder/Module.cpp
-  NetworkManagerLogger.cpp
-  LegacyPlugin_WiFiManagerAPIs.cpp
+  plugin/NetworkManagerLogger.cpp
+  legacy/LegacyWiFiManagerAPIs.cpp
 )
 
 add_executable(${NM_LEGACY_NETWORK_UT}
   tests/unittest/test_LegacyPlugin_NetworkAPIs.cpp
   tests/mocks/thunder/Module.cpp
-  NetworkManagerLogger.cpp
-  LegacyPlugin_NetworkAPIs.cpp
+  plugin/NetworkManagerLogger.cpp
+  legacy/LegacyNetworkAPIs.cpp
 )
 
 set_target_properties(${NM_CLASS_UT} PROPERTIES
@@ -73,12 +77,15 @@ set_target_properties(${NM_LEGACY_NETWORK_UT} PROPERTIES
     CXX_STANDARD_REQUIRED YES
 )
 
-target_compile_options(${NM_CLASS_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
-target_compile_options(${NM_RDKPROXY_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
-target_compile_options(${NM_LEGACY_WIFI_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
-target_compile_options(${NM_LEGACY_NETWORK_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
+target_compile_options(${NM_CLASS_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
+target_compile_options(${NM_RDKPROXY_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
+target_compile_options(${NM_LEGACY_WIFI_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
+target_compile_options(${NM_LEGACY_NETWORK_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
+
+include_directories(${PROJECT_SOURCE_DIR}/interface)
+include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
 target_include_directories(${NM_CLASS_UT} PRIVATE
     ${GLIB_INCLUDE_DIRS}
@@ -98,7 +105,7 @@ target_include_directories(${NM_RDKPROXY_UT} PRIVATE
     ${gtest_SOURCE_DIR}/include
     ${gtest_SOURCE_DIR}/../googlemock/include
     ${CMAKE_CURRENT_SOURCE_DIR}/install/usr/include/rdk/iarmbus
-    Tests
+    tests
     tests/mocks
     tests/mocks/thunder
 )
@@ -106,7 +113,7 @@ target_include_directories(${NM_LEGACY_WIFI_UT} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
-    Tests
+    tests
     tests/mocks
     tests/mocks/thunder
 )
@@ -115,7 +122,7 @@ target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
-    Tests
+    tests
     tests/mocks
     tests/mocks/thunder
 )
