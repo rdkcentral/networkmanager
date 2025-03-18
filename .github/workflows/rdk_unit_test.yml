@@ -18,7 +18,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-0 libgupnp-1.2-dev libgssdp-1.2-0 libsoup-2.4-0
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-1 libgupnp-1.2-dev libgssdp-1.2-0 libsoup2.4-1
 
       - name: Configure Python
         uses: actions/setup-python@v4
