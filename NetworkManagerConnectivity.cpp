@@ -597,8 +597,8 @@ namespace WPEFramework
         std::thread ipv6thread;
 
         while (m_cmRunning) {
-            // Check if no interfaces are connected
-            if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+            if (nullptr == _instance)
+            {
                 NMLOG_DEBUG("no interface connected, no ccm check");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;
@@ -607,6 +607,16 @@ namespace WPEFramework
                 currentInternetState = INTERNET_NOT_AVAILABLE;
                 if (InitialRetryCount == 0)
                     m_notify = true;
+                InitialRetryCount = 1;
+            }
+            // Check if no interfaces are connected
+            else if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+                NMLOG_DEBUG("no interface connected, no ccm check");
+                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                m_InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                currentInternetState = INTERNET_NOT_AVAILABLE;
                 InitialRetryCount = 1;
             }
             else if (m_switchToInitial)
