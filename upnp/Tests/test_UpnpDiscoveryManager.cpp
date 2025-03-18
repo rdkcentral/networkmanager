@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <UpnpDiscoveryManager.h>
+#include <thread>
 
 using ::testing::_;
 using ::testing::Return;
@@ -28,6 +29,10 @@ using ::testing::Mock;
 class UpnpDiscoveryManagerTest : public ::testing::Test {
 protected:
    UpnpDiscoveryManager upnpDiscover;
+   GMainLoop*           mainLoop;
+   void SetUp() override {
+        mainLoop = g_main_loop_new(nullptr, FALSE);
+    }
 };
 
 std::string getInterfaceWithDefaultRoute() {
@@ -48,7 +53,6 @@ std::string getInterfaceWithDefaultRoute() {
     if (!result.empty() && result.back() == '\n') {
         result.pop_back();
     }
-
     return result;
 }
 
@@ -64,5 +68,33 @@ TEST_F(UpnpDiscoveryManagerTest, FindGatewayDeviceTest)
     } else {
         std::cout << "No default route interface found." << std::endl;
     }
-    upnpDiscover.findGatewayDevice(interfaceName);
+
+    // Valid interface name
+    EXPECT_EQ(true, upnpDiscover.findGatewayDevice(interfaceName));
+}
+
+TEST_F(UpnpDiscoveryManagerTest, routerDiscovery)
+{   
+   auto threadHandler = [&]() {
+        std::this_thread::sleep_for(std::chrono::seconds(10)));
+        std::cout << "Thread finished sleeping." << std::endl;
+	     if (this->mainLoop)
+        {
+            g_main_loop_quit(this->mainLoop);
+            g_main_loop_unref(this->mainLoop);
+        }
+    };
+    // Get router details on actual interface
+    std::string interfaceName = getInterfaceWithDefaultRoute();
+    if (!interfaceName.empty()) {
+        std::cout << "Interface with default route: " << interfaceName << std::endl;
+    } else {
+        std::cout << "No default route interface found." << std::endl;
+    }
+    mainLoop = g_main_loop_new(NULL, FALSE);
+    std::thread workerThread(threadHandler);
+    // Get the router details
+    EXPECT_EQ(true, upnpDiscover.findGatewayDevice(interfaceName));
+    g_main_loop_run(mainLoop);
+    workerThread.join();
 }
