@@ -47,5 +47,5 @@ target_link_libraries(${MODULE_NAME} PRIVATE
     routerDiscovery-lib
 )
 # Add test to CTest
-add_test(NAME ${MODULE_NAME} COMMAND runTests)
+add_test(NAME ${MODULE_NAME} COMMAND ${MODULE_NAME})
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
