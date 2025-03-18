@@ -94,6 +94,17 @@ jobs:
           -DENABLE_UNIT_TESTING=ON
           &&
           cmake --build build/RDKNetworkmanager --target install -j8
+
+      - name: Build routerDiscovery
+        run: >
+          cmake
+          -S "${{github.workspace}}/networkmanager/upnp"
+          -B build/RDKNetworkmanager/upnp
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
+          -DENABLE_UNIT_TESTING=ON
+          &&
+          cmake --build build/RDKNetworkmanager/upnp --target install -j8
           
       - name: Run unit tests for common class
         run: >
@@ -119,10 +130,10 @@ jobs:
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           legacynetwork_tests
 
-      - name: Run unit tests for routerDiscover
+      - name: Run unit tests for routerDiscovery
         run: >
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          LD_LIBRARY_PATH=${github.workspace}/install/usr/build${LD_LIBRARY_PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/build:${LD_LIBRARY_PATH}
           testrouterDiscovery
           
       - name: Generate coverage
