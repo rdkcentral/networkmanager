@@ -599,7 +599,7 @@ namespace WPEFramework
         while (m_cmRunning) {
             if (nullptr == _instance)
             {
-                NMLOG_DEBUG("Must be right from the constructor; becase the _instance is NULL");
+                NMLOG_DEBUG("Must be right from the constructor; because the _instance is NULL");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;
                 m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
