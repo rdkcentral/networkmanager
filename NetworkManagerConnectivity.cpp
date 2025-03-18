@@ -599,15 +599,13 @@ namespace WPEFramework
         while (m_cmRunning) {
             if (nullptr == _instance)
             {
-                NMLOG_DEBUG("no interface connected, no ccm check");
+                NMLOG_DEBUG("Must be right from the constructor; becase the _instance is NULL");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;
                 m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
                 m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
                 currentInternetState = INTERNET_NOT_AVAILABLE;
-                if (InitialRetryCount == 0)
-                    m_notify = true;
-                InitialRetryCount = 1;
+                InitialRetryCount = 0;
             }
             // Check if no interfaces are connected
             else if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
