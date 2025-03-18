@@ -76,7 +76,7 @@ TEST_F(UpnpDiscoveryManagerTest, FindGatewayDeviceTest)
 TEST_F(UpnpDiscoveryManagerTest, routerDiscovery)
 {   
    auto threadHandler = [&]() {
-        std::this_thread::sleep_for(std::chrono::seconds(10)));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
         std::cout << "Thread finished sleeping." << std::endl;
 	     if (this->mainLoop)
         {
