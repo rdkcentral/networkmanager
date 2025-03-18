@@ -76,9 +76,9 @@ TEST_F(UpnpDiscoveryManagerTest, FindGatewayDeviceTest)
 TEST_F(UpnpDiscoveryManagerTest, routerDiscovery)
 {   
    auto threadHandler = [&]() {
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        std::this_thread::sleep_for(std::chrono::seconds(3100));
         std::cout << "Thread finished sleeping." << std::endl;
-	     if (this->mainLoop)
+	if (this->mainLoop)
         {
             g_main_loop_quit(this->mainLoop);
             g_main_loop_unref(this->mainLoop);
@@ -93,7 +93,7 @@ TEST_F(UpnpDiscoveryManagerTest, routerDiscovery)
     }
     mainLoop = g_main_loop_new(NULL, FALSE);
     std::thread workerThread(threadHandler);
-    // Get the router details
+    // Get the router details, mostly will timeout in corporate network
     EXPECT_EQ(true, upnpDiscover.findGatewayDevice(interfaceName));
     g_main_loop_run(mainLoop);
     workerThread.join();
