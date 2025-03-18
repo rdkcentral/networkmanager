@@ -357,7 +357,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -621,7 +621,7 @@ namespace WPEFramework
             }
             else if (m_switchToInitial)
             {
-                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(currentInternetState));
+                NMLOG_INFO("Initial connectivity check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
                 // Lambda functions to check connectivity for IPv4 and IPv6
