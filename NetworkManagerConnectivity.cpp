@@ -615,6 +615,8 @@ namespace WPEFramework
                 m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
                 m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
                 currentInternetState = INTERNET_NOT_AVAILABLE;
+                if (InitialRetryCount == 0)
+                    m_notify = true;
                 InitialRetryCount = 1;
             }
             else if (m_switchToInitial)
