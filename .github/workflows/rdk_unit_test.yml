@@ -44,7 +44,7 @@ jobs:
       - name: Apply Thunder Patches
         run: |
           cd ${{github.workspace}}/Thunder
-          git apply ${{github.workspace}}/networkmanager/Tests/patches/thunder/Remove-SmartLinkType.patch
+          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/Remove-SmartLinkType.patch
 
       - name: Build ThunderTools
         run: >
@@ -73,7 +73,7 @@ jobs:
             touch install/usr/lib/libIARMBus.so 
             mkdir -p install/usr/include/rdk/iarmbus
             touch install/usr/include/rdk/iarmbus/libIARM.h
-            cd "${{github.workspace}}/networkmanager/Tests/"
+            cd "${{github.workspace}}/networkmanager/tests/"
             mkdir -p headers/rdk/iarmbus
             cd headers
             touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
@@ -87,9 +87,9 @@ jobs:
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           -DCMAKE_CXX_FLAGS="
-          -I ${{github.workspace}}/networkmanager/Tests/headers
-          -I ${{github.workspace}}/networkmanager/Tests/headers/rdk/iarmbus
-          --include ${{github.workspace}}/networkmanager/Tests/mocks/Iarm.h
+          -I ${{github.workspace}}/networkmanager/tests/headers
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
+          --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           "
           -DENABLE_UNIT_TESTING=ON
           &&
@@ -140,7 +140,7 @@ jobs:
         run: |
             lcov -c -o coverage.info -d build/RDKNetworkmanager
             lcov -r coverage.info '/usr/include/*' '*/build/RDKNetworkmanager/*' \
-                                  '*/install/usr/include/*' '*/Tests/*' 'googlemock/*' 'googletest/*' \
+                                  '*/install/usr/include/*' '*/tests/*' 'googlemock/*' 'googletest/*' \
                                   -o filtered_coverage.info
       - name: Generate the html report
         run: |
