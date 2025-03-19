@@ -357,7 +357,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -593,10 +593,22 @@ namespace WPEFramework
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         m_notify = true;
+        std::thread ipv4thread;
+        std::thread ipv6thread;
 
         while (m_cmRunning) {
+            if (nullptr == _instance)
+            {
+                NMLOG_DEBUG("Must be right from the constructor; because the _instance is NULL");
+                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                m_InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                currentInternetState = INTERNET_NOT_AVAILABLE;
+                InitialRetryCount = 0;
+            }
             // Check if no interfaces are connected
-            if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+            else if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
                 NMLOG_DEBUG("no interface connected, no ccm check");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;
@@ -609,7 +621,7 @@ namespace WPEFramework
             }
             else if (m_switchToInitial)
             {
-                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(currentInternetState));
+                NMLOG_INFO("Initial connectivity check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
                 // Lambda functions to check connectivity for IPv4 and IPv6
@@ -629,13 +641,28 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
+                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
+                {
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                    m_InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+                    InitialRetryCount = 1;
+                }
                 // Start threads for IPv4 and IPv6 checks
-                std::thread ipv4thread(curlCheckThrdIpv4);
-                std::thread ipv6thread(curlCheckThrdIpv6);
+                if(_instance->m_IPv4Available)
+                    ipv4thread = std::thread (curlCheckThrdIpv4);
+                if(_instance->m_IPv6Available)
+                    ipv6thread = std::thread (curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
-                ipv4thread.join();
-                ipv6thread.join();
+                if (ipv4thread.joinable())
+                    ipv4thread.join();
+                if (ipv6thread.joinable())
+                    ipv6thread.join();
 
                 // Determine the current internet state based on the results
                 if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
@@ -668,6 +695,7 @@ namespace WPEFramework
                         NMLOG_DEBUG("initial connectivity state change %s", getInternetStateString(m_InternetState));
                         m_InternetState = currentInternetState;
                         InitialRetryCount = 1; // reset retry count to get continuous 3 same state
+                        m_notify = true;
                     }
                     InitialRetryCount++;
                 }
