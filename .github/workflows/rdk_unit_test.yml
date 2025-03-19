@@ -98,7 +98,7 @@ jobs:
       - name: Build routerDiscovery
         run: >
           cmake
-          -S "${{github.workspace}}/networkmanager/upnp"
+          -S "${{github.workspace}}/networkmanager/tools/upnp"
           -B build/RDKNetworkmanager/upnp
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
