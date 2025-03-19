@@ -357,7 +357,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
