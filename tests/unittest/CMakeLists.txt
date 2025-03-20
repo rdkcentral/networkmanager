@@ -179,7 +179,8 @@ target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
       ${NAMESPACE}Core::${NAMESPACE}Core 
       ${CURL_LIBRARIES}
 )
-link_directories(${PROJECT_SOURCE_DIR}/build)
+
+link_directories(${PROJECT_SOURCE_DIR}/build/RDKNetworkmanager)
 
 target_link_libraries(${NM_ROUTER_DISCOVERY_UT} PRIVATE
       gmock_main
