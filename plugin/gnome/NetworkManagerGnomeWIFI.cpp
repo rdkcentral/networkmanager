@@ -425,7 +425,8 @@ namespace WPEFramework
             GBytes *ssid = g_bytes_new(ssidinfo.ssid.c_str(), strlen(ssidinfo.ssid.c_str()));
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_SSID, ssid, NULL); // ssid in Gbyte
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MODE, NM_SETTING_WIRELESS_MODE_INFRA, NULL); // infra mode
-            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
+            if(!iswpsAP) // wps never be a hidden AP, it will be always visible
+                g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
             // 'bssid' parameter is used to restrict the connection only to the BSSID
             // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
 
@@ -1155,8 +1156,12 @@ namespace WPEFramework
                             NMLOG_INFO("WPS process stoped connected to '%s' wps ap ", wpsApSsid.c_str());
                             wpsComplete = true;
                         }
-                        else {
-                            // some other ssid connected; wps need a disconnected wifi device
+
+                        NMDeviceState state = nm_device_get_state(wifidevice);
+                        if(!wpsComplete && state > NM_DEVICE_STATE_DISCONNECTED)
+                        {
+                            NMLOG_INFO("stopping the ongoing Wi-Fi connection");
+                            // some other ssid connected or connecting; wps need a disconnected wifi state
                             nm_device_disconnect(wifidevice, NULL,  &error);
                             if (error)
                                 NMLOG_ERROR("disconnect connection failed %s", error->message);

@@ -168,11 +168,12 @@ namespace WPEFramework
         void SecretAgent::wait(const std::chrono::seconds timeout)
         {
             NMLOG_INFO("wait started %ld Sec", timeout.count());
-            auto start = std::chrono::high_resolution_clock::now();
-            while (stopwait.load() == false) 
+            auto start = std::chrono::steady_clock::now(); // Use steady_clock for better precision
+            while (!stopwait.load()) 
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500)); 
-                if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start) >= timeout) 
+                auto now = std::chrono::steady_clock::now();
+                if (std::chrono::duration_cast<std::chrono::seconds>(now - start) >= timeout) 
                 {
                     return;
                 }
