@@ -78,6 +78,7 @@ add_executable(${NM_LEGACY_NETWORK_UT}
 
 add_executable(${NM_ROUTER_DISCOVERY_UT}
     ${CMAKE_SOURCE_DIR}/tests/unittest/test_UpnpDiscoveryManager.cpp
+    ${CMAKE_SOURCE_DIR}/tools/upnp/UpnpDiscoveryManager.cpp
 )
 
 set_target_properties(${NM_CLASS_UT} PROPERTIES
@@ -156,6 +157,9 @@ target_link_libraries(${NM_CLASS_UT} PRIVATE
 target_include_directories(${NM_ROUTER_DISCOVERY_UT} PRIVATE
     ${PROJECT_SOURCE_DIR}/tools/upnp
     ${GUPNP_INCLUDE_DIRS}
+    ${GLIB_INCLUDE_DIRS} 
+    ${LIBSOUP_INCLUDE_DIRS}
+    ${GSSDP_INCLUDE_DIRS}
 )
 
 target_link_libraries(${NM_RDKPROXY_UT} PRIVATE
@@ -185,7 +189,9 @@ link_directories(${PROJECT_SOURCE_DIR}/../build/RDKNetworkmanager/tools/upnp)
 target_link_libraries(${NM_ROUTER_DISCOVERY_UT} PRIVATE
       gmock_main
       ${GLIB_LIBRARIES}
-      ${ROUTER_DISCOVERY_LIB}
+      ${LIBSOUP_LIBRARIES} 
+      ${GUPNP_LIBRARIES} 
+      ${GSSDP_LIBRARIES}
 )
 
 install(TARGETS ${NM_CLASS_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
