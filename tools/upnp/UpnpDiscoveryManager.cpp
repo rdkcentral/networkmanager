@@ -184,7 +184,7 @@ void UpnpDiscoveryManager::exitWait()
         m_mainLoop = NULL;
     }
 }
-#if DISABLE_MAIN
+#ifndef ROUTERDISCOVERY_LIB
 int main(int argc, char *argv[])
 {  
     if (argc < 2) 
