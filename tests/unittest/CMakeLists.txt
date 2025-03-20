@@ -22,7 +22,7 @@ set(NM_CLASS_UT "common_class_tests")
 set(NM_RDKPROXY_UT "rdkproxy_tests")
 set(NM_LEGACY_WIFI_UT "legacywifi_tests")
 set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
-
+set(NM_ROUTER_DISCOVERY_UT "routerDiscovery_tests")
 
 find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
@@ -74,6 +74,10 @@ add_executable(${NM_LEGACY_NETWORK_UT}
     ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
+)
+
+add_executable(${NM_ROUTER_DISCOVERY_UT}
+    ${CMAKE_SOURCE_DIR}/tests/unittest/test_UpnpDiscoveryManager.cpp
 )
 
 set_target_properties(${NM_CLASS_UT} PROPERTIES
@@ -146,6 +150,10 @@ target_link_libraries(${NM_CLASS_UT} PRIVATE
     ${LIBNM_LIBRARIES}
     ${CURL_LIBRARIES}
 )
+target_include_directories(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+    ${PROJECT_SOURCE_DIR}/tools/upnp
+    ${GUPNP_INCLUDE_DIRS}
+)
 
 target_link_libraries(${NM_RDKPROXY_UT} PRIVATE
     gmock_main
@@ -167,6 +175,11 @@ target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
       ${NAMESPACE}Plugins::${NAMESPACE}Plugins
       ${NAMESPACE}Core::${NAMESPACE}Core 
       ${CURL_LIBRARIES}
+)
+target_link_libraries(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+      gmock_main
+      ${GLIB_LIBRARIES}
+      ${ROUTER_DISCOVERY_LIB}
 )
 
 install(TARGETS ${NM_CLASS_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
