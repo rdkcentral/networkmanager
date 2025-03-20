@@ -179,7 +179,7 @@ target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
       ${NAMESPACE}Core::${NAMESPACE}Core 
       ${CURL_LIBRARIES}
 )
-find_library(ROUTER_DISCOVERY_LIB PATHS ${CMAKE_INSTALL_PREFIX}/install/usr/build)
+find_library(ROUTER_DISCOVERY_LIB PATHS ${CMAKE_LIBRARY_PATH})
 if(ROUTER_DISCOVERY_LIB)
 message(WARNING "HELLO............router_discovery_name found.")
 else()
