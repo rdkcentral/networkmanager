@@ -21,7 +21,9 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include <glib.h>
 #include <gio/gio.h>
 
@@ -35,7 +37,8 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        std::atomic<bool>stopwait;
+        std::condition_variable m_SecretsAgentCv;
+        std::mutex m_SecretsAgentMutex;
         static const gchar interfaceXml[] =
             "<node>"
             "  <interface name='org.freedesktop.NetworkManager.SecretAgent'>"
@@ -97,9 +100,8 @@ namespace WPEFramework
                         flagStr += ", allow_interaction";
                     if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED) {
                         flagStr += ", user_requested";
-                        stopwait.store(false);
                         /* wait for 10 sec mean time in the background networkmanager will do wps operation */
-                        SecretAgent::wait(static_cast<std::chrono::seconds>(10));
+                        SecretAgent::wait(10); // 10 sec
                     }
                     NMLOG_INFO("SecretAgent GetSecrets Flags = %u %s", flags, flagStr.c_str());
                 }
@@ -165,24 +167,18 @@ namespace WPEFramework
                 g_object_unref(GDBusconn);
         }
 
-        void SecretAgent::wait(const std::chrono::seconds timeout)
+        void SecretAgent::wait(int timeoutInSec)
         {
-            NMLOG_INFO("wait started %ld Sec", timeout.count());
-            auto start = std::chrono::steady_clock::now(); // Use steady_clock for better precision
-            while (!stopwait.load()) 
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500)); 
-                auto now = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::seconds>(now - start) >= timeout) 
-                {
-                    return;
-                }
+            NMLOG_INFO("wait started %d Sec", timeoutInSec);
+            std::unique_lock<std::mutex> lock(m_SecretsAgentMutex);
+            if (m_SecretsAgentCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
+                NMLOG_INFO("SecretAgent received a cancel request. skipping %d sec wait", timeoutInSec);
             }
         }
 
         void SecretAgent::stopWait()
         {
-            stopwait.store(true);
+            m_SecretsAgentCv.notify_one();
             NMLOG_INFO("wait exit");
         }
 
@@ -259,6 +255,7 @@ namespace WPEFramework
 
         void SecretAgent::stopSecurityAgent()
         {
+            stopWait();
             if (agentGmainLoop) {
                 g_main_loop_quit(agentGmainLoop);
             }
