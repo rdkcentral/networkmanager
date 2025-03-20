@@ -184,7 +184,7 @@ void UpnpDiscoveryManager::exitWait()
         m_mainLoop = NULL;
     }
 }
-#ifndef ENABLE_ROUTER_DISCOVERY_LIB
+#if ENABLE_ROUTER_DISCOVERY_MAIN
 int main(int argc, char *argv[])
 {  
     if (argc < 2) 
