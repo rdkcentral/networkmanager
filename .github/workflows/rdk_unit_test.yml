@@ -92,19 +92,9 @@ jobs:
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           "
           -DENABLE_UNIT_TESTING=ON
+          -DENABLE_ROUTER_DISCOVERY_TOOL=ON
           &&
           cmake --build build/RDKNetworkmanager --target install -j8
-
-      - name: Build routerDiscovery
-        run: >
-          cmake
-          -S "${{github.workspace}}/networkmanager/tools/upnp"
-          -B build/RDKNetworkmanager/upnp
-          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
-          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
-          -DENABLE_UNIT_TESTING=ON
-          &&
-          cmake --build build/RDKNetworkmanager/upnp --target install -j8
           
       - name: Run unit tests for common class
         run: >
