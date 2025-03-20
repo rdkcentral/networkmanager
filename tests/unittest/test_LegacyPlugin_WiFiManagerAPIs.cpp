@@ -58,7 +58,7 @@ protected:
     NiceMock<ServiceMock> service;
     WiFiManagerInitializedTest()
     {
-        EXPECT_EQ(string(""), plugin->Initialize(&service));
+        EXPECT_EQ(string("Failed to get IShell for 'NetworkManager'"), plugin->Initialize(&service));
    
         EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
             .Times(1)
