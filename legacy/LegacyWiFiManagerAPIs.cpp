@@ -151,6 +151,8 @@ namespace WPEFramework
         const string WiFiManager::Initialize(PluginHost::IShell*  service )
         {
             m_service = service;
+            string message{};
+
             m_service->AddRef();
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
@@ -178,24 +180,38 @@ namespace WPEFramework
             auto interface = m_service->QueryInterfaceByCallsign<PluginHost::IShell>(callsign);
             if (interface != nullptr)
             {
-                PluginHost::IShell::state state = interface->State(); 
-                if((PluginHost::IShell::state::ACTIVATED  == state) || (PluginHost::IShell::state::ACTIVATION == state))
+                int retry = 0;
+                PluginHost::IShell::state state = PluginHost::IShell::state::UNAVAILABLE;
+                do{
+                    state = interface->State();
+                    if(PluginHost::IShell::state::ACTIVATED  == state)
+                    {
+                        NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
+                        break;
+                    }
+                    else
+                    {
+                        NMLOG_INFO("Lets attempt to activate the Plugin '%s', retry %d", callsign.c_str(), retry+1);
+                        activatePrimaryPlugin();
+                    }
+                    usleep(500*1000);
+                } while(retry++ < 5);
+
+                if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
-                    NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
+                    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
+                    m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
+                    subscribeToEvents();
                 }
                 else
-                {
-                    NMLOG_INFO("Lets attempt to activate the Plugin '%s'", callsign.c_str());
-                    activatePrimaryPlugin();
-                }
+                    message = _T("dependency Plugin 'NetworkManager' not Ready");
+
                 interface->Release();
             }
-        
-            Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
-            m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
+            else
+                message = _T("Failed to get IShell for 'NetworkManager'");
 
-            subscribeToEvents();
-            return string();
+            return message;
         }
 
         void WiFiManager::Deinitialize(PluginHost::IShell* /* service */)
