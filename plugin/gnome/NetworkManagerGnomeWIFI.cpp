@@ -1215,6 +1215,20 @@ namespace WPEFramework
 
                 g_main_context_unref(wpsContext);
             }
+
+            if(wpsAp == NULL)
+            {
+                NMLOG_WARNING("WPS AP not found");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+            }
+            else if(!wpsComplete)
+            {
+                NMLOG_INFO("WPS process Error");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+            }
+
             wpsProcessRun = false;
         }
 
