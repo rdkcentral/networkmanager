@@ -18,7 +18,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-1 libgupnp-1.2-dev libgssdp-1.2-0 libsoup2.4-1
 
       - name: Configure Python
         uses: actions/setup-python@v4
@@ -92,6 +92,7 @@ jobs:
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           "
           -DENABLE_UNIT_TESTING=ON
+          -DENABLE_ROUTER_DISCOVERY_TOOL=ON
           &&
           cmake --build build/RDKNetworkmanager --target install -j8
           
@@ -118,7 +119,11 @@ jobs:
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           legacynetwork_tests
-          
+
+      - name: Run unit tests for routerDiscovery
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          routerDiscovery_tests
           
       - name: Generate coverage
         run: |

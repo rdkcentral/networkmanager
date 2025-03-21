@@ -22,7 +22,7 @@ set(NM_CLASS_UT "common_class_tests")
 set(NM_RDKPROXY_UT "rdkproxy_tests")
 set(NM_LEGACY_WIFI_UT "legacywifi_tests")
 set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
-
+set(NM_ROUTER_DISCOVERY_UT "routerDiscovery_tests")
 
 find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
@@ -76,6 +76,11 @@ add_executable(${NM_LEGACY_NETWORK_UT}
     ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
 )
 
+add_executable(${NM_ROUTER_DISCOVERY_UT}
+    ${CMAKE_SOURCE_DIR}/tests/unittest/test_UpnpDiscoveryManager.cpp
+    ${CMAKE_SOURCE_DIR}/tools/upnp/UpnpDiscoveryManager.cpp
+)
+
 set_target_properties(${NM_CLASS_UT} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
@@ -91,6 +96,11 @@ set_target_properties(${NM_LEGACY_WIFI_UT} PROPERTIES
     CXX_STANDARD_REQUIRED YES
 )
 set_target_properties(${NM_LEGACY_NETWORK_UT} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+)
+
+set_target_properties(${NM_ROUTER_DISCOVERY_UT} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
 )
@@ -137,6 +147,13 @@ target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
+target_include_directories(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+    ${PROJECT_SOURCE_DIR}/tools/upnp
+    ${GUPNP_INCLUDE_DIRS}
+    ${GLIB_INCLUDE_DIRS} 
+    ${LIBSOUP_INCLUDE_DIRS}
+    ${GSSDP_INCLUDE_DIRS}
+)
 
 target_link_libraries(${NM_CLASS_UT} PRIVATE
     gmock_main
@@ -168,8 +185,16 @@ target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
       ${NAMESPACE}Core::${NAMESPACE}Core 
       ${CURL_LIBRARIES}
 )
+target_link_libraries(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+      gmock_main
+      ${GLIB_LIBRARIES}
+      ${LIBSOUP_LIBRARIES} 
+      ${GUPNP_LIBRARIES} 
+      ${GSSDP_LIBRARIES}
+)
 
 install(TARGETS ${NM_CLASS_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS ${NM_RDKPROXY_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS ${NM_LEGACY_WIFI_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(TARGETS ${NM_LEGACY_NETWORK_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${NM_ROUTER_DISCOVERY_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
