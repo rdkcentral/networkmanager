@@ -370,19 +370,22 @@ namespace WPEFramework
         }
 
         /* @brief Get IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */) 
+        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipVersion /* @in */, IPAddress& result /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             NMActiveConnection *conn = NULL;
-            NMIPConfig *ip4_config = NULL;
-            NMIPConfig *ip6_config = NULL;
+            NMIPConfig *ip4Config = NULL;
+            NMIPConfig *ip6Config = NULL;
             const gchar *gateway = NULL;
             char **dnsArr = NULL;
-            NMDhcpConfig *dhcp4_config = NULL;
-            NMDhcpConfig *dhcp6_config = NULL;
+            NMDhcpConfig *dhcp4Config = NULL;
+            NMDhcpConfig *dhcp6Config = NULL;
             const char* dhcpserver;
             NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
+            NMIPAddress *ipAddr = NULL;
+            std::string ipStr;
+            std::string ipVersionInput = ipVersion;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
@@ -425,8 +428,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty())
-                NMLOG_DEBUG("ipversion is empty default value IPv4");
+            if(ipVersionInput.empty())
+                NMLOG_DEBUG("ipversion is empty, default value is assigned based on availability");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
@@ -465,27 +468,51 @@ namespace WPEFramework
             }
 
             result.autoconfig = isAutoConnectEnabled(conn);
+            ip4Config = nm_active_connection_get_ip4_config(conn);
+            if (ip4Config == nullptr) {
+                NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
 
-            if(ipversion.empty() || nmUtils::caseInsensitiveCompare(ipversion, "IPV4")) // default ipversion ipv4
+            const GPtrArray *ip4Byte = nullptr;
+            ip4Byte = nm_ip_config_get_addresses(ip4Config);
+            if (ip4Byte == nullptr) {
+                NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
+            }
+            ip6Config = nm_active_connection_get_ip6_config(conn);
+            if(ip6Config == nullptr)
             {
-                ip4_config = nm_active_connection_get_ip4_config(conn);
-                NMIPAddress *ipAddr = NULL;
-                std::string ipStr;
-                if (ip4_config == nullptr) {
-                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
+                NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
 
-                const GPtrArray *ipByte = nullptr;
-                ipByte = nm_ip_config_get_addresses(ip4_config);
-                if (ipByte == nullptr) {
-                    NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
+            const GPtrArray *ip6Array = nullptr;
+            ip6Array = nm_ip_config_get_addresses(ip6Config);
+            if (ip6Array == nullptr) {
+                NMLOG_WARNING("No IPv6 data found on %s", interface.c_str());
+            }
 
-                for (int i = 0; i < ipByte->len; i++)
+            if(ipVersionInput.empty())
+            {
+                if ((ip4Byte->len) && (ip6Array->len))
                 {
-                    ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
+                    ipVersionInput = "IPV4";
+                }
+                else if ((ip4Byte->len) && (ip6Array->len == 0))
+                {
+                    ipVersionInput = "IPV4";
+                }
+                else if ((ip4Byte->len == 0) && (ip6Array->len))
+                {
+                    ipVersionInput = "IPV6";
+                }
+            }
+
+            if(nmUtils::caseInsensitiveCompare(ipVersionInput, "IPV4"))
+            {
+                for (int i = 0; i < ip4Byte->len; i++)
+                {
+                    ipAddr = static_cast<NMIPAddress*>(ip4Byte->pdata[i]);
                     if(ipAddr)
                         ipStr = nm_ip_address_get_address(ipAddr);
                     if(!ipStr.empty())
@@ -497,12 +524,12 @@ namespace WPEFramework
                     }
                 }
 
-                gateway = nm_ip_config_get_gateway(ip4_config);
+                gateway = nm_ip_config_get_gateway(ip4Config);
 
-                dnsArr = (char **)nm_ip_config_get_nameservers(ip4_config);
-                dhcp4_config = nm_active_connection_get_dhcp4_config(conn);
-                if(dhcp4_config)
-                    dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config, "dhcp_server_identifier");
+                dnsArr = (char **)nm_ip_config_get_nameservers(ip4Config);
+                dhcp4Config = nm_active_connection_get_dhcp4_config(conn);
+                if(dhcp4Config)
+                    dhcpserver = nm_dhcp_config_get_one_option (dhcp4Config, "dhcp_server_identifier");
                 if(dhcpserver)
                     result.dhcpserver = dhcpserver;
                 result.ula = "";
@@ -515,23 +542,13 @@ namespace WPEFramework
 
                 rc = Core::ERROR_NONE;
             }
-            else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
+            else if(nmUtils::caseInsensitiveCompare(ipVersionInput, "IPV6"))
             {
-                result.ipversion = ipversion.c_str();
-                NMIPAddress *ipAddr = nullptr;
-                ip6_config = nm_active_connection_get_ip6_config(conn);
-                if(ip6_config == nullptr)
-                {
-                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
-
+                result.ipversion = ipVersionInput.c_str();
                 std::string ipStr;
-                const GPtrArray *ipArray = nullptr;
-                ipArray = nm_ip_config_get_addresses(ip6_config);
-                for (int i = 0; i < ipArray->len; i++)
+                for (int i = 0; i < ip6Array->len; i++)
                 {
-                    ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
+                    ipAddr = static_cast<NMIPAddress*>(ip6Array->pdata[i]);
                     if(ipAddr)
                         ipStr = nm_ip_address_get_address(ipAddr);
                     if(!ipStr.empty())
@@ -549,19 +566,19 @@ namespace WPEFramework
                     }
                 }
 
-                gateway = nm_ip_config_get_gateway(ip6_config);
+                gateway = nm_ip_config_get_gateway(ip6Config);
                 if(gateway)
                     result.gateway= gateway;
-                dnsArr = (char **)nm_ip_config_get_nameservers(ip6_config);
+                dnsArr = (char **)nm_ip_config_get_nameservers(ip6Config);
                 if((*(&dnsArr[0]))!= NULL)
                     result.primarydns = *(&dnsArr[0]);
                 if((*(&dnsArr[1]))!=NULL )
                     result.secondarydns = *(&dnsArr[1]);
 
-                dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
-                if(dhcp6_config)
+                dhcp6Config = nm_active_connection_get_dhcp6_config(conn);
+                if(dhcp6Config)
                 {
-                    dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config, "dhcp_server_identifier");
+                    dhcpserver = nm_dhcp_config_get_one_option (dhcp6Config, "dhcp_server_identifier");
                     if(dhcpserver) {
                         result.dhcpserver = dhcpserver;
                     }
