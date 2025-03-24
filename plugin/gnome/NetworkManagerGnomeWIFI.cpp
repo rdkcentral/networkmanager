@@ -619,6 +619,8 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
+            NMLOG_INFO("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
+
             m_isSuccess = false;
             if(!createClientNewConnection())
                 return false;
@@ -1102,7 +1104,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiConnectTo ssidInfo{};
             bool wpsComplete= false;
 
-            for(int retry =0; retry < WPS_RETRY_COUNT; retry++)
+            for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
                 sleep(WPS_RETRY_WAIT_IN_MS);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
@@ -1142,6 +1144,13 @@ namespace WPEFramework
                 {
                     NMLOG_ERROR("Aplist Error !");
                     return;
+                }
+
+                if(retry == 0)
+                {
+                    NMLOG_INFO("WPS process scannig started !");
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
                 }
 
                 if(findWpsPbcSSID(ApList, wpsApSsid, &wpsAp) && wpsAp != NULL)

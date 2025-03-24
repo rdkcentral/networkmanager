@@ -174,6 +174,9 @@ namespace WPEFramework
             if (m_SecretsAgentCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
                 NMLOG_INFO("SecretAgent received a cancel request. skipping %d sec wait", timeoutInSec);
             }
+            else {
+                NMLOG_INFO("SecretAgent wait timeout %d sec complete", timeoutInSec);
+            }
         }
 
         void SecretAgent::stopWait()
