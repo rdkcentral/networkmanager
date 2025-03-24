@@ -492,7 +492,7 @@ namespace WPEFramework
                 NMLOG_WARNING("No IPv6 data found on %s", interface.c_str());
             }
 
-            if(ipVersionInput.empty())
+            if(ipVersionInput.empty() && ip4Byte && ip6Array)
             {
                 if ((ip4Byte->len) && (ip6Array->len))
                 {
@@ -510,17 +510,20 @@ namespace WPEFramework
 
             if(nmUtils::caseInsensitiveCompare(ipVersionInput, "IPV4"))
             {
-                for (int i = 0; i < ip4Byte->len; i++)
+                if(ip4Byte)
                 {
-                    ipAddr = static_cast<NMIPAddress*>(ip4Byte->pdata[i]);
-                    if(ipAddr)
-                        ipStr = nm_ip_address_get_address(ipAddr);
-                    if(!ipStr.empty())
+                    for (int i = 0; i < ip4Byte->len; i++)
                     {
-                        result.ipaddress = nm_ip_address_get_address(ipAddr);
-                        result.prefix = nm_ip_address_get_prefix(ipAddr);
-                        NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
-                        result.ipversion = "IPv4"; // if null add as default
+                        ipAddr = static_cast<NMIPAddress*>(ip4Byte->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
+                        {
+                            result.ipaddress = nm_ip_address_get_address(ipAddr);
+                            result.prefix = nm_ip_address_get_prefix(ipAddr);
+                            NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
+                            result.ipversion = "IPv4"; // if null add as default
+                        }
                     }
                 }
 
@@ -546,22 +549,25 @@ namespace WPEFramework
             {
                 result.ipversion = ipVersionInput.c_str();
                 std::string ipStr;
-                for (int i = 0; i < ip6Array->len; i++)
+                if(ip6Array)
                 {
-                    ipAddr = static_cast<NMIPAddress*>(ip6Array->pdata[i]);
-                    if(ipAddr)
-                        ipStr = nm_ip_address_get_address(ipAddr);
-                    if(!ipStr.empty())
+                    for (int i = 0; i < ip6Array->len; i++)
                     {
-                        if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0) {
-                            result.ula = ipStr;
-                            NMLOG_INFO("link-local ip: %s", result.ula.c_str());
-                        }
-                        else {
-                            result.prefix = nm_ip_address_get_prefix(ipAddr);
-                            if(result.ipaddress.empty()) // SLAAC mutiple ip not added
-                                result.ipaddress = ipStr;
-                            NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                        ipAddr = static_cast<NMIPAddress*>(ip6Array->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
+                        {
+                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0) {
+                                result.ula = ipStr;
+                                NMLOG_INFO("link-local ip: %s", result.ula.c_str());
+                            }
+                            else {
+                                result.prefix = nm_ip_address_get_prefix(ipAddr);
+                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
+                                    result.ipaddress = ipStr;
+                                NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                            }
                         }
                     }
                 }
