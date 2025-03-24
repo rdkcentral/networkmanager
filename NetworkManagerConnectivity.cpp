@@ -643,6 +643,7 @@ namespace WPEFramework
 
                 if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
                 {
+                    NMLOG_ERROR("NO_INTERNET due to NO IP Address");
                     timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                     m_InternetState = INTERNET_NOT_AVAILABLE;
                     m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
