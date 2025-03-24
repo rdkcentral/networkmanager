@@ -1,9 +1,7 @@
 name: Fossid Stateless Diff Scan
 
-on:
-  pull_request:
-    branches:
-      - develop
+on: pull_request
+
 jobs:
   call-fossid-workflow:
     uses: rdkcentral/build_tools_workflows/.github/workflows/fossid_integration_stateless_diffscan.yml@develop
