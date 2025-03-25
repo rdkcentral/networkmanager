@@ -357,7 +357,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING : curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -595,6 +595,8 @@ namespace WPEFramework
         m_notify = true;
         std::thread ipv4thread;
         std::thread ipv6thread;
+        bool printIPNotAvailable = true;
+        int internalIPCheck = 0;
 
         while (m_cmRunning) {
             if (nullptr == _instance)
@@ -617,32 +619,16 @@ namespace WPEFramework
                 currentInternetState = INTERNET_NOT_AVAILABLE;
                 if (InitialRetryCount == 0)
                 {
-                    NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING : NO Ethernet or WiFi connected yet; Post NO_INTERNET");
+                    NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING_NO_INTERFACE_UP : NO Ethernet or WiFi connected yet; Post NO_INTERNET");
                     m_notify = true;
                 }
                 InitialRetryCount = 1;
+                printIPNotAvailable = true;
             }
             else if (m_switchToInitial)
             {
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
-                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
-                {
-                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-                    m_InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
-                    currentInternetState = INTERNET_NOT_AVAILABLE;
-                    if (InitialRetryCount == 0)
-                    {
-                        NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING : NO IPv4 or IPv6 address Received yet; Post NO_INTERNET");
-                        m_notify = true;
-                    }
-                    InitialRetryCount = 1;
-                }
-                else
-                    NMLOG_INFO("Initial connectivity Check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
-                
                 // Lambda functions to check connectivity for IPv4 and IPv6
                 auto curlCheckThrdIpv4 = [&]() {
                     TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
@@ -659,6 +645,32 @@ namespace WPEFramework
                     if(m_Ipv6InternetState == INTERNET_CAPTIVE_PORTAL)
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
+
+                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
+                {
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                    m_InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
+
+                    if (printIPNotAvailable)
+                    {
+                        NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING_NO_IP_ADDRESS : NO IPv4 or IPv6 address Received yet; Post NO_INTERNET");
+                        printIPNotAvailable = false;
+                        m_notify = true;
+                    }
+                    /* Very First time, it will check the IP States in 10th sec. IF  no IPs found, it will check every 15th sec */
+                    internalIPCheck++;
+                    if (internalIPCheck == NM_CONNECTIVITY_MONITOR_RETRY_COUNT)
+                    {
+                        internalIPCheck = 0;
+                        _instance->GetInitialConnectionState();
+                    }
+                }
+                else
+                    NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
+
 
                 // Start threads for IPv4 and IPv6 checks
                 if(_instance->m_IPv4Available)
@@ -719,7 +731,8 @@ namespace WPEFramework
                 }
             }
             // Ideal case monitoring
-            else {
+            else
+            {
 
                 timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
                 InitialRetryCount = 0;
