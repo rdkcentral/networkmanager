@@ -49,6 +49,7 @@ namespace WPEFramework
 
             bool isWifiConnected();
             bool wifiDisconnect();
+            bool activateKnownWifiConnection(std::string knownssid);
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo);
             bool wifiScanRequest(std::string ssidReq = "");

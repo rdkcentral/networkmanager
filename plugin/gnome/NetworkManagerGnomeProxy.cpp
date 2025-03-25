@@ -687,24 +687,24 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(ssid.ssid.empty() || ssid.ssid.size() > 32)
-            {
-                NMLOG_WARNING("ssid is invalied");
-                return rc;
-            }
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
             {
                 nmEvent->setwifiScanOptions(false);
                 if(!wifi->wifiScanRequest())
-                {
                     NMLOG_WARNING("scanning failed but try to connect");
-                }
             }
 
-            if(wifi->wifiConnect(ssid))
+            if(ssid.ssid.empty() && _instance != NULL)
+            {
+                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
+                if(wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
+                    rc = Core::ERROR_NONE;
+            }
+            else if(wifi->wifiConnect(ssid))
                 rc = Core::ERROR_NONE;
+
             return rc;
         }
 

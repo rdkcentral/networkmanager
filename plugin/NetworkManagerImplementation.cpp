@@ -848,6 +848,8 @@ namespace WPEFramework
                 NMLOG_DEBUG("checking WiFi signal strength");
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
+                m_lastConnectedSSID = ssid; // last connected ssid used in wifiConnect
+
                 if (oldSignalQuality != newSignalQuality) {
                     NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
                     oldSignalQuality = newSignalQuality;
