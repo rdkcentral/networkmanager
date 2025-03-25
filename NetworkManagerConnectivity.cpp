@@ -357,7 +357,7 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING : curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -616,14 +616,33 @@ namespace WPEFramework
                 m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
                 currentInternetState = INTERNET_NOT_AVAILABLE;
                 if (InitialRetryCount == 0)
+                {
+                    NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING : NO Ethernet or WiFi connected yet; Post NO_INTERNET");
                     m_notify = true;
+                }
                 InitialRetryCount = 1;
             }
             else if (m_switchToInitial)
             {
-                NMLOG_INFO("Initial connectivity check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
+                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
+                {
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                    m_InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
+                    if (InitialRetryCount == 0)
+                    {
+                        NMLOG_WARNING("INTERNET_CONNECTIVITY_MONITORING : NO IPv4 or IPv6 address Received yet; Post NO_INTERNET");
+                        m_notify = true;
+                    }
+                    InitialRetryCount = 1;
+                }
+                else
+                    NMLOG_INFO("Initial connectivity Check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
+                
                 // Lambda functions to check connectivity for IPv4 and IPv6
                 auto curlCheckThrdIpv4 = [&]() {
                     TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
@@ -641,17 +660,6 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
-                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
-                {
-                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-                    m_InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
-                    currentInternetState = INTERNET_NOT_AVAILABLE;
-                    if (InitialRetryCount == 0)
-                        m_notify = true;
-                    InitialRetryCount = 1;
-                }
                 // Start threads for IPv4 and IPv6 checks
                 if(_instance->m_IPv4Available)
                     ipv4thread = std::thread (curlCheckThrdIpv4);
@@ -665,12 +673,15 @@ namespace WPEFramework
                     ipv6thread.join();
 
                 // Determine the current internet state based on the results
-                if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
+                if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE)
+                {
                     currentInternetState = INTERNET_NOT_AVAILABLE;
                     if (InitialRetryCount == 0)
                         m_notify = true;
                     InitialRetryCount = 1; // continue same check for 5 sec
-                } else {
+                }
+                else
+                {
                     if (m_Ipv4InternetState == INTERNET_FULLY_CONNECTED || m_Ipv6InternetState == INTERNET_FULLY_CONNECTED)
                     {
                         currentInternetState = INTERNET_FULLY_CONNECTED;
