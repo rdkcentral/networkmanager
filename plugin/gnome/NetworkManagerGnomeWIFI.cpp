@@ -1104,17 +1104,23 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiConnectTo ssidInfo{};
             bool wpsComplete= false;
 
+            if(_instance != nullptr)
+                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
+
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
                 sleep(WPS_RETRY_WAIT_IN_MS);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
+                {
+                    NMLOG_INFO("stop wps process reuested");
                     break;
+                }
 
                 wpsContext = g_main_context_new();
                 if(wpsContext == NULL)
                 {
                     NMLOG_ERROR("wpsContext create failed !!");
-                    return;
+                    break;
                 }
 
                 if(!g_main_context_acquire(wpsContext))
@@ -1129,28 +1135,21 @@ namespace WPEFramework
                 if (!client && error != NULL) {
                     NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                     g_error_free(error);
-                    return;
+                    break;
                 }
 
                 NMDevice* wifidevice = nm_client_get_device_by_iface(client, nmUtils::wlanIface());
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
-                    return;
+                    break;
                 }
 
                 ApList = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(wifidevice));
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
-                    return;
-                }
-
-                if(retry == 0)
-                {
-                    NMLOG_INFO("WPS process scannig started !");
-                    if(_instance != nullptr)
-                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
+                    break;
                 }
 
                 if(findWpsPbcSSID(ApList, wpsApSsid, &wpsAp) && wpsAp != NULL)
