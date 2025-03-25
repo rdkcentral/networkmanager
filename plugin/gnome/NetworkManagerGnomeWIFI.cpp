@@ -261,20 +261,27 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
+            NMDevice* wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
 
-            NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
-            if(activeAP == NULL) {
-                NMLOG_DEBUG("No active access point found !");
-                return false;
+            NMDeviceState deviceState = nm_device_get_state(wifiDevice);
+            if(deviceState >= NM_DEVICE_STATE_IP_CONFIG)
+            {
+                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(wifiDevice));
+                if(activeAP == NULL) {
+                    NMLOG_ERROR("NMAccessPoint = NULL !");
+                    return false;
+                }
+                NMLOG_DEBUG("active access point found !");
+                getApInfo(activeAP, ssidinfo);
+                return true;
             }
             else
-                NMLOG_DEBUG("active access point found !");
-            getApInfo(activeAP, ssidinfo);
+                NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
+
             return true;
         }
 
@@ -1130,7 +1137,7 @@ namespace WPEFramework
                 }
     
                 g_main_context_push_thread_default(wpsContext);
-            
+
                 NMClient* client = nm_client_new(NULL, &error);
                 if (!client && error != NULL) {
                     NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
@@ -1212,7 +1219,6 @@ namespace WPEFramework
                 else
                 {
                     //TODO Post SSID lost event ?
-                    NMLOG_ERROR("request for wifi scanning");
                     nm_device_wifi_request_scan(NM_DEVICE_WIFI(wifidevice), NULL, &error);
                 }
 
@@ -1238,6 +1244,7 @@ namespace WPEFramework
             }
 
             wpsProcessRun = false;
+            NMLOG_INFO("WPS process thread exsit");
         }
 
         bool wifiManager::startWPS()
