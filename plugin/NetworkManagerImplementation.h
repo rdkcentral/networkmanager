@@ -291,6 +291,7 @@ namespace WPEFramework
             public:
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
+                std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
     }

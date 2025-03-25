@@ -753,33 +753,35 @@ namespace WPEFramework
             NMLOG_INFO("Entry to %s", __FUNCTION__);
 
             if (parameters.HasLabel("ssid"))
+            {
                 ssid.ssid = parameters["ssid"].String();
+
+                if (parameters.HasLabel("passphrase"))
+                    ssid.passphrase = parameters["passphrase"].String();
+    
+                if (parameters.HasLabel("security"))
+                    ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
+
+                // Check Security modes
+                if (parameters.HasLabel("eap"))
+                    ssid.eap = parameters["eap"].String();
+                if (parameters.HasLabel("eap_identity"))
+                    ssid.eap_identity = parameters["eap_identity"].String();
+                if (parameters.HasLabel("ca_cert"))
+                    ssid.ca_cert = parameters["ca_cert"].String();
+                if (parameters.HasLabel("client_cert"))
+                    ssid.client_cert = parameters["client_cert"].String();
+                if (parameters.HasLabel("private_key"))
+                    ssid.private_key = parameters["private_key"].String();
+                if (parameters.HasLabel("private_key_passwd"))
+                    ssid.private_key_passwd = parameters["private_key_passwd"].String();
+                if (parameters.HasLabel("persist"))
+                    ssid.persist = parameters["persist"].Boolean();
+                else
+                    ssid.persist = true;
+            }
             else
-                returnJson(rc);
-
-            if (parameters.HasLabel("passphrase"))
-                ssid.passphrase = parameters["passphrase"].String();
-
-            if (parameters.HasLabel("security"))
-                ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
-
-            // Check Security modes
-            if (parameters.HasLabel("eap"))
-                ssid.eap = parameters["eap"].String();
-            if (parameters.HasLabel("eap_identity"))
-                ssid.eap_identity = parameters["eap_identity"].String();
-            if (parameters.HasLabel("ca_cert"))
-                ssid.ca_cert = parameters["ca_cert"].String();
-            if (parameters.HasLabel("client_cert"))
-                ssid.client_cert = parameters["client_cert"].String();
-            if (parameters.HasLabel("private_key"))
-                ssid.private_key = parameters["private_key"].String();
-            if (parameters.HasLabel("private_key_passwd"))
-                ssid.private_key_passwd = parameters["private_key_passwd"].String();
-            if (parameters.HasLabel("persist"))
-                ssid.persist = parameters["persist"].Boolean();
-            else
-                ssid.persist = true;
+                NMLOG_WARNING("ssid not included in wifi connect request !");
 
             if (_networkManager)
                 rc = _networkManager->WiFiConnect(ssid);
