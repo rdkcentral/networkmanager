@@ -4,6 +4,7 @@ autostart = "true"
 
 process= JSON()
 process.add("outofprocess", "true")
+process.add("locator", "lib@MODULE_IMPL_NAME@.so")
 
 connectivity = JSON()
 connectivity.add("endpoint_1", "@PLUGIN_NETWORKMANAGER_CONN_ENDPOINT_1@")
