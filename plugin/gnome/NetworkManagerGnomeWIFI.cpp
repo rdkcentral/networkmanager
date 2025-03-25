@@ -383,7 +383,7 @@ namespace WPEFramework
 
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
         {
-            NMRemoteConnection        *remote_con = NM_REMOTE_CONNECTION(rmObject);
+            NMRemoteConnection *remote_con = NM_REMOTE_CONNECTION(rmObject);
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             GVariant *ret = NULL;
             GError *error = NULL;
@@ -538,6 +538,74 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
             return true;
+        }
+
+        bool wifiManager::activateKnownWifiConnection(std::string knownssid)
+        {
+            NMAccessPoint *AccessPoint = NULL;
+            const GPtrArray *wifiConnections = NULL;
+            NMConnection *m_connection = NULL;
+            const GPtrArray* ApList = NULL;
+            const char* specificObjPath = "/";
+
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *m_wifidevice = getWifiDevice();
+            if(m_wifidevice == NULL) {
+                NMLOG_WARNING("wifi state is unmanaged !");
+                return false;
+            }
+
+            nm_device_set_autoconnect(m_wifidevice, true); // set autoconnect true
+
+            if(knownssid.empty())
+            {
+                NMLOG_WARNING("ssid not specified !");
+                return false;
+            }
+
+            wifiConnections = nm_device_get_available_connections(m_wifidevice);
+            if(wifiConnections == NULL)
+            {
+                NMLOG_WARNING("No wifi connection found !");
+                return false;
+            }
+
+            for (guint i = 0; i < wifiConnections->len; i++)
+            {
+                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(wifiConnections, i));
+                if(connection == NULL)
+                    continue;
+
+                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                if (connId != NULL && strcmp(connId, knownssid.c_str()) == 0)
+                {
+                    m_connection = g_object_ref(connection);
+                    NMLOG_DEBUG("connection '%s' exists !", knownssid.c_str());
+                    if (m_connection == NULL)
+                    {
+                        NMLOG_ERROR("m_connection == NULL smothing went worng");
+                        return false;
+                    }
+                    break;
+                }
+            }
+
+            m_isSuccess = false;
+            if (m_connection != NULL && NM_IS_REMOTE_CONNECTION(m_connection))
+            {
+                NMLOG_INFO("activating known wifi '%s' connection", knownssid.c_str());
+                m_createNewConnection = false; // no need to create new connection
+                nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, specificObjPath, NULL, wifiConnectCb, this);
+                wait(m_loop);
+            }
+            else
+            {
+                NMLOG_ERROR("'%s' connection not found !",  knownssid.c_str());
+            }
+
+            return m_isSuccess;
         }
 
         bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo)
@@ -856,7 +924,7 @@ namespace WPEFramework
             }
             if (!ssids.empty())
             {
-                NMLOG_DEBUG("known wifi connections are %s", ssidPrint.c_str());
+                NMLOG_INFO("known wifi connections are %s", ssidPrint.c_str());
                 return true;
             }
 

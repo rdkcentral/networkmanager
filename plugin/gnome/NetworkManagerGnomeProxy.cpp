@@ -386,6 +386,8 @@ namespace WPEFramework
             NMIPAddress *ipAddr = NULL;
             std::string ipStr;
             std::string ipVersionInput = ipVersion;
+            const GPtrArray *ip4Byte = nullptr;
+            const GPtrArray *ip6Array = nullptr;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
@@ -468,28 +470,34 @@ namespace WPEFramework
             }
 
             result.autoconfig = isAutoConnectEnabled(conn);
-            ip4Config = nm_active_connection_get_ip4_config(conn);
-            if (ip4Config == nullptr) {
-                NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
-                return Core::ERROR_GENERAL;
-            }
 
-            const GPtrArray *ip4Byte = nullptr;
-            ip4Byte = nm_ip_config_get_addresses(ip4Config);
-            if (ip4Byte == nullptr) {
-                NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
-            }
-            ip6Config = nm_active_connection_get_ip6_config(conn);
-            if(ip6Config == nullptr)
+            if(ipVersionInput.empty() || nmUtils::caseInsensitiveCompare(ipVersionInput, "IPV4"))
             {
-                NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
-                return Core::ERROR_GENERAL;
+                ip4Config = nm_active_connection_get_ip4_config(conn);
+                if (ip4Config == nullptr) {
+                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
+                    return Core::ERROR_GENERAL;
+                }
+
+                ip4Byte = nm_ip_config_get_addresses(ip4Config);
+                if (ip4Byte == nullptr) {
+                    NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
+                }
             }
 
-            const GPtrArray *ip6Array = nullptr;
-            ip6Array = nm_ip_config_get_addresses(ip6Config);
-            if (ip6Array == nullptr) {
-                NMLOG_WARNING("No IPv6 data found on %s", interface.c_str());
+            if(ipVersionInput.empty() || nmUtils::caseInsensitiveCompare(ipVersionInput, "IPV6"))
+            {
+                ip6Config = nm_active_connection_get_ip6_config(conn);
+                if(ip6Config == nullptr)
+                {
+                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
+                    return Core::ERROR_GENERAL;
+                }
+
+                ip6Array = nm_ip_config_get_addresses(ip6Config);
+                if (ip6Array == nullptr) {
+                    NMLOG_WARNING("No IPv6 data found on %s", interface.c_str());
+                }
             }
 
             if(ipVersionInput.empty() && ip4Byte && ip6Array)
@@ -687,24 +695,24 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(ssid.ssid.empty() || ssid.ssid.size() > 32)
-            {
-                NMLOG_WARNING("ssid is invalied");
-                return rc;
-            }
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
             {
                 nmEvent->setwifiScanOptions(false);
                 if(!wifi->wifiScanRequest())
-                {
                     NMLOG_WARNING("scanning failed but try to connect");
-                }
             }
 
-            if(wifi->wifiConnect(ssid))
+            if(ssid.ssid.empty() && _instance != NULL)
+            {
+                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
+                if(wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
+                    rc = Core::ERROR_NONE;
+            }
+            else if(wifi->wifiConnect(ssid))
                 rc = Core::ERROR_NONE;
+
             return rc;
         }
 
