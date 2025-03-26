@@ -250,10 +250,10 @@ namespace WPEFramework
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalStrengthChange(const string ssid, const string strength, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void GetInitialConnectionState(void);
 
             private:
                 void platform_init(void);
-                void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(void);
                 void filterScanResults(JsonArray &ssids);

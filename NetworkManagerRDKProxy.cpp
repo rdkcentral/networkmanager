@@ -648,12 +648,12 @@ namespace WPEFramework
                 * Useful if NetworkManager plugin or WPEFramework is restarted 
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
-                getInitialConnectionState();
+                GetInitialConnectionState();
             }
 
         }
 
-        void NetworkManagerImplementation::getInitialConnectionState()
+        void NetworkManagerImplementation::GetInitialConnectionState()
         {
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
@@ -743,7 +743,7 @@ namespace WPEFramework
                 * Useful if NetworkManager plugin or WPEFramework is restarted 
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
-                std::thread connStateThread = std::thread(&NetworkManagerImplementation::getInitialConnectionState, this);
+                std::thread connStateThread = std::thread(&NetworkManagerImplementation::GetInitialConnectionState, this);
                 connStateThread.join(); // seprate thread will not use the wpeframework thread pool
             }
         }
@@ -972,11 +972,18 @@ namespace WPEFramework
                 {
                     address.ipversion = string ("IPv4");
                     address.prefix = NetmaskToPrefix(iarmData.netmask);
+
+                    /* Update the flags as we have seen failure to notify ip change but has address */
+                    if (!address.ipaddress.empty())
+                        m_IPv4Available = true;
                 }
                 else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                 {
                     address.ipversion = string ("IPv6");
                     address.prefix = std::atoi(iarmData.netmask);
+                    /* Update the flags as we have seen failure to notify ip change but has address */
+                    if (!address.ipaddress.empty())
+                        m_IPv6Available = true;
                 }
 
                 rc = Core::ERROR_NONE;
