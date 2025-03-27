@@ -40,7 +40,7 @@ namespace WPEFramework
                 bool RegisterAgent();
                 bool UnregisterAgent();
                 static void SecretAgentLoop(SecretAgent* agent);
-                static void wait(const std::chrono::seconds timeout);
+                static void wait(int timeout);
                 static void stopWait();
             private:
                 std::atomic<bool> isSecretAgentLoopRunning;
