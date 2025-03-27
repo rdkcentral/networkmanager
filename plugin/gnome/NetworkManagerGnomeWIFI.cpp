@@ -1244,7 +1244,7 @@ namespace WPEFramework
             }
 
             wpsProcessRun = false;
-            NMLOG_INFO("WPS process thread exsit");
+            NMLOG_INFO("WPS process thread exist");
         }
 
         bool wifiManager::startWPS()
