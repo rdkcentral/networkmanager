@@ -679,8 +679,13 @@ namespace WPEFramework
                 if(wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
-            else if(wifi->wifiConnect(ssid))
-                rc = Core::ERROR_NONE;
+            else if(ssid.ssid.size() < 32)
+            {
+                if(wifi->wifiConnect(ssid))
+                    rc = Core::ERROR_NONE;
+            }
+            else
+                NMLOG_WARNING("SSID is invalid");
 
             return rc;
         }
