@@ -685,7 +685,7 @@ namespace WPEFramework
                     rc = Core::ERROR_NONE;
             }
             else
-                NMLOG_WARNING("ssid is invalied");
+                NMLOG_WARNING("SSID is invalid");
 
             return rc;
         }

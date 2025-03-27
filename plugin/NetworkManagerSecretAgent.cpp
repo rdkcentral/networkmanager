@@ -39,6 +39,7 @@ namespace WPEFramework
     {
         std::condition_variable m_SecretsAgentCv;
         std::mutex m_SecretsAgentMutex;
+        bool cvCondition = false;  // avoid spurious wakeup
         static const gchar interfaceXml[] =
             "<node>"
             "  <interface name='org.freedesktop.NetworkManager.SecretAgent'>"
@@ -171,18 +172,24 @@ namespace WPEFramework
         {
             NMLOG_INFO("wait started %d Sec", timeoutInSec);
             std::unique_lock<std::mutex> lock(m_SecretsAgentMutex);
-            if (m_SecretsAgentCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
+            if (m_SecretsAgentCv.wait_for(lock, std::chrono::seconds(timeoutInSec), [] { return cvCondition; })) {
                 NMLOG_INFO("SecretAgent received a cancel request. skipping %d sec wait", timeoutInSec);
-            }
-            else {
-                NMLOG_INFO("SecretAgent wait timeout %d sec complete", timeoutInSec);
+                // Reset the flag to avoid spurious wakeup on a condition variable
+                cvCondition = false;
+            } else {
+                NMLOG_INFO("SecretAgent wait time %d sec complete", timeoutInSec);
             }
         }
 
         void SecretAgent::stopWait()
         {
+            NMLOG_INFO("stopWait Entry");
+            {
+                std::unique_lock<std::mutex> lock(m_SecretsAgentMutex);
+                cvCondition = true;
+            }
             m_SecretsAgentCv.notify_one();
-            NMLOG_INFO("wait exit");
+            NMLOG_INFO("stopWait Exit");
         }
 
         void SecretAgent::SecretAgentLoop(SecretAgent* SecretAgentPtr)
