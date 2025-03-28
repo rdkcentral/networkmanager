@@ -536,7 +536,6 @@ namespace WPEFramework
             if (!m_filterfrequency.empty())
             {
                 filterFreq = std::stod(m_filterfrequency);
-                NMLOG_DEBUG("Frequency provided: %lf\n", filterFreq);
             }
 
             for (int i = 0; i < ssids.Length(); i++)
@@ -545,25 +544,13 @@ namespace WPEFramework
                 string ssid = object["ssid"].String();
                 string frequency = object["frequency"].String();
 
-                NMLOG_DEBUG("Processing SSID: %s, Frequency: %s\n", ssid.c_str(), frequency.c_str());
 
                 double frequencyValue = std::stod(frequency);
-
-                //Debug to  print log
-                NMLOG_DEBUG("Processing Frequency after double conversion: %lf\n", frequencyValue);
-
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
                 bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
 
                 if (ssidMatches && freqMatches)
-                {
                     result.Add(object);
-                    NMLOG_DEBUG("Match found: SSID = %s, Frequency = %lf\n", ssid.c_str(), frequencyValue);
-                }
-                else
-                {
-                    NMLOG_DEBUG("No match: SSID = %s, Frequency = %lf\n", ssid.c_str(), frequencyValue);
-                }
             }
             ssids = result;
             NMLOG_DEBUG("After filtering, found %d SSIDs.", ssids.Length());
@@ -668,6 +655,25 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
+        int32_t NetworkManagerImplementation::logSSIDs(Logging level, const JsonArray &ssids)
+        {
+            Logging inLevel;
+            GetLogLevel(inLevel);
+            if (level > inLevel)
+                return ssids.Length();
+
+            printf ("{\n"); fflush(stdout);
+            for (int i = 0; i < ssids.Length(); i++)
+            {
+                JsonObject ssid = ssids[i].Object();
+                string json;
+                ssid.ToString(json);
+                printf("\t%s\n", json.c_str()); fflush(stdout);
+            }
+            printf("}\n"); fflush(stdout);
+            return ssids.Length();
+        }
+
         void NetworkManagerImplementation::ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults)
         {
             _notificationLock.Lock();
@@ -676,13 +682,15 @@ namespace WPEFramework
             JsonArray filterResult = arrayofWiFiScanResults;
 
             arrayofWiFiScanResults.ToString(jsonOfWiFiScanResults);
-            NMLOG_DEBUG("onAvailableSSIDs Filtering is, %s", jsonOfWiFiScanResults.c_str());
+            NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
+            logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
             filterScanResults(filterResult);
-
             filterResult.ToString(jsonOfFilterScanResults);
 
-            NMLOG_INFO("Posting onAvailableSSIDs event as, %s", jsonOfFilterScanResults.c_str());
+            NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
+            logSSIDs(LOG_LEVEL_INFO, filterResult);
+
             for (const auto callback : _notificationCallbacks) {
                 callback->onAvailableSSIDs(jsonOfFilterScanResults);
             }
