@@ -369,18 +369,136 @@ namespace WPEFramework
             return false;
         }
 
+        static uint32_t getIPv4Settings(Exchange::INetworkManager::IPAddress& result, NMActiveConnection *conn, string& interface)
+        {
+            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            NMIPConfig *ip4_config = NULL;
+            char **dnsArr = NULL;
+            NMDhcpConfig *dhcp4_config = NULL;
+            const gchar *gateway = NULL;
+            const char* dhcpserver;
+            result.ipversion = "IPv4";
+
+            ip4_config = nm_active_connection_get_ip4_config(conn);
+            NMIPAddress *ipAddr = NULL;
+            std::string ipStr;
+            if (ip4_config == nullptr) {
+                NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
+
+            const GPtrArray *ipByte = nullptr;
+            ipByte = nm_ip_config_get_addresses(ip4_config);
+            if (ipByte == nullptr) {
+                NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
+
+            if(ipByte)
+            {
+                for (int i = 0; i < ipByte->len; i++)
+                {
+                    ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
+                    if(ipAddr)
+                        ipStr = nm_ip_address_get_address(ipAddr);
+                    if(!ipStr.empty())
+                    {
+                        result.ipaddress = nm_ip_address_get_address(ipAddr);
+                        result.prefix = nm_ip_address_get_prefix(ipAddr);
+                        NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
+                    }
+                }
+            }
+
+            gateway = nm_ip_config_get_gateway(ip4_config);
+
+            dnsArr = (char **)nm_ip_config_get_nameservers(ip4_config);
+            dhcp4_config = nm_active_connection_get_dhcp4_config(conn);
+            if(dhcp4_config)
+                dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config, "dhcp_server_identifier");
+            if(dhcpserver)
+              result.dhcpserver = dhcpserver;
+            result.ula = "";
+            if(gateway)
+                result.gateway = gateway;
+            if((*(&dnsArr[0]))!=NULL)
+                result.primarydns     = *(&dnsArr[0]);
+            if((*(&dnsArr[1]))!=NULL )
+                result.secondarydns   = *(&dnsArr[1]);
+            rc = Core::ERROR_NONE;
+            return rc;
+        }
+
+        static uint32_t getIPv6Settings(Exchange::INetworkManager::IPAddress& result, NMActiveConnection *conn, string& interface)
+        {
+            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            const gchar *gateway = NULL;
+            result.ipversion = "IPv6";
+            NMIPAddress *ipAddr = nullptr;
+            NMIPConfig *ip6_config = NULL;
+            NMDhcpConfig *dhcp6_config = NULL;
+            char **dnsArr = NULL;
+            const char* dhcpserver;
+
+            ip6_config = nm_active_connection_get_ip6_config(conn);
+            if(ip6_config == nullptr)
+            {
+                NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
+
+            std::string ipStr;
+            const GPtrArray *ipArray = nullptr;
+            ipArray = nm_ip_config_get_addresses(ip6_config);
+            if(ipArray)
+            {
+                for (int i = 0; i < ipArray->len; i++)
+                {
+                    ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
+                    if(ipAddr)
+                        ipStr = nm_ip_address_get_address(ipAddr);
+                    if(!ipStr.empty())
+                    {
+                        if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0) {
+                            result.ula = ipStr;
+                            NMLOG_INFO("link-local ip: %s", result.ula.c_str());
+                        }
+                        else {
+                            result.prefix = nm_ip_address_get_prefix(ipAddr);
+                            if(result.ipaddress.empty()) // SLAAC mutiple ip not added
+                                result.ipaddress = ipStr;
+                            NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                        }
+                    }
+                }
+            }
+
+            gateway = nm_ip_config_get_gateway(ip6_config);
+            if(gateway)
+                result.gateway= gateway;
+            dnsArr = (char **)nm_ip_config_get_nameservers(ip6_config);
+            if((*(&dnsArr[0]))!= NULL)
+                result.primarydns = *(&dnsArr[0]);
+            if((*(&dnsArr[1]))!=NULL )
+                result.secondarydns = *(&dnsArr[1]);
+
+            dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
+            if(dhcp6_config)
+            {
+                dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config, "dhcp_server_identifier");
+                if(dhcpserver) {
+                    result.dhcpserver = dhcpserver;
+                }
+            }
+            rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         /* @brief Get IP Address Of the Interface */
-        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */)
+        uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */) 
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             NMActiveConnection *conn = NULL;
-            NMIPConfig *ip4Config = NULL;
-            NMIPConfig *ip6Config = NULL;
-            const gchar *gateway = NULL;
-            char **dnsArr = NULL;
-            NMDhcpConfig *dhcp4Config = NULL;
-            NMDhcpConfig *dhcp6Config = NULL;
-            const char* dhcpserver;
             NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
 
@@ -468,111 +586,11 @@ namespace WPEFramework
 
             if(ipversion.empty() || nmUtils::caseInsensitiveCompare(ipversion, "IPV4")) // default ipversion ipv4
             {
-                result.ipversion = "IPv4";
-                ip4Config = nm_active_connection_get_ip4_config(conn);
-                NMIPAddress *ipAddr = NULL;
-                std::string ipStr;
-                if (ip4Config == nullptr) {
-                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
-
-                const GPtrArray *ipByte = nullptr;
-                ipByte = nm_ip_config_get_addresses(ip4Config);
-                if (ipByte == nullptr) {
-                    NMLOG_WARNING("No IPv4 data found on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
-
-                if(ipByte)
-                {
-                    for (int i = 0; i < ipByte->len; i++)
-                    {
-                        ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
-                        if(ipAddr)
-                            ipStr = nm_ip_address_get_address(ipAddr);
-                        if(!ipStr.empty())
-                        {
-                            result.ipaddress = nm_ip_address_get_address(ipAddr);
-                            result.prefix = nm_ip_address_get_prefix(ipAddr);
-                            NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
-                        }
-                    }
-                }
-
-                gateway = nm_ip_config_get_gateway(ip4Config);
-
-                dnsArr = (char **)nm_ip_config_get_nameservers(ip4Config);
-                dhcp4Config = nm_active_connection_get_dhcp4_config(conn);
-                if(dhcp4Config)
-                    dhcpserver = nm_dhcp_config_get_one_option (dhcp4Config, "dhcp_server_identifier");
-                if(dhcpserver)
-                    result.dhcpserver = dhcpserver;
-                result.ula = "";
-                if(gateway)
-                    result.gateway = gateway;
-                if((*(&dnsArr[0]))!=NULL)
-                    result.primarydns     = *(&dnsArr[0]);
-                if((*(&dnsArr[1]))!=NULL )
-                    result.secondarydns   = *(&dnsArr[1]);
-
-                rc = Core::ERROR_NONE;
+                rc = getIPv4Settings(result, conn, interface);
             }
             if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
             {
-                result.ipversion = "IPv6";
-                NMIPAddress *ipAddr = nullptr;
-                ip6Config = nm_active_connection_get_ip6_config(conn);
-                if(ip6Config == nullptr)
-                {
-                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
-                    return Core::ERROR_GENERAL;
-                }
-
-                std::string ipStr;
-                const GPtrArray *ipArray = nullptr;
-                ipArray = nm_ip_config_get_addresses(ip6Config);
-                if(ipArray)
-                {
-                    for (int i = 0; i < ipArray->len; i++)
-                    {
-                        ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
-                        if(ipAddr)
-                            ipStr = nm_ip_address_get_address(ipAddr);
-                        if(!ipStr.empty())
-                        {
-                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0) {
-                                result.ula = ipStr;
-                                NMLOG_INFO("link-local ip: %s", result.ula.c_str());
-                            }
-                            else {
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
-                                    result.ipaddress = ipStr;
-                                NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
-                            }
-                        }
-                    }
-                }
-
-                gateway = nm_ip_config_get_gateway(ip6Config);
-                if(gateway)
-                    result.gateway= gateway;
-                dnsArr = (char **)nm_ip_config_get_nameservers(ip6Config);
-                if((*(&dnsArr[0]))!= NULL)
-                    result.primarydns = *(&dnsArr[0]);
-                if((*(&dnsArr[1]))!=NULL )
-                    result.secondarydns = *(&dnsArr[1]);
-
-                dhcp6Config = nm_active_connection_get_dhcp6_config(conn);
-                if(dhcp6Config)
-                {
-                    dhcpserver = nm_dhcp_config_get_one_option (dhcp6Config, "dhcp_server_identifier");
-                    if(dhcpserver) {
-                        result.dhcpserver = dhcpserver;
-                    }
-                }
-                rc = Core::ERROR_NONE;
+                rc = getIPv6Settings(result, conn, interface);
             }
             else
                 NMLOG_WARNING("ipversion error IPv4/IPv6");
