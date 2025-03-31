@@ -14,6 +14,19 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.12.0] - 2025-03-31
+### Added
+- The file and folder structure of NetworkManager repo is re-organized
+- Implemented a separate library for out-of-process plugin
+- Implemented GDbus based APIs for all the NetworkManager APIs
+- Implmented a Router Discovery tool
+- Changed the approach to identify Open SSIDs
+- Added INFO logging for the discovered SSIDs and the security methods discovered.
+- Fixed Invalid Timeout in Connectivity Monitoring
+- Fixed WiFiConnect Failure for previously saved SSID
+- Fixed the missing Events on WPS Connect failure
+
+
 ## [0.11.0] - 2025-03-07
 ### Added
 - Implemented concurrent interface support in public APIs
