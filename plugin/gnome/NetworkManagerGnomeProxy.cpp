@@ -376,7 +376,7 @@ namespace WPEFramework
             char **dnsArr = NULL;
             NMDhcpConfig *dhcp4_config = NULL;
             const gchar *gateway = NULL;
-            const char* dhcpserver;
+            const char* dhcpserver = NULL;
             result.ipversion = "IPv4";
 
             ip4_config = nm_active_connection_get_ip4_config(conn);
@@ -438,7 +438,7 @@ namespace WPEFramework
             NMIPConfig *ip6_config = NULL;
             NMDhcpConfig *dhcp6_config = NULL;
             char **dnsArr = NULL;
-            const char* dhcpserver;
+            const char* dhcpserver = NULL;
 
             ip6_config = nm_active_connection_get_ip6_config(conn);
             if(ip6_config == nullptr)
