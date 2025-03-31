@@ -592,6 +592,10 @@ namespace WPEFramework
             {
                 rc = getIPv6Settings(result, conn, interface);
             }
+            if((result.ipaddress.empty() && ipversion.empty()))
+            {
+                result.ipversion = "IPv4";
+            }
             else
                 NMLOG_WARNING("ipversion error IPv4/IPv6");
             return rc;
