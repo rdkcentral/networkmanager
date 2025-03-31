@@ -1000,7 +1000,7 @@ namespace WPEFramework
             scanResults.FromString(jsonOfScanResults);
             parameters["ssids"] = scanResults;
 
-            LOG_INPARAM();
+            NMLOG_INFO("Event with %d SSIDs as, %s", scanResults.Length(), jsonOfScanResults.c_str());
             Notify(_T("onAvailableSSIDs"), parameters);
         }
 

@@ -228,11 +228,10 @@ namespace WPEFramework
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
-            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
+            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
             NMLOG_INFO("ssid: %s, frequency: %s, sterngth: %s, security: %u", wifiInfo.ssid.c_str(), 
                                         wifiInfo.frequency.c_str(), wifiInfo.strength.c_str(), wifiInfo.security);
-            NMLOG_DEBUG("security string %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
-            NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
+            NMLOG_INFO("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
         }
 
         bool wifiManager::isWifiConnected()
