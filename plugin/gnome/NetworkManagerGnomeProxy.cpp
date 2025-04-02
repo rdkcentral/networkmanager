@@ -377,8 +377,9 @@ namespace WPEFramework
             NMDhcpConfig *dhcp4_config = NULL;
             const gchar *gateway = NULL;
             const char* dhcpserver = NULL;
-            result.ipversion = "IPv4";
 
+            result.autoconfig = isAutoConnectEnabled(conn);
+            result.ipversion = "IPv4";
             ip4_config = nm_active_connection_get_ip4_config(conn);
             NMIPAddress *ipAddr = NULL;
             std::string ipStr;
@@ -421,10 +422,13 @@ namespace WPEFramework
             result.ula = "";
             if(gateway)
                 result.gateway = gateway;
-            if((*(&dnsArr[0]))!=NULL)
-                result.primarydns     = *(&dnsArr[0]);
-            if((*(&dnsArr[1]))!=NULL )
-                result.secondarydns   = *(&dnsArr[1]);
+            if(dnsArr)
+            {
+                if(dnsArr[0])
+                    result.primarydns = std::string(dnsArr[0]);
+                if(dnsArr[1])
+                    result.secondarydns = std::string(dnsArr[1]);
+            }
             rc = Core::ERROR_NONE;
             return rc;
         }
@@ -433,13 +437,14 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             const gchar *gateway = NULL;
-            result.ipversion = "IPv6";
             NMIPAddress *ipAddr = nullptr;
             NMIPConfig *ip6_config = NULL;
             NMDhcpConfig *dhcp6_config = NULL;
             char **dnsArr = NULL;
             const char* dhcpserver = NULL;
 
+            result.ipversion = "IPv6";
+            result.autoconfig = isAutoConnectEnabled(conn);
             ip6_config = nm_active_connection_get_ip6_config(conn);
             if(ip6_config == nullptr)
             {
@@ -477,11 +482,13 @@ namespace WPEFramework
             if(gateway)
                 result.gateway= gateway;
             dnsArr = (char **)nm_ip_config_get_nameservers(ip6_config);
-            if((*(&dnsArr[0]))!= NULL)
-                result.primarydns = *(&dnsArr[0]);
-            if((*(&dnsArr[1]))!=NULL )
-                result.secondarydns = *(&dnsArr[1]);
-
+            if(dnsArr)
+            {
+                if(dnsArr[0])
+                    result.primarydns = std::string(dnsArr[0]);
+                if(dnsArr[1])
+                    result.secondarydns = std::string(dnsArr[1]);
+            }
             dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
             if(dhcp6_config)
             {
@@ -592,12 +599,14 @@ namespace WPEFramework
             {
                 rc = getIPv6Settings(result, conn, interface);
             }
-            if((result.ipaddress.empty() && ipversion.empty()))
-            {
-                result.ipversion = "IPv4";
-            }
             else
                 NMLOG_WARNING("ipversion error IPv4/IPv6");
+            if(result.ipaddress.empty())
+            {
+                result.autoconfig = true;
+                if(ipversion.empty())
+                    result.ipversion = "IPv4";
+            }
             return rc;
         }
 
