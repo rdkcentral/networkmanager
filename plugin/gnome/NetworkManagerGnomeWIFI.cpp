@@ -625,7 +625,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_INFO("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
 
             m_isSuccess = false;
             if(!createClientNewConnection())
@@ -657,8 +657,14 @@ namespace WPEFramework
             AccessPoint = findMatchingSSID(ApList, ssidInfo.ssid);
             if(AccessPoint == NULL) {
                 NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
-                if(_instance != nullptr)
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                // if(_instance != nullptr)
+                //     _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                /* ssid not found in scan list so add to known ssid it will do a scanning and connect */
+                if(addToKnownSSIDs(ssidInfo))
+                {
+                    NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
+                    return activateKnownWifiConnection(ssidInfo.ssid);
+                }
                 return false;
             }
 
@@ -945,7 +951,7 @@ namespace WPEFramework
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             if(nm_device_wifi_request_scan_finish(NM_DEVICE_WIFI(object), result, &error)) {
-                 NMLOG_DEBUG("Scanning success");
+                 // NMLOG_DEBUG("Scanning success");
                  _wifiManager->m_isSuccess = true;
             }
             else
@@ -987,7 +993,7 @@ namespace WPEFramework
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
             }
             else {
-                NMLOG_DEBUG("staring normal wifi scanning");
+                // NMLOG_DEBUG("staring normal wifi scanning");
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
             }
             wait(m_loop);
@@ -1014,14 +1020,14 @@ namespace WPEFramework
             gint64 current_time_in_msec = nm_utils_get_timestamp_msec();
             gint64 time_difference_in_seconds = (current_time_in_msec - last_scan_time) / 1000;
 
-            NMLOG_DEBUG("Current time in milliseconds: %" G_GINT64_FORMAT, current_time_in_msec);
-            NMLOG_DEBUG("Last scan time in milliseconds: %" G_GINT64_FORMAT, last_scan_time);
-            NMLOG_DEBUG("Time difference in seconds: %" G_GINT64_FORMAT, time_difference_in_seconds);
+            // NMLOG_DEBUG("Current time in milliseconds: %" G_GINT64_FORMAT, current_time_in_msec);
+            // NMLOG_DEBUG("Last scan time in milliseconds: %" G_GINT64_FORMAT, last_scan_time);
+            // NMLOG_DEBUG("Time difference in seconds: %" G_GINT64_FORMAT, time_difference_in_seconds);
 
             if (time_difference_in_seconds <= timelimitInSec) {
                 return true;
             }
-            NMLOG_DEBUG("Last Wi-Fi scan exceeded time limit.");
+            // NMLOG_DEBUG("Last Wi-Fi scan exceeded time limit.");
             return false;
         }
 

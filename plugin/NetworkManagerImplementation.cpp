@@ -817,7 +817,7 @@ namespace WPEFramework
                 snr = std::to_string(readSnr);
             }
 
-            NMLOG_INFO ("RSSI: %s dBm; Noise: %s dBm; SNR: %s dBm", strength.c_str(), noise.c_str(), snr.c_str());
+            NMLOG_DEBUG("RSSI: %s dBm; Noise: %s dBm; SNR: %s dBm", strength.c_str(), noise.c_str(), snr.c_str());
 
             if (readSnr == 0)
             {
@@ -841,7 +841,7 @@ namespace WPEFramework
                 quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
-            NMLOG_INFO ("GetWiFiSignalQuality success");
+            // NMLOG_INFO ("GetWiFiSignalQuality success");
             rc = Core::ERROR_NONE;
 
             return rc;
@@ -858,13 +858,13 @@ namespace WPEFramework
                 std::string snr{};
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
-                NMLOG_DEBUG("checking WiFi signal strength");
+                // NMLOG_DEBUG("checking WiFi signal strength");
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
                 m_lastConnectedSSID = ssid; // last connected ssid used in wifiConnect
 
                 if (oldSignalQuality != newSignalQuality) {
-                    NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
+                   // NMLOG_INFO("Notifying WiFiSignalQualityChangedEvent %s", strength.c_str());
                     oldSignalQuality = newSignalQuality;
                     NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
                 }
