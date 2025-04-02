@@ -48,9 +48,12 @@ namespace WPEFramework
             m_ethConnected = false;
             m_wlanConnected = false;
 
+            /* Set NetworkManager Out-Process name to be NWMgrPlugin */
+            Core::ProcessInfo().Name("NWMgrPlugin");
+
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            NMLOG_INFO((_T("NetworkManager Out-Of-Process Instantiation; SHA:" _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -106,7 +109,9 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
-
+            NMLOG_INFO("NWMgrPlugin Process Memory Size Allocated: %lld KB, Resident: %lld KB, Shared: %lld KB", (long long int) Core::ProcessInfo().Allocated() >> 10,
+                                                                                                                 (long long int) Core::ProcessInfo().Resident() >> 10,
+                                                                                                                 (long long int) Core::ProcessInfo().Shared() >> 10);
             if (service)
             {
                 string configLine = service->ConfigLine();
