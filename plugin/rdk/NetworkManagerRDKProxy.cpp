@@ -643,19 +643,19 @@ namespace WPEFramework
 					retry++;
 					continue;
 				}
-				 NMLOG_ERROR("IARM_Bus_Connect retry %d: %d", retry, retConnect);
+				 NMLOG_INFO("IARM_Bus_Connect retry %d: %d", retry, retConnect);
 				 iarmConnect = true;
 		  	}
 		  	
 			retIPC = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10)); 
 			if (retIPC != IARM_RESULT_SUCCESS)
 			{
-				NMLOG_INFO("NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retry = %d", retry);
+				NMLOG_ERROR("NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retry = %d", retry);
 				usleep(500 * 1000);
 				retry++;
 				continue;	
 			}	
-			NMLOG_ERROR("IARM_Bus_Call retry %d: %d", retry, retIPC);
+			NMLOG_INFO("IARM_Bus_Call retry %d: %d", retry, retIPC);
                		 break; 		
           } while(true);
             
@@ -745,7 +745,7 @@ namespace WPEFramework
 				continue;
 			}
 			retInit = IARM_RESULT_SUCCESS;
-			NMLOG_ERROR("IARM_Bus_Init retry %d: %d", retry, retInit);
+			NMLOG_INFO("IARM_Bus_Init retry %d: %d", retry, retInit);
 			iarmInit = true;
 		}	
 		if(iarmConnect != true)
@@ -763,11 +763,11 @@ namespace WPEFramework
 		retIPC  = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10));    
 		if (retIPC  != IARM_RESULT_SUCCESS)
 		{
-			NMLOG_INFO("NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retry = %d", retry);
+			NMLOG_ERROR("NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retry = %d", retry);
 			usleep(500 * 1000);
 			continue;
 		}
-		NMLOG_ERROR("IARM_Bus_Call retry %d: %d", retry, retIPC);
+		NMLOG_INFO("IARM_Bus_Call retry %d: %d", retry, retIPC);
                 break; 
 		
 		if(retIPC == IARM_RESULT_SUCCESS && retConnect == IARM_RESULT_SUCCESS && retInit == IARM_RESULT_SUCCESS)
@@ -779,7 +779,7 @@ namespace WPEFramework
             if(retIPC != IARM_RESULT_SUCCESS)
             {
                 string msg = "NetSrvMgr is not available";
-                NMLOG_INFO("NETWORK_NOT_READY: The NetSrvMgr Component is not available.Retrying in separate thread ::%s::", msg.c_str());
+                NMLOG_ERROR("NETWORK_NOT_READY: The NetSrvMgr Component is not available.Retrying in separate thread ::%s::", msg.c_str());
                 m_registrationThread = thread(&NetworkManagerImplementation::threadEventRegistration, this, iarmInit, iarmConnect);
             }
             else {
