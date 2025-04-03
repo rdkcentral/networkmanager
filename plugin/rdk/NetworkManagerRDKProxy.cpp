@@ -654,7 +654,7 @@ namespace WPEFramework
 				retry++;
 				continue;	
 			}			
-          } while(true);
+          } while(retIPC != IARM_RESULT_SUCCESS);
             
             
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, NetworkManagerInternalEventHandler);
