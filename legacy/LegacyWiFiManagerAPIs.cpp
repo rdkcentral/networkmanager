@@ -923,8 +923,6 @@ namespace WPEFramework
             JsonArray ssidsUpdated;
             JsonObject newParameters;
             JsonArray ssids = parameters["ssids"].Array();
-            parameters.ToString(json);
-            NMLOG_INFO("Posting onAvailableSSIDs Event as %s", json.c_str());
             for (int i = 0; i < ssids.Length(); i++)
             {
                 JsonObject object = ssids[i].Object();
@@ -933,6 +931,9 @@ namespace WPEFramework
                 ssidsUpdated.Add(object);
             }
             newParameters["ssids"] = ssidsUpdated;
+
+            newParameters.ToString(json);
+            NMLOG_INFO("Event with %d SSIDs as, %s", ssids.Length(), json.c_str());
             if(_gWiFiInstance)
                 _gWiFiInstance->Notify("onAvailableSSIDs", newParameters);
             else
