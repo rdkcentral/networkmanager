@@ -641,7 +641,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             string result{};
             string endpoint{};
             uint32_t rc = Core::ERROR_GENERAL;
-            LOG_INPARAM();
             if (parameters.HasLabel("endpoint"))
             {
                 string guid{};

@@ -617,7 +617,6 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
     {
-        NMLOG_DEBUG("wifi scanning completed ...");
         if(!NM_IS_DEVICE_WIFI(wifiDevice))
         {
             NMLOG_ERROR("Not a wifi object ");

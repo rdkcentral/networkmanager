@@ -58,10 +58,13 @@ namespace WPEFramework
             return deviceState;
         }
 
-        uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
+        uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint)
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
-            NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
+            if(!doPrint)
+                NMLOG_DEBUG("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
+            else
+                NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
 
             if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
@@ -227,7 +230,7 @@ namespace WPEFramework
                 wpaFlags = nm_access_point_get_wpa_flags(ap);
                 rsnFlags = nm_access_point_get_rsn_flags(ap);
                 freq = nmUtils::wifiFrequencyFromAp(apFreq);
-                security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags);
+                security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
 
                 ssidObj["security"] = security;
                 ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
