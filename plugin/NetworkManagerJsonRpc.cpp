@@ -708,18 +708,16 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        static inline void logWifiParameters(const JsonObject parameters)
+        static inline void logWifiParameters(const JsonObject& parameters)
         {
             string json;
-            JsonObject ssidObj = parameters;
-            if (parameters.HasLabel("ssid"))
-                ssidObj["ssid"] =  parameters["ssid"].String();
-            if (parameters.HasLabel("passphrase"))
+            JsonObject ssidObj = JsonObject(parameters);
+            if (ssidObj.HasLabel("passphrase"))
                 ssidObj["passphrase"] = std::string("*******");
-            if (parameters.HasLabel("security"))
-                ssidObj["security"] = parameters["security"].Number();
-            if (parameters.HasLabel("persist"))
-                ssidObj["persist"] = parameters["persist"].Boolean();
+            if (ssidObj.HasLabel("private_key"))
+                ssidObj["private_key"] =  std::string("*******");
+            if (ssidObj.HasLabel("private_key_passwd"))
+                ssidObj["private_key_passwd"] = std::string("*******");
             ssidObj.ToString(json);
             NMLOG_INFO("params=%s", json.c_str() );
         }

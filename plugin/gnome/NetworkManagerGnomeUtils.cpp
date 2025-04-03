@@ -58,10 +58,10 @@ namespace WPEFramework
             return deviceState;
         }
 
-        uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool debgPrint)
+        uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool debugPrint)
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
-            if(debgPrint)
+            if(debugPrint)
                 NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
 
             if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))

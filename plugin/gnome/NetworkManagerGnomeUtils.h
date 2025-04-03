@@ -38,7 +38,7 @@ namespace WPEFramework
                static const char* ethIface();
                static const char* convertPercentageToSignalStrengtStr(int percentage);
                static bool caseInsensitiveCompare(const std::string& str1, const std::string& str2);
-               static uint8_t wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool debgPrint = true);
+               static uint8_t wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool debugPrint = true);
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static bool apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj);
