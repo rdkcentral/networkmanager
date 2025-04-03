@@ -79,15 +79,14 @@ namespace WPEFramework
         NMDeviceState deviceState;
         deviceState = nm_device_get_state(device);
         std::string ifname = nm_device_get_iface(device);
+        NMDeviceStateReason reason = nm_device_get_state_reason(device);
         if(ifname == nmUtils::wlanIface())
         {
             if(!NM_IS_DEVICE_WIFI(device)) {
                 NMLOG_FATAL("not a wifi device !");
                 return;
             }
-            NMDeviceStateReason reason = nm_device_get_state_reason(device);
             std::string wifiState;
-           // NMLOG_DEBUG("\033[0;31m NMDeviceStateReason %d \033[0m",reason);
             switch (reason)
             {
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_AVAILABLE:
@@ -139,13 +138,21 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_PREPARE:
                         wifiState = "WIFI_STATE_PAIRING";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_PAIRING);
-                        GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_CONFIG:
                         wifiState = "WIFI_STATE_CONNECTING";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
                         break;
+                    case NM_DEVICE_STATE_IP_CONFIG:
+                        wifiState = "NM_DEVICE_STATE_IP_CONFIG";
+                        GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
+                        break;
                     case NM_DEVICE_STATE_IP_CHECK:
+                        wifiState = "NM_DEVICE_STATE_IP_CHECK";
+                        //GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::wlanIface());
+                        break;
+                    case NM_DEVICE_STATE_SECONDARIES:
+                        wifiState = "NM_DEVICE_STATE_SECONDARIES";
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
@@ -178,7 +185,7 @@ namespace WPEFramework
                     break;
                 }
             }
-            NMLOG_DEBUG("wifi state: %s", wifiState.c_str());
+            NMLOG_INFO("wifi state: %s; reason: %d", wifiState.c_str(), static_cast<int>(reason));
         }
         else if(ifname == nmUtils::ethIface())
         {
@@ -211,9 +218,9 @@ namespace WPEFramework
                 isEthDisabled = false;
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
             }
-        }
 
-        NMLOG_DEBUG("%s state: (%d)", ifname.c_str(), deviceState);
+            NMLOG_INFO("eth0 state: %d; reason: %d", static_cast<int>(deviceState), static_cast<int>(reason));
+        }
     }
 
     static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)

@@ -267,6 +267,7 @@ namespace WPEFramework
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();
                 void monitorThreadFunction(int interval);
+                int32_t logSSIDs(Logging level, const JsonArray &ssids);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;

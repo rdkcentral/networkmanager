@@ -150,7 +150,7 @@ namespace WPEFramework
         const char* GnomeUtils::getWifiIfname() { return ifnameWlan; }
         const char* GnomeUtils::getEthIfname() { return ifnameEth; }
 
-        uint8_t GnomeUtils::wifiSecurityModeFromApFlags(guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
+        uint8_t GnomeUtils::wifiSecurityModeFromApFlags(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
             if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
@@ -161,7 +161,8 @@ namespace WPEFramework
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
             else
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-            // NMLOG_DEBUG("ap security str %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
+
+            //NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             return security;
         }
 
@@ -402,7 +403,7 @@ namespace WPEFramework
                 std::string freqStr = std::to_string((double)freq/1000);
                 wifiInfo.frequency = freqStr.substr(0, 5);
                 wifiInfo.rate = std::to_string(bitrate);
-                wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(flags, wpaFlags, rsnFlags));
+                wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
                 if(noise <= 0 && noise >= DEFAULT_NOISE)
                     wifiInfo.noise = std::to_string(noise);
                 else

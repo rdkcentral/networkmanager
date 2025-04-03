@@ -228,11 +228,10 @@ namespace WPEFramework
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
-            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(flags, wpaFlags, rsnFlags));
+            wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
             NMLOG_INFO("ssid: %s, frequency: %s, sterngth: %s, security: %u", wifiInfo.ssid.c_str(), 
                                         wifiInfo.frequency.c_str(), wifiInfo.strength.c_str(), wifiInfo.security);
-            NMLOG_DEBUG("security string %s", nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
-            NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
+            NMLOG_INFO("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
         }
 
         bool wifiManager::isWifiConnected()
@@ -261,20 +260,27 @@ namespace WPEFramework
             if(!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
+            NMDevice* wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
 
-            NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
-            if(activeAP == NULL) {
-                NMLOG_DEBUG("No active access point found !");
-                return false;
+            NMDeviceState deviceState = nm_device_get_state(wifiDevice);
+            if(deviceState >= NM_DEVICE_STATE_IP_CONFIG)
+            {
+                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(wifiDevice));
+                if(activeAP == NULL) {
+                    NMLOG_ERROR("NMAccessPoint = NULL !");
+                    return false;
+                }
+                NMLOG_DEBUG("active access point found !");
+                getApInfo(activeAP, ssidinfo);
+                return true;
             }
             else
-                NMLOG_DEBUG("active access point found !");
-            getApInfo(activeAP, ssidinfo);
+                NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
+
             return true;
         }
 
@@ -425,7 +431,8 @@ namespace WPEFramework
             GBytes *ssid = g_bytes_new(ssidinfo.ssid.c_str(), strlen(ssidinfo.ssid.c_str()));
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_SSID, ssid, NULL); // ssid in Gbyte
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MODE, NM_SETTING_WIRELESS_MODE_INFRA, NULL); // infra mode
-            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
+            if(!iswpsAP) // wps never be a hidden AP, it will be always visible
+                g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
             // 'bssid' parameter is used to restrict the connection only to the BSSID
             // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
 
@@ -617,6 +624,8 @@ namespace WPEFramework
 
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
+
+            NMLOG_INFO("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
 
             m_isSuccess = false;
             if(!createClientNewConnection())
@@ -1101,17 +1110,23 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiConnectTo ssidInfo{};
             bool wpsComplete= false;
 
-            for(int retry =0; retry < WPS_RETRY_COUNT; retry++)
+            if(_instance != nullptr)
+                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
+
+            for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
                 sleep(WPS_RETRY_WAIT_IN_MS);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
+                {
+                    NMLOG_INFO("stop wps process reuested");
                     break;
+                }
 
                 wpsContext = g_main_context_new();
                 if(wpsContext == NULL)
                 {
                     NMLOG_ERROR("wpsContext create failed !!");
-                    return;
+                    break;
                 }
 
                 if(!g_main_context_acquire(wpsContext))
@@ -1121,26 +1136,26 @@ namespace WPEFramework
                 }
     
                 g_main_context_push_thread_default(wpsContext);
-            
+
                 NMClient* client = nm_client_new(NULL, &error);
                 if (!client && error != NULL) {
                     NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                     g_error_free(error);
-                    return;
+                    break;
                 }
 
                 NMDevice* wifidevice = nm_client_get_device_by_iface(client, nmUtils::wlanIface());
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
-                    return;
+                    break;
                 }
 
                 ApList = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(wifidevice));
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
-                    return;
+                    break;
                 }
 
                 if(findWpsPbcSSID(ApList, wpsApSsid, &wpsAp) && wpsAp != NULL)
@@ -1155,8 +1170,12 @@ namespace WPEFramework
                             NMLOG_INFO("WPS process stoped connected to '%s' wps ap ", wpsApSsid.c_str());
                             wpsComplete = true;
                         }
-                        else {
-                            // some other ssid connected; wps need a disconnected wifi device
+
+                        NMDeviceState state = nm_device_get_state(wifidevice);
+                        if(!wpsComplete && state > NM_DEVICE_STATE_DISCONNECTED)
+                        {
+                            NMLOG_INFO("stopping the ongoing Wi-Fi connection");
+                            // some other ssid connected or connecting; wps need a disconnected wifi state
                             nm_device_disconnect(wifidevice, NULL,  &error);
                             if (error)
                                 NMLOG_ERROR("disconnect connection failed %s", error->message);
@@ -1199,7 +1218,6 @@ namespace WPEFramework
                 else
                 {
                     //TODO Post SSID lost event ?
-                    NMLOG_ERROR("request for wifi scanning");
                     nm_device_wifi_request_scan(NM_DEVICE_WIFI(wifidevice), NULL, &error);
                 }
 
@@ -1210,7 +1228,22 @@ namespace WPEFramework
 
                 g_main_context_unref(wpsContext);
             }
+
+            if(wpsAp == NULL)
+            {
+                NMLOG_WARNING("WPS AP not found");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+            }
+            else if(!wpsComplete)
+            {
+                NMLOG_INFO("WPS process Error");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+            }
+
             wpsProcessRun = false;
+            NMLOG_INFO("WPS process thread exist");
         }
 
         bool wifiManager::startWPS()

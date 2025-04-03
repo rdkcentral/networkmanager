@@ -132,10 +132,8 @@ namespace NetworkManagerLogger {
     void GetLevel(LogLevel& level)
     {
         level = gDefaultLogLevel;
-        NMLOG_INFO("NetworkManager logLevel:%d", level);
 #ifdef USE_RDK_LOGGER
         // TODO : Inform RDKLogger to change the log level
 #endif
     }
-
 } // namespace NetworkManagerLogger
