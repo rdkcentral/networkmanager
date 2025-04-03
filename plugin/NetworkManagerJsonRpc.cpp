@@ -708,11 +708,25 @@ namespace WPEFramework
             returnJson(rc);
         }
 
+        static inline void logWifiParameters(const JsonObject& parameters)
+        {
+            string json;
+            JsonObject ssidObj = JsonObject(parameters);
+            if (ssidObj.HasLabel("passphrase"))
+                ssidObj["passphrase"] = std::string("*******");
+            if (ssidObj.HasLabel("private_key"))
+                ssidObj["private_key"] =  std::string("*******");
+            if (ssidObj.HasLabel("private_key_passwd"))
+                ssidObj["private_key_passwd"] = std::string("*******");
+            ssidObj.ToString(json);
+            NMLOG_INFO("params=%s", json.c_str() );
+        }
+
         uint32_t NetworkManager::AddToKnownSSIDs(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s", __FUNCTION__);
+            logWifiParameters(parameters);
 
             if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
@@ -750,7 +764,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s", __FUNCTION__);
+            logWifiParameters(parameters);
 
             if (parameters.HasLabel("ssid"))
             {
