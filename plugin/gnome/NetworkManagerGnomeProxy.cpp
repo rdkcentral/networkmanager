@@ -425,8 +425,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty())
-                NMLOG_DEBUG("ipversion is empty default value IPv4");
+            // if(ipversion.empty())
+            //     NMLOG_DEBUG("ipversion is empty default value IPv4");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
@@ -477,21 +477,21 @@ namespace WPEFramework
                 NMIPAddress *ipAddr = NULL;
                 std::string ipStr;
                 if (ip4_config)
-                {
                     ipByte = nm_ip_config_get_addresses(ip4_config);
-                    if(ipByte)
+                else
+                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
+                if(ipByte)
+                {
+                    for (int i = 0; i < ipByte->len; i++)
                     {
-                        for (int i = 0; i < ipByte->len; i++)
+                        ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
                         {
-                            ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
-                            if(ipAddr)
-                                ipStr = nm_ip_address_get_address(ipAddr);
-                            if(!ipStr.empty())
-                            {
-                                result.ipaddress = nm_ip_address_get_address(ipAddr);
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
-                            }
+                            result.ipaddress = nm_ip_address_get_address(ipAddr);
+                            result.prefix = nm_ip_address_get_prefix(ipAddr);
+                            NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
                         }
                     }
                     gateway = nm_ip_config_get_gateway(ip4_config);
@@ -507,13 +507,13 @@ namespace WPEFramework
                     }
                     dhcp4_config = nm_active_connection_get_dhcp4_config(conn);
                     if(dhcp4_config)
+                    {
                         dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config, "dhcp_server_identifier");
-                    if(dhcpserver)
-                        result.dhcpserver = dhcpserver;
+                        if(dhcpserver)
+                            result.dhcpserver = dhcpserver;
+                    }
                     result.ula = "";
                 }
-                else
-                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
             }
             if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
             {
@@ -523,29 +523,29 @@ namespace WPEFramework
                 NMIPAddress *ipAddr = nullptr;
                 ip6_config = nm_active_connection_get_ip6_config(conn);
                 if(ip6_config)
-                {
                     ipArray = nm_ip_config_get_addresses(ip6_config);
-                    if(ipArray)
+                else
+                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
+                if(ipArray)
+                {
+                    for (int i = 0; i < ipArray->len; i++)
                     {
-                        for (int i = 0; i < ipArray->len; i++)
+                        ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
+                        if(ipAddr)
+                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(!ipStr.empty())
                         {
-                            ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
-                            if(ipAddr)
-                                ipStr = nm_ip_address_get_address(ipAddr);
-                            if(!ipStr.empty())
+                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)
                             {
-                                if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)
-                                {
-                                    result.ula = ipStr;
-                                    NMLOG_INFO("link-local ip: %s", result.ula.c_str());
-                                }
-                                else
-                                {
-                                    result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                    if(result.ipaddress.empty()) // SLAAC mutiple ip not added
-                                        result.ipaddress = ipStr;
-                                    NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
-                                }
+                                result.ula = ipStr;
+                                NMLOG_INFO("link-local ip: %s", result.ula.c_str());
+                            }
+                            else
+                            {
+                                result.prefix = nm_ip_address_get_prefix(ipAddr);
+                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
+                                    result.ipaddress = ipStr;
+                                NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
                             }
                         }
                     }
@@ -569,8 +569,6 @@ namespace WPEFramework
                             result.dhcpserver = dhcpserver;
                     }
                 }
-                else
-                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
             }
             else
                 NMLOG_WARNING("ipversion error IPv4/IPv6");
