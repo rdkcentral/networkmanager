@@ -1300,6 +1300,12 @@ namespace WPEFramework
             m_isSuccess = false;
             NMDevice *device = nullptr;
 
+            if(interface.empty() || (interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
             if (!createClientNewConnection())
                 return false;
 
@@ -1396,6 +1402,12 @@ namespace WPEFramework
             NMDevice *device = NULL;
             const char *specObject = NULL;
 
+            if(interface.empty() || (interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
             if (!createClientNewConnection())
                 return false;
 
@@ -1455,8 +1467,6 @@ namespace WPEFramework
                 }
                 connection = NM_CONNECTION(remoteConn);
             }
-            else
-                return false; // interface is not eth0 or wlan0
 
             if(connection == nullptr)
             {
