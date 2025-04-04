@@ -425,8 +425,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty())
-                NMLOG_DEBUG("ipversion is empty default value IPv4");
+            // if(ipversion.empty())
+            //     NMLOG_DEBUG("ipversion is empty default value IPv4");
 
             const GPtrArray *connections = nm_client_get_active_connections(client);
             if(connections == NULL)
