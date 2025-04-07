@@ -2,13 +2,13 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 0.12.0**
+**Version: 0.13.0**
 
 **Status: :white_circle::white_circle::white_circle:**
 
 org.rdk.NetworkManager interface for Thunder framework.
 
-(Defined by [NetworkManager.json](https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json))
+(Defined by [NetworkManager.json](https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json))
 
 ### Table of Contents
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.12.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.13.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
