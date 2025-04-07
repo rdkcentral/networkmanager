@@ -221,10 +221,7 @@ namespace WPEFramework
             wifiInfo.frequency = freqStr.substr(0, 5);
 
             wifiInfo.rate = std::to_string(bitrate);
-            if(noise <= 0 && noise >= DEFAULT_NOISE)
-                wifiInfo.noise = std::to_string(noise);
-            else
-                wifiInfo.noise = std::to_string(0);
+            wifiInfo.noise = std::to_string(noise);
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
