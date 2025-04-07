@@ -8,8 +8,8 @@
         "locator": "libWPEFrameworkNetworkManager.so",
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
-        "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/NetworkManager.json",
-        "version": "0.12.0"
+        "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
+        "version": "0.13.0"
     },
     "definitions": {
         "success": {

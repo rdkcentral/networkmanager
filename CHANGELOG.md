@@ -14,6 +14,14 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.13.0] - 2025-04-07
+### Changed
+- Changed the out-of-process name
+- Changed the WIFIConnect API scan & connect if the scan-result is empty
+- Changed the GetIPSettings API to check the ipversion passed, and if empty, return IPv4 when available other IPv6.
+- Fixed the GetAvailableInterfaces to return only the interfaces that are defined in device.properties
+- Enable DEBUG to NetworkManager Gnome daemon when SetLogLevel called with DEBUG.
+
 ## [0.12.0] - 2025-03-31
 ### Added
 - The file and folder structure of NetworkManager repo is re-organized
@@ -25,7 +33,6 @@ All notable changes to this RDK Service will be documented in this file.
 - Fixed Invalid Timeout in Connectivity Monitoring
 - Fixed WiFiConnect Failure for previously saved SSID
 - Fixed the missing Events on WPS Connect failure
-
 
 ## [0.11.0] - 2025-03-07
 ### Added
