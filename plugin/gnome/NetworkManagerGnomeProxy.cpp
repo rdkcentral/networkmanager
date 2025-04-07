@@ -89,6 +89,7 @@ namespace WPEFramework
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
+            nmUtils::configureNetworkManagerDaemonLoglevel();
             return;
         }
 
