@@ -54,6 +54,7 @@ namespace WPEFramework
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
             NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -64,6 +65,16 @@ namespace WPEFramework
                 m_registrationThread.join();
             }
             stopWiFiSignalQualityMonitor();
+
+            {
+                std::unique_lock<std::mutex> lock(m_processMonMutex);
+                m_processMonThreadStop = true;
+                m_processMonCondVar.notify_one();
+            }
+
+            if (m_processMonThread.joinable()) {
+                m_processMonThread.join();
+            }
         }
 
         /**
@@ -109,9 +120,6 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
-            NMLOG_INFO("NWMgrPlugin Process Memory Size Allocated: %lld KB, Resident: %lld KB, Shared: %lld KB", (long long int) Core::ProcessInfo().Allocated() >> 10,
-                                                                                                                 (long long int) Core::ProcessInfo().Resident() >> 10,
-                                                                                                                 (long long int) Core::ProcessInfo().Shared() >> 10);
             if (service)
             {
                 string configLine = service->ConfigLine();
@@ -843,6 +851,27 @@ namespace WPEFramework
             rc = Core::ERROR_NONE;
 
             return rc;
+        }
+
+        void NetworkManagerImplementation::processMonitor(uint16_t interval)
+        {
+            pid_t pid = getpid();
+            Core::ProcessInfo processInfo(pid);
+
+            do
+            {
+                processInfo.MemoryStats();
+                NMLOG_INFO("RSS: %lu KB PSS: %lu KB USS: %lu KB VSS: %lu KB", processInfo.RSS(), processInfo.PSS(), processInfo.USS(), processInfo.VSS());
+
+                std::unique_lock<std::mutex> lock(m_processMonMutex);
+                // Wait for the specified interval or until notified to stop
+                if (m_processMonCondVar.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_processMonThreadStop == true; }))
+                {
+                    NMLOG_INFO("processMonitor received stop signal");
+                }
+            } while (!m_processMonThreadStop);
+
+            return;
         }
 
         void NetworkManagerImplementation::monitorThreadFunction(int interval)
