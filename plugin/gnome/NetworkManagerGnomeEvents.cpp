@@ -255,6 +255,11 @@ namespace WPEFramework
 
         for (guint i = 0; i < addresses->len; ++i) {
             NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
+            if(address == NULL)
+            {
+                NMLOG_WARNING("IPv4 address is null");
+                continue;
+            }
             if (nm_ip_address_get_family(address) == AF_INET) {
                 const char *ipAddress = nm_ip_address_get_address(address);
                 if(ipAddress != NULL)
@@ -291,6 +296,11 @@ namespace WPEFramework
 
             for (guint i = 0; i < addresses->len; ++i) {
                 NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
+                if(address == NULL)
+                {
+                    NMLOG_WARNING("IPv6 address is null");
+                    continue;
+                }
                 if (nm_ip_address_get_family(address) == AF_INET6) {
                     const char *ipaddr = nm_ip_address_get_address(address);
                     //int prefix = nm_ip_address_get_prefix(address);
@@ -631,7 +641,12 @@ namespace WPEFramework
          {
              char *ssidStr = nullptr;
              ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
-             string ssidString(ssidStr);
+             string ssidString = "---";
+             if(ssidStr)
+             {
+                ssidString = ssidStr;
+                free(ssidStr);
+             }
              ssidObj["ssid"] = ssidString;
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
