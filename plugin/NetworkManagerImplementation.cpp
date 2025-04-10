@@ -20,7 +20,9 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
-
+#ifdef ENABLE_GNOME_NETWORKMANAGER
+#include "gnome/NetworkManagerGnomeUtils.h"
+#endif
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
@@ -344,7 +346,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetLogLevel(const Logging& level /* @in */)
         {
             NetworkManagerLogger::SetLevel((LogLevel)level);
-            return Core::ERROR_NONE;
+#ifdef ENABLE_GNOME_NETWORKMANAGER
+	    nmUtils::configureNetworkManagerDaemonLoglevel();
+#endif
+	    return Core::ERROR_NONE;
         }
 
         /* @brief Get the network manager plugin log level */
