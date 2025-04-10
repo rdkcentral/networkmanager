@@ -856,18 +856,48 @@ namespace WPEFramework
         void NetworkManagerImplementation::processMonitor(uint16_t interval)
         {
             pid_t pid = getpid();
-            Core::ProcessInfo processInfo(pid);
+
+            string path = "/proc/";
+            path += std::to_string(pid);
+            path += "/statm";
+            const uint32_t pageSize = getpagesize();
 
             do
             {
-                processInfo.MemoryStats();
-                NMLOG_INFO("RSS: %lu KB PSS: %lu KB USS: %lu KB VSS: %lu KB", processInfo.RSS(), processInfo.PSS(), processInfo.USS(), processInfo.VSS());
+                int fd;
+                char buffer[128] = "";
+                int processSize = 0;
+                int processRSS = 0;
+                int processShare = 0;
+
+                if ((fd = open(path.c_str(), O_RDONLY)) >= 0)
+                {
+                    ssize_t readAmount = 0;
+                    if ((readAmount = read(fd, buffer, sizeof(buffer))) > 0)
+                    {
+                        ssize_t nulIndex = std::min(readAmount, static_cast<ssize_t>(sizeof(buffer) - 1));
+                        buffer[nulIndex] = '\0';
+                        sscanf(buffer, "%d %d %d", &processSize, &processRSS, &processShare);
+
+                        /* Update the sizes */
+                        processSize  *= pageSize;
+                        processRSS   *= pageSize;
+                        processShare *= pageSize;
+
+                        /* Convert to KB */
+                        processSize  >>= 10;
+                        processRSS   >>= 10;
+                        processShare >>= 10;
+                    }
+                    close(fd);
+                    NMLOG_INFO("VSS = %d KB   RSS = %d KB", processSize, processRSS);
+                }
 
                 std::unique_lock<std::mutex> lock(m_processMonMutex);
                 // Wait for the specified interval or until notified to stop
                 if (m_processMonCondVar.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_processMonThreadStop == true; }))
                 {
-                    NMLOG_INFO("processMonitor received stop signal");
+                    NMLOG_INFO("Received stop signal");
                 }
             } while (!m_processMonThreadStop);
 
