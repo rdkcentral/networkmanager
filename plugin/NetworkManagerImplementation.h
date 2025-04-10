@@ -38,6 +38,7 @@ using namespace std;
 #define MAX_SNR_VALUE                              180
 
 #define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
+#define NM_PROCESS_MONITOR_INTERVAL_SEC            60
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
@@ -262,12 +263,13 @@ namespace WPEFramework
                 void platform_init(void);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
-                void threadEventRegistration(void);
+                void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids);
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();
                 void monitorThreadFunction(int interval);
                 int32_t logSSIDs(Logging level, const JsonArray &ssids);
+                void processMonitor(uint16_t interval);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
@@ -283,6 +285,12 @@ namespace WPEFramework
                 string m_filterfrequency;
                 std::vector<std::string> m_filterSsidslist;
                 std::thread m_monitorThread;
+
+                std::thread m_processMonThread;
+                std::mutex m_processMonMutex;
+                std::atomic<bool> m_processMonThreadStop{false};
+                std::condition_variable m_processMonCondVar;
+
                 std::atomic<bool> m_stopThread{false};
                 std::atomic<bool> m_isRunning{false};
                 bool m_monitoringStarted = false;
