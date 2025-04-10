@@ -41,23 +41,6 @@ namespace WPEFramework
         const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}
         const char* nmUtils::ethIface() {return m_ethifname.c_str();}
 
-        NMDeviceState nmUtils::ifaceState(NMClient *client, const char* interface)
-        {
-            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-            NMDevice *device = NULL;
-            if(client == NULL)
-                return deviceState;
-
-            device = nm_client_get_device_by_iface(client, interface);
-            if (device == NULL) {
-                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface);
-                return deviceState;
-            }
-
-            deviceState = nm_device_get_state(device);
-            return deviceState;
-        }
-
         uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint)
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
@@ -208,77 +191,8 @@ namespace WPEFramework
             return freq;
        }
 
-       bool nmUtils::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
+       bool nmUtils::caseInsensitiveCompare(const std::string& str1, const std::string& str2)
        {
-            GBytes *ssid = NULL;
-            int strength = 0;
-            std::string freq;
-            int security;
-            guint32 flags, wpaFlags, rsnFlags, apFreq;
-            if(ap == nullptr)
-                return false;
-            ssid = nm_access_point_get_ssid(ap);
-            if (ssid)
-            {
-                char *ssidStr = nullptr;
-                ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
-                string ssidString(ssidStr);
-                ssidObj["ssid"] = ssidString;
-                strength = nm_access_point_get_strength(ap);
-                apFreq   = nm_access_point_get_frequency(ap);
-                flags    = nm_access_point_get_flags(ap);
-                wpaFlags = nm_access_point_get_wpa_flags(ap);
-                rsnFlags = nm_access_point_get_rsn_flags(ap);
-                freq = nmUtils::wifiFrequencyFromAp(apFreq);
-                security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
-
-                ssidObj["security"] = security;
-                ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
-                ssidObj["frequency"] = freq;
-                return true;
-            }
-            // else
-            //     NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
-            return false;
-       }
-
-        void nmUtils::printActiveSSIDsOnly(NMDeviceWifi *wifiDevice)
-        {
-            if(!NM_IS_DEVICE_WIFI(wifiDevice))
-            {
-                NMLOG_ERROR("Not a wifi object ");
-                return;
-            }
-            const GPtrArray *accessPointsArray = nm_device_wifi_get_access_points(wifiDevice);
-            for (guint i = 0; i < accessPointsArray->len; i++)
-            {
-                NMAccessPoint *ap = NULL;
-                GBytes *ssidGByte = NULL;
-                std::string ssid;
-
-                ap = (NMAccessPoint*)accessPointsArray->pdata[i];
-                ssidGByte = nm_access_point_get_ssid(ap);
-                if(ssidGByte)
-                {
-                    char* ssidStr = NULL;
-                    gsize len;
-                    const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidGByte, &len));
-                    ssidStr = nm_utils_ssid_to_utf8(ssidData, len);
-                    if(ssidStr != NULL) {
-                        std::string ssidTmp(ssidStr, len);
-                        ssid = ssidTmp;
-                    }
-                    else
-                        ssid = "---";
-                }
-                else
-                    ssid = "---";
-            
-                NMLOG_INFO("ssid: %s", ssid.c_str());
-            }
-        }
-
-        bool nmUtils::caseInsensitiveCompare(const std::string& str1, const std::string& str2) {
             std::string upperStr1 = str1;
             std::string upperStr2 = str2;
 
@@ -310,23 +224,66 @@ namespace WPEFramework
                     ethIfname = line.substr(line.find('=') + 1);
                     ethIfname.erase(ethIfname.find_last_not_of("\r\n\t") + 1);
                     ethIfname.erase(0, ethIfname.find_first_not_of("\r\n\t"));
+                    if(ethIfname.empty())
+                    {
+                        NMLOG_WARNING("ETHERNET_INTERFACE is empty in /etc/device.properties");
+                        ethIfname = "eth0_missing"; // means device doesnot have ethernet interface invalid name
+                    }
                 }
 
                 if (line.find("WIFI_INTERFACE=") != std::string::npos) {
                     wifiIfname = line.substr(line.find('=') + 1);
                     wifiIfname.erase(wifiIfname.find_last_not_of("\r\n\t") + 1);
                     wifiIfname.erase(0, wifiIfname.find_first_not_of("\r\n\t"));
+                    if(wifiIfname.empty())
+                    {
+                        NMLOG_WARNING("WIFI_INTERFACE is empty in /etc/device.properties");
+                        wifiIfname = "wlan0_missing"; // means device doesnot have wifi interface
+                    }
                 }
             }
             file.close();
-            if (ethIfname.empty() && wifiIfname.empty()) {
-                NMLOG_FATAL("Could not find any interface name in /etc/device.properties");
-                return false;
-            }
+
             m_wlanifname = wifiIfname;
             m_ethifname = ethIfname;
             NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s", m_ethifname.c_str(), m_wlanifname.c_str());
             return true;
         }
+
+        bool nmUtils::configureNetworkManagerDaemonLoglevel()
+        {
+            /* set networkmanager daemon log level based on current plugin log level */
+            const char* command = "nmcli general logging level TRACE domains ALL";
+            NetworkManagerLogger::LogLevel level;
+            NetworkManagerLogger::GetLevel(level);
+
+            if(NetworkManagerLogger::DEBUG_LEVEL != level)
+                return false;
+ 
+            // Execute the command using popen
+            FILE *pipe = popen(command, "r");
+
+            if (pipe == NULL) {
+                NMLOG_ERROR("popen failed %s ", command);
+                return false;
+            }
+    
+            // Close the pipe and retrieve the command's exit status
+            int status = pclose(pipe);
+            if (status == -1) {
+                perror("pclose failed");
+                return false;
+            }
+
+            // Extract the exit status from the status code
+            int exitCode = WEXITSTATUS(status);
+            if (exitCode == 0)
+                NMLOG_INFO("NetworkManager daemon log level changed ! logLevel: %d", level);
+            else
+                NMLOG_INFO(" '%s' failed with exit code %d.", command, exitCode);
+
+            return exitCode == 0;
+        }
+
     }   // Plugin
 }   // WPEFramework

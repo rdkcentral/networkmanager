@@ -221,10 +221,7 @@ namespace WPEFramework
             wifiInfo.frequency = freqStr.substr(0, 5);
 
             wifiInfo.rate = std::to_string(bitrate);
-            if(noise <= 0 && noise >= DEFAULT_NOISE)
-                wifiInfo.noise = std::to_string(noise);
-            else
-                wifiInfo.noise = std::to_string(0);
+            wifiInfo.noise = std::to_string(noise);
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
             wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
@@ -1300,6 +1297,12 @@ namespace WPEFramework
             m_isSuccess = false;
             NMDevice *device = nullptr;
 
+            if(interface.empty() || (interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
             if (!createClientNewConnection())
                 return false;
 
@@ -1396,6 +1399,12 @@ namespace WPEFramework
             NMDevice *device = NULL;
             const char *specObject = NULL;
 
+            if(interface.empty() || (interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
             if (!createClientNewConnection())
                 return false;
 
@@ -1455,8 +1464,6 @@ namespace WPEFramework
                 }
                 connection = NM_CONNECTION(remoteConn);
             }
-            else
-                return false; // interface is not eth0 or wlan0
 
             if(connection == nullptr)
             {

@@ -42,6 +42,29 @@ namespace WPEFramework
             return;
         }
 
+        static NMDeviceState ifaceState(NMClient *client, const char* interface)
+        {
+            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+            NMDevice *device = NULL;
+            if(client == NULL)
+                return deviceState;
+
+            if(string("eth0_missing") == interface || string("wlan0_missing") == interface)
+            {
+                NMLOG_DEBUG("interface %s is not valid", interface);
+                return deviceState;
+            }
+
+            device = nm_client_get_device_by_iface(client, interface);
+            if (device == NULL) {
+                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface);
+                return deviceState;
+            }
+
+            deviceState = nm_device_get_state(device);
+            return deviceState;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
@@ -56,7 +79,7 @@ namespace WPEFramework
             }
 
             nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
-            NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+            NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 m_defaultInterface = nmUtils::ethIface();
             else
@@ -66,6 +89,7 @@ namespace WPEFramework
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
+            nmUtils::configureNetworkManagerDaemonLoglevel();
             return;
         }
 
@@ -147,7 +171,7 @@ namespace WPEFramework
             activeConn = nm_client_get_primary_connection(client);
             if (activeConn == NULL) {
                 NMLOG_WARNING("no active activeConn Interface found");
-                NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+                NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
                 /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
                 if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                     m_defaultInterface = interface = ethname;
@@ -160,7 +184,7 @@ namespace WPEFramework
             if(remoteConn == NULL)
             {
                 NMLOG_WARNING("primary connection but remote connection error");
-                NMDeviceState ethState = nmUtils::ifaceState(client, nmUtils::ethIface());
+                NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
                 /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
                 if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                     m_defaultInterface = interface = ethname;
@@ -391,7 +415,7 @@ namespace WPEFramework
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            if(interface.empty() || interface == "null")
+            if(interface.empty())
             {
                 if(Core::ERROR_NONE != GetPrimaryInterface(interface))
                 {

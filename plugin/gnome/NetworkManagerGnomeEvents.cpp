@@ -54,12 +54,14 @@ namespace WPEFramework
             connectionTyp = nm_active_connection_get_connection_type(primaryConn);
             NMLOG_INFO("active connection - %s (%s)", activeConnId, connectionTyp);
 
-            if (0 == strncmp("802-3-ethernet", connectionTyp, sizeof("802-3-ethernet")))
+            if (0 == strncmp("802-3-ethernet", connectionTyp, sizeof("802-3-ethernet")) && string("eth0_missing") != nmUtils::ethIface())
                 newIface = nmUtils::ethIface();
-            else if(0 == strncmp("802-11-wireless", connectionTyp, sizeof("802-11-wireless")))
+            else if(0 == strncmp("802-11-wireless", connectionTyp, sizeof("802-11-wireless")) && string("wlan0_missing") != nmUtils::wlanIface())
                 newIface = nmUtils::wlanIface();
-            else
-                NMLOG_WARNING("active connection not an ethernet/wifi %s", connectionTyp);
+            else {
+                NMLOG_WARNING("Active connection not valid: Ethernet/WiFi ID: %s", connectionTyp);
+                return; // if not good don't report the evnet
+            }
 
             GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
         }
@@ -253,6 +255,11 @@ namespace WPEFramework
 
         for (guint i = 0; i < addresses->len; ++i) {
             NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
+            if(address == NULL)
+            {
+                NMLOG_WARNING("IPv4 address is null");
+                continue;
+            }
             if (nm_ip_address_get_family(address) == AF_INET) {
                 const char *ipAddress = nm_ip_address_get_address(address);
                 if(ipAddress != NULL)
@@ -289,6 +296,11 @@ namespace WPEFramework
 
             for (guint i = 0; i < addresses->len; ++i) {
                 NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
+                if(address == NULL)
+                {
+                    NMLOG_WARNING("IPv6 address is null");
+                    continue;
+                }
                 if (nm_ip_address_get_family(address) == AF_INET6) {
                     const char *ipaddr = nm_ip_address_get_address(address);
                     //int prefix = nm_ip_address_get_prefix(address);
@@ -402,7 +414,7 @@ namespace WPEFramework
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_PRIMARY_CONNECTION, G_CALLBACK(primaryConnectionCb), nmEvents);
 
-       const GPtrArray *devices = nullptr;
+        const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
 
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
@@ -615,6 +627,45 @@ namespace WPEFramework
         NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");
     }
 
+    bool GnomeNetworkManagerEvents::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
+    {
+         GBytes *ssid = NULL;
+         int strength = 0;
+         std::string freq;
+         int security;
+         guint32 flags, wpaFlags, rsnFlags, apFreq;
+         if(ap == nullptr)
+             return false;
+         ssid = nm_access_point_get_ssid(ap);
+         if (ssid)
+         {
+             char *ssidStr = nullptr;
+             ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
+             string ssidString = "---";
+             if(ssidStr)
+             {
+                ssidString = ssidStr;
+                free(ssidStr);
+             }
+             ssidObj["ssid"] = ssidString;
+             strength = nm_access_point_get_strength(ap);
+             apFreq   = nm_access_point_get_frequency(ap);
+             flags    = nm_access_point_get_flags(ap);
+             wpaFlags = nm_access_point_get_wpa_flags(ap);
+             rsnFlags = nm_access_point_get_rsn_flags(ap);
+             freq = nmUtils::wifiFrequencyFromAp(apFreq);
+             security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
+
+             ssidObj["security"] = security;
+             ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
+             ssidObj["frequency"] = freq;
+             return true;
+         }
+         // else
+         //     NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
+         return false;
+    }
+
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
     {
         if(!NM_IS_DEVICE_WIFI(wifiDevice))
@@ -629,7 +680,7 @@ namespace WPEFramework
         {
             JsonObject ssidObj;
             ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
-            if(nmUtils::apToJsonObject(ap, ssidObj))
+            if(GnomeNetworkManagerEvents::apToJsonObject(ap, ssidObj))
                 ssidList.Add(ssidObj);
         }
 
