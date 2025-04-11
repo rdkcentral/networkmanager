@@ -20,6 +20,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerGdbusClient.h"
 #include "NetworkManagerGdbusEvent.h"
+#include "../NetworkManagerGnomeUtils.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -78,6 +79,14 @@ namespace WPEFramework
             }
             else
                 NMLOG_INFO("GetAvailableInterfaces Failed");
+        }
+
+        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        {
+            /* set networkmanager daemon log level based on current plugin log level */
+            if(NetworkManagerLogger::DEBUG_LEVEL != level)
+                return;
+            nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
         void NetworkManagerImplementation::platform_init()

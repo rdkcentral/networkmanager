@@ -90,6 +90,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/gdbus/NetworkManagerGdbusEvent.cpp
             gnome/gdbus/NetworkManagerGdbusMgr.cpp
             gnome/gdbus/NetworkManagerGdbusUtils.cpp
+            gnome/NetworkManagerGnomeUtils.cpp
             NetworkManagerSecretAgent.cpp)
             target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${GIO_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
             target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${GLIB_LIBRARIES} ${GIO_LIBRARIES} uuid)
