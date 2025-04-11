@@ -68,32 +68,9 @@ namespace WPEFramework
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
         {
             /* set networkmanager daemon log level based on current plugin log level */
-            const char* command = "nmcli general logging level TRACE domains ALL";
-
             if(NetworkManagerLogger::DEBUG_LEVEL != level)
                 return;
-
-            // Execute the command using popen
-            FILE *pipe = popen(command, "r");
-
-            if (pipe == NULL) {
-                NMLOG_ERROR("popen failed %s ", command);
-                return;
-            }
-
-            // Close the pipe and retrieve the command's exit status
-            int status = pclose(pipe);
-            if (status == -1) {
-                NMLOG_ERROR("pclose failed");
-                return;
-            }
-
-            // Extract the exit status from the status code
-            int exitCode = WEXITSTATUS(status);
-            if (exitCode == 0)
-                NMLOG_INFO("NetworkManager daemon log level changed ! logLevel: %d", level);
-            else
-                NMLOG_INFO(" '%s' failed with exit code %d.", command, exitCode);
+            nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
         void NetworkManagerImplementation::platform_init()

@@ -250,5 +250,34 @@ namespace WPEFramework
             return true;
         }
 
+        bool nmUtils::setNetworkManagerlogLevelToTrace()
+        {
+            /* set networkmanager daemon log level based on current plugin log level */
+            const char* command = "nmcli general logging level TRACE domains ALL";
+
+            // Execute the command using popen
+            FILE *pipe = popen(command, "r");
+
+            if (pipe == NULL) {
+                NMLOG_ERROR("popen failed %s ", command);
+                return false;
+            }
+
+            // Close the pipe and retrieve the command's exit status
+            int status = pclose(pipe);
+            if (status == -1) {
+                perror("pclose failed");
+                return false;
+            }
+
+            // Extract the exit status from the status code
+            int exitCode = WEXITSTATUS(status);
+            if (exitCode == 0)
+                NMLOG_INFO("NetworkManager daemon log level changed to trace");
+            else
+                NMLOG_INFO(" '%s' failed with exit code %d.", command, exitCode);
+
+            return exitCode == 0;
+        }
     }   // Plugin
 }   // WPEFramework

@@ -41,6 +41,7 @@ namespace WPEFramework
                static uint8_t wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint = true);
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
+               static bool setNetworkManagerlogLevelToTrace();
         };
     }
 }
