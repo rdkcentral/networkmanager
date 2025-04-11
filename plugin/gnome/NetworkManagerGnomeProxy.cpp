@@ -639,7 +639,7 @@ namespace WPEFramework
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterfrequency))
+            if(wifi->wifiScanRequest(m_filterSsidslist))
                 rc = Core::ERROR_NONE;
             return rc;
         }

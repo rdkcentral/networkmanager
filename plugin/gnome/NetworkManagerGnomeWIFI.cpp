@@ -994,6 +994,7 @@ namespace WPEFramework
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
                 options = g_variant_builder_end(&builder);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
+                g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
