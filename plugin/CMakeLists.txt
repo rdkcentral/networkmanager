@@ -82,7 +82,6 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             ${PROXY_STUB_SOURCES})
 
 if(ENABLE_GNOME_NETWORKMANAGER)
-    add_definitions(-DENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
         message("networkmanager building with gdbus")
         target_sources(${MODULE_IMPL_NAME} PRIVATE

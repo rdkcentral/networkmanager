@@ -690,6 +690,12 @@ namespace WPEFramework
             }
         }
 
+        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        {
+            // TODO set the netsrvmgr logLevel
+            return;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             LOG_ENTRY_FUNCTION();
@@ -705,7 +711,6 @@ namespace WPEFramework
             } else {
                 NMLOG_ERROR("IARM_Bus_Init failure: %d", res);
             }
-
 
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
