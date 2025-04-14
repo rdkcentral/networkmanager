@@ -42,6 +42,8 @@ using namespace std;
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
+#define ROUTE_METRIC_PRIORITY_HIGH                 1
+#define ROUTE_METRIC_PRIORITY_LOW                  100
 
 namespace WPEFramework
 {
