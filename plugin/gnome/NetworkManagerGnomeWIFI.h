@@ -63,6 +63,7 @@ namespace WPEFramework
             bool stopWPS();
             bool setInterfaceState(std::string interface, bool enabled);
             bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address);
+            bool setPrimaryInterface(const string interface);
         private:
             NMDevice *getWifiDevice();
 
