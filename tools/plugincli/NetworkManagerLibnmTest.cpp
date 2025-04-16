@@ -16,13 +16,12 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 **/
-#include "NetworkManagerGdbusClient.h"
-#include "NetworkManagerGdbusMgr.h"
 #include "NetworkManagerLogger.h"
-#include "NetworkManagerGdbusEvent.h"
+#include "NetworkManagerGnomeEvents.h"
 #include "INetworkManager.h"
-#include "NetworkManagerGdbusUtils.h"
+#include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGnomeWIFI.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -76,22 +75,23 @@ void displayMenu()
 {
     std::cout << "\n--- Network Manager API Test Menu ---" << std::endl;
     std::cout << "1. Get Known SSIDs" << std::endl;
-    std::cout << "2. Get Available SSIDs" << std::endl;
-    std::cout << "3. Get Connected SSID" << std::endl;
-    std::cout << "4. Add to Known SSIDs" << std::endl;
-    std::cout << "5. Remove Known SSIDs" << std::endl;
-    std::cout << "6. Start WiFi Scan" << std::endl;
-    std::cout << "7. WiFi Connect" << std::endl;
-    std::cout << "8. WiFi Disconnect" << std::endl;
-    std::cout << "9. Get WiFi State" << std::endl;
-    std::cout << "10. Get WiFi Signal Strength" << std::endl;
-    std::cout << "11. GetAvailableInterface" << std::endl;
-    std::cout << "12. SetPrimaryInterface" << std::endl;
-    std::cout << "13. SetInterfaceState" << std::endl;
-    std::cout << "14. SetIPSettings" << std::endl;
-    std::cout << "15. GetPrimaryInterface" << std::endl;
+    std::cout << "2. Get Connected SSID" << std::endl;
+    std::cout << "3. Add to Known SSIDs" << std::endl;
+    std::cout << "4. Remove Known SSIDs" << std::endl;
+    std::cout << "5. Start WiFi Scan" << std::endl;
+    std::cout << "6. WiFi Connect" << std::endl;
+    std::cout << "7. WiFi Disconnect" << std::endl;
+    std::cout << "8. Get WiFi State" << std::endl;
+    std::cout << "9. start WPS" << std::endl;
+    std::cout << "10. stop WPS" << std::endl;
+    std::cout << "11. Get WiFi Signal Strength" << std::endl;
+    std::cout << "12. GetAvailableInterface" << std::endl;
+    std::cout << "13. GetPrimaryInterface" << std::endl;
+    std::cout << "14. SetPrimaryInterface" << std::endl;
+    std::cout << "15. SetInterfaceState" << std::endl;
     std::cout << "16. GetInterfaceState" << std::endl;
     std::cout << "17. GetIPSettings" << std::endl;
+    std::cout << "18. SetIPSettings" << std::endl;
     std::cout << "0. Exit" << std::endl;
     std::cout << "-------------------------------------" << std::endl;
 }
@@ -100,17 +100,20 @@ WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
 {
     int securityChoice;
     std::cout << "Select Security Type:" << std::endl;
-    std::cout << "1. WPA-PSK" << std::endl;
-    std::cout << "2. SAE" << std::endl;
-    std::cout << "3. Open (No Security)" << std::endl;
+    std::cout << "1. WIFI_SECURITY_NONE" << std::endl;
+    std::cout << "2. WIFI_SECURITY_WPA_PSK" << std::endl;
+    std::cout << "3. WIFI_SECURITY_SAE" << std::endl;
+    std::cout << "4. WIFI_SECURITY_EAP" << std::endl;
     std::cin >> securityChoice;
 
     switch (securityChoice) {
-        case 1:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
-        case 2:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_SAE;
+        case 4:
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_EAP;
         case 3:
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_SAE;
+        case 2:
+            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
+        case 1:
             return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_NONE;
         default:
             std::cout << "Invalid choice. Defaulting to open." << std::endl;
@@ -130,51 +133,46 @@ void printSSIDs(const std::list<std::string>& ssids)
     }
 }
 
-
 int main()
 {
-
-    NetworkManagerClient* nmClient = NetworkManagerClient::getInstance();
-    NetworkManagerEvents* nmEvents = NetworkManagerEvents::getInstance();
     int choice = -1;
-
-    while (choice != 0) {
+    NMLOG_INFO("Starting NetworkManager libnm cli tool");
+    NetworkManagerLogger::SetLevel(NetworkManagerLogger::DEBUG_LEVEL);
+    GnomeNetworkManagerEvents* nmEvent = GnomeNetworkManagerEvents::getInstance();
+    wifiManager *wifiMgr = wifiManager::getInstance();
+    nmEvent->startNetworkMangerEventMonitor();
+    if (wifiMgr == nullptr) {
+        NMLOG_ERROR("Failed to create wifiManager instance");
+        return -1;
+    }
+    NMLOG_INFO("wifiManager instance created successfully");
+    while (choice != 0)
+    {
         displayMenu();
         std::cout << "Enter your choice: \n";
         std::cin >> choice;
-
-        switch (choice) {
+        switch (choice)
+        {
+            case 0:
+                break;
             case 1: {
                 std::list<std::string> ssids;
-                if (nmClient->getKnownSSIDs(ssids)) {
+                if (wifiMgr->getKnownSSIDs(ssids)) {
                     printSSIDs(ssids);
                 } else {
-                    NMLOG_ERROR("Failed to get known SSIDs");
+                    NMLOG_ERROR("Failed to get available SSIDs");
                 }
                 break;
             }
-
             case 2: {
-                std::list<std::string> ssids;
-                // if (nmClient->getAvailableSSIDs(ssids)) {
-                //     printSSIDs(ssids);
-                // } else {
-                //     NMLOG_ERROR("Failed to get available SSIDs");
-                // }
-                break;
-            }
-
-            case 3: {
                 Exchange::INetworkManager::WiFiSSIDInfo ssidinfo;
-                if (nmClient->getConnectedSSID(ssidinfo)) {
+                if (wifiMgr->wifiConnectedSSIDInfo(ssidinfo))
                     NMLOG_INFO("Connected SSID: %s", ssidinfo.ssid.c_str());
-                } else {
+                else
                     NMLOG_ERROR("Failed to get connected SSID");
-                }
                 break;
             }
-
-            case 4: {
+            case 3: {
                 std::string ssid, passphrase;
                 std::cout << "Enter SSID to add : ";
                 std::cin.ignore();
@@ -188,41 +186,49 @@ int main()
                     .security = securityType,
                     .persist = true,
                 };
-                if (nmClient->addToKnownSSIDs(ssidinfo)) {
+                if (wifiMgr->addToKnownSSIDs(ssidinfo)) {
                     NMLOG_INFO("SSID added to known list successfully");
                 } else {
                     NMLOG_ERROR("Failed to add SSID to known list");
                 }
                 break;
             }
-
-            case 5: {
+            case 4: {
                 std::string ssid;
-                std::cout << "Enter SSID to remove: ";
-                std::cin >> ssid;
-                if (nmClient->removeKnownSSIDs(ssid)) {
+                std::cout << "Enter know ssid to remove ? (leave blank for all): ";
+                std::cin.ignore();
+                std::getline(std::cin, ssid);
+                if (wifiMgr->removeKnownSSID(ssid)) {
                     NMLOG_INFO("SSID removed successfully");
                 } else {
                     NMLOG_ERROR("Failed to remove SSID");
                 }
                 break;
             }
-
-            case 6: {
+            case 5:
+            {
                 std::string ssid;
                 std::cout << "Enter SSID to scan (leave blank for all): ";
-                std::cin.ignore();
+
+                if (std::cin.peek() == '\n') {
+                    std::cin.ignore();
+                }
+
                 std::getline(std::cin, ssid);
-                    nmEvents->setwifiScanOptions(true);
-                if (nmClient->startWifiScan(ssid)) {
-                    NMLOG_INFO("WiFi scan started successfully");
+
+                nmEvent->setwifiScanOptions(true);  // If this triggers scan customization
+
+                NMLOG_INFO("Sending WiFi scan request%s", ssid.empty() ? " (all SSIDs)" : (" for SSID: " + ssid).c_str());
+
+                if (wifiMgr->wifiScanRequest(ssid)) {
+                    NMLOG_INFO("WiFi scan request sent successfully.");
                 } else {
-                    NMLOG_ERROR("Failed to start WiFi scan");
+                    NMLOG_ERROR("Failed to send WiFi scan request.");
                 }
                 break;
             }
-
-            case 7: {
+            case 6:
+            {
                 std::string ssid, passphrase;
                 bool persist;
 
@@ -245,72 +251,47 @@ int main()
                     .persist = persist
                 };
 
-                if (nmClient->wifiConnect(ssidinfo)) {
+                if (wifiMgr->wifiConnect(ssidinfo)) {
                     NMLOG_INFO("Connected to WiFi successfully");
                 } else {
                     NMLOG_ERROR("Failed to connect to WiFi");
                 }
                 break;
             }
-
-            case 8: {
-                if (nmClient->wifiDisconnect()) {
+            case 7: {
+                if (wifiMgr->wifiDisconnect()) {
                     NMLOG_INFO("Disconnected from WiFi successfully");
                 } else {
                     NMLOG_ERROR("Failed to disconnect from WiFi");
                 }
                 break;
             }
-
-            case 9: {
+            case 8: {
                 Exchange::INetworkManager::WiFiState state;
-                if (nmClient->getWifiState(state)) {
-                    NMLOG_INFO("WiFi State: %d", state);  // Assuming state is an enum or int
+                if (wifiMgr->isWifiConnected()) {
+                    NMLOG_INFO("WiFi State: connected");  // Assuming state is an enum or int
                 } else {
-                    NMLOG_ERROR("Failed to get WiFi state");
+                    NMLOG_ERROR("WiFi State: disconnected");
                 }
                 break;
             }
-
-            case 10: {
-                std::string ssid, signalStrength;
-                Exchange::INetworkManager::WiFiSignalQuality quality;
-                if (nmClient->getWiFiSignalQuality(ssid, signalStrength, quality)) {
-                    NMLOG_INFO("SSID: %s, Signal Strength: %s, Quality: %d", ssid.c_str(), signalStrength.c_str(), quality);
+            case 9: {
+                if (wifiMgr->startWPS()) {
+                    NMLOG_INFO("WPS started successfully");
                 } else {
-                    NMLOG_ERROR("Failed to get WiFi signal strength");
+                    NMLOG_ERROR("Failed to start WPS");
+                }
+                break;
+            }
+            case 10: {
+                if (wifiMgr->stopWPS()) {
+                    NMLOG_INFO("WPS started successfully");
+                } else {
+                    NMLOG_ERROR("Failed to start WPS");
                 }
                 break;
             }
             case 11: {
-                std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
-                if(nmClient->getAvailableInterfaces(interfaceList)){
-                    for (const auto& interface : interfaceList) {
-                        NMLOG_INFO("interface.type = %d interface.name = %s interface.mac = %s interface.enabled = %d interface.connected = %d", interface.type, interface.name.c_str(), interface.mac.c_str(), interface.enabled, interface.connected);
-                    }
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to get Available Interfaces");
-                }
-                break;
-            }
-            case 12: {
-                std::string interface;
-                std::cout << "Enter interface name to set as primary: ";
-                std::cin.ignore();
-                std::getline(std::cin, interface);
-
-                if(nmClient->setPrimaryInterface(interface)){
-                    NMLOG_INFO("setPrimaryInterface successful");
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to set Primary Interface");
-                }
-                break;
-            }
-            case 13: {
                 std::string interface;
                 std::string input;
                 bool enable;
@@ -321,7 +302,7 @@ int main()
                 std::getline(std::cin, input);
                 enable = (input == "true")? true: false;
 
-                if(nmClient->setInterfaceState(interface, enable)){
+                if(wifiMgr->setInterfaceState(interface, enable)){
                     NMLOG_INFO("setInterfaceState successful");
                 }
                 else
@@ -330,7 +311,7 @@ int main()
                 }
                 break;
             }
-            case 14: {
+            case 12: {
                 std::string interface;
                 std::string ipVersion;
                 std::string input;
@@ -378,7 +359,7 @@ int main()
                 address.gateway = gateway;
                 address.primarydns = primarydns;
                 address.secondarydns = secondarydns;
-                if(nmClient->setIPSettings(interface, address)){
+                if(wifiMgr->setIpSettings(interface, address)){
                     NMLOG_INFO("setIPSettings successful");
                 }
                 else
@@ -387,64 +368,24 @@ int main()
                 }
                 break;
             }
-            case 15: {
+            case 13: {
                 std::string interface;
-
-                if(nmClient->getPrimaryInterface(interface)){
-                    NMLOG_INFO("Primary Interface = %s", interface.c_str());
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to Get Primary Interface");
-                }
-                break;
-            }
-            case 16: {
-                std::string interface;
-                bool isEnabled;
-                std::cout << "Enter interface: ";
+                std::cout << "Enter interface name to set to: ";
                 std::cin.ignore();
                 std::getline(std::cin, interface);
-                if(nmClient->getInterfaceState(interface, isEnabled)){
-                    NMLOG_INFO("Interface %s is %s", interface.c_str(), isEnabled ? "enabled": "disabled");
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to Get Interface state");
+                if (wifiMgr->setPrimaryInterface(interface)) {
+                    NMLOG_INFO("setPrimaryInterface successful");
+                } else {
+                    NMLOG_ERROR("Failed to setPrimaryInterface");
                 }
                 break;
             }
-            case 17: {
-                std::string interface;
-                std::string ipVersion;
-                Exchange::INetworkManager::IPAddress result;
-                std::cout << "Enter interface: ";
-                std::cin.ignore();
-                std::getline(std::cin, interface);
-                std::cout << "Enter IP version(IPv4/IPv6): ";
-                std::getline(std::cin, ipVersion);
-                if(nmClient->getIPSettings(interface, ipVersion, result)){
-                    NMLOG_INFO("\nresult.ipversion = %s\n result.autoconfig = %d\n result.dhcpserver = %s\n result.ula = %s\n result.ipaddress = %s\n result.prefix = %d\nresult.gateway = %s\n result.primarydns = %s\n result.secondarydns = %s\n", result.ipversion.c_str(), result.autoconfig, result.dhcpserver.c_str(), result.ula.c_str(), result.ipaddress.c_str(), result.prefix, result.gateway.c_str(), result.primarydns.c_str(), result.secondarydns.c_str());
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to get IP Settings");
-                }
-                break;
-            }
-
-
-            case 0:
-                std::cout << "Exiting program." << std::endl;
-                break;
-
             default:
-                std::cout << "Invalid choice, please try again." << std::endl;
+                std::cout << "Invalid choice. Please try again." << std::endl;
                 break;
-            }
+        }
     }
-
-    NMLOG_INFO("Program completed successfully");
-    nmEvents->stopNetworkMangerEventMonitor();
+    NMLOG_INFO("cliTool completed successfully");
+    nmEvent->stopNetworkMangerEventMonitor();
     return 0;
 }
