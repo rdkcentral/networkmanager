@@ -65,6 +65,14 @@ namespace WPEFramework
             return deviceState;
         }
 
+        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        {
+            /* set networkmanager daemon log level based on current plugin log level */
+            if(NetworkManagerLogger::DEBUG_LEVEL != level)
+                return;
+            nmUtils::setNetworkManagerlogLevelToTrace();
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
@@ -89,7 +97,6 @@ namespace WPEFramework
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
-            nmUtils::configureNetworkManagerDaemonLoglevel();
             return;
         }
 
