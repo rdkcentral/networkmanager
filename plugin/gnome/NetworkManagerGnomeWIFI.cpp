@@ -1119,7 +1119,6 @@ namespace WPEFramework
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
                 sleep(WPS_RETRY_WAIT_IN_MS);
-
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
                 {
                     NMLOG_INFO("stop wps process reuested");
@@ -1172,7 +1171,6 @@ namespace WPEFramework
                 if(wpsActionTriggerd)
                 {
                     /* if wps action started we need to check the status of wifi device and post event based on that */
-                    retry = 3; // wps process will be completed in 30 sec (10x3)
                     NMDeviceState state = nm_device_get_state(wifidevice);
                     if(state <= NM_DEVICE_STATE_DISCONNECTED)
                     {
@@ -1192,6 +1190,14 @@ namespace WPEFramework
                     }
 
                     NMLOG_INFO("WPS process not completed yet, state: %d", state);
+                    if(retry >= WPS_RETRY_COUNT - 1) // 3 times retry to check the status
+                    {
+                        // wifi state stuck in betwen disconnected and connected
+                        NMLOG_ERROR("WPS process failed");
+                        if(_instance != nullptr)
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                        // TODO post correct error code WIFI_STATE_SSID_NOT_FOUND To fix UI issue
+                    }
                 }
 
                 ApList = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(wifidevice));
@@ -1297,6 +1303,7 @@ namespace WPEFramework
                             g_main_loop_unref(loop);
                     }
                     wpsActionTriggerd = true;
+                    retry = WPS_RETRY_COUNT - 3; // expecting wps process will be completed in 30 sec(3 10sec retry) (Ex: retry = 10-3)
                 }
                 else if(!wpsActionTriggerd)
                 {
