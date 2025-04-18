@@ -531,28 +531,30 @@ namespace WPEFramework
 
                 m_publicIPAddress = ipaddress;
                 m_publicIPAddressType = ipversion;
-                PublishToThunderAboutInternet();
+                if (!m_publicIPAddress.empty())
+                {
+                    PublishToThunderAboutInternet();
+                }
             }
             returnJson(rc);
         }
 
         void NetworkManager::PublishToThunderAboutInternet()
         {
-            if (!m_publicIPAddress.empty())
+            PluginHost::ISubSystem* subSystem = _service->SubSystems();
+            if (subSystem != nullptr)
             {
-                PluginHost::ISubSystem* subSystem = _service->SubSystems();
-
-                if (subSystem != nullptr)
+                const PluginHost::ISubSystem::IInternet* internet(subSystem->Get<PluginHost::ISubSystem::IInternet>());
+                if (nullptr == internet)
                 {
-                    const PluginHost::ISubSystem::IInternet* internet(subSystem->Get<PluginHost::ISubSystem::IInternet>());
-                    if (nullptr == internet)
-                    {
-                        NMLOG_INFO("Setting INTERNET ISubSystem");
-                        subSystem->Set(PluginHost::ISubSystem::INTERNET, this);
-                    }
-
-                    subSystem->Release();
+                    NMLOG_INFO("Setting INTERNET ISubSystem");
+                    subSystem->Set(PluginHost::ISubSystem::INTERNET, this);
                 }
+                subSystem->Release();
+            }
+            else
+            {
+                NMLOG_ERROR("Failed to get ISubSystem interface");
             }
         }
 
@@ -989,6 +991,13 @@ namespace WPEFramework
 
             LOG_INPARAM();
             Notify(_T("onInternetStatusChange"), parameters);
+            /* if new state is fully connectd set the internet subsystem only once */
+            static bool isInternetSet = false;
+            if(!isInternetSet && currState == Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED)
+            {
+                PublishToThunderAboutInternet();
+                isInternetSet = true;
+            }
         }
 
         void NetworkManager::onAvailableSSIDs(const string jsonOfScanResults)
