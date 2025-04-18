@@ -558,7 +558,6 @@ namespace WPEFramework
     bool ConnectivityMonitor::switchToInitialCheck()
     {
         m_switchToInitial = true;
-        m_notify = true; // m_notify internet state because some network state change may happen
         m_cmCv.notify_one();
         if(_instance != nullptr) {
             NMLOG_INFO("switching to initial check - eth %s - wlan %s",
@@ -596,7 +595,6 @@ namespace WPEFramework
         std::thread ipv4thread;
         std::thread ipv6thread;
         bool printIPNotAvailable = true;
-        int internalIPCheck = 0;
 
         while (m_cmRunning) {
             if (nullptr == _instance)
@@ -660,13 +658,7 @@ namespace WPEFramework
                         printIPNotAvailable = false;
                         m_notify = true;
                     }
-                    /* Very First time, it will check the IP States in 10th sec. IF  no IPs found, it will check every 15th sec */
-                    internalIPCheck++;
-                    if (internalIPCheck == NM_CONNECTIVITY_MONITOR_RETRY_COUNT)
-                    {
-                        internalIPCheck = 0;
-                        _instance->GetInitialConnectionState();
-                    }
+                    _instance->GetInitialConnectionState();
                 }
                 else
                     NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
@@ -727,8 +719,8 @@ namespace WPEFramework
                     m_switchToInitial = false;
                     m_notify = true;
                     InitialRetryCount = 0;
-                    IdealRetryCount = 0;
                 }
+                IdealRetryCount = 0;
             }
             // Ideal case monitoring
             else
