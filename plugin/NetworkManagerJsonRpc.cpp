@@ -1006,6 +1006,8 @@ namespace WPEFramework
             parameters["state"] = JsonValue(currState);
             parameters["status"] = currStatus.Data();
 
+            LOG_INPARAM();
+            Notify(_T("onInternetStatusChange"), parameters);
             /* if new state is fully connectd set the internet subsystem only once */
             static bool isInternetSet = false;
             if(!isInternetSet && currState == Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED)
@@ -1013,9 +1015,6 @@ namespace WPEFramework
                 PublishToThunderAboutInternet();
                 isInternetSet = true;
             }
-
-            LOG_INPARAM();
-            Notify(_T("onInternetStatusChange"), parameters);
         }
 
         void NetworkManager::onAvailableSSIDs(const string jsonOfScanResults)
