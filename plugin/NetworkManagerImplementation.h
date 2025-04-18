@@ -42,6 +42,8 @@ using namespace std;
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
 #define NM_WIFI_SNR_THRESHOLD_FAIR                 18
+#define ROUTE_METRIC_PRIORITY_HIGH                 1
+#define ROUTE_METRIC_PRIORITY_LOW                  100
 
 namespace WPEFramework
 {
@@ -261,6 +263,7 @@ namespace WPEFramework
 
             private:
                 void platform_init(void);
+                void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);

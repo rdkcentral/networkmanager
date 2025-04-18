@@ -14,6 +14,14 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.14.0] - 2025-04-18
+### Added
+- Process Monitoring for the out-of-process plugin added
+- Added support Enable/Disable Logs to the Gnome NetworkManager daemon
+- Fixed publishing of INTERNET Thunder Subsystem.
+- Fixed the Memory Leak from the Scanned SSID names
+- Fixed Set/Get Primary interface when both Ethernet and WiFi connected.
+
 ## [0.13.0] - 2025-04-07
 ### Changed
 - Changed the out-of-process name

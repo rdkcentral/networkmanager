@@ -711,6 +711,12 @@ namespace WPEFramework
             }
         }
 
+        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        {
+            // TODO set the netsrvmgr logLevel
+            return;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             LOG_ENTRY_FUNCTION();
@@ -751,7 +757,7 @@ namespace WPEFramework
                         continue;
                     }
                     iarmConnect = true;
-                }    
+                }
 
                 retIPC  = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10));
                 if (retIPC  != IARM_RESULT_SUCCESS)

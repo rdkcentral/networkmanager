@@ -1552,5 +1552,82 @@ namespace WPEFramework
             wait(m_loop);
             return m_isSuccess;
         }
+
+        bool wifiManager::setPrimaryInterface(const string interface)
+        {
+            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            gboolean result;
+            GError *error = NULL;
+            std::string otherInterface;
+            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
+            const char *specObject = NULL;
+            if (!createClientNewConnection())                                                                                     return false;
+                                                                                                                              if(interface.empty() || (wifiname != interface && ethname != interface))
+            {                                                                                                                     NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
+                return false;                                                                                                 }
+            otherInterface = (interface == wifiname)?ethname:wifiname;
+
+            // Retrieve the active connections by interface name
+            const GPtrArray* activeConnections = nm_client_get_active_connections(m_client);
+            if (!activeConnections) {
+                NMLOG_ERROR("Failed to retrieve active connections");
+                return false;
+            }
+            for (guint i = 0; i < activeConnections->len; i++)
+            {
+                gpointer elem = g_ptr_array_index(activeConnections, i);
+                if (!elem || !NM_IS_ACTIVE_CONNECTION(elem)) {
+                    NMLOG_WARNING("Invalid or null active connection at index %u", i);
+                    continue;
+                }
+                NMActiveConnection *activeConnection = NM_ACTIVE_CONNECTION(elem);
+                const GPtrArray* activeDevices = nm_active_connection_get_devices(activeConnection);
+                for (guint j = 0; j < activeDevices->len; j++)
+                {
+                    NMDevice* device = NM_DEVICE(g_ptr_array_index(activeDevices, j));
+                    const char *iface = nm_device_get_iface(device);
+                    if (g_strcmp0(iface, interface.c_str()) == 0 || g_strcmp0(iface, otherInterface.c_str()) == 0)                    {
+                        NMRemoteConnection* connection = NM_REMOTE_CONNECTION(nm_active_connection_get_connection(activeConnection));
+                        NMSettingIPConfig *s_ip4 = nm_connection_get_setting_ip4_config(NM_CONNECTION(connection));
+                        NMSettingIPConfig *s_ip6 = nm_connection_get_setting_ip6_config(NM_CONNECTION(connection));
+                        if (!s_ip4 || !s_ip6)
+                        {
+                            NMLOG_ERROR("Failed to retrieve IP settings for connection on interface: %s\n", iface);
+                            continue;
+                        }
+
+                        int metric_value = (g_strcmp0(iface, interface.c_str()) == 0) ? ROUTE_METRIC_PRIORITY_HIGH:ROUTE_METRIC_PRIORITY_LOW;
+                        g_object_set(G_OBJECT(s_ip4),NM_SETTING_IP_CONFIG_ROUTE_METRIC, metric_value, NULL);
+                        g_object_set(G_OBJECT(s_ip6),NM_SETTING_IP_CONFIG_ROUTE_METRIC, metric_value, NULL);
+                        // TODO fix depricated api
+                        if (!nm_remote_connection_commit_changes(connection, FALSE, NULL, &error))
+                        {
+                            if (error)                                                                                                        {
+                                NMLOG_ERROR("Failed to commit changes to the remote connection: %s", error->message);
+                                g_error_free(error); // Free the GError object after handling it
+                            }
+                            else                                                                                                              {
+                                NMLOG_ERROR("Failed to commit changes to the remote connection (unknown error).");                            }
+                            return false;
+                        }
+                        if (activeConnection != NULL)
+                        {
+                            specObject = nm_object_get_path(NM_OBJECT(activeConnection));
+                            GError *deactivate_error = NULL;
+                            // TODO fix depricated api
+                            if (!nm_client_deactivate_connection(m_client, activeConnection, NULL, &deactivate_error))
+                            {
+                                NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
+                                g_clear_error(&deactivate_error);
+                                return false;
+                            }
+                        }
+                        nm_client_activate_connection_async(m_client, NM_CONNECTION(connection), device, specObject, NULL, onActivateComplete, this);
+                    }
+                }
+            }
+            wait(m_loop);
+            return rc;
+        }
     } // namespace Plugin
 } // namespace WPEFramework
