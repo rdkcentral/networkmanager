@@ -558,7 +558,6 @@ namespace WPEFramework
     bool ConnectivityMonitor::switchToInitialCheck()
     {
         m_switchToInitial = true;
-        m_notify = true; // m_notify internet state because some network state change may happen
         m_cmCv.notify_one();
         if(_instance != nullptr) {
             NMLOG_INFO("switching to initial check - eth %s - wlan %s",
