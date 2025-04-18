@@ -266,7 +266,7 @@ namespace WPEFramework
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
-                void threadEventRegistration(void);
+                void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids);
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();

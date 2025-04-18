@@ -607,46 +607,67 @@ namespace WPEFramework
                 NMLOG_WARNING("WARNING - cannot handle IARM events without a Network plugin instance!");
         }
 
-        void  NetworkManagerImplementation::threadEventRegistration()
+        void  NetworkManagerImplementation::threadEventRegistration(bool iarmInit, bool iarmConnect)
         {
-            IARM_Result_t res = IARM_RESULT_SUCCESS;
-            IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-            do
+            uint32_t retry = 0; 
+            char c;
+            IARM_Result_t retInit = IARM_RESULT_IPCCORE_FAIL;
+            IARM_Result_t retConnect = IARM_RESULT_IPCCORE_FAIL;
+            IARM_Result_t retIPC = IARM_RESULT_IPCCORE_FAIL;
+            do  
             {
-                char c;
-                uint32_t retry = 0;
-                retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c));
-                if(retVal != IARM_RESULT_SUCCESS){
-                    NMLOG_ERROR("threadEventRegistration: NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retrying count = %d", retry);
-                    usleep(500*1000);
-                    retry++;
+                if(iarmInit != true)
+                {
+                    retInit= IARM_Bus_Init("netsrvmgr-thunder"); 
+                    if(retInit != IARM_RESULT_SUCCESS && retInit != IARM_RESULT_INVALID_STATE)
+                    {
+                        NMLOG_ERROR("IARM_Bus_Init failure, retrying. %d: %d", retry, retInit);
+                        usleep(500 * 1000);
+                        retry++;
+                        continue;
+                    }
+                    iarmInit = true;
                 }
-            }while(retVal != IARM_RESULT_SUCCESS);
 
-            if(retVal != IARM_RESULT_SUCCESS)
-            {
-                NMLOG_ERROR("threadEventRegistration NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retrying new cycle");
-            }
-            else
-            {
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onError, NetworkManagerInternalEventHandler);
-                IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
+                if(iarmConnect != true)
+                {
+                    retConnect = IARM_Bus_Connect();
+                    if(retConnect != IARM_RESULT_SUCCESS)
+                    {
+                        NMLOG_ERROR("IARM_Bus_Connect failure, retrying. %d: %d", retry, retConnect);
+                        usleep(500 * 1000);
+                        retry++;
+                        continue;
+                    }
+                     iarmConnect = true;
+                }
 
-                NMLOG_INFO("threadEventRegistration successfully subscribed to IARM event for NetworkManager Plugin");
-               /*
-                * Read current network state and post the event.
-                * Useful if NetworkManager plugin or WPEFramework is restarted
-                * or netsrvmgr misses to post iarm events during bootup.
-                */
-                getInitialConnectionState();
-            }
+                retIPC = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10)); 
+                if (retIPC != IARM_RESULT_SUCCESS)
+                {
+                    NMLOG_ERROR("NetSrvMgr is not available. Failed to activate NetworkManager Plugin.%d: %d", retry, retIPC);
+                    usleep(500 * 1000);
+                    retry++;
+                    continue;
+                }
+            } while(retIPC != IARM_RESULT_SUCCESS);
 
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onError, NetworkManagerInternalEventHandler);
+            IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
+
+            NMLOG_INFO("threadEventRegistration successfully subscribed to IARM event for NetworkManager Plugin");
+            /*
+            * Read current network state and post the event.
+            * Useful if NetworkManager plugin or WPEFramework is restarted
+            * or netsrvmgr misses to post iarm events during bootup.
+            */
+            getInitialConnectionState();
         }
 
         void NetworkManagerImplementation::getInitialConnectionState()
@@ -702,35 +723,64 @@ namespace WPEFramework
             char c;
 
             ::_instance = this;
-
-            IARM_Result_t res = IARM_Bus_Init("netsrvmgr-thunder");
-            NMLOG_INFO("IARM_Bus_Init: %d", res);
-            if (res == IARM_RESULT_SUCCESS || res == IARM_RESULT_INVALID_STATE /* already inited or connected */) {
-                res = IARM_Bus_Connect();
-                NMLOG_INFO("IARM_Bus_Connect: %d", res);
-            } else {
-                NMLOG_ERROR("IARM_Bus_Init failure: %d", res);
-            }
- 
-            IARM_Result_t retVal = IARM_RESULT_SUCCESS;
-
             uint32_t retry = 0;
-            do{
-                retVal = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10));
-                if(retVal != IARM_RESULT_SUCCESS){
-                    NMLOG_INFO("NetSrvMgr is not available. Failed to activate NetworkManager Plugin, retry = %d", retry);
-                    usleep(500*1000);
-                    retry++;
-                }
-            }while((retVal != IARM_RESULT_SUCCESS) && (retry < 3));
+            bool iarmInit = false;
+            bool iarmConnect = false;
+         
+            IARM_Result_t retInit = IARM_RESULT_IPCCORE_FAIL;
+            IARM_Result_t retConnect = IARM_RESULT_IPCCORE_FAIL;
+            IARM_Result_t retIPC = IARM_RESULT_IPCCORE_FAIL;
 
-            if(retVal != IARM_RESULT_SUCCESS)
+            do
+            {
+                if(iarmInit != true)
+                {
+                    retInit = IARM_Bus_Init("netsrvmgr-thunder"); 
+                    if(retInit != IARM_RESULT_SUCCESS && retInit != IARM_RESULT_INVALID_STATE)
+                    {
+                        NMLOG_ERROR("IARM_Bus_Init failure,retrying.%d: %d", retry, retInit);
+                        usleep(500 * 1000);
+                        retry++;
+                        continue;
+                    }
+                    retInit = IARM_RESULT_SUCCESS;
+                    iarmInit = true;
+                }
+                if(iarmConnect != true)
+                {
+                    retConnect  = IARM_Bus_Connect();
+                    if(retConnect  != IARM_RESULT_SUCCESS)
+                    {
+                        NMLOG_ERROR("IARM_Bus_Connect failed,retrying. %d: %d", retry, retConnect);
+                        usleep(500 * 1000);
+                        retry++;
+                        continue;
+                    }
+                    iarmConnect = true;
+                }
+
+                retIPC  = IARM_Bus_Call_with_IPCTimeout(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_isAvailable, (void *)&c, sizeof(c), (1000*10));
+                if (retIPC  != IARM_RESULT_SUCCESS)
+                {
+                    NMLOG_ERROR("NetSrvMgr is not available. Failed to activate NetworkManager Plugin. %d: %d", retry, retIPC);
+                    usleep(500 * 1000);
+                    retry++;
+                    continue;
+                }
+                if(retIPC == IARM_RESULT_SUCCESS && retConnect == IARM_RESULT_SUCCESS && retInit == IARM_RESULT_SUCCESS)
+                {
+                    break;
+                }
+            }while(retry < 3);
+
+            if(retIPC != IARM_RESULT_SUCCESS)
             {
                 string msg = "NetSrvMgr is not available";
-                NMLOG_INFO("NETWORK_NOT_READY: The NetSrvMgr Component is not available.Retrying in separate thread ::%s::", msg.c_str());
-                m_registrationThread = thread(&NetworkManagerImplementation::threadEventRegistration, this);
+                NMLOG_ERROR("NETWORK_NOT_READY: The NetSrvMgr Component is not available.Retrying in separate thread ::%s::", msg.c_str());
+                m_registrationThread = thread(&NetworkManagerImplementation::threadEventRegistration, this, iarmInit, iarmConnect);
             }
-            else {
+            else
+            {
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, NetworkManagerInternalEventHandler);
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, NetworkManagerInternalEventHandler);
@@ -1162,7 +1212,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 while (ssids->Next(ssidlist) == true)
                 {
                     m_filterSsidslist.push_back(ssidlist.c_str());
-		    NMLOG_DEBUG("%s added to SSID filtering", ssidlist.c_str());
+                    NMLOG_DEBUG("%s added to SSID filtering", ssidlist.c_str());
                 }
             }
 
