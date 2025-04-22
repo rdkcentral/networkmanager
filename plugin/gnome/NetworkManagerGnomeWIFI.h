@@ -47,7 +47,7 @@ namespace WPEFramework
                 return &instance;
             }
 
-            bool isWifiConnected();
+            bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
             bool activateKnownWifiConnection(std::string knownssid);
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);

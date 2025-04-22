@@ -178,7 +178,7 @@ namespace WPEFramework
                         wifiState += std::to_string(deviceState);
                     }
 
-                    if(isWlanDisabled & deviceState > NM_DEVICE_STATE_UNMANAGED)
+                    if(isWlanDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
                     {
                         isWlanDisabled = false;
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
@@ -215,7 +215,12 @@ namespace WPEFramework
                     NMLOG_WARNING("Unhandiled state change %d", deviceState);
             }
 
-            if(isEthDisabled & deviceState > NM_DEVICE_STATE_UNMANAGED)
+            /*
+            * Post interface added event:
+            * When the Ethernet interface is removed, its state goes to UNKNOWN or UNMANAGED.
+            * normaly interface is always up and we are not removing it
+            */
+            if(isEthDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
             {
                 isEthDisabled = false;
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
@@ -584,6 +589,10 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)
     {
+        /* 
+         * notify::addresses g signal only send ipaddress when accuired time only. 
+         * we need to post ip address when ipaddress lost case also so we caching the ip address per interface
+         */
         static std::map<std::string, std::string> ipv6Map;
         static std::map<std::string, std::string> ipv4Map;
 
@@ -617,11 +626,9 @@ namespace WPEFramework
             if(ipAddress.empty())
                 return; // empty ip address not posting event
         }
-
         Exchange::INetworkManager::IPStatus ipStatus{};
         if (acquired)
             ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
-
         if(_instance != nullptr)
             _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
         NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");

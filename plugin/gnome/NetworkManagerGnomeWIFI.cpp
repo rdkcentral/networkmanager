@@ -156,16 +156,28 @@ namespace WPEFramework
 
         bool static getConnectedSSID(NMDevice *device, std::string& ssidin)
         {
-            GBytes *ssid;
-            NMDeviceState device_state = nm_device_get_state(device);
-            if (device_state == NM_DEVICE_STATE_ACTIVATED)
+            GBytes *ssid = nullptr;
+            NMDeviceState deviceState = nm_device_get_state(device);
+            if (deviceState == NM_DEVICE_STATE_ACTIVATED)
             {
                 NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
+                if(activeAP == nullptr)
+                    return false;
                 ssid = nm_access_point_get_ssid(activeAP);
-                gsize size;
-                const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
-                std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                ssidin = ssidTmp;
+                if(ssid) {
+                    char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
+                    if(ssidStr != nullptr && g_bytes_get_size(ssid) < 32)
+                    {
+                        ssidin = ssidStr;
+                        free(ssidStr);
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Invallied ssid length Error");
+                        ssidin.clear();
+                        return false;
+                    }
+                }
                 NMLOG_INFO("connected ssid: %s", ssidin.c_str());
                 return true;
             }
@@ -194,13 +206,11 @@ namespace WPEFramework
 
             /* Convert to strings */
             if (ssid) {
-                gsize size;
-                const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssid, &size));
-                if(size<=32)
+                char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
+                if(ssidStr != nullptr && g_bytes_get_size(ssid) < 32)
                 {
-                    std::string ssidTmp(reinterpret_cast<const char *>(ssidData), size);
-                    wifiInfo.ssid = ssidTmp;
-                    // NMLOG_INFO("ssid: %s", wifiInfo.ssid.c_str());
+                    wifiInfo.ssid = ssidStr;
+                    free(ssidStr);
                 }
                 else
                 {
@@ -238,24 +248,43 @@ namespace WPEFramework
             }
         }
 
-        bool wifiManager::isWifiConnected()
+        bool wifiManager::getWifiState(Exchange::INetworkManager::WiFiState& state)
         {
             if(!createClientNewConnection())
                 return false;
 
-            NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
+            NMDevice *wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
                 return false;
             }
-
-            NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(wifiDevice);
-            if(activeAP == NULL) {
-                NMLOG_DEBUG("No active access point found !");
-                return false;
+            NMDeviceState deviceState = nm_device_get_state(wifiDevice);
+            // Todo check NMDeviceStateReason for more information
+            switch(deviceState)
+            {
+                case NM_DEVICE_STATE_ACTIVATED: 
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
+                    break;
+                case NM_DEVICE_STATE_PREPARE:
+                case NM_DEVICE_STATE_CONFIG:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_PAIRING;
+                    break;
+                case NM_DEVICE_STATE_NEED_AUTH:
+                case NM_DEVICE_STATE_IP_CONFIG:
+                case NM_DEVICE_STATE_IP_CHECK:
+                case NM_DEVICE_STATE_SECONDARIES:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTING;
+                    break;
+                case NM_DEVICE_STATE_DEACTIVATING:
+                case NM_DEVICE_STATE_DISCONNECTED:
+                case NM_DEVICE_STATE_UNAVAILABLE:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED;
+                    break;
+                default:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
             }
-            else
-                NMLOG_DEBUG("active access point found !");
+
+            NMLOG_INFO("wifi state (%d) mapped state (%d) ", (int)deviceState, (int)state);
             return true;
         }
 
@@ -338,25 +367,34 @@ namespace WPEFramework
 
         static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, std::string& ssid)
         {
-            NMAccessPoint *AccessPoint = NULL;
+            NMAccessPoint *AccessPoint = nullptr;
             if(ssid.empty())
-                return NULL;
+                return nullptr;
 
             for (guint i = 0; i < ApList->len; i++)
             {
+                std::string ssidstr{};
                 NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(ApList, i));
-                GBytes *ssidGBytes;
-                ssidGBytes = nm_access_point_get_ssid(ap);
-                if (!ssidGBytes)
-                    continue;
-                gsize size;
-                const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidGBytes, &size));
-                std::string ssidstr(reinterpret_cast<const char *>(ssidData), size);
-                // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
-                if (ssid == ssidstr)
+                GBytes *ssidGBytes = nm_access_point_get_ssid(ap);
+                if(ssidGBytes)
                 {
-                    AccessPoint = ap;
-                    break;
+                    char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
+                    if(ssidUtf8 != nullptr && g_bytes_get_size(ssidGBytes) < 32)
+                    {
+                        ssidstr = ssidUtf8;
+                        if(ssid == ssidstr)
+                        {
+                            AccessPoint = ap;
+                            free(ssidUtf8);
+                            break;
+                        }
+                        // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
+                    }
+                    else
+                        NMLOG_WARNING("Invallied ssid length Error");
+
+                    if(ssidUtf8 != nullptr)
+                        free(ssidUtf8);
                 }
             }
 
@@ -367,15 +405,16 @@ namespace WPEFramework
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMActiveConnection *activeConnection = NULL;
 
             if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
-                nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
                  _wifiManager->m_isSuccess = true;
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
-                nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
                  _wifiManager->m_isSuccess = true;
             }
 
@@ -386,8 +425,11 @@ namespace WPEFramework
                 } else {
                     NMLOG_ERROR("Failed to activate connection: %s", error->message);
                 }
+                g_error_free(error);
             }
 
+            if(activeConnection)
+                g_object_unref(activeConnection);
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
@@ -400,13 +442,18 @@ namespace WPEFramework
 
             ret = nm_remote_connection_update2_finish(remote_con, res, &error);
 
-            if (!ret) {
-                NMLOG_ERROR("Error: %s.", error->message);
-                g_error_free(error);
+            if (!ret || error) {
+                if(error) {
+                    NMLOG_ERROR("Error: %s.", error->message);
+                    g_error_free(error);
+                }
                 _wifiManager->m_isSuccess = false;
                 _wifiManager->quit(NULL);
                 return;
             }
+            else
+                g_variant_unref(ret);
+
             _wifiManager->m_createNewConnection = false; // no need to create new connection
             nm_client_activate_connection_async(
                 _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, NULL, wifiConnectCb, _wifiManager);
@@ -416,7 +463,7 @@ namespace WPEFramework
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
             {
-                NMLOG_WARNING("ssid name is missing or invalied");
+                NMLOG_WARNING("ssid name is missing or invalid");
                 return false;
             }
             /* Build up the 'connection' Setting */
@@ -427,6 +474,8 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, "wlan0", NULL); // interface name
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-11-wireless", NULL); // type 802.11wireless
             nm_connection_add_setting(m_connection, NM_SETTING(sConnection));
+            if(uuid) 
+                g_free((void *)uuid);
 
             /* Build up the '802-11-wireless-security' settings */
             NMSettingWireless *sWireless = NULL;
@@ -437,6 +486,8 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MODE, NM_SETTING_WIRELESS_MODE_INFRA, NULL); // infra mode
             if(!iswpsAP) // wps never be a hidden AP, it will be always visible
                 g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
+            if(ssid)
+                g_bytes_unref(ssid);
             // 'bssid' parameter is used to restrict the connection only to the BSSID
             // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
 
@@ -553,10 +604,8 @@ namespace WPEFramework
 
         bool wifiManager::activateKnownWifiConnection(std::string knownssid)
         {
-            NMAccessPoint *AccessPoint = NULL;
             const GPtrArray *wifiConnections = NULL;
             NMConnection *m_connection = NULL;
-            const GPtrArray* ApList = NULL;
             const char* specificObjPath = "/";
 
             if(!createClientNewConnection())
@@ -743,10 +792,14 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidInfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    if(m_connection)
+                        g_object_unref(m_connection);
                     return false;
                 }
                 m_createNewConnection = true;
                 nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                if(m_connection)
+                    g_object_unref(m_connection);
             }
 
             wait(m_loop);
@@ -773,6 +826,10 @@ namespace WPEFramework
                 _wifiManager->m_isSuccess = true;
                 NMLOG_INFO("AddToKnownSSIDs success");
             }
+
+            if(ret)
+                g_variant_unref(ret);
+            
             _wifiManager->quit(NULL);
         }
 
@@ -780,8 +837,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            GVariant **outResult = NULL;
-            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, outResult, &error)) {
+            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error)) {
                 NMLOG_ERROR("AddToKnownSSIDs Failed");
                 _wifiManager->m_isSuccess = false;
             }
@@ -791,6 +847,11 @@ namespace WPEFramework
                 _wifiManager->m_isSuccess = true;
             }
 
+            if(error) {
+                NMLOG_ERROR("AddToKnownSSIDs Failed: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                g_error_free(error);
+            }
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
@@ -807,6 +868,12 @@ namespace WPEFramework
                 return false;
 
             const GPtrArray  *availableConnections = nm_device_get_available_connections(device);
+            if(availableConnections == NULL)
+            {
+                NMLOG_ERROR("No available connections found !");
+                return false;
+            }
+
             for (guint i = 0; i < availableConnections->len; i++)
             {
                 NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
@@ -869,6 +936,11 @@ namespace WPEFramework
                 NMLOG_WARNING("ssid is not specified, Deleting all availble wifi connection !");
 
             const GPtrArray  *allconnections = nm_client_get_connections(m_client);
+            if(allconnections == NULL)
+            {
+                NMLOG_ERROR("nm connections list null ");
+                return false;
+            }
             for (guint i = 0; i < allconnections->len; i++)
             {
                 GError *error = NULL;
@@ -916,28 +988,43 @@ namespace WPEFramework
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
+            std::string ssidPrint{};
+
             if(!createClientNewConnection())
                 return false;
+
             const GPtrArray *connections = nm_client_get_connections(m_client);
-            std::string ssidPrint;
+            if(connections == nullptr)
+            {
+                NMLOG_ERROR("nm connections list null ");
+                return false;
+            }
             for (guint i = 0; i < connections->len; i++)
             {
                 NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
-
-                if (NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                if(NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
                 {
                     GBytes *ssidBytes = nm_setting_wireless_get_ssid(nm_connection_get_setting_wireless(connection));
                     if (ssidBytes)
                     {
-                        gsize ssidSize;
-                        const guint8 *ssidData = static_cast<const guint8 *>(g_bytes_get_data(ssidBytes, &ssidSize));
-                        std::string ssidstr(reinterpret_cast<const char *>(ssidData), ssidSize);
-                        if (!ssidstr.empty())
+                        char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidBytes, NULL), g_bytes_get_size(ssidBytes));
+                        if(ssidStr != nullptr && g_bytes_get_size(ssidBytes) < 32)
                         {
-                            ssids.push_back(ssidstr);
-                            ssidPrint += ssidstr;
+                            ssids.push_back(string(ssidStr));
+                            ssidPrint += ssidStr;
                             ssidPrint += ", ";
+                            free(ssidStr);
                         }
+                        else
+                        {
+                            NMLOG_ERROR("Invallied ssid length Error");
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        /* hidden ssid */
+                        NMLOG_WARNING("wifi connection list have hidden ssid also !");
                     }
                 }
             }
@@ -1556,7 +1643,6 @@ namespace WPEFramework
         bool wifiManager::setPrimaryInterface(const string interface)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            gboolean result;
             GError *error = NULL;
             std::string otherInterface;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();

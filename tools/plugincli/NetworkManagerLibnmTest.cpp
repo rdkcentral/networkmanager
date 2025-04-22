@@ -268,10 +268,10 @@ int main()
             }
             case 8: {
                 Exchange::INetworkManager::WiFiState state;
-                if (wifiMgr->isWifiConnected()) {
-                    NMLOG_INFO("WiFi State: connected");  // Assuming state is an enum or int
+                if (wifiMgr->getWifiState(state)) {
+                    NMLOG_INFO("WiFi State: %d", state);  // Assuming state is an enum or int
                 } else {
-                    NMLOG_ERROR("WiFi State: disconnected");
+                    NMLOG_ERROR("Failed to get WiFi state");
                 }
                 break;
             }
