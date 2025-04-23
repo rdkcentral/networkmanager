@@ -730,11 +730,9 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {
-            uint32_t rc = Core::ERROR_NONE;
-            if(wifi->isWifiConnected())
-                state = Exchange::INetworkManager::WIFI_STATE_CONNECTED;
-            else
-                state = Exchange::INetworkManager::WIFI_STATE_DISCONNECTED;
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->getWifiState(state))
+                rc = Core::ERROR_NONE;
             return rc;
         }
 

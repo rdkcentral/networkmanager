@@ -178,7 +178,7 @@ namespace WPEFramework
                         wifiState += std::to_string(deviceState);
                     }
 
-                    if(isWlanDisabled & deviceState > NM_DEVICE_STATE_UNMANAGED)
+                    if(isWlanDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
                     {
                         isWlanDisabled = false;
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
@@ -215,7 +215,12 @@ namespace WPEFramework
                     NMLOG_WARNING("Unhandiled state change %d", deviceState);
             }
 
-            if(isEthDisabled & deviceState > NM_DEVICE_STATE_UNMANAGED)
+            /*
+            * Post interface added event:
+            * When the Ethernet interface is removed, its state goes to UNKNOWN or UNMANAGED.
+            * normaly interface is always up and we are not removing it
+            */
+            if(isEthDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
             {
                 isEthDisabled = false;
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
@@ -584,6 +589,10 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)
     {
+        /* 
+         * notify::addresses g signal only send ipaddress when accuired time only. 
+         * we need to post ip address when ipaddress lost case also so we caching the ip address per interface
+         */
         static std::map<std::string, std::string> ipv6Map;
         static std::map<std::string, std::string> ipv4Map;
 
@@ -617,11 +626,9 @@ namespace WPEFramework
             if(ipAddress.empty())
                 return; // empty ip address not posting event
         }
-
         Exchange::INetworkManager::IPStatus ipStatus{};
         if (acquired)
             ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
-
         if(_instance != nullptr)
             _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
         NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");
@@ -666,8 +673,49 @@ namespace WPEFramework
          return false;
     }
 
+        static void processMonitorInternal()
+        {
+            pid_t pid = getpid();
+
+            string path = "/proc/";
+            path += std::to_string(pid);
+            path += "/statm";
+            const uint32_t pageSize = getpagesize();
+
+                int fd;
+                char buffer[128] = "";
+                int processSize = 0;
+                int processRSS = 0;
+                int processShare = 0;
+
+                if ((fd = open(path.c_str(), O_RDONLY)) >= 0)
+                {
+                    ssize_t readAmount = 0;
+                    if ((readAmount = read(fd, buffer, sizeof(buffer))) > 0)
+                    {
+                        ssize_t nulIndex = std::min(readAmount, static_cast<ssize_t>(sizeof(buffer) - 1));
+                        buffer[nulIndex] = '\0';
+                        sscanf(buffer, "%d %d %d", &processSize, &processRSS, &processShare);
+
+                        /* Update the sizes */
+                        processSize  *= pageSize;
+                        processRSS   *= pageSize;
+                        processShare *= pageSize;
+
+                        /* Convert to KB */
+                        processSize  >>= 10;
+                        processRSS   >>= 10;
+                        processShare >>= 10;
+                    }
+                    close(fd);
+                    NMLOG_INFO("------ GURU VSS = %d KB   RSS = %d KB ------", processSize, processRSS);
+                }
+            return;
+        }
+
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
     {
+        processMonitorInternal();
         if(!NM_IS_DEVICE_WIFI(wifiDevice))
         {
             NMLOG_ERROR("Not a wifi object ");
@@ -690,6 +738,7 @@ namespace WPEFramework
             _nmEventInstance->doScanNotify = false;
             _instance->ReportAvailableSSIDs(ssidList);
         }
+        processMonitorInternal();
     }
 
     void GnomeNetworkManagerEvents::setwifiScanOptions(bool doNotify)
