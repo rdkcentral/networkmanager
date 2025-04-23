@@ -33,6 +33,7 @@
 
 #define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
 #define WPS_RETRY_COUNT             10
+#define WPS_PROCESS_WAIT_IN_MS      5
 
 namespace WPEFramework
 {
@@ -47,7 +48,7 @@ namespace WPEFramework
                 return &instance;
             }
 
-            bool isWifiConnected();
+            bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
             bool activateKnownWifiConnection(std::string knownssid);
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
@@ -82,6 +83,7 @@ namespace WPEFramework
                 }
             }
 
+            void wpsProcess();
             wifiManager(wifiManager const&) = delete;
             void operator=(wifiManager const&) = delete;
 
