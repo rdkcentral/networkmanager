@@ -449,6 +449,7 @@ namespace WPEFramework
 
                     if(NM_IS_DEVICE_WIFI(device)) {
                         nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
+                        //NMLOG_INFO("---- GURU : Disabling LAST_SCAN notification ------");
                         g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
                     }
                 }
