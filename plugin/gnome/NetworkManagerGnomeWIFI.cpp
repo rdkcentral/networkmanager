@@ -164,9 +164,10 @@ namespace WPEFramework
                 if(activeAP == nullptr)
                     return false;
                 ssid = nm_access_point_get_ssid(activeAP);
-                if(ssid) {
+                if(ssid)
+                {
                     char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
-                    if(ssidStr != nullptr && g_bytes_get_size(ssid) < 32)
+                    if(ssidStr != nullptr)
                     {
                         ssidin = ssidStr;
                         free(ssidStr);
@@ -205,9 +206,10 @@ namespace WPEFramework
             noise     = 0; /* ToDo: Returning as 0 as of now. Need to fetch actual noise value */
 
             /* Convert to strings */
-            if (ssid) {
+            if (ssid)
+            {
                 char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
-                if(ssidStr != nullptr && g_bytes_get_size(ssid) < 32)
+                if(ssidStr != nullptr)
                 {
                     wifiInfo.ssid = ssidStr;
                     free(ssidStr);
@@ -379,7 +381,7 @@ namespace WPEFramework
                 if(ssidGBytes)
                 {
                     char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
-                    if(ssidUtf8 != nullptr && g_bytes_get_size(ssidGBytes) < 32)
+                    if(ssidUtf8 != nullptr)
                     {
                         ssidstr = ssidUtf8;
                         if(ssid == ssidstr)
@@ -1008,7 +1010,7 @@ namespace WPEFramework
                     if (ssidBytes)
                     {
                         char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidBytes, NULL), g_bytes_get_size(ssidBytes));
-                        if(ssidStr != nullptr && g_bytes_get_size(ssidBytes) < 32)
+                        if(ssidStr != nullptr)
                         {
                             ssids.push_back(string(ssidStr));
                             ssidPrint += ssidStr;
