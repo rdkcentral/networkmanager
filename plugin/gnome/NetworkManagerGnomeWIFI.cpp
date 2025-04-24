@@ -174,7 +174,7 @@ namespace WPEFramework
                     }
                     else
                     {
-                        NMLOG_ERROR("Invallied ssid length Error");
+                        NMLOG_ERROR("Invalid ssid length Error");
                         ssidin.clear();
                         return false;
                     }
@@ -216,7 +216,7 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_ERROR("Invallied ssid length Error");
+                    NMLOG_ERROR("Invalid ssid length Error");
                     wifiInfo.ssid.clear();
                     return;
                 }
@@ -393,7 +393,7 @@ namespace WPEFramework
                         // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
                     }
                     else
-                        NMLOG_WARNING("Invallied ssid length Error");
+                        NMLOG_WARNING("Invalid ssid length Error");
 
                     if(ssidUtf8 != nullptr)
                         free(ssidUtf8);
@@ -1019,7 +1019,7 @@ namespace WPEFramework
                         }
                         else
                         {
-                            NMLOG_ERROR("Invallied ssid length Error");
+                            NMLOG_ERROR("Invalid ssid length Error");
                             continue;
                         }
                     }
