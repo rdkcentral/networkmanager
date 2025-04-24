@@ -14,6 +14,14 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.15.0] - 2025-04-24
+### Fixed
+- Implemented a CLI tool to test the plugin independently
+- Implemented Retry logic to register with IARM upon failure for RDK Backend
+- Fixed the memory leak that was observed in Gnome backend when connecting to SSID
+- Fixed the events published upon WPS successful connects and failures.
+- Fixed the WiFiConnect call with empty param from the legacy plugin
+
 ## [0.14.0] - 2025-04-18
 ### Added
 - Process Monitoring for the out-of-process plugin added
