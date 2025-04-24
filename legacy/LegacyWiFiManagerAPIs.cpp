@@ -377,12 +377,17 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            JsonObject inParam = parameters;
+
+            if (inParam.HasLabel("passphrase"))
+                inParam["passphrase"] = "*******";
+
+            string jsonStr;
+            inParam.ToString(jsonStr);
+            NMLOG_INFO("params=%s", jsonStr.c_str() );
 
             if (parameters.HasLabel("ssid"))
                 ssid.ssid = parameters["ssid"].String();
-            else
-                returnJson(rc);
 
             if (parameters.HasLabel("passphrase"))
                 ssid.passphrase = parameters["passphrase"].String();
@@ -565,7 +570,14 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
-            NMLOG_INFO("Entry to %s\n", __FUNCTION__);
+            JsonObject inParam = parameters;
+
+            if (inParam.HasLabel("passphrase"))
+                inParam["passphrase"] = "*******";
+
+            string jsonStr;
+            inParam.ToString(jsonStr);
+            NMLOG_INFO("params=%s", jsonStr.c_str() );
 
             if (parameters.HasLabel("ssid") && parameters.HasLabel("passphrase"))
             {
