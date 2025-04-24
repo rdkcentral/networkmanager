@@ -72,8 +72,10 @@ namespace WPEFramework
 
             NMLOG_DEBUG("handleSecretsAgentMethods called for sender: %s", sender);
             char *string = g_variant_print(parameters, TRUE);
-            NMLOG_DEBUG("GVariant: %s", string);
-            g_free(string);
+            if(string != NULL) {
+                NMLOG_DEBUG("GVariant: %s", string);
+                g_free(string);
+            }
 
             if (g_strcmp0(method_name, "GetSecrets") == 0)
             {
@@ -294,14 +296,16 @@ namespace WPEFramework
                 &error
             );
 
-            if (error != NULL && nmAgentProxy == NULL) {
+            if (error != NULL) {
                 g_dbus_error_strip_remote_error(error);
                 NMLOG_FATAL("Error creating proxy: %s", error->message);
-                g_clear_error(&error);
+                g_error_free(error);
+                if(nmAgentProxy)
+                    g_object_unref(nmAgentProxy);
                 return false;
             }
 
-            g_dbus_proxy_call_sync( nmAgentProxy, "Register",
+            GVariant *result = g_dbus_proxy_call_sync( nmAgentProxy, "Register",
                 g_variant_new("(s)", "rdk.nm.agent"), G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 
             if (error != NULL) {
@@ -310,8 +314,13 @@ namespace WPEFramework
                 return false;
             }
 
+            if (result != NULL) {
+                g_variant_unref(result);
+            }
+
             NMLOG_INFO("'rdk.nm.agent' registered to NetworkManager");
             isSecurityAgentRegistered = true;
+
             if(nmAgentProxy)
                 g_object_unref(nmAgentProxy);
             return true;
@@ -334,19 +343,24 @@ namespace WPEFramework
                 &error
             );
 
-            if (error != NULL && nmAgentProxy == NULL) {
+            if (error != NULL) {
                 g_dbus_error_strip_remote_error(error);
                 NMLOG_FATAL("Error creating proxy: %s", error->message);
-                g_clear_error(&error);
+                g_error_free(error);
+                if(nmAgentProxy)
+                    g_object_unref(nmAgentProxy);
                 return false;
             }
 
-            g_dbus_proxy_call_sync(nmAgentProxy, "Unregister", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+            GVariant *result = g_dbus_proxy_call_sync(nmAgentProxy, "Unregister", NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
 
             if (error != NULL) {
                 NMLOG_FATAL("Failed to call Unregister agent: %s", error->message);
                 g_error_free(error);
                 return false;
+            }
+            if (result != NULL) {
+                g_variant_unref(result);
             }
 
             NMLOG_INFO("'rdk.nm.agent' successfully Unregister");
