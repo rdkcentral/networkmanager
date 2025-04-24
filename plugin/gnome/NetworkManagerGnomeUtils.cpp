@@ -178,7 +178,7 @@ namespace WPEFramework
 
        std::string nmUtils::wifiFrequencyFromAp(guint32 apFreq)
        {
-            std:string freq;
+            std::string freq;
             if (apFreq >= 2400 && apFreq < 5000)
                 freq = "2.4";
             else if (apFreq >= 5000 && apFreq < 6000)

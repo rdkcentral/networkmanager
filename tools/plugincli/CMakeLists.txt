@@ -16,42 +16,109 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #############################################################################
-message("building rpi test build")
-# Define the project
-set(RPI_TEST "NetworkManagerGdbusTest")
+message("Building plugin CLI tools")
 
 # Required packages
 find_package(PkgConfig REQUIRED)
+find_package(${NAMESPACE}Core REQUIRED)
+
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)
 pkg_check_modules(LIBNM REQUIRED libnm)
 
-# Create the executable target
-add_executable(${RPI_TEST}
-                NetworkManagerLogger.cpp
-                gdbus/NetworkManagerGdbusClient.cpp
-                gdbus/NetworkManagerGdbusUtils.cpp
-                gdbus/NetworkManagerGdbusMgr.cpp
-                gdbus/NetworkManagerGdbusEvent.cpp
-                Tests/raspberrypi/NetworkManagerGdbusTest.cpp
+set(COMMON_COMPILE_OPTIONS
+    -g
+    -Wall
+    -Wno-deprecated-declarations
+    -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h
 )
 
-# Set target properties for C++ standard
-set_target_properties(${RPI_TEST} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
+set(COMMON_SOURCES
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerSecretAgent.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeUtils.cpp
 )
 
-# Add compiler options, such as forced include of a specific header
-target_compile_options(${RPI_TEST} PRIVATE -g -Wall -include ${CMAKE_SOURCE_DIR}/INetworkManager.h)
+set(COMMON_INCLUDES
+    ${GLIB_INCLUDE_DIRS}
+    ${GIO_INCLUDE_DIRS}
+    ${LIBNM_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/plugin
+    ${CMAKE_SOURCE_DIR}/interface
+    ${CMAKE_SOURCE_DIR}/plugin/gnome
+    ${CMAKE_SOURCE_DIR}/plugin/gnome/gdbus
+)
 
-target_include_directories(${RPI_TEST} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS} ${GIO_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
-target_include_directories(${RPI_TEST} PRIVATE gdbus)
-# Link libraries to the target
-target_link_libraries(${RPI_TEST} ${NAMESPACE}Core::${NAMESPACE}Core ${GLIB_LIBRARIES} ${GIO_LIBRARIES} uuid)
+set(COMMON_LIBS
+    ${NAMESPACE}Core::${NAMESPACE}Core
+    ${GLIB_LIBRARIES}
+    ${GIO_LIBRARIES}
+)
 
-# Include directories
-target_include_directories(${RPI_TEST} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+if(ENABLE_GNOME_GDBUS)
 
-# Install the executable to the appropriate location
-install(TARGETS ${RPI_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+    message("Building plugin GDBUS CLI tool...")
+
+    set(PLUGIN_GDBUS_CLI "nm-cli-gdbus")
+    set(GDBUS_SOURCES
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/gdbus/NetworkManagerGdbusClient.cpp
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/gdbus/NetworkManagerGdbusMgr.cpp
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/gdbus/NetworkManagerGdbusUtils.cpp
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/gdbus/NetworkManagerGdbusEvent.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerGdbusTest.cpp
+    )
+
+    add_executable(${PLUGIN_GDBUS_CLI}
+        ${COMMON_SOURCES}
+        ${GDBUS_SOURCES}
+    )
+
+    set_target_properties(${PLUGIN_GDBUS_CLI} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerGdbusTest.cpp
+        PROPERTIES COMPILE_FLAGS "-w"
+    )
+
+    target_compile_options(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_COMPILE_OPTIONS})
+    target_include_directories(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_INCLUDES})
+    target_link_libraries(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_LIBS} uuid)
+
+    install(TARGETS ${PLUGIN_GDBUS_CLI} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+
+else()
+
+    message("Building plugin Libnm CLI tool...")
+
+    set(PLUGIN_LIBNM_CLI "nm-cli-libnm")
+    set(LIBNM_SOURCES
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerLibnmTest.cpp
+    )
+
+    add_executable(${PLUGIN_LIBNM_CLI}
+        ${COMMON_SOURCES}
+        ${LIBNM_SOURCES}
+    )
+
+    set_target_properties(${PLUGIN_LIBNM_CLI} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerLibnmTest.cpp
+        PROPERTIES COMPILE_FLAGS "-w"
+    )
+
+    target_compile_options(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_COMPILE_OPTIONS})
+    target_include_directories(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_INCLUDES})
+    target_link_libraries(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_LIBS} ${LIBNM_LIBRARIES})
+
+    install(TARGETS ${PLUGIN_LIBNM_CLI} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+
+endif()
