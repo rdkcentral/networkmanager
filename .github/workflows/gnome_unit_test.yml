@@ -73,6 +73,7 @@ jobs:
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
+          -DENABLE_PLUGIN_CLI=ON
           &&
           cmake --build build/GnomeLibnmNetworkmanager --target install -j8
 
@@ -87,6 +88,7 @@ jobs:
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_GNOME_GDBUS=ON
+          -DENABLE_PLUGIN_CLI=ON
           &&
           cmake --build build/GnomeGdbusNetworkmanager --target install -j8
 
