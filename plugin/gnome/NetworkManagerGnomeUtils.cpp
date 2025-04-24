@@ -49,14 +49,16 @@ namespace WPEFramework
             else
                 NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
 
-            if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
+            if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE)) // Open network
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
-            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)
+            else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) // WPA2/WPA3 Transition
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)  // Pure WPA3 (SAE only): WPA3-Personal
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
-            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X)
+            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X) // WPA2/WPA3 Enterprise: EAP present in either WPA or RSN
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
             else
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK; // WPA2-PSK
 
             return security;
         }
