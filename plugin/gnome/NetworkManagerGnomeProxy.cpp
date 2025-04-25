@@ -18,7 +18,8 @@
 **/
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerGnomeWIFI.h"
-#include "NetworkManagerGnomeEvents.h"
+//#include "NetworkManagerGnomeEvents.h"
+#include "gdbus/NetworkManagerGdbusEvent.h"
 #include "NetworkManagerGnomeUtils.h"
 #include <libnm/NetworkManager.h>
 #include <fstream>
@@ -34,7 +35,8 @@ namespace WPEFramework
     namespace Plugin
     {
         wifiManager *wifi = nullptr;
-        GnomeNetworkManagerEvents *nmEvent = nullptr;
+        //GnomeNetworkManagerEvents *nmEvent = nullptr;
+        NetworkManagerEvents* nmEvent = nullptr;
         NetworkManagerImplementation* _instance = nullptr;
 
         void NetworkManagerInternalEventHandler(const char *owner, int eventId, void *data, size_t len)
@@ -94,8 +96,9 @@ namespace WPEFramework
                 m_defaultInterface = nmUtils::wlanIface();
 
             NMLOG_INFO("default interface is %s",  m_defaultInterface.c_str());
-            nmEvent = GnomeNetworkManagerEvents::getInstance();
-            nmEvent->startNetworkMangerEventMonitor();
+            //nmEvent = GnomeNetworkManagerEvents::getInstance();
+            nmEvent = NetworkManagerEvents::getInstance();
+            //nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
             return;
         }
