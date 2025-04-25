@@ -99,7 +99,10 @@ if(ENABLE_GNOME_NETWORKMANAGER)
         target_sources(${MODULE_IMPL_NAME} PRIVATE
             gnome/NetworkManagerGnomeProxy.cpp
             gnome/NetworkManagerGnomeWIFI.cpp
-            gnome/NetworkManagerGnomeEvents.cpp
+            #gnome/NetworkManagerGnomeEvents.cpp
+            gnome/gdbus/NetworkManagerGdbusEvent.cpp
+            gnome/gdbus/NetworkManagerGdbusMgr.cpp
+            gnome/gdbus/NetworkManagerGdbusUtils.cpp
             gnome/NetworkManagerGnomeUtils.cpp
             NetworkManagerSecretAgent.cpp )
         target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
