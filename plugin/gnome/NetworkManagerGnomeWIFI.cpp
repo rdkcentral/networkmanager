@@ -761,8 +761,10 @@ namespace WPEFramework
                                 GError *error = NULL;
                                 NMLOG_WARNING(" '%s' connection existing but properties mismatch; deleting...", ssidInfo.ssid.c_str());
                                 nm_remote_connection_delete (NM_REMOTE_CONNECTION(connection), NULL, &error);
-                                if (error)
+                                if (error) {
                                     NMLOG_ERROR("deleting connection failed %s", error->message);
+                                    g_error_free(error);
+                                }
                                 else
                                     connection = NULL;
                             }
@@ -1327,8 +1329,10 @@ namespace WPEFramework
                                 NMLOG_INFO("stopping the ongoing Wi-Fi connection");
                                 // some other ssid connected or connecting; wps need a disconnected wifi state
                                 nm_device_disconnect(wifidevice, NULL,  &error);
-                                if (error)
+                                if (error) {
                                     NMLOG_ERROR("disconnect connection failed %s", error->message);
+                                    g_error_free(error);
+                                }
                                 sleep(3); // wait for 3 sec to complete disconnect process
                             }
                         }
