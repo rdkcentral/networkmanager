@@ -676,7 +676,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 response = reply;
                 response["target"] = endpoint;
             }
-            returnJson(rc);
+            return rc;
         }
 
         uint32_t Network::doTrace(const JsonObject& parameters, JsonObject& response)
@@ -711,7 +711,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     response["target"] = endpoint;
                 }
             }
-            returnJson(rc);
+            return rc;
         }
 
         uint32_t Network::getPublicIP(const JsonObject& parameters, JsonObject& response)
