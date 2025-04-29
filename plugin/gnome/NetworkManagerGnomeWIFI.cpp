@@ -1411,11 +1411,7 @@ namespace WPEFramework
                 g_main_context_pop_thread_default(wpsContext);
                 g_main_context_unref(wpsContext);
             }
-            if(loop != NULL)
-            {
-                g_main_loop_unref(loop);
-                loop = NULL;
-            }
+
             if(client != NULL) {
                 g_object_unref(client);
                 client = NULL;
