@@ -24,7 +24,7 @@
 #include <string>
 #include <map>
 #include <NetworkManager.h>
-#include <libnm/NetworkManager.h>
+//#include <libnm/NetworkManager.h>
 #include "Module.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerLogger.h"
