@@ -72,7 +72,11 @@ namespace WPEFramework
             wifiManager();
             ~wifiManager() {
                 NMLOG_INFO("~wifiManager");
-                g_main_context_pop_thread_default(m_nmContext);
+                if (m_nmContext) {
+                    g_main_context_pop_thread_default(m_nmContext);
+                    g_main_context_unref(m_nmContext);
+                    m_nmContext = NULL;
+                }
                 if(m_client != NULL) {
                     g_object_unref(m_client);
                     m_client = NULL;
