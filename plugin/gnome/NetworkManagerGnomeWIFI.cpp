@@ -49,11 +49,6 @@ namespace WPEFramework
         bool wifiManager::createClientNewConnection()
         {
             GError *error = NULL;
-            /*if(m_client != nullptr)
-            {
-                g_object_unref(m_client);
-                m_client = nullptr;
-            }*/
 
             m_client = nm_client_new(NULL, &error);
             if (!m_client || !m_loop) {
@@ -63,7 +58,7 @@ namespace WPEFramework
             }
             return true;
         }
-        
+
         void wifiManager::deleteClientConnection()
         {
             if(m_client != NULL) {
@@ -74,7 +69,8 @@ namespace WPEFramework
                 while (context_busy_watcher)
                 {
                     g_main_context_iteration(context, TRUE);
-                }                                                                                                                         g_main_context_unref(context);
+                }
+                g_main_context_unref(context);
                 m_client = NULL;
             }
         }
@@ -317,7 +313,6 @@ namespace WPEFramework
                 deleteClientConnection();
                 return false;
             }
-#if 1
 
             NMDeviceState deviceState = nm_device_get_state(wifiDevice);
             if(deviceState >= NM_DEVICE_STATE_IP_CONFIG)
@@ -336,7 +331,6 @@ namespace WPEFramework
             else
                 NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
 
-#endif
             deleteClientConnection();
             return true;
         }
@@ -1137,6 +1131,7 @@ namespace WPEFramework
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
                 options = g_variant_builder_end(&builder);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
+                g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);

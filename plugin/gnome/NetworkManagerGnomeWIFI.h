@@ -78,8 +78,7 @@ namespace WPEFramework
                     m_nmContext = NULL;
                 }
                 if(m_client != NULL) {
-                    g_object_unref(m_client);
-                    m_client = NULL;
+                    deleteClientConnection();
                 }
                 if(m_loop != NULL) {
                     g_main_loop_unref(m_loop);
