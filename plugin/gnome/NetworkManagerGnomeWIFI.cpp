@@ -63,10 +63,10 @@ namespace WPEFramework
         {
             if(m_client != NULL) {
                 GMainContext *context = g_main_context_ref(nm_client_get_main_context(m_client));
-                GObject *context_busy_watcher = nm_client_get_context_busy_watcher(m_client);
-                g_object_add_weak_pointer(context_busy_watcher,(gpointer *) &context_busy_watcher);
+                GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(m_client);
+                g_object_add_weak_pointer(contextBusyWatcher,(gpointer *) &contextBusyWatcher);
                 g_clear_object(&m_client);
-                while (context_busy_watcher)
+                while (contextBusyWatcher)
                 {
                     g_main_context_iteration(context, TRUE);
                 }
