@@ -51,6 +51,17 @@ namespace WPEFramework
             GError *error = NULL;
             /*if(m_client != nullptr)
             {
+                GMainContext *context = g_main_context_ref(nm_client_get_main_context(m_client));
+                GObject *context_busy_watcher = nm_client_get_context_busy_watcher(m_client);
+                g_object_add_weak_pointer(context_busy_watcher,(gpointer *) &context_busy_watcher);
+                g_clear_object(&m_client);
+                while (context_busy_watcher)
+                {
+                    g_main_context_iteration(context, TRUE);
+                }                                                                                                                         g_main_context_unref(context);
+            }
+            /*if(m_client != nullptr)
+            {
                 g_object_unref(m_client);
                 m_client = nullptr;
             }*/
