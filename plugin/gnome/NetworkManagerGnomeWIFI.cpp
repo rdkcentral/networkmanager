@@ -761,8 +761,10 @@ namespace WPEFramework
                                 GError *error = NULL;
                                 NMLOG_WARNING(" '%s' connection existing but properties mismatch; deleting...", ssidInfo.ssid.c_str());
                                 nm_remote_connection_delete (NM_REMOTE_CONNECTION(connection), NULL, &error);
-                                if (error)
+                                if (error) {
                                     NMLOG_ERROR("deleting connection failed %s", error->message);
+                                    g_error_free(error);
+                                }
                                 else
                                     connection = NULL;
                             }
@@ -1196,6 +1198,7 @@ namespace WPEFramework
             GMainContext *wpsContext = NULL;
             const char *wpsApPath = NULL;
             GMainLoop *loop = NULL;
+            NMClient* client = NULL;
             Exchange::INetworkManager::WiFiConnectTo wifiConnectInfo{};
             Exchange::INetworkManager::WiFiSSIDInfo wpsApInfo{};
 
@@ -1229,7 +1232,7 @@ namespace WPEFramework
 
                 g_main_context_push_thread_default(wpsContext);
 
-                NMClient* client = nm_client_new(NULL, &error);
+                client = nm_client_new(NULL, &error);
                 if (!client)
                 {
                     if(error != NULL) {
@@ -1238,9 +1241,6 @@ namespace WPEFramework
                     }
                     else
                         NMLOG_ERROR("NetworkManager cleint create failed");
-
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_unref(wpsContext);
                     break;
                 }
 
@@ -1248,12 +1248,6 @@ namespace WPEFramework
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_unref(wpsContext);
-                    if(client != NULL) {
-                        g_object_unref(client);
-                        client = NULL;
-                    }
                     break;
                 }
 
@@ -1293,12 +1287,6 @@ namespace WPEFramework
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
-                    g_main_context_pop_thread_default(wpsContext);
-                    g_main_context_unref(wpsContext);
-                    if(client != NULL) {
-                        g_object_unref(client);
-                        client = NULL;
-                    }
                     break;
                 }
 
@@ -1327,8 +1315,10 @@ namespace WPEFramework
                                 NMLOG_INFO("stopping the ongoing Wi-Fi connection");
                                 // some other ssid connected or connecting; wps need a disconnected wifi state
                                 nm_device_disconnect(wifidevice, NULL,  &error);
-                                if (error)
+                                if (error) {
                                     NMLOG_ERROR("disconnect connection failed %s", error->message);
+                                    g_error_free(error);
+                                }
                                 sleep(3); // wait for 3 sec to complete disconnect process
                             }
                         }
@@ -1336,12 +1326,6 @@ namespace WPEFramework
 
                     if(wpsComplete)
                     {
-                        g_main_context_pop_thread_default(wpsContext);
-                        g_main_context_unref(wpsContext);
-                        if(client != NULL) {
-                            g_object_unref(client);
-                            client = NULL;
-                        }
                         break;
                     }
 
@@ -1355,25 +1339,13 @@ namespace WPEFramework
                     if(!connectionBuilder(wifiConnectInfo, connection, true))
                     {
                         NMLOG_ERROR("wps connection builder failed");
-                        g_main_context_pop_thread_default(wpsContext);
-                        g_main_context_unref(wpsContext);
-                        if(client != NULL) {
-                            g_object_unref(client);
-                            client = NULL;
-                        }
-                        return;
+                        break;
                     }
 
                     loop = g_main_loop_new(wpsContext, FALSE);
                     if(loop == NULL)
                     {
                         NMLOG_ERROR("g_main_loop_new failed");
-                        g_main_context_pop_thread_default(wpsContext);
-                        g_main_context_unref(wpsContext);
-                        if(client != NULL) {
-                            g_object_unref(client);
-                            client = NULL;
-                        }
                         break;
                     }
 
@@ -1411,6 +1383,7 @@ namespace WPEFramework
 
                 g_main_context_pop_thread_default(wpsContext);
                 g_main_context_unref(wpsContext);
+                wpsContext = NULL;
                 if(client != NULL) {
                     g_object_unref(client);
                     client = NULL;
@@ -1431,6 +1404,17 @@ namespace WPEFramework
                 NMLOG_INFO("WPS process Error");
                 if(_instance != nullptr)
                     _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+            }
+
+            if(wpsContext != NULL)
+            {
+                g_main_context_pop_thread_default(wpsContext);
+                g_main_context_unref(wpsContext);
+            }
+
+            if(client != NULL) {
+                g_object_unref(client);
+                client = NULL;
             }
 
             // wps success ! wifi connect event will be send by wifi event monitor
