@@ -775,10 +775,10 @@ namespace WPEFramework
 
                 if (parameters.HasLabel("passphrase"))
                     ssid.passphrase = parameters["passphrase"].String();
-    
+                NMLOG_INFO("Devika: Security: %d", parameters["security"].Number());
                 if (parameters.HasLabel("security"))
                     ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
-
+                NMLOG_INFO("Devika: Security: %d", ssid.security);
                 // Check Security modes
                 if (parameters.HasLabel("eap"))
                     ssid.eap = parameters["eap"].String();
