@@ -99,13 +99,14 @@ namespace WPEFramework
                     flags = g_variant_get_uint32(flagVar);
                     if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_WPS_PBC_ACTIVE)
                         flagStr += ", wps_pbc_active";
-                    if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION)
+                    if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_ALLOW_INTERACTION) {
                         flagStr += ", allow_interaction";
-                    if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED) {
-                        flagStr += ", user_requested";
                         /* wait for 10 sec mean time in the background networkmanager will do wps operation */
                         SecretAgent::wait(10); // 10 sec
                     }
+                    if(flags & NM_SECRET_AGENT_GET_SECRETS_FLAG_USER_REQUESTED)
+                        flagStr += ", user_requested";
+
                     NMLOG_INFO("SecretAgent GetSecrets Flags = %u %s", flags, flagStr.c_str());
                 }
 
@@ -123,7 +124,6 @@ namespace WPEFramework
             else if (g_strcmp0(method_name, "CancelGetSecrets") == 0)
             {
                 NMLOG_DEBUG("CancelGetSecrets method called");
-                SecretAgent::stopWait();
                 g_dbus_method_invocation_return_value(invocation, NULL);
             }
             else if (g_strcmp0(method_name, "SaveSecrets") == 0)
