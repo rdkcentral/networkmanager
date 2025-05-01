@@ -676,7 +676,8 @@ namespace WPEFramework
                                 NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
                                 ReportActiveInterfaceChange(iface.name, iface.name);
                                 Exchange::INetworkManager::IPAddress addr;
-                                rc = GetIPSettings(iface.name, "IPv4", addr);
+                                std::string ipversion = "IPv4";
+                                rc = GetIPSettings(iface.name, ipversion, addr);
                                 if (Core::ERROR_NONE == rc)
                                 {
                                     if(!addr.ipaddress.empty()) {
@@ -685,7 +686,8 @@ namespace WPEFramework
                                     }
                                 }
                                 memset(&addr, 0, sizeof(addr));
-                                rc = GetIPSettings(iface.name, "IPv6", addr);
+                                ipversion = "IPv6";
+                                rc = GetIPSettings(iface.name, ipversion, addr);
                                 if (Core::ERROR_NONE == rc)
                                 {
                                     if(!addr.ipaddress.empty()) {
