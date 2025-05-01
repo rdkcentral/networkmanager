@@ -675,9 +675,17 @@ namespace WPEFramework
                             {
                                 NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
                                 ReportActiveInterfaceChange(iface.name, iface.name);
-                                std::string ipversion = {};
                                 Exchange::INetworkManager::IPAddress addr;
-                                rc = GetIPSettings(iface.name, ipversion, addr);
+                                rc = GetIPSettings(iface.name, "IPv4", addr);
+                                if (Core::ERROR_NONE == rc)
+                                {
+                                    if(!addr.ipaddress.empty()) {
+                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
+                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    }
+                                }
+                                memset(&addr, 0, sizeof(addr));
+                                rc = GetIPSettings(iface.name, "IPv6", addr);
                                 if (Core::ERROR_NONE == rc)
                                 {
                                     if(!addr.ipaddress.empty()) {
