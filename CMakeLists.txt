@@ -65,6 +65,8 @@ else()
 find_package(IARMBus REQUIRED)
 endif ()
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NFRTOOLCORE REQUIRED IMPORTED_TARGET nfrtoolCore)
 
 message("Setup ProxyStub for INetworkManager.h")
 find_package(CompileSettingsDebug CONFIG REQUIRED)
@@ -151,6 +153,8 @@ endif()
 
 target_link_libraries(${MODULE_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
+target_link_libraries(${MODULE_NAME} PRIVATE PkgConfig::NFRTOOLCORE)
+target_include_directories(${MODULE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/include) 
 
 if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
