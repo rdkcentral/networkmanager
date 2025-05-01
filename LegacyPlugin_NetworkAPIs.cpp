@@ -19,6 +19,7 @@
 #include "LegacyPlugin_NetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include <nfr/Tool.h>
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -1060,19 +1061,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         	        uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
         	        if(!interface.empty() && rc == Core::ERROR_NONE)
 			{
-            	    	    string command = "systemctl set-environment INTERFACE=" + std::move(interface) + " USER_HOSTS=connectivity.comcast.com";
-            	    	    NMLOG_DEBUG("Setting environment with command: %s", command.c_str());
-            	    	    int ret = system(command.c_str());
-            	    	    if(ret != -1)
-			    {
-                	        string startServiceCommand = "systemctl start nfrtool";
-                	        NMLOG_DEBUG("Starting nfrtool service with command: %s", startServiceCommand.c_str());
-                	        int retStartService = system(startServiceCommand.c_str());
-                	        if(retStartService != -1)
-				{
-                                    NMLOG_INFO("Service nfrtool started successfully.");
-                	        }
-            	   	    }
+            	    	    nfr::Tool tool;
+                	    string userHosts = "connectivity.comcast.com";
+                	    int result = tool.run_nfrtool(interface, userHosts);
+
+	                    if (result != 0) {
+                    		NMLOG_ERROR("Failed to run_nfrtool with interface %s", interface.c_str());
+                	    } else {
+                    		NMLOG_INFO("NFRTool invoked successfully for interface %s", interface.c_str());
+                	    }
         	        }
 			else
 			{
