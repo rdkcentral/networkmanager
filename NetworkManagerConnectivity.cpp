@@ -357,7 +357,11 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("endpoint = <%s> INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : curl error = %d (%s)", endpoint, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : For endpoint = <%s> on (%s) got curl error = %d (%s)",
+                                                endpoint,
+                                                (IP_ADDRESS_V4 == ipversion) ?  "IPv4" : "IPv6",
+                                                msg->data.result,
+                                                curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -658,11 +662,12 @@ namespace WPEFramework
                         printIPNotAvailable = false;
                         m_notify = true;
                     }
-                    _instance->GetInitialConnectionState();
                 }
-                else
-                    NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
 
+                if(!(_instance->m_IPv4Available && _instance->m_IPv6Available))
+                    _instance->GetInitialConnectionState();
+
+                NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
 
                 // Start threads for IPv4 and IPv6 checks
                 if(_instance->m_IPv4Available)
@@ -719,6 +724,7 @@ namespace WPEFramework
                     m_switchToInitial = false;
                     m_notify = true;
                     InitialRetryCount = 0;
+                    NMLOG_INFO("Let us monitor internet connectivity on %s address further.", (IP_ADDRESS_V4 == m_ipversion) ? "IPv4" : "IPv6");
                 }
                 IdealRetryCount = 0;
             }
