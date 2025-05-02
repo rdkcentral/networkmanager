@@ -72,10 +72,13 @@ namespace WPEFramework
             wifiManager();
             ~wifiManager() {
                 NMLOG_INFO("~wifiManager");
-                g_main_context_pop_thread_default(m_nmContext);
+                if (m_nmContext) {
+                    g_main_context_pop_thread_default(m_nmContext);
+                    g_main_context_unref(m_nmContext);
+                    m_nmContext = NULL;
+                }
                 if(m_client != NULL) {
-                    g_object_unref(m_client);
-                    m_client = NULL;
+                    deleteClientConnection();
                 }
                 if(m_loop != NULL) {
                     g_main_loop_unref(m_loop);
@@ -88,6 +91,7 @@ namespace WPEFramework
             void operator=(wifiManager const&) = delete;
 
             bool createClientNewConnection();
+            void deleteClientConnection();
 
         public:
             NMClient *m_client;
