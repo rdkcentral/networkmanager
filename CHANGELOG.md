@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.17.0] - 2025-05-02
+### Fixed
+- Fixed the memory leak in Gnome-libnm port of the plugin.
+
 ## [0.16.0] - 2025-05-01
 ### Fixed
 - Fixed the deregistration of Security Agent upon one successful WPS Connect.
