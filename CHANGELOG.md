@@ -14,6 +14,16 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.9.2] - 2025-05-05
+### Changed
+- Poll for IPv4 and IPv6 address availability when interface (Ethernet/WiFi) re-connected upon wake-up from deepsleep.
+
+## [0.9.1] - 2025-04-04
+### Changed
+- Handle Internet Connectivity monitoring for IPv4 and IPv6 only when Address available reported
+- Post Internet Available as soon as it is identified when first time interface is coming up.
+- Poll for IP Address Availability when WIFI re-connected upon wake-up from deepsleep.
+
 ## [0.9.0] - 2025-01-30
 ### Added
 - Enhanced Internet Connectivity Monitoring
