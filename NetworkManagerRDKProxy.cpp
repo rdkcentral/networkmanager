@@ -675,14 +675,24 @@ namespace WPEFramework
                             {
                                 NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
                                 ReportActiveInterfaceChange(iface.name, iface.name);
-                                std::string ipversion = {};
-                                Exchange::INetworkManager::IPAddress addr;
-                                rc = GetIPSettings(iface.name, ipversion, addr);
+                                Exchange::INetworkManager::IPAddress addrv4;
+                                Exchange::INetworkManager::IPAddress addrv6;
+                                std::string ipversion = "IPv4";
+                                rc = GetIPSettings(iface.name, ipversion, addrv4);
                                 if (Core::ERROR_NONE == rc)
                                 {
-                                    if(!addr.ipaddress.empty()) {
-                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
-                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    if(!addrv4.ipaddress.empty()) {
+                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv4.ipaddress.c_str());
+                                        ReportIPAddressChange(iface.name, addrv4.ipversion, addrv4.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    }
+                                }
+                                ipversion = "IPv6";
+                                rc = GetIPSettings(iface.name, ipversion, addrv6);
+                                if (Core::ERROR_NONE == rc)
+                                {
+                                    if(!addrv6.ipaddress.empty()) {
+                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv6.ipaddress.c_str());
+                                        ReportIPAddressChange(iface.name, addrv6.ipversion, addrv6.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
                                     }
                                 }
                             }
