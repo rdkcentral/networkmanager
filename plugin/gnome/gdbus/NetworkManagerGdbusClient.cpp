@@ -33,7 +33,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-
+        extern NetworkManagerImplementation* _instance;
         NetworkManagerClient::NetworkManagerClient() {
             NMLOG_INFO("NetworkManagerClient");
         }
@@ -541,11 +541,25 @@ namespace WPEFramework
             return true;
         }
 
+        bool NetworkManagerClient::getDefaultInterface(std::string& interface)
+        {
+            deviceInfo devInfo{};
+            std::string wifiname = GnomeUtils::getWifiIfname(), ethname = GnomeUtils::getEthIfname();
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, ethname.c_str(), devInfo))
+                return false;
+            if(devInfo.state > NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_DEACTIVATING)
+                interface = ethname;
+            else
+                interface = wifiname; // default is wifi
+            return true;
+        }
+
         bool NetworkManagerClient::getPrimaryInterface(std::string& interface)
         {
             GError* error = nullptr;
             std::string primaryConnectionPath;
             GDBusProxy *nmProxy = nullptr;
+
             nmProxy = m_dbus.getNetworkManagerPropertyProxy("/org/freedesktop/NetworkManager");
             if(nmProxy == nullptr)
                 return false;
@@ -753,7 +767,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool NetworkManagerClient::getIPSettings(const std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result)
+        bool NetworkManagerClient::getIPSettings(std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result)
         {
             std::string devicePath;
             std::string addressStr;
@@ -772,12 +786,52 @@ namespace WPEFramework
             const gchar *IPv6Method = nullptr;
             deviceInfo devInfo{};
             GError *error = nullptr;
+
+            std::string wifiname = GnomeUtils::getWifiIfname(), ethname = GnomeUtils::getEthIfname();
+
+            if(interface.empty())
+            {
+                if(Core::ERROR_NONE != _instance->GetPrimaryInterface(interface))
+                {
+                    NMLOG_WARNING("default interface get failed");
+                    return true;
+                }
+                if(interface.empty())
+                {
+                    NMLOG_DEBUG("default interface return empty default is wlan0");
+                    interface = wifiname;
+                }
+            }
+            else if(wifiname != interface && ethname != interface)
+            {
+                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                return false;
+            }
+
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
+            {
+                return false;
+            }
+
+            if(devInfo.state < NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device state is not a valid state: (%d)", devInfo.state);
+                return false;
+            }
+            else if (devInfo.state >= NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_ACTIVATED)
+            {
+                result.autoconfig = true;
+                result.ipversion = ipversion;
+                return true;
+            }
+
             if(!GnomeUtils::getDeviceByIpIface(m_dbus, interface.c_str(), devicePath))
                 return false;
             GDBusProxy *deviceProxy = m_dbus.getNetworkManagerDeviceProxy(devicePath.c_str());
             if(deviceProxy == nullptr)
                 return false;
-            if (g_strcmp0(ipversion.c_str(), "IPv4") == 0)
+            if(ipversion.empty() || (g_strcmp0(ipversion.c_str(), "IPv4") == 0))
+            //if (g_strcmp0(ipversion.c_str(), "IPv4") == 0)
             {
                 GVariant *ip4Property = g_dbus_proxy_get_cached_property(deviceProxy, "Ip4Config");
                 if (ip4Property != nullptr)
@@ -895,6 +949,7 @@ namespace WPEFramework
                         if (dhcpServerIp) {
                             NMLOG_DEBUG("DHCP server IP address: %s", dhcpServerIp);
                         } else {
+                            dhcpServerIp = nullptr;
                             NMLOG_DEBUG("Failed to find DHCP server IP address");
                         }
                         if (dnsAddresses) {
@@ -920,8 +975,10 @@ namespace WPEFramework
                         g_object_unref(dhcpv4Proxy);
                     }
                 }
+                result.ipversion = "IPv4";
             }
-            else if (g_strcmp0(ipversion.c_str(), "IPv6") == 0)
+            if((addressStr.empty() && !(g_strcmp0(ipversion.c_str(), "IPv4"))) || g_strcmp0(ipversion.c_str(), "IPV6"))
+            //else if (g_strcmp0(ipversion.c_str(), "IPv6") == 0)
             {
                 GVariant *ip6Property = g_dbus_proxy_get_cached_property(deviceProxy, "Ip6Config");
                 if (ip6Property != nullptr) {
@@ -997,6 +1054,7 @@ namespace WPEFramework
                     }
                     else
                     {
+                        gatewayIp = nullptr;
                         NMLOG_ERROR("Failed to get Gateway property for IPv6");
                         g_object_unref(ipv6Proxy);
                     }
@@ -1059,6 +1117,7 @@ namespace WPEFramework
                                 NMLOG_ERROR("Failed to parse DNS addresses");
                             }
                         } else {
+                            dnsList = nullptr;
                             std::cerr << "Failed to find DNS addresses" << std::endl;
                         }
                     }
@@ -1068,6 +1127,15 @@ namespace WPEFramework
                         g_object_unref(dhcpv6Proxy);
                     }
                 }
+                result.ipversion = "IPv6";
+            }
+            else
+                NMLOG_WARNING("ipversion error IPv4/IPv6");
+            if(addressStr.empty())
+            {
+                result.autoconfig = true;
+                if(ipversion.empty())
+                    result.ipversion = "IPv4";
             }
             std::string connectionPath;
             if (!GnomeUtils::getSettingsConnectionPath(m_dbus, connectionPath, interface))
@@ -1076,13 +1144,12 @@ namespace WPEFramework
                 return false;
             }
 
-            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
-                return false;
+            /*if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
+                return false;*/
             GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsConnectionProxy(connectionPath.c_str());
 
             if (settingsProxy == nullptr) {
-                NMLOG_ERROR("Error creating connection settings proxy: %s",error->message);
-                g_error_free(error);
+                NMLOG_ERROR("Error creating connection settings proxy");
                 return false;
             }
 
@@ -1129,7 +1196,6 @@ namespace WPEFramework
                 }
             }
 
-            result.ipversion = ipversion;
             result.autoconfig = true;
             if(g_strcmp0(ipversion.c_str(), "IPv4") == 0)
                 result.autoconfig = (g_strcmp0(IPv4Method, "auto") == 0);
