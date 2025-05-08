@@ -541,11 +541,25 @@ namespace WPEFramework
             return true;
         }
 
+        bool NetworkManagerClient::getDefaultInterface(std::string& interface)
+        {
+            deviceInfo devInfo{};
+            std::string wifiname = GnomeUtils::getWifiIfname(), ethname = GnomeUtils::getEthIfname();
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, ethname.c_str(), devInfo))
+                return false;
+            if(devInfo.state > NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_DEACTIVATING)
+                interface = ethname;
+            else
+                interface = wifiname; // default is wifi
+            return true;
+        }
+
         bool NetworkManagerClient::getPrimaryInterface(std::string& interface)
         {
             GError* error = nullptr;
             std::string primaryConnectionPath;
             GDBusProxy *nmProxy = nullptr;
+
             nmProxy = m_dbus.getNetworkManagerPropertyProxy("/org/freedesktop/NetworkManager");
             if(nmProxy == nullptr)
                 return false;
@@ -753,7 +767,7 @@ namespace WPEFramework
             return true;
         }
 
-        bool NetworkManagerClient::getIPSettings(const std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result)
+        bool NetworkManagerClient::getIPSettings(std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result)
         {
             std::string devicePath;
             std::string addressStr;
@@ -772,6 +786,37 @@ namespace WPEFramework
             const gchar *IPv6Method = nullptr;
             deviceInfo devInfo{};
             GError *error = nullptr;
+
+            std::string wifiname = GnomeUtils::getWifiIfname(), ethname = GnomeUtils::getEthIfname();
+
+            if(interface.empty())
+            {
+                if(Core::ERROR_NONE != getPrimaryInterface(interface))
+                {
+                    NMLOG_WARNING("default interface get failed");
+                    return Core::ERROR_NONE;
+                }
+                if(interface.empty())
+                {
+                    NMLOG_DEBUG("default interface return empty default is wlan0");
+                    interface = wifiname;
+                }
+            }
+            else if(wifiname != interface && ethname != interface)
+            {
+                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                return Core::ERROR_GENERAL;
+            }
+
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))                                                       
+                return false;
+
+            if(devInfo.state < NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device state is not a valid state: (%d)", devInfo.state);
+                return Core::ERROR_GENERAL;
+            }
+
             if(!GnomeUtils::getDeviceByIpIface(m_dbus, interface.c_str(), devicePath))
                 return false;
             GDBusProxy *deviceProxy = m_dbus.getNetworkManagerDeviceProxy(devicePath.c_str());
