@@ -813,12 +813,12 @@ namespace WPEFramework
                 return false;
             }
 
-            if(devInfo.state < NM_DEVICE_STATE_DISCONNECTED)
+            if(devInfo.state <= NM_DEVICE_STATE_DISCONNECTED)
             {
                 NMLOG_WARNING("Device state is not a valid state: (%d)", devInfo.state);
                 return false;
             }
-            else if (devInfo.state >= NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_ACTIVATED)
+            else if (devInfo.state > NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_ACTIVATED)
             {
                 result.autoconfig = true;
                 result.ipversion = ipversion;
@@ -831,7 +831,6 @@ namespace WPEFramework
             if(deviceProxy == nullptr)
                 return false;
             if(ipversion.empty() || (g_strcmp0(ipversion.c_str(), "IPv4") == 0))
-            //if (g_strcmp0(ipversion.c_str(), "IPv4") == 0)
             {
                 GVariant *ip4Property = g_dbus_proxy_get_cached_property(deviceProxy, "Ip4Config");
                 if (ip4Property != nullptr)
@@ -977,8 +976,7 @@ namespace WPEFramework
                 }
                 result.ipversion = "IPv4";
             }
-            if((addressStr.empty() && !(g_strcmp0(ipversion.c_str(), "IPv4"))) || g_strcmp0(ipversion.c_str(), "IPV6"))
-            //else if (g_strcmp0(ipversion.c_str(), "IPv6") == 0)
+            if((addressStr.empty() && !(g_strcmp0(ipversion.c_str(), "IPv4") == 0)) || g_strcmp0(ipversion.c_str(), "IPV6") == 0)
             {
                 GVariant *ip6Property = g_dbus_proxy_get_cached_property(deviceProxy, "Ip6Config");
                 if (ip6Property != nullptr) {
@@ -1144,8 +1142,6 @@ namespace WPEFramework
                 return false;
             }
 
-            /*if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
-                return false;*/
             GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsConnectionProxy(connectionPath.c_str());
 
             if (settingsProxy == nullptr) {
