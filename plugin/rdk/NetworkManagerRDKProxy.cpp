@@ -541,9 +541,9 @@ namespace WPEFramework
                         oldInterface = e->oldInterface;
                         newInterface = e->newInterface;
                         NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE %s :: %s..", oldInterface.c_str(), newInterface.c_str());
-                        if(oldInterface != "eth0" || oldInterface != "wlan0")
+                        if(oldInterface != "eth0" && oldInterface != "wlan0")
                             oldInterface = ""; /* assigning "null" if the interface is not eth0 or wlan0 */
-                        if(newInterface != "eth0" || newInterface != "wlan0")
+                        if(newInterface != "eth0" && newInterface != "wlan0")
                             newInterface = ""; /* assigning "null" if the interface is not eth0 or wlan0 */
 
                         ::_instance->ReportActiveInterfaceChange(oldInterface, newInterface);
