@@ -623,10 +623,15 @@ namespace WPEFramework
             return true;
         }
 
+        /* 
+         * activateKnownWifiConnection activate the known wifi connection
+         * if parameter is empty then it will activate the first connection
+         */
         bool wifiManager::activateKnownWifiConnection(std::string knownssid)
         {
             const GPtrArray *wifiConnections = NULL;
-            NMConnection *m_connection = NULL;
+            NMConnection *knownConnection = NULL;
+            NMConnection *firstConnection = NULL;
             const char* specificObjPath = "/";
 
             if(!createClientNewConnection())
@@ -640,13 +645,6 @@ namespace WPEFramework
             }
 
             nm_device_set_autoconnect(m_wifidevice, true); // set autoconnect true
-
-            if(knownssid.empty())
-            {
-                NMLOG_WARNING("ssid not specified !");
-                deleteClientConnection();
-                return false;
-            }
 
             wifiConnections = nm_device_get_available_connections(m_wifidevice);
             if(wifiConnections == NULL)
@@ -663,13 +661,20 @@ namespace WPEFramework
                     continue;
 
                 const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                if(connId != NULL) {
+                    NMLOG_DEBUG("wifi conn : %s", connId);
+                    if(firstConnection == NULL)
+                        firstConnection = connection;
+                }
+                else
+                    NMLOG_WARNING("wifi connection id is NULL");
                 if (connId != NULL && strcmp(connId, knownssid.c_str()) == 0)
                 {
-                    m_connection = g_object_ref(connection);
+                    knownConnection = g_object_ref(connection);
                     NMLOG_DEBUG("connection '%s' exists !", knownssid.c_str());
-                    if (m_connection == NULL)
+                    if (knownConnection == NULL)
                     {
-                        NMLOG_ERROR("m_connection == NULL smothing went worng");
+                        NMLOG_ERROR("knownConnection == NULL smothing went worng");
                         deleteClientConnection();
                         return false;
                     }
@@ -677,12 +682,19 @@ namespace WPEFramework
                 }
             }
 
+            // if no connection found then try activate first connection form connection list
+            if(knownConnection == NULL && firstConnection != NULL)
+            {
+                NMLOG_INFO("No known connection found, using first wifi connection");
+                knownConnection = g_object_ref(firstConnection);
+            }
+
             m_isSuccess = false;
-            if (m_connection != NULL && NM_IS_REMOTE_CONNECTION(m_connection))
+            if (knownConnection != NULL && NM_IS_REMOTE_CONNECTION(knownConnection))
             {
                 NMLOG_INFO("activating known wifi '%s' connection", knownssid.c_str());
                 m_createNewConnection = false; // no need to create new connection
-                nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, specificObjPath, NULL, wifiConnectCb, this);
+                nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), m_wifidevice, specificObjPath, NULL, wifiConnectCb, this);
                 wait(m_loop);
             }
             else
@@ -1576,14 +1588,24 @@ namespace WPEFramework
                     deleteClientConnection();
                     return true;
                 }
-
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
+                    // Disconnect the device if it is connected before disabling to remove ip form the interface
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
-                    sleep(1); // to remove the connection
+                    int retry = 10;
+                    NMDeviceState devState = nm_device_get_state(device);
+                    while (devState > NM_DEVICE_STATE_DISCONNECTED && retry-- > 0)
+                    {
+                        sleep(1);
+                        devState = nm_device_get_state(device);
+                        NMLOG_INFO("Waiting for device to be disconnected , %d", devState);
+                        if(devState <= NM_DEVICE_STATE_DISCONNECTED)
+                            break;
+                    }
                 }
             }
-
+            // Set the "Managed" property to enable/disable the device
+            m_isSuccess = false;
             const char *objectPath = nm_object_get_path(NM_OBJECT(device));
             GVariant *value = g_variant_new_boolean(enabled);
 
@@ -1591,6 +1613,16 @@ namespace WPEFramework
                                                                     value, -1, nullptr, deviceManagedCb, this);
             wait(m_loop);
             deleteClientConnection();
+
+            if(m_isSuccess)
+            {
+                // set persistent marker file for specific interface
+                if(interface == nmUtils::ethIface())
+                    nmUtils::setMarkerFile("ethernet.interface.disable", enabled);
+                else // wifi
+                    nmUtils::setMarkerFile("wifi.interface.disable", enabled);
+            }
+
             return m_isSuccess;
         }
 

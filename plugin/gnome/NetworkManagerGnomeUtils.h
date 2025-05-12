@@ -42,6 +42,8 @@ namespace WPEFramework
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static bool setNetworkManagerlogLevelToTrace();
+               static void setMarkerFile(const char* filename, bool unmark = false);
+               static bool isInterfaceAllowed(const std::string& interface);
         };
     }
 }
