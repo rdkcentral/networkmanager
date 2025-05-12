@@ -253,6 +253,11 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
+            if(enabled && _instance != nullptr && wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
+            {
+                NMLOG_INFO("activating last connected ssid !");
+            }
+
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
             return Core::ERROR_NONE;
         }
