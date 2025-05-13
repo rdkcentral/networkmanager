@@ -27,14 +27,12 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusClient.h"
 #include "NetworkManagerGdbusUtils.h"
-#include "NetworkManagerImplementation.h"
 
 namespace WPEFramework
 {
     namespace Plugin
     {
-        extern NetworkManagerImplementation* _instance;
-        NetworkManagerClient::NetworkManagerClient() {
+        NetworkManagerClient::NetworkManagerClient(NetworkManagerImplementation* implInstance) : NMImpInstance(implInstance) {
             NMLOG_INFO("NetworkManagerClient");
         }
 
@@ -791,7 +789,7 @@ namespace WPEFramework
 
             if(interface.empty())
             {
-                if(Core::ERROR_NONE != _instance->GetPrimaryInterface(interface))
+                if(Core::ERROR_NONE != NMImpInstance->GetPrimaryInterface(interface))
                 {
                     NMLOG_WARNING("default interface get failed");
                     return true;

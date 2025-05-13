@@ -26,6 +26,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusMgr.h"
 #include "NetworkManagerSecretAgent.h"
+#include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
 
 #define GDBUS_WPS_RETRY_WAIT_IN_MS        10 // 10 sec
@@ -38,13 +39,16 @@ namespace WPEFramework
 
         class NetworkManagerClient
         {
+            private:
+                NetworkManagerImplementation* NMImpInstance;
             public:
-                static NetworkManagerClient* getInstance()
+                static NetworkManagerClient* getInstance(NetworkManagerImplementation* implInstance)
                 {
-                    static NetworkManagerClient instance;
+                    static NetworkManagerClient instance(implInstance);
                     return &instance;
                 }
 
+                NetworkManagerClient(NetworkManagerImplementation* implInstance);
                 NetworkManagerClient(const NetworkManagerClient&) = delete;
                 NetworkManagerClient& operator=(const NetworkManagerClient&) = delete;
 
