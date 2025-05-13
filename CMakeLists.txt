@@ -150,8 +150,9 @@ endif()
 
 target_link_libraries(${MODULE_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
-target_link_libraries(${MODULE_NAME} PRIVATE "-lnfrtoolCore")
-target_include_directories(${MODULE_NAME} PRIVATE /usr/include/nfr) 
+
+target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${NFRTOOL_INCLUDE_DIRS})
+target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${NFRTOOL_LIBRARIES})
 
 if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
