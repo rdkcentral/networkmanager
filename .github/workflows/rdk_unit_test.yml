@@ -2,9 +2,9 @@ name: rdk_unit_test
 
 on:
   push:
-    branches: [ main, develop, 'release/**']
+    branches: [ main, develop, 'release/**', 'hotfix/**', 'feature/**'] 
   pull_request:
-    branches: [ main, develop, 'release/**']
+    branches: [ main, develop, 'release/**', 'hotfix/**', 'feature/**'] 
 
 env:
   THUNDER_REF: "R4.4.1"
@@ -18,7 +18,7 @@ jobs:
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-1 libgupnp-1.2-dev libgssdp-1.2-0 libsoup2.4-1
 
       - name: Configure Python
         uses: actions/setup-python@v4
@@ -44,7 +44,7 @@ jobs:
       - name: Apply Thunder Patches
         run: |
           cd ${{github.workspace}}/Thunder
-          git apply ${{github.workspace}}/networkmanager/Tests/patches/thunder/Remove-SmartLinkType.patch
+          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/Remove-SmartLinkType.patch
 
       - name: Build ThunderTools
         run: >
@@ -73,7 +73,7 @@ jobs:
             touch install/usr/lib/libIARMBus.so 
             mkdir -p install/usr/include/rdk/iarmbus
             touch install/usr/include/rdk/iarmbus/libIARM.h
-            cd "${{github.workspace}}/networkmanager/Tests/"
+            cd "${{github.workspace}}/networkmanager/tests/"
             mkdir -p headers/rdk/iarmbus
             cd headers
             touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
@@ -87,11 +87,12 @@ jobs:
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           -DCMAKE_CXX_FLAGS="
-          -I ${{github.workspace}}/networkmanager/Tests/headers
-          -I ${{github.workspace}}/networkmanager/Tests/headers/rdk/iarmbus
-          --include ${{github.workspace}}/networkmanager/Tests/mocks/Iarm.h
+          -I ${{github.workspace}}/networkmanager/tests/headers
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
+          --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           "
           -DENABLE_UNIT_TESTING=ON
+          -DENABLE_ROUTER_DISCOVERY_TOOL=ON
           &&
           cmake --build build/RDKNetworkmanager --target install -j8
           
@@ -118,13 +119,17 @@ jobs:
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           legacynetwork_tests
-          
+
+      - name: Run unit tests for routerDiscovery
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          routerDiscovery_tests
           
       - name: Generate coverage
         run: |
             lcov -c -o coverage.info -d build/RDKNetworkmanager
             lcov -r coverage.info '/usr/include/*' '*/build/RDKNetworkmanager/*' \
-                                  '*/install/usr/include/*' '*/Tests/*' 'googlemock/*' 'googletest/*' \
+                                  '*/install/usr/include/*' '*/tests/*' 'googlemock/*' 'googletest/*' \
                                   -o filtered_coverage.info
       - name: Generate the html report
         run: |
