@@ -53,8 +53,9 @@ namespace WPEFramework
                 bool setInterfaceState(const std::string& interface, bool enable);
                 bool setIPSettings(const std::string& interface, const Exchange::INetworkManager::IPAddress& address);
                 bool getPrimaryInterface(std::string& interface);
+                bool getDefaultInterface(std::string& interface);
                 bool getInterfaceState(const std::string& interface, bool& isEnabled);
-                bool getIPSettings(const std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result);
+                bool getIPSettings(std::string& interface, const std::string& ipversion, Exchange::INetworkManager::IPAddress& result);
                 bool getKnownSSIDs(std::list<std::string>& ssids);
                 bool getConnectedSSID(Exchange::INetworkManager::WiFiSSIDInfo& ssidinfo);
                 bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
