@@ -394,6 +394,35 @@ namespace WPEFramework
 	    }
     }
 
+static void onConnectivityChanged(NMClient *client, GParamSpec *pspec, gpointer user_data)
+{
+    
+    NMConnectivityState state = nm_client_get_connectivity(client);
+
+    switch (state) {
+        case NM_CONNECTIVITY_FULL:
+            NMLOG_INFO("[Connectivity] Full internet access\n");
+            break;
+
+        case NM_CONNECTIVITY_LIMITED:
+            NMLOG_INFO("[Connectivity] Limited connectivity (local network only)\n");
+            break;
+
+        case NM_CONNECTIVITY_PORTAL:
+            NMLOG_INFO("[Connectivity] Captive portal detected\n");
+            break;
+
+        case NM_CONNECTIVITY_NONE:
+            NMLOG_INFO("[Connectivity] No connectivity\n");
+            break;
+
+        case NM_CONNECTIVITY_UNKNOWN:
+        default:
+            NMLOG_INFO("[Connectivity] Unknown\n");
+            break;
+    }
+}    
+
     static void managerRunningCb (NMClient *client, GParamSpec *pspec, gpointer user_data)
     {
         if (nm_client_get_nm_running (client)) {
@@ -417,6 +446,7 @@ namespace WPEFramework
         g_signal_connect (nmEvents->client, "notify::" NM_CLIENT_NM_RUNNING,G_CALLBACK (managerRunningCb), nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_PRIMARY_CONNECTION, G_CALLBACK(primaryConnectionCb), nmEvents);
+	g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_CONNECTIVITY, G_CALLBACK(ConnectivityChangedcb), nmEvents);
 
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
