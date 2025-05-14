@@ -571,7 +571,7 @@ namespace WPEFramework
                 string guid{};
                 string ipversion{"IPv4"};
                 uint32_t noOfRequest = 3;
-                uint16_t timeOutInSeconds = 5;
+                uint16_t timeOutInSeconds = 3;
 
                 endpoint = parameters["endpoint"].String();
 
