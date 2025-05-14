@@ -1543,6 +1543,7 @@ namespace WPEFramework
         bool wifiManager::setPrimaryInterface(const string interface)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
+            gboolean result;
             GError *error = NULL;
             std::string otherInterface;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
@@ -1550,7 +1551,6 @@ namespace WPEFramework
             if (!createClientNewConnection())                                                                                     return false;
                                                                                                                               if(interface.empty() || (wifiname != interface && ethname != interface))
             {                                                                                                                     NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
-                deleteClientConnection();
                 return false;                                                                                                 }
             otherInterface = (interface == wifiname)?ethname:wifiname;
 
@@ -1558,7 +1558,6 @@ namespace WPEFramework
             const GPtrArray* activeConnections = nm_client_get_active_connections(m_client);
             if (!activeConnections) {
                 NMLOG_ERROR("Failed to retrieve active connections");
-                deleteClientConnection();
                 return false;
             }
             for (guint i = 0; i < activeConnections->len; i++)
@@ -1596,7 +1595,6 @@ namespace WPEFramework
                             }
                             else                                                                                                              {
                                 NMLOG_ERROR("Failed to commit changes to the remote connection (unknown error).");                            }
-                            deleteClientConnection();
                             return false;
                         }
                         if (activeConnection != NULL)
@@ -1608,7 +1606,6 @@ namespace WPEFramework
                             {
                                 NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
                                 g_clear_error(&deactivate_error);
-                                deleteClientConnection();
                                 return false;
                             }
                         }
@@ -1617,7 +1614,6 @@ namespace WPEFramework
                 }
             }
             wait(m_loop);
-            deleteClientConnection();
             return rc;
         }	
     } // namespace Plugin
