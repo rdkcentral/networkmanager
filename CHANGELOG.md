@@ -14,6 +14,51 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.17.0] - 2025-05-02
+### Fixed
+- Fixed the memory leak in Gnome-libnm port of the plugin.
+
+## [0.16.0] - 2025-05-01
+### Fixed
+- Fixed the deregistration of Security Agent upon one successful WPS Connect.
+- JSONRPC response for Ping in the legacy plugin is addressed
+
+## [0.15.0] - 2025-04-24
+### Fixed
+- Implemented a CLI tool to test the plugin independently
+- Implemented Retry logic to register with IARM upon failure for RDK Backend
+- Fixed the memory leak that was observed in Gnome backend when connecting to SSID
+- Fixed the events published upon WPS successful connects and failures.
+- Fixed the WiFiConnect call with empty param from the legacy plugin
+
+## [0.14.0] - 2025-04-18
+### Added
+- Process Monitoring for the out-of-process plugin added
+- Added support Enable/Disable Logs to the Gnome NetworkManager daemon
+- Fixed publishing of INTERNET Thunder Subsystem.
+- Fixed the Memory Leak from the Scanned SSID names
+- Fixed Set/Get Primary interface when both Ethernet and WiFi connected.
+
+## [0.13.0] - 2025-04-07
+### Changed
+- Changed the out-of-process name
+- Changed the WIFIConnect API scan & connect if the scan-result is empty
+- Changed the GetIPSettings API to check the ipversion passed, and if empty, return IPv4 when available other IPv6.
+- Fixed the GetAvailableInterfaces to return only the interfaces that are defined in device.properties
+- Enable DEBUG to NetworkManager Gnome daemon when SetLogLevel called with DEBUG.
+
+## [0.12.0] - 2025-03-31
+### Added
+- The file and folder structure of NetworkManager repo is re-organized
+- Implemented a separate library for out-of-process plugin
+- Implemented GDbus based APIs for all the NetworkManager APIs
+- Implemented a Router Discovery tool
+- Changed the approach to identify Open SSIDs
+- Added INFO logging for the discovered SSIDs and the security methods discovered.
+- Fixed Invalid Timeout in Connectivity Monitoring
+- Fixed WiFiConnect Failure for previously saved SSID
+- Fixed the missing Events on WPS Connect failure
+
 ## [0.11.0] - 2025-03-07
 ### Added
 - Implemented concurrent interface support in public APIs
@@ -35,7 +80,7 @@ All notable changes to this RDK Service will be documented in this file.
 ### Added
 - Enhanced Internet Connectivity Monitoring
 - Redefined the security modes
-- Removed explict API to start/stop connectivity monitoring
+- Removed explicit API to start/stop connectivity monitoring
 - Added retriveSSID method for migration ready
 - Implemented initial code for gdbus based methods to communicate with NetworkManager
 - Fixed Coverity Issues
@@ -118,3 +163,4 @@ All notable changes to this RDK Service will be documented in this file.
 ## [0.1.0] - 2024-03-28
 ### Added
 - Added NetworkManager plugin. A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.
+
