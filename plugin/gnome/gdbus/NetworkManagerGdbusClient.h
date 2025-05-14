@@ -28,8 +28,6 @@
 #include "NetworkManagerSecretAgent.h"
 #include "INetworkManager.h"
 
-#define ROUTE_METRIC_PRIORITY_HIGH 10
-#define ROUTE_METRIC_PRIORITY_LOW  100
 #define GDBUS_WPS_RETRY_WAIT_IN_MS        10 // 10 sec
 #define GDBUS_WPS_RETRY_COUNT             10
 

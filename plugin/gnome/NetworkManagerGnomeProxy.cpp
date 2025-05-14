@@ -196,78 +196,9 @@ namespace WPEFramework
         /* @brief Set the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            gboolean result;
-            GError *error = NULL;
-            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
-
-            if(client == nullptr)
-            {
-                NMLOG_WARNING("client connection null:");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
-            if(interface.empty() || (wifiname != interface && ethname != interface))
-            {
-                NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
-                return Core::ERROR_GENERAL;
-            }
-
-            NMDevice *device = nm_client_get_device_by_iface(client, interface.c_str());
-            if (device == NULL) {
-                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
-                return Core::ERROR_GENERAL;
-            }
-
-            const GPtrArray *connections = nm_client_get_connections(client);
-            NMConnection *conn = NULL;
-            NMSettingConnection *settings;
-            NMRemoteConnection *remoteConnection;
-            for (guint i = 0; i < connections->len; i++) {
-                NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
-                settings = nm_connection_get_setting_connection(connection);
-
-                /* Check if the interface name matches */
-                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0) {
-                    conn = connection;
-                    break;
-                }
-            }
-            if(conn == NULL)
-            {
-                NMLOG_WARNING("no nm setting available for the interface");
-                return Core::ERROR_GENERAL;
-            }
-            g_object_set(settings,
-                    NM_SETTING_CONNECTION_AUTOCONNECT,
-                    true,
-                    NM_SETTING_CONNECTION_AUTOCONNECT_PRIORITY,
-                    NM_SETTING_CONNECTION_AUTOCONNECT_PRIORITY_MAX,
-                    NULL);
-            const char *uuid = nm_connection_get_uuid(conn);
-            remoteConnection = nm_client_get_connection_by_uuid(client, uuid);
-            if (!remoteConnection)
-            {
-                NMLOG_ERROR("Failed to get remote connection");
-                return rc;
-            }
-            result = nm_remote_connection_commit_changes(remoteConnection, false, NULL, &error);
-            if (result)
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->setPrimaryInterface(interface))
                 rc = Core::ERROR_NONE;
-            else
-            {
-                if (error)
-                {
-                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
-                    g_error_free(error);
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to commit changes: unknown error");
-                }
-                rc = Core::ERROR_GENERAL;
-            }
-
             return rc;
         }
 
