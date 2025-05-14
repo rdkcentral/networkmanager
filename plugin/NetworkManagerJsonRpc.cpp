@@ -565,13 +565,12 @@ namespace WPEFramework
             string result{};
             string endpoint{};
             uint32_t rc = Core::ERROR_GENERAL;
-            LOG_INPARAM();
             if (parameters.HasLabel("endpoint"))
             {
                 string guid{};
                 string ipversion{"IPv4"};
                 uint32_t noOfRequest = 3;
-                uint16_t timeOutInSeconds = 5;
+                uint16_t timeOutInSeconds = 3;
 
                 endpoint = parameters["endpoint"].String();
 
@@ -599,6 +598,7 @@ namespace WPEFramework
                 reply.FromString(result);
                 response = reply;
             }
+            LOG_OUTPARAM();
             return rc;
         }
 
