@@ -1074,9 +1074,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         	        uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
         	        if(!interface.empty() && rc == Core::ERROR_NONE)
 			{
-            	    	    nfr::Tool tool;
                 	    string userHosts = "connectivity.comcast.com";
-                	    int result = tool.run_nfrtool(interface, userHosts);
+                	    int result = run_nfrtool(interface, userHosts);
 
 	                    if (result != 0) {
                     		NMLOG_ERROR("Failed to run_nfrtool with interface %s", interface.c_str());
