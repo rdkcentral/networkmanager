@@ -37,6 +37,8 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
+find_package(NFRTool REQUIRED)
+
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
@@ -69,6 +71,9 @@ target_link_libraries(${PLUGIN_LEGACY_WIFI}  PRIVATE ${NAMESPACE}Core::${NAMESPA
 if (USE_RDK_LOGGER)
     target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
+
+target_include_directories(${PLUGIN_LEGACY_NETWORK} PRIVATE ${NFRTOOL_INCLUDE_DIRS})
+target_link_libraries(${PLUGIN_LEGACY_NETWORK} PRIVATE ${NFRTOOL_LIBRARIES})
 
 set_target_properties(${PLUGIN_LEGACY_WIFI} PROPERTIES
                                         CXX_STANDARD 11

@@ -19,6 +19,7 @@
 #include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include "NFRAPI.h"
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -1060,6 +1061,35 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             legacyParams["status"] = parameters["status"];
             legacyParams.ToString(json);
 
+            //Invoking NFRTool when Internet status "NO_INETERNET"
+	    if(parameters["status"].String() == "NO_INTERNET")
+	    {
+    		NMLOG_DEBUG("NO_INTERNET status detected, preparing to invoke NFRTool.");
+                std::thread([this]()
+		{
+    		    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+    		    if(_nwmgr)
+		    {
+        	        string interface;
+        	        uint32_t rc =  _nwmgr->GetPrimaryInterface(interface);
+        	        if(!interface.empty() && rc == Core::ERROR_NONE)
+			{
+                	    string userHosts = "connectivity.comcast.com";
+                	    int result = run_nfrtool(interface, userHosts);
+
+	                    if (result != 0) {
+                    		NMLOG_ERROR("Failed to run_nfrtool with interface %s", interface.c_str());
+                	    } else {
+                    		NMLOG_INFO("NFRTool invoked successfully for interface %s", interface.c_str());
+                	    }
+        	        }
+			else
+			{
+            	            NMLOG_WARNING("Primary interface value is empty. Skipping setting environment variable.");
+        	        }
+    	 	    }	
+   		}).detach();
+	    }
             NMLOG_INFO("Posting onInternetStatusChanged as, %s", json.c_str());
             Notify("onInternetStatusChange", legacyParams);
             return;
