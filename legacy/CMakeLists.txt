@@ -37,6 +37,8 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
+find_package(NFRTool REQUIRED)
+
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
