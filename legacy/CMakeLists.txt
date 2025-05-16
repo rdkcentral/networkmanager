@@ -72,8 +72,8 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
 
-target_include_directories(${PLUGIN_LEGACY_WIFI} PRIVATE ${NFRTOOL_INCLUDE_DIRS})
-target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${NFRTOOL_LIBRARIES})
+target_include_directories(${PLUGIN_LEGACY_NETWORK} PRIVATE ${NFRTOOL_INCLUDE_DIRS})
+target_link_libraries(${PLUGIN_LEGACY_NETWORK} PRIVATE ${NFRTOOL_LIBRARIES})
 
 set_target_properties(${PLUGIN_LEGACY_WIFI} PROPERTIES
                                         CXX_STANDARD 11
