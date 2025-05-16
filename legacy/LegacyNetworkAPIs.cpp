@@ -19,7 +19,7 @@
 #include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
-#include "Tool.h"
+#include "NFRAPI.h"
 
 using namespace std;
 using namespace WPEFramework::Plugin;
