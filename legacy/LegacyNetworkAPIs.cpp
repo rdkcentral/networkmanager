@@ -1062,6 +1062,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             legacyParams.ToString(json);
 
             //Invoking NFRTool when Internet status "NO_INETERNET"
+	    NMLOG_DEBUG("NFRTOOL Checking status: %s", parameters["status"].String().c_str());
 	    if(parameters["status"].String() == "NO_INTERNET")
 	    {
     		NMLOG_DEBUG("NO_INTERNET status detected, preparing to invoke NFRTool.");
