@@ -433,7 +433,7 @@ namespace WPEFramework
                 if((ifname == nmUtils::ethIface()) || (ifname == nmUtils::wlanIface()))
                 {
                     NMDeviceState devState =  nm_device_get_state(device);
-                    // NM_DEVICE_STATE_UNAVAILABLE will came for ethernet interface if disconnected
+                    // NM_DEVICE_STATE_UNAVAILABLE can occur for an Ethernet interface when it is disconnected (e.g., no cable connected).
                     bool isDeviceEnabled = devState >= NM_DEVICE_STATE_UNAVAILABLE && devState <= NM_DEVICE_STATE_ACTIVATED;
                     if(!isDeviceEnabled)
                     {

@@ -285,7 +285,7 @@ namespace WPEFramework
         void nmUtils::setMarkerFile(const char* filename, bool unmark)
         {
             char fqn[64];
-            snprintf(fqn, sizeof(fqn), "/opt/persistent/%s", filename);
+            snprintf(fqn, sizeof(fqn), "%s", filename);
             if (unmark)
             {
                  if (remove(fqn) != 0) {
@@ -298,19 +298,19 @@ namespace WPEFramework
                 if (fp != NULL) {
                     fclose(fp);
                 } else {
-                    NMLOG_ERROR("Failed to open marker file");
+                    NMLOG_ERROR("Failed to open marker file %s", fqn);
                 }
             }
         }
 
-        bool nmUtils::isInterfaceAllowed(const std::string& interface)
+        bool nmUtils::isInterfaceEnabled(const std::string& interface)
         {
             std::string markerFile;
             if (interface == nmUtils::ethIface()) {
-                markerFile = "/opt/persistent/ethernet.interface.disable";
+                markerFile = EthernetDisableMarker;
             }
             else if (interface == nmUtils::wlanIface()) {
-                markerFile = "/opt/persistent/wifi.interface.disable";
+                markerFile = WiFiDisableMarker;
             }
             else {
                 NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
@@ -318,7 +318,7 @@ namespace WPEFramework
             }
 
             bool isAllowed = (access(markerFile.c_str(), F_OK) != 0);
-            NMLOG_DEBUG("isInterfaceAllowed %s: %s", interface.c_str(), isAllowed ? "true" : "false");
+            NMLOG_DEBUG("isInterfaceEnabled %s: %s", interface.c_str(), isAllowed ? "true" : "false");
             return isAllowed;
         }
 

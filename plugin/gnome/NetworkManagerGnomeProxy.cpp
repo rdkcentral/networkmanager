@@ -20,6 +20,7 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
+#include <gio/gio.h>  // for g_main_context_iteration()
 #include <fstream>
 #include <sstream>
 
@@ -72,15 +73,15 @@ namespace WPEFramework
             nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
-        static void disableInterfaceIfPersistentConfigExists(NMClient *client)
+        static void disableBlockedInterfaces(NMClient *client)
         {
-           if(client == nullptr) {
+            if(client == nullptr) {
                 NMLOG_FATAL("client connection null:");
                 return;
             }
 
-            bool disableEth = !nmUtils::isInterfaceAllowed(nmUtils::ethIface());
-            bool disableWlan = !nmUtils::isInterfaceAllowed(nmUtils::wlanIface());
+            bool disableEth = !nmUtils::isInterfaceEnabled(nmUtils::ethIface());
+            bool disableWlan = !nmUtils::isInterfaceEnabled(nmUtils::wlanIface());
 
             if(disableEth || disableWlan)
             {
@@ -96,45 +97,60 @@ namespace WPEFramework
                     NMDevice *device = NM_DEVICE(devices->pdata[j]);
                     if(device == NULL)
                         continue;
-                    const char* ifacePtr =  nm_device_get_iface(device);
+
+                    const char* ifacePtr = nm_device_get_iface(device);
                     if(ifacePtr == nullptr)
                         continue;
+
                     std::string ifaceStr = ifacePtr;
-                    if((nmUtils::ethIface() == ifaceStr && disableEth) || (nmUtils::wlanIface() == ifaceStr && disableWlan))
+
+                    if ((nmUtils::ethIface() == ifaceStr && disableEth) ||
+                        (nmUtils::wlanIface() == ifaceStr && disableWlan))
                     {
-                        if(nmUtils::ethIface() == ifaceStr) {
+                        if (nmUtils::ethIface() == ifaceStr) {
                             NMLOG_WARNING("Disabling ethernet interface ..");
                             disableEth = false;
-                        }
-                        else {
+                        } else {
                             NMLOG_WARNING("Disabling wifi interface ..");
                             disableWlan = false;
                         }
-
-                        // disconnect device to remove ip form interface
-                        // we can't set device unmanaged directly if it is connected
-                        // so first disconnect and then set unmanaged
-                        nm_device_disconnect(device, NULL,  &error);
+                        // Disconnect the device before setting it to unmanaged.
+                        // This ensures that NetworkManager cleanly removes any IP addresses, routes,
+                        // and DNS configuration associated with the interface. Setting an interface
+                        // to unmanaged without disconnecting first may leave residual configuration
+                        // that can cause networking issues.
+                        nm_device_disconnect(device, NULL, &error);
                         if (error) {
                             NMLOG_ERROR("disconnect connection failed %s", error->message);
                             g_error_free(error);
                         }
 
-                        int retry = 10;
-                        NMDeviceState devState = nm_device_get_state(device);
-                        while (devState > NM_DEVICE_STATE_DISCONNECTED && retry-- > 0)
-                        {
-                            sleep(1);
-                            devState = nm_device_get_state(device);
-                            NMLOG_WARNING("Waiting for device to be disconnected , %d", devState);
-                            if(devState <= NM_DEVICE_STATE_DISCONNECTED)
+                        // Wait until device is truly disconnected
+                        int retry = 50; // 10 seconds
+                        NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                        while (retry-- > 0) {
+                            // Force glib event processing to update state
+                            while (g_main_context_iteration(NULL, FALSE));
+
+                            NMDeviceState devState = nm_device_get_state(device);
+                            if(oldDevState != devState)
+                            {
+                                oldDevState = devState;
+                                NMLOG_WARNING("Device state: %d", devState);
+                            }
+
+                            if (devState <= NM_DEVICE_STATE_DISCONNECTED)
                                 break;
+
+                            g_usleep(200 * 1000);  // 200ms (much faster response)
                         }
 
-                        nm_device_set_managed (device, false);
+                        // Finally set unmanaged
+                        nm_device_set_managed(device, false);
                     }
                 }
-                sleep(1); // wait for few seconds to disable interface
+
+                g_usleep(500 * 1000); // Slight delay to let NetworkManager catch up
             }
             else
             {
@@ -156,7 +172,7 @@ namespace WPEFramework
             }
 
             nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
-            disableInterfaceIfPersistentConfigExists(client); // disable interface if persistent marker file exists
+            disableBlockedInterfaces(client); // disable interface if persistent marker file exists
 
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
@@ -326,12 +342,22 @@ namespace WPEFramework
             }
 
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
-            if(enabled == true && nmUtils::wlanIface() == interface && _instance != nullptr)
+            if(enabled)
             {
                 sleep(1); // wait for 1 sec to change the device state
-                NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
-                wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID);
+                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                {
+                    NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
+                    wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
+                }
+                else if(interface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+                    // default wired connection name is 'Wired connection 1'
+                    wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
+                }
             }
+
             return Core::ERROR_NONE;
         }
 
@@ -722,7 +748,7 @@ namespace WPEFramework
             if(ssid.ssid.empty() && _instance != NULL)
             {
                 NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                if(wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
+                if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
             else if(ssid.ssid.size() < 32)
