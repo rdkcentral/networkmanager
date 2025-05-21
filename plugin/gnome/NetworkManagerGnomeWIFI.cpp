@@ -623,10 +623,6 @@ namespace WPEFramework
             return true;
         }
 
-        /* 
-         * activateKnownWifiConnection activate the known wifi connection
-         * if parameter is empty then it will activate the first connection
-         */
         bool wifiManager::activateKnownConnection(std::string iface, std::string knowConnectionID)
         {
             const GPtrArray *devConnections = NULL;

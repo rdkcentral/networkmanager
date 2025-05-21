@@ -20,7 +20,6 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
-#include <gio/gio.h>  // for g_main_context_iteration()
 #include <fstream>
 #include <sstream>
 
@@ -73,91 +72,6 @@ namespace WPEFramework
             nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
-        static void disableBlockedInterfaces(NMClient *client)
-        {
-            if(client == nullptr) {
-                NMLOG_FATAL("client connection null:");
-                return;
-            }
-
-            bool disableEth = !nmUtils::isInterfaceEnabled(nmUtils::ethIface());
-            bool disableWlan = !nmUtils::isInterfaceEnabled(nmUtils::wlanIface());
-
-            if(disableEth || disableWlan)
-            {
-                GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
-                if (devices == NULL) {
-                    NMLOG_ERROR("Failed to get device list.");
-                    return;
-                }
-
-                for (guint j = 0; j < devices->len; j++)
-                {
-                    GError *error = NULL;
-                    NMDevice *device = NM_DEVICE(devices->pdata[j]);
-                    if(device == NULL)
-                        continue;
-
-                    const char* ifacePtr = nm_device_get_iface(device);
-                    if(ifacePtr == nullptr)
-                        continue;
-
-                    std::string ifaceStr = ifacePtr;
-
-                    if ((nmUtils::ethIface() == ifaceStr && disableEth) ||
-                        (nmUtils::wlanIface() == ifaceStr && disableWlan))
-                    {
-                        if (nmUtils::ethIface() == ifaceStr) {
-                            NMLOG_WARNING("Disabling ethernet interface ..");
-                            disableEth = false;
-                        } else {
-                            NMLOG_WARNING("Disabling wifi interface ..");
-                            disableWlan = false;
-                        }
-                        // Disconnect the device before setting it to unmanaged.
-                        // This ensures that NetworkManager cleanly removes any IP addresses, routes,
-                        // and DNS configuration associated with the interface. Setting an interface
-                        // to unmanaged without disconnecting first may leave residual configuration
-                        // that can cause networking issues.
-                        nm_device_disconnect(device, NULL, &error);
-                        if (error) {
-                            NMLOG_ERROR("disconnect connection failed %s", error->message);
-                            g_error_free(error);
-                        }
-
-                        // Wait until device is truly disconnected
-                        int retry = 50; // 10 seconds
-                        NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
-                        while (retry-- > 0) {
-                            // Force glib event processing to update state
-                            while (g_main_context_iteration(NULL, FALSE));
-
-                            NMDeviceState devState = nm_device_get_state(device);
-                            if(oldDevState != devState)
-                            {
-                                oldDevState = devState;
-                                NMLOG_WARNING("Device state: %d", devState);
-                            }
-
-                            if (devState <= NM_DEVICE_STATE_DISCONNECTED)
-                                break;
-
-                            g_usleep(200 * 1000);  // 200ms (much faster response)
-                        }
-
-                        // Finally set unmanaged
-                        nm_device_set_managed(device, false);
-                    }
-                }
-
-                g_usleep(500 * 1000); // Slight delay to let NetworkManager catch up
-            }
-            else
-            {
-                NMLOG_INFO("No interface to disable");
-            }
-        }
-
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
@@ -172,8 +86,6 @@ namespace WPEFramework
             }
 
             nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
-            disableBlockedInterfaces(client); // disable interface if persistent marker file exists
-
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 m_defaultInterface = nmUtils::ethIface();
@@ -181,7 +93,6 @@ namespace WPEFramework
                 m_defaultInterface = nmUtils::wlanIface();
 
             NMLOG_INFO("default interface is %s",  m_defaultInterface.c_str());
-
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
