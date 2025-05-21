@@ -565,7 +565,6 @@ namespace WPEFramework
             string result{};
             string endpoint{};
             uint32_t rc = Core::ERROR_GENERAL;
-            LOG_INPARAM();
             if (parameters.HasLabel("endpoint"))
             {
                 string guid{};
@@ -599,6 +598,7 @@ namespace WPEFramework
                 reply.FromString(result);
                 response = reply;
             }
+            LOG_OUTPARAM();
             return rc;
         }
 

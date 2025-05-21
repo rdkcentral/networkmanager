@@ -676,6 +676,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 response = reply;
                 response["target"] = endpoint;
             }
+            LOG_OUTPARAM();
             return rc;
         }
 
@@ -711,6 +712,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     response["target"] = endpoint;
                 }
             }
+            LOG_OUTPARAM();
             return rc;
         }
 
