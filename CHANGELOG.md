@@ -14,6 +14,15 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.17.0] - 2025-05-02
+### Fixed
+- Fixed the memory leak in Gnome-libnm port of the plugin.
+
+## [0.16.0] - 2025-05-01
+### Fixed
+- Fixed the deregistration of Security Agent upon one successful WPS Connect.
+- JSONRPC response for Ping in the legacy plugin is addressed
+
 ## [0.15.0] - 2025-04-24
 ### Fixed
 - Implemented a CLI tool to test the plugin independently
@@ -43,7 +52,7 @@ All notable changes to this RDK Service will be documented in this file.
 - The file and folder structure of NetworkManager repo is re-organized
 - Implemented a separate library for out-of-process plugin
 - Implemented GDbus based APIs for all the NetworkManager APIs
-- Implmented a Router Discovery tool
+- Implemented a Router Discovery tool
 - Changed the approach to identify Open SSIDs
 - Added INFO logging for the discovered SSIDs and the security methods discovered.
 - Fixed Invalid Timeout in Connectivity Monitoring
@@ -71,7 +80,7 @@ All notable changes to this RDK Service will be documented in this file.
 ### Added
 - Enhanced Internet Connectivity Monitoring
 - Redefined the security modes
-- Removed explict API to start/stop connectivity monitoring
+- Removed explicit API to start/stop connectivity monitoring
 - Added retriveSSID method for migration ready
 - Implemented initial code for gdbus based methods to communicate with NetworkManager
 - Fixed Coverity Issues
@@ -154,3 +163,4 @@ All notable changes to this RDK Service will be documented in this file.
 ## [0.1.0] - 2024-03-28
 ### Added
 - Added NetworkManager plugin. A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.
+

@@ -20,7 +20,6 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
-#include <libnm/NetworkManager.h>
 #include <fstream>
 #include <sstream>
 

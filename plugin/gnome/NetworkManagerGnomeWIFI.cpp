@@ -49,11 +49,6 @@ namespace WPEFramework
         bool wifiManager::createClientNewConnection()
         {
             GError *error = NULL;
-            if(m_client != nullptr)
-            {
-                g_object_unref(m_client);
-                m_client = nullptr;
-            }
 
             m_client = nm_client_new(NULL, &error);
             if (!m_client || !m_loop) {
@@ -62,6 +57,22 @@ namespace WPEFramework
                 return false;
             }
             return true;
+        }
+
+        void wifiManager::deleteClientConnection()
+        {
+            if(m_client != NULL) {
+                GMainContext *context = g_main_context_ref(nm_client_get_main_context(m_client));
+                GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(m_client);
+                g_object_add_weak_pointer(contextBusyWatcher,(gpointer *) &contextBusyWatcher);
+                g_clear_object(&m_client);
+                while (contextBusyWatcher)
+                {
+                    g_main_context_iteration(context, TRUE);
+                }
+                g_main_context_unref(context);
+                m_client = NULL;
+            }
         }
 
         bool wifiManager::quit(NMDevice *wifiNMDevice)
@@ -150,7 +161,6 @@ namespace WPEFramework
             default:
                 break;
             }
-
             return wifiDevice;
         }
 
@@ -258,6 +268,7 @@ namespace WPEFramework
             NMDevice *wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
+                deleteClientConnection();
                 return false;
             }
             NMDeviceState deviceState = nm_device_get_state(wifiDevice);
@@ -287,6 +298,7 @@ namespace WPEFramework
             }
 
             NMLOG_INFO("wifi state (%d) mapped state (%d) ", (int)deviceState, (int)state);
+            deleteClientConnection();
             return true;
         }
 
@@ -298,6 +310,7 @@ namespace WPEFramework
             NMDevice* wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -307,15 +320,18 @@ namespace WPEFramework
                 NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(wifiDevice));
                 if(activeAP == NULL) {
                     NMLOG_ERROR("NMAccessPoint = NULL !");
+                    deleteClientConnection();
                     return false;
                 }
                 NMLOG_DEBUG("active access point found !");
                 getApInfo(activeAP, ssidinfo, false);
+                deleteClientConnection();
                 return true;
             }
             else
                 NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
 
+            deleteClientConnection();
             return true;
         }
 
@@ -351,6 +367,7 @@ namespace WPEFramework
             NMDevice *wifiNMDevice = getWifiDevice();
             if(wifiNMDevice == NULL) {
                 NMLOG_WARNING("wifi state is unmanaged !");
+                deleteClientConnection();
                 return true;
             }
 
@@ -359,11 +376,13 @@ namespace WPEFramework
             if (deviceState <= NM_DEVICE_STATE_DISCONNECTED || deviceState == NM_DEVICE_STATE_FAILED || deviceState == NM_DEVICE_STATE_DEACTIVATING)
             {
                 NMLOG_WARNING("wifi already disconnected !");
+                deleteClientConnection();
                 return true;
             }
 
             nm_device_disconnect_async(wifiNMDevice, NULL, disconnectCb, this);
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -616,6 +635,7 @@ namespace WPEFramework
             NMDevice *m_wifidevice = getWifiDevice();
             if(m_wifidevice == NULL) {
                 NMLOG_WARNING("wifi state is unmanaged !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -624,6 +644,7 @@ namespace WPEFramework
             if(knownssid.empty())
             {
                 NMLOG_WARNING("ssid not specified !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -631,6 +652,7 @@ namespace WPEFramework
             if(wifiConnections == NULL)
             {
                 NMLOG_WARNING("No wifi connection found !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -648,6 +670,7 @@ namespace WPEFramework
                     if (m_connection == NULL)
                     {
                         NMLOG_ERROR("m_connection == NULL smothing went worng");
+                        deleteClientConnection();
                         return false;
                     }
                     break;
@@ -667,6 +690,7 @@ namespace WPEFramework
                 NMLOG_ERROR("'%s' connection not found !",  knownssid.c_str());
             }
 
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -688,7 +712,10 @@ namespace WPEFramework
 
             m_wifidevice = getWifiDevice();
             if(m_wifidevice == NULL)
+            {
+                deleteClientConnection();
                 return false;
+            }
 
             if(getConnectedSSID(m_wifidevice, activeSSID))
             {
@@ -696,6 +723,7 @@ namespace WPEFramework
                 {
                     NMLOG_INFO("'%s' already connected !", activeSSID.c_str());
                     _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                    deleteClientConnection();
                     return true;
                 }
                 else
@@ -706,6 +734,7 @@ namespace WPEFramework
             if(ApList == NULL)
             {
                 NMLOG_ERROR("Aplist Error !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -718,8 +747,10 @@ namespace WPEFramework
                 if(addToKnownSSIDs(ssidInfo))
                 {
                     NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
+                    deleteClientConnection();
                     return activateKnownWifiConnection(ssidInfo.ssid);
                 }
+                deleteClientConnection();
                 return false;
             }
 
@@ -746,6 +777,7 @@ namespace WPEFramework
                             if (m_connection == NULL)
                             {
                                 NMLOG_ERROR("m_connection == NULL smothing went worng");
+                                deleteClientConnection();
                                 return false;
                             }
                             break;
@@ -777,6 +809,7 @@ namespace WPEFramework
             {
                 if(!connectionBuilder(ssidInfo, m_connection)) {
                     NMLOG_ERROR("connection builder failed");
+                    deleteClientConnection();
                     return false;
                 }
                 GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
@@ -798,6 +831,7 @@ namespace WPEFramework
                     NMLOG_ERROR("connection builder failed");
                     if(m_connection)
                         g_object_unref(m_connection);
+                    deleteClientConnection();
                     return false;
                 }
                 m_createNewConnection = true;
@@ -807,6 +841,7 @@ namespace WPEFramework
             }
 
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -869,12 +904,16 @@ namespace WPEFramework
 
             NMDevice *device = getWifiDevice();
             if(device == NULL)
+            {
+                deleteClientConnection();
                 return false;
+            }
 
             const GPtrArray  *availableConnections = nm_device_get_available_connections(device);
             if(availableConnections == NULL)
             {
                 NMLOG_ERROR("No available connections found !");
+                deleteClientConnection();
                 return false;
             }
 
@@ -893,6 +932,7 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    deleteClientConnection();
                     return false;
                 }
                 NMLOG_DEBUG("update exsisting connection '%s' ", ssidinfo.ssid.c_str());
@@ -912,6 +952,7 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    deleteClientConnection();
                     return false;
                 }
                 m_createNewConnection = true;
@@ -923,6 +964,7 @@ namespace WPEFramework
                                         addToKnownSSIDsCb, this);
             }
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -943,6 +985,7 @@ namespace WPEFramework
             if(allconnections == NULL)
             {
                 NMLOG_ERROR("nm connections list null ");
+                deleteClientConnection();
                 return false;
             }
             for (guint i = 0; i < allconnections->len; i++)
@@ -987,6 +1030,7 @@ namespace WPEFramework
                     NMLOG_WARNING("No wifi connection profiles found !!"); 
             }
 
+            deleteClientConnection();
             return true;
         }
 
@@ -1001,6 +1045,7 @@ namespace WPEFramework
             if(connections == nullptr)
             {
                 NMLOG_ERROR("nm connections list null ");
+                deleteClientConnection();
                 return false;
             }
             for (guint i = 0; i < connections->len; i++)
@@ -1035,9 +1080,11 @@ namespace WPEFramework
             if (!ssids.empty())
             {
                 NMLOG_INFO("known wifi connections are %s", ssidPrint.c_str());
+                deleteClientConnection();
                 return true;
             }
 
+            deleteClientConnection();
             return false;
         }
 
@@ -1069,6 +1116,7 @@ namespace WPEFramework
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if(wifiDevice == NULL) {
                 NMLOG_FATAL("NMDeviceWifi * NULL !");
+                deleteClientConnection();
                 return false;
             }
             m_isSuccess = false;
@@ -1085,11 +1133,13 @@ namespace WPEFramework
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
                 options = g_variant_builder_end(&builder);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
+                g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
             }
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -1101,20 +1151,24 @@ namespace WPEFramework
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
             if (wifiDevice == NULL) {
                 NMLOG_ERROR("Invalid Wi-Fi device.");
+                deleteClientConnection();
                 return false;
             }
 
             gint64 last_scan_time = nm_device_wifi_get_last_scan(wifiDevice);
             if (last_scan_time <= 0) {
                 NMLOG_INFO("No scan has been performed yet");
+                deleteClientConnection();
                 return false;
             }
 
             gint64 current_time_in_msec = nm_utils_get_timestamp_msec();
             gint64 time_difference_in_seconds = (current_time_in_msec - last_scan_time) / 1000;
             if (time_difference_in_seconds <= timelimitInSec) {
+                deleteClientConnection();
                 return true;
             }
+            deleteClientConnection();
             return false;
         }
 
@@ -1483,6 +1537,7 @@ namespace WPEFramework
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_client));
             if (devices == nullptr) {
                 NMLOG_ERROR("Failed to get device list.");
+                deleteClientConnection();
                 return m_isSuccess;
             }
 
@@ -1500,18 +1555,27 @@ namespace WPEFramework
             }
 
             if (device == nullptr)
+            {
+                deleteClientConnection();
                 return false;
+            }
 
             NMDeviceState deviceState = nm_device_get_state(device);
 
             if (enabled) {
                 NMLOG_DEBUG("Enabling interface...");
                 if (deviceState >= NM_DEVICE_STATE_DISCONNECTED) // already enabled
+                {
+                    deleteClientConnection();
                     return true;
+                }
             } else {
                 NMLOG_DEBUG("Disabling interface...");
                 if (deviceState <= NM_DEVICE_STATE_UNMANAGED) // already disabled
+                {
+                    deleteClientConnection();
                     return true;
+                }
 
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
@@ -1526,6 +1590,7 @@ namespace WPEFramework
             nm_client_dbus_set_property( m_client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
                                                                     value, -1, nullptr, deviceManagedCb, this);
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -1584,18 +1649,25 @@ namespace WPEFramework
 
             device = nm_client_get_device_by_iface(m_client, interface.c_str());
             if(device == NULL)
+            {
+                deleteClientConnection();
                 return false;
+            }
 
             if(interface == nmUtils::ethIface())
             {
                 NMSettingConnection *settings = NULL;
                 if(device == NULL)
+                {
+                    deleteClientConnection();
                     return false;
+                }
 
                 const GPtrArray *connections = nm_device_get_available_connections(device);
                 if (connections == NULL || connections->len == 0)
                 {
                     NMLOG_WARNING("no connections availble to edit ");
+                    deleteClientConnection();
                     return true;
                 }
 
@@ -1614,6 +1686,7 @@ namespace WPEFramework
                             remoteConn = NM_REMOTE_CONNECTION(connection);
                         } else {
                             NMLOG_ERROR("The connection is not a remote connection.");
+                            deleteClientConnection();
                             return false; /* connection and remoteconnection should match */
                         }
 
@@ -1629,11 +1702,13 @@ namespace WPEFramework
                 if(activeConnection == NULL)
                 {
                     NMLOG_WARNING("no active connection for wifi");
+                    deleteClientConnection();
                     return false;
                 }
                 remoteConn = nm_active_connection_get_connection(activeConnection);
                 if(remoteConn == NULL) {
                     NMLOG_WARNING("no remote connection for wifi");
+                    deleteClientConnection();
                     return false;
                 }
                 connection = NM_CONNECTION(remoteConn);
@@ -1642,6 +1717,7 @@ namespace WPEFramework
             if(connection == nullptr)
             {
                 NMLOG_WARNING("not a single connection availble for %s", interface.c_str());
+                deleteClientConnection();
                 return true;
             }
 
@@ -1654,6 +1730,7 @@ namespace WPEFramework
                     if(checkAutoConnectEnabledInIPv4Conn(connection)) // already auto connect true connection
                     {
                         NMLOG_INFO("Setting IPv4 auto connect enabled");
+                        deleteClientConnection();
                         return true; // no need to modify
                     }
                     sIp4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
@@ -1708,6 +1785,7 @@ namespace WPEFramework
                 } else {
                     NMLOG_ERROR("Failed to commit changes to the remote connection (unknown error).");
                 }
+                deleteClientConnection();
                 return false;
             }
 
@@ -1718,12 +1796,14 @@ namespace WPEFramework
                 if (!nm_client_deactivate_connection(m_client, activeConnection, NULL, &deactivate_error)) {
                     NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
                     g_clear_error(&deactivate_error);
+                    deleteClientConnection();
                     return false;
                 }
             }
 
             nm_client_activate_connection_async(m_client, connection, device, specObject, NULL, onActivateComplete, this);
             wait(m_loop);
+            deleteClientConnection();
             return m_isSuccess;
         }
 
@@ -1737,6 +1817,7 @@ namespace WPEFramework
             if (!createClientNewConnection())                                                                                     return false;
                                                                                                                               if(interface.empty() || (wifiname != interface && ethname != interface))
             {                                                                                                                     NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
+                deleteClientConnection();
                 return false;                                                                                                 }
             otherInterface = (interface == wifiname)?ethname:wifiname;
 
@@ -1744,6 +1825,7 @@ namespace WPEFramework
             const GPtrArray* activeConnections = nm_client_get_active_connections(m_client);
             if (!activeConnections) {
                 NMLOG_ERROR("Failed to retrieve active connections");
+                deleteClientConnection();
                 return false;
             }
             for (guint i = 0; i < activeConnections->len; i++)
@@ -1781,6 +1863,7 @@ namespace WPEFramework
                             }
                             else                                                                                                              {
                                 NMLOG_ERROR("Failed to commit changes to the remote connection (unknown error).");                            }
+                            deleteClientConnection();
                             return false;
                         }
                         if (activeConnection != NULL)
@@ -1792,6 +1875,7 @@ namespace WPEFramework
                             {
                                 NMLOG_ERROR("Failed to deactivate connection: %s", deactivate_error->message);
                                 g_clear_error(&deactivate_error);
+                                deleteClientConnection();
                                 return false;
                             }
                         }
@@ -1800,6 +1884,7 @@ namespace WPEFramework
                 }
             }
             wait(m_loop);
+            deleteClientConnection();
             return rc;
         }
     } // namespace Plugin
