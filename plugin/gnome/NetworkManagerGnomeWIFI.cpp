@@ -1599,9 +1599,10 @@ namespace WPEFramework
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        // Force glib event processing to update state
+                        /* Force glib event processing to update state
+                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
+                         */
                         // while (g_main_context_iteration(NULL, FALSE));
-                        // This will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
 
                         deviceState = nm_device_get_state(device);
                         if(oldDevState != deviceState)
