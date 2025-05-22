@@ -1574,42 +1574,53 @@ namespace WPEFramework
 
             if (enabled) {
                 NMLOG_DEBUG("Enabling interface...");
-                if (deviceState >= NM_DEVICE_STATE_DISCONNECTED) // already enabled
+                if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE) // already enabled
                 {
                     deleteClientConnection();
                     return true;
                 }
             } else {
                 NMLOG_DEBUG("Disabling interface...");
-                if (deviceState <= NM_DEVICE_STATE_UNMANAGED) // already disabled
+                if (deviceState < NM_DEVICE_STATE_UNAVAILABLE) // already disabled
                 {
                     deleteClientConnection();
                     return true;
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
-                    // Disconnect the device if it is connected before disabling to remove ip form the interface
+                    NMLOG_DEBUG("Disconnecting device...");
+                    // Disconnect the device before setting it to unmanaged.
+                    // This ensures that NetworkManager cleanly removes any IP addresses, routes,
+                    // and DNS configuration associated with the interface. Setting an interface
+                    // to unmanaged without disconnecting first may leave residual configuration
+                    // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
                     // Wait until device is truly disconnected
-                    int retry = 60; // 12 seconds
+                    int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
                         // Force glib event processing to update state
-                        while (g_main_context_iteration(NULL, FALSE));
+                        // while (g_main_context_iteration(NULL, FALSE));
+                        // This will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
 
-                        NMDeviceState devState = nm_device_get_state(device);
-                        if(oldDevState != devState)
+                        deviceState = nm_device_get_state(device);
+                        if(oldDevState != deviceState)
                         {
-                            oldDevState = devState;
-                            NMLOG_WARNING("Device state: %d", devState);
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d", deviceState);
                         }
 
-                        if (devState <= NM_DEVICE_STATE_DISCONNECTED)
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
                             break;
 
-                        g_usleep(200 * 1000);  // 200ms (much faster response)
+                        g_usleep(500 * 1000);  // 500ms (much faster response)
                     }
                 }
+            }
+
+            if(deviceState > NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device not fully disconnected (state: %d), setting to unmanaged state", deviceState);
             }
             // Set the "Managed" property to enable/disable the device
             m_isSuccess = false;
