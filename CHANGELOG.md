@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.12.2] - 2025-05-22
+### Fixed
+- Fixed GetPrimaryInterface API
+
 ## [0.12.1] - 2025-04-24
 ### Fixed
 - Fixed publishing of INTERNET Thunder Subsystem.
