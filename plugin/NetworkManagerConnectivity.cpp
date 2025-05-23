@@ -117,7 +117,7 @@ namespace WPEFramework
         std::string endpointsStr;
         for (const auto& endpoint : m_Endpoints)
             endpointsStr.append(endpoint).append(" ");
-        NMLOG_INFO("Connectivity monitor endpoints updated -: %d :- %s", static_cast<int>(m_Endpoints.size()), endpointsStr.c_str());
+        NMLOG_INFO("Connectivity monitor endpoints updated -: %d :- %s", endpointsStr.c_str());
     }
 
     EndpointManager::EndpointManager()
