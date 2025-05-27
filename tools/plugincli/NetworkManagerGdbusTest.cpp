@@ -39,6 +39,7 @@ namespace WPEFramework
    namespace Plugin
     {
 
+        extern NetworkManagerImplementation* NMImplInstance;
         void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
             NMLOG_INFO("calling 'ReportInterfaceStateChange' cb");
@@ -134,7 +135,7 @@ void printSSIDs(const std::list<std::string>& ssids)
 int main()
 {
 
-    NetworkManagerClient* nmClient = NetworkManagerClient::getInstance();
+    NetworkManagerClient* nmClient = NetworkManagerClient::getInstance(NMImplInstance);
     NetworkManagerEvents* nmEvents = NetworkManagerEvents::getInstance();
     int choice = -1;
 
