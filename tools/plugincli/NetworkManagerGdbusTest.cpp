@@ -31,6 +31,7 @@
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
+using namespace WPEFramework::Plugin::NetworkManagerImplementation;
 using namespace WPEFramework::Exchange;
 using namespace std;
 
