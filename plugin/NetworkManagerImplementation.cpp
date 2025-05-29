@@ -720,7 +720,12 @@ namespace WPEFramework
             }
             m_isRunning = true;
             m_stopThread = false;
-            m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+            try {
+                m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+                NMLOG_INFO("monitorThreadFunction thread creation successful");
+            } catch (const std::exception& err) {
+                NMLOG_INFO("monitorThreadFunction thread creation failed: %s\n", err.what());
+            }
         }
 
         void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
