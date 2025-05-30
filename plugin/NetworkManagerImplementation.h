@@ -305,6 +305,8 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
+                bool m_IPv4Available;
+                bool m_IPv6Available;
         };
     }
 }
