@@ -56,7 +56,6 @@ namespace WPEFramework
             Register("SetLogLevel",                       &NetworkManager::SetLogLevel, this);
             Register("GetAvailableInterfaces",            &NetworkManager::GetAvailableInterfaces, this);
             Register("GetPrimaryInterface",               &NetworkManager::GetPrimaryInterface, this);
-            Register("SetPrimaryInterface",               &NetworkManager::SetPrimaryInterface, this);
             Register("SetInterfaceState",                 &NetworkManager::SetInterfaceState, this);
             Register("GetInterfaceState",                 &NetworkManager::GetInterfaceState, this);
             Register("GetIPSettings",                     &NetworkManager::GetIPSettings, this);
@@ -93,7 +92,6 @@ namespace WPEFramework
             Unregister("SetLogLevel");
             Unregister("GetAvailableInterfaces");
             Unregister("GetPrimaryInterface");
-            Unregister("SetPrimaryInterface");
             Unregister("SetInterfaceState");
             Unregister("GetInterfaceState");
             Unregister("GetIPSettings");
@@ -209,26 +207,6 @@ namespace WPEFramework
             {
                 response["interface"] = interface;      
             }
-            returnJson(rc);
-        }
-
-        uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
-        {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string interface = parameters["interface"].String();
-
-            if ("wlan0" != interface && "eth0" != interface)
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            if (_networkManager)
-                rc = _networkManager->SetPrimaryInterface(interface);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
             returnJson(rc);
         }
 
@@ -939,8 +917,9 @@ namespace WPEFramework
                     Exchange::INetworkManager::WIFISecurityModeInfo _resultItem_{};
                     while (securityModes->Next(_resultItem_) == true)
                     {
-                        response.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
+                        modes.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
                     }
+                    response["security"] = modes;
                     securityModes->Release();
                 }
             }

@@ -189,8 +189,6 @@ namespace WPEFramework
 
                 /* @brief Get the active Interface used for external world communication */
                 uint32_t GetPrimaryInterface (string& interface /* @out */) override;
-                /* @brief Set the active Interface used for external world communication */
-                uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;
@@ -242,7 +240,7 @@ namespace WPEFramework
                 /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const override;
+                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
