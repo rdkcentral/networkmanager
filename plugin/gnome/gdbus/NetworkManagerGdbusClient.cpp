@@ -816,10 +816,13 @@ namespace WPEFramework
                 NMLOG_WARNING("Device state is not a valid state: (%d)", devInfo.state);
                 return false;
             }
-            else if (devInfo.state > NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_ACTIVATED)
+            else if (devInfo.state > NM_DEVICE_STATE_DISCONNECTED && devInfo.state < NM_DEVICE_STATE_IP_CHECK)
             {
                 result.autoconfig = true;
-                result.ipversion = ipversion;
+                if(ipversion.empty())
+                    result.ipversion = "IPv4";
+                else
+                    result.ipversion = ipversion;
                 return true;
             }
 
@@ -1125,8 +1128,6 @@ namespace WPEFramework
                 }
                 result.ipversion = "IPv6";
             }
-            else
-                NMLOG_WARNING("ipversion error IPv4/IPv6");
             if(addressStr.empty())
             {
                 result.autoconfig = true;
