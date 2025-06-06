@@ -1234,7 +1234,7 @@
             "result": {
                 "type": "object",
                 "properties": {
-                    "security_modes": {
+                    "security": {
                         "summary": "The supported security modes and its associated integer value.",
                         "type": "object",
                         "properties": {
@@ -1271,7 +1271,7 @@
                     }
                 },
                 "required": [
-                    "security_modes",
+                    "security",
                     "success"
                 ]
             }
