@@ -86,12 +86,11 @@ void displayMenu()
     std::cout << "9. Get WiFi State" << std::endl;
     std::cout << "10. Get WiFi Signal Strength" << std::endl;
     std::cout << "11. GetAvailableInterface" << std::endl;
-    std::cout << "12. SetPrimaryInterface" << std::endl;
-    std::cout << "13. SetInterfaceState" << std::endl;
-    std::cout << "14. SetIPSettings" << std::endl;
-    std::cout << "15. GetPrimaryInterface" << std::endl;
-    std::cout << "16. GetInterfaceState" << std::endl;
-    std::cout << "17. GetIPSettings" << std::endl;
+    std::cout << "12. SetInterfaceState" << std::endl;
+    std::cout << "13. SetIPSettings" << std::endl;
+    std::cout << "14. GetPrimaryInterface" << std::endl;
+    std::cout << "15. GetInterfaceState" << std::endl;
+    std::cout << "16. GetIPSettings" << std::endl;
     std::cout << "0. Exit" << std::endl;
     std::cout << "-------------------------------------" << std::endl;
 }
@@ -297,21 +296,6 @@ int main()
             }
             case 12: {
                 std::string interface;
-                std::cout << "Enter interface name to set as primary: ";
-                std::cin.ignore();
-                std::getline(std::cin, interface);
-
-                if(nmClient->setPrimaryInterface(interface)){
-                    NMLOG_INFO("setPrimaryInterface successful");
-                }
-                else
-                {
-                    NMLOG_ERROR("Failed to set Primary Interface");
-                }
-                break;
-            }
-            case 13: {
-                std::string interface;
                 std::string input;
                 bool enable;
                 std::cout << "Enter interface name to change the state: ";
@@ -330,7 +314,7 @@ int main()
                 }
                 break;
             }
-            case 14: {
+            case 13: {
                 std::string interface;
                 std::string ipVersion;
                 std::string input;
@@ -387,7 +371,7 @@ int main()
                 }
                 break;
             }
-            case 15: {
+            case 14: {
                 std::string interface;
 
                 if(nmClient->getPrimaryInterface(interface)){
@@ -399,7 +383,7 @@ int main()
                 }
                 break;
             }
-            case 16: {
+            case 15: {
                 std::string interface;
                 bool isEnabled;
                 std::cout << "Enter interface: ";
@@ -414,7 +398,7 @@ int main()
                 }
                 break;
             }
-            case 17: {
+            case 16: {
                 std::string interface;
                 std::string ipVersion;
                 Exchange::INetworkManager::IPAddress result;

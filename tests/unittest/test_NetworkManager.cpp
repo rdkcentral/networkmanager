@@ -74,7 +74,6 @@ TEST_F(NetworkManagerTest, TestFunShouldExist)
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("GetLogLevel")));
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("GetAvailableInterfaces")));
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("GetPrimaryInterface")));
-    EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("SetPrimaryInterface")));
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("GetInterfaceState")));
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("SetInterfaceState")));
     EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Exists(_T("GetIPSettings")));
@@ -112,12 +111,6 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces)
 TEST_F(NetworkManagerTest, GetPrimaryInterface)
 { 
 	EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Invoke(connection, _T("GetPrimaryInterface"), _T("{ \"success\": true, \"error\": \"...		\" }"), response));
- 	EXPECT_EQ(response, string(""));
- } 
-
-TEST_F(NetworkManagerTest, SetPrimaryInterface)
-{ 
-	EXPECT_EQ(Core::ERROR_UNKNOWN_KEY, handler.Invoke(connection, _T("SetPrimaryInterface"), _T("{ \"success\": true, \"error\": \"...		\" }"), response));
  	EXPECT_EQ(response, string(""));
  } 
 

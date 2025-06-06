@@ -411,24 +411,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t Network::setDefaultInterface(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string givenInterface = parameters["interface"].String();
-            const string interface = getInterfaceTypeToName(givenInterface);
-
-            if ("wlan0" != interface && "eth0" != interface)
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr)
-            {
-                rc = _nwmgr->SetPrimaryInterface(interface);
-                _nwmgr->Release();
-            }
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            uint32_t rc = Core::ERROR_NONE;
 
             returnJson(rc);
         }
