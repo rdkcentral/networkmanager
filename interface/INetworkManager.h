@@ -198,10 +198,6 @@ namespace WPEFramework
 
             /* @brief Get the Primary Interface used for external world communication */
             virtual uint32_t GetPrimaryInterface (string& interface /* @out */) = 0;
-#if 0
-            /* @brief Set the Primary Interface used for external world communication */
-            virtual uint32_t SetPrimaryInterface (const string& interface/* @in */) = 0;
-#endif
 
             /* @brief Enable/Disable the given interface */
             virtual uint32_t SetInterfaceState (const string& interface /* @in */, const bool enabled /* @in */) = 0;
