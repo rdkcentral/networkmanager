@@ -1620,11 +1620,11 @@ This method takes no parameters.
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | result | object |  |
-| result.security_modes | object | The supported security modes and its associated integer value |
-| result.security_modes.NONE | integer | Security mode for open network |
-| result.security_modes.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition |
-| result.security_modes.SAE | integer | Supports security mode WPA3-Personal |
-| result.security_modes.EAP | integer | Supports security mode WPA enterpise |
+| result.security | object | The supported security modes and its associated integer value |
+| result.security.NONE | integer | Security mode for open network |
+| result.security.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition |
+| result.security.SAE | integer | Supports security mode WPA3-Personal |
+| result.security.EAP | integer | Supports security mode WPA enterpise |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1646,7 +1646,7 @@ This method takes no parameters.
   "jsonrpc": "2.0",
   "id": 42,
   "result": {
-    "security_modes": {
+    "security": {
       "NONE": 0,
       "WPA_PSK": 1,
       "SAE": 2,
