@@ -236,7 +236,6 @@ namespace WPEFramework
             uint32_t GetLogLevel (const JsonObject& parameters, JsonObject& response);
             uint32_t GetAvailableInterfaces (const JsonObject& parameters, JsonObject& response);
             uint32_t GetPrimaryInterface (const JsonObject& parameters, JsonObject& response);
-            uint32_t SetPrimaryInterface (const JsonObject& parameters, JsonObject& response);
             uint32_t GetInterfaceState(const JsonObject& parameters, JsonObject& response);
             uint32_t SetInterfaceState(const JsonObject& parameters, JsonObject& response);
             uint32_t GetIPSettings(const JsonObject& parameters, JsonObject& response);

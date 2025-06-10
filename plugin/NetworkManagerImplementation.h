@@ -189,8 +189,6 @@ namespace WPEFramework
 
                 /* @brief Get the active Interface used for external world communication */
                 uint32_t GetPrimaryInterface (string& interface /* @out */) override;
-                /* @brief Set the active Interface used for external world communication */
-                uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;

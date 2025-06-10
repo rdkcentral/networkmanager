@@ -76,7 +76,6 @@ NetworkManager interface methods:
 | [GetLogLevel](#method.GetLogLevel) | Get Log level that is currently used |
 | [GetAvailableInterfaces](#method.GetAvailableInterfaces) | Get device supported list of available interface including their state |
 | [GetPrimaryInterface](#method.GetPrimaryInterface) | Gets the primary/default network interface for the device |
-| [SetPrimaryInterface](#method.SetPrimaryInterface) | Sets the primary/default interface for the device |
 | [SetInterfaceState](#method.SetInterfaceState) | Enable or disable the specified interface |
 | [GetInterfaceState](#method.GetInterfaceState) | Gets the current Status of the specified interface |
 | [GetIPSettings](#method.GetIPSettings) | Gets the IP setting for the given interface |
@@ -290,54 +289,6 @@ This method takes no parameters.
   "id": 42,
   "result": {
     "interface": "wlan0"
-  }
-}
-```
-
-<a name="method.SetPrimaryInterface"></a>
-## *SetPrimaryInterface [<sup>method</sup>](#head.Methods)*
-
-Sets the primary/default interface for the device. This call fails if the interface is not enabled.
-
-Also see: [onActiveInterfaceChange](#event.onActiveInterfaceChange), [onInterfaceStateChange](#event.onInterfaceStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
-
-### Parameters
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| params | object |  |
-| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
-
-### Result
-
-| Name | Type | Description |
-| :-------- | :-------- | :-------- |
-| result | object |  |
-| result.success | boolean | Whether the request succeeded |
-
-### Example
-
-#### Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "method": "org.rdk.NetworkManager.1.SetPrimaryInterface",
-  "params": {
-    "interface": "wlan0"
-  }
-}
-```
-
-#### Response
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 42,
-  "result": {
-    "success": true
   }
 }
 ```
@@ -1729,7 +1680,7 @@ NetworkManager interface events:
 | :-------- | :-------- |
 | [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when an interface state is changed |
 | [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
-| [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when the primary/active interface changes, regardless if it's from a system operation or through the `SetPrimaryInterface` method |
+| [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when the primary/active interface changes |
 | [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 | [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when scan completes or when scan cancelled |
 | [onWiFiStateChange](#event.onWiFiStateChange) | Triggered when WIFI connection state get changed |
@@ -1803,7 +1754,7 @@ Triggered when an IP Address is assigned or lost.
 <a name="event.onActiveInterfaceChange"></a>
 ## *onActiveInterfaceChange [<sup>event</sup>](#head.Notifications)*
 
-Triggered when the primary/active interface changes, regardless if it's from a system operation or through the `SetPrimaryInterface` method.
+Triggered when the primary/active interface changes.
 
 ### Parameters
 
