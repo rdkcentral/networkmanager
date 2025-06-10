@@ -2,9 +2,9 @@ name: rdk_unit_test
 
 on:
   push:
-    branches: [ main, develop, 'release/**', 'hotfix/**', 'feature/**'] 
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
   pull_request:
-    branches: [ main, develop, 'release/**', 'hotfix/**', 'feature/**'] 
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
 
 env:
   THUNDER_REF: "R4.4.1"

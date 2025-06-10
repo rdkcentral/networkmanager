@@ -917,8 +917,9 @@ namespace WPEFramework
                     Exchange::INetworkManager::WIFISecurityModeInfo _resultItem_{};
                     while (securityModes->Next(_resultItem_) == true)
                     {
-                        response.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
+                        modes.Set(_resultItem_.securityName.c_str(), JsonValue(_resultItem_.security));
                     }
+                    response["security"] = modes;
                     securityModes->Release();
                 }
             }
