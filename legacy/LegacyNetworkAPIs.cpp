@@ -458,11 +458,21 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 return Core::ERROR_BAD_REQUEST;
             }
 
+            if (parameters.HasLabel("ipversion"))
+            {
+                address.ipversion = parameters["ipversion"].String();
+                if ("IPv4" != address.ipversion && "IPv6" != address.ipversion)
+                {
+                    return Core::ERROR_BAD_REQUEST;
+                }
+            }
+            else
+                return Core::ERROR_BAD_REQUEST;
+
             address.autoconfig = parameters["autoconfig"].Boolean();
             if (!address.autoconfig)
             {
                 address.ipaddress      = parameters["ipaddr"].String();
-                address.ipversion      = parameters["ipversion"].String();
                 address.gateway        = parameters["gateway"].String();
                 address.primarydns     = parameters["primarydns"].String();
                 address.secondarydns   = parameters["secondarydns"].String();

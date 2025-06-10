@@ -561,6 +561,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
+            if ("IPv4" != address.ipversion && "IPv6" != address.ipversion)
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(wifi->setIpSettings(interface, address))
                 rc = Core::ERROR_NONE;
             return rc;
