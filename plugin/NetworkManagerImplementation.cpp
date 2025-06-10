@@ -573,7 +573,7 @@ namespace WPEFramework
 
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const
+        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
             std::vector<WIFISecurityModeInfo> modeInfo {
@@ -584,7 +584,7 @@ namespace WPEFramework
                                                         };
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
-            securityModes = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
+            security = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
 
             return Core::ERROR_NONE;
         }
