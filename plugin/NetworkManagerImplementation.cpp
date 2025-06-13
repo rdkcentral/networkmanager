@@ -719,12 +719,17 @@ namespace WPEFramework
                 return;
             }
             m_isRunning = true;
-            m_stopThread = false;
             try {
+		if (m_monitorThread.joinable()) {
+		    m_stopThread = true;
+		    NMLOG_INFO("joinable monitorThreadFunction is active !");
+                    m_monitorThread.join();
+                }
+		m_stopThread = false;
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
             } catch (const std::exception& err) {
-                NMLOG_INFO("monitorThreadFunction thread creation failed: %s\n", err.what());
+                NMLOG_INFO("monitorThreadFunction thread creation failed: %s", err.what());
             }
         }
 
