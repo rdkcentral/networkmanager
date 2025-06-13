@@ -29,6 +29,8 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        constexpr const char* EthernetDisableMarker = "/opt/persistent/ethernet.interface.disable";
+        constexpr const char* WiFiDisableMarker = "/opt/persistent/wifi.interface.disable";
         class nmUtils
         {
 
@@ -42,6 +44,8 @@ namespace WPEFramework
                static std::string wifiFrequencyFromAp(guint32 apFreq);
                static std::string getSecurityModeString(guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                static bool setNetworkManagerlogLevelToTrace();
+               static void setMarkerFile(const char* filename, bool unmark = false);
+               static bool isInterfaceEnabled(const std::string& interface);
         };
     }
 }

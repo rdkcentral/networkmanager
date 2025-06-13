@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.17.0"
+        "version": "0.19.0"
     },
     "definitions": {
         "success": {
@@ -1265,7 +1265,7 @@
             "result": {
                 "type": "object",
                 "properties": {
-                    "security_modes": {
+                    "security": {
                         "summary": "The supported security modes and its associated integer value.",
                         "type": "object",
                         "properties": {
@@ -1302,7 +1302,7 @@
                     }
                 },
                 "required": [
-                    "security_modes",
+                    "security",
                     "success"
                 ]
             }

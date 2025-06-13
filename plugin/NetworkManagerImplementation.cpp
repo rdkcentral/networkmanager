@@ -367,11 +367,11 @@ namespace WPEFramework
             string tempResult = "";
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
             {   
-                snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
+                snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             else
             {   
-                snprintf(cmd, sizeof(cmd), "ping -c %d -W %d '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
+                snprintf(cmd, sizeof(cmd), "ping  -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             
             NMLOG_DEBUG ("The Command is %s", cmd);
@@ -573,7 +573,7 @@ namespace WPEFramework
 
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const
+        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
             std::vector<WIFISecurityModeInfo> modeInfo {
@@ -584,7 +584,7 @@ namespace WPEFramework
                                                         };
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
-            securityModes = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
+            security = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
 
             return Core::ERROR_NONE;
         }
@@ -604,8 +604,12 @@ namespace WPEFramework
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
-            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
-                m_ethConnected = true;
+            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
+            {
+                connectivityMonitor.switchToInitialCheck();
+                if(interface == "eth0")
+                    m_ethConnected = true;
+            }
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
@@ -725,8 +729,18 @@ namespace WPEFramework
                 return;
             }
             m_isRunning = true;
-            m_stopThread = false;
-            m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+            try {
+		if (m_monitorThread.joinable()) {
+		    m_stopThread = true;
+		    NMLOG_INFO("joinable monitorThreadFunction is active !");
+                    m_monitorThread.join();
+                }
+		m_stopThread = false;
+                m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
+                NMLOG_INFO("monitorThreadFunction thread creation successful");
+            } catch (const std::exception& err) {
+                NMLOG_INFO("monitorThreadFunction thread creation failed: %s", err.what());
+            }
         }
 
         void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()

@@ -243,7 +243,7 @@ namespace WPEFramework
                 /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const override;
+                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
@@ -260,11 +260,11 @@ namespace WPEFramework
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void GetInitialConnectionState(void);
 
             private:
                 void platform_init(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
-                void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids);
