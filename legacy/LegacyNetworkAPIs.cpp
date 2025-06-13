@@ -461,7 +461,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             if (parameters.HasLabel("ipversion"))
             {
                 address.ipversion = parameters["ipversion"].String();
-                if ("IPv4" != address.ipversion && "IPv6" != address.ipversion)
+                if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
                 {
                     return Core::ERROR_BAD_REQUEST;
                 }
