@@ -666,7 +666,7 @@ namespace WPEFramework
                 if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
-            else if(ssid.ssid.size() < 32)
+            else if(ssid.ssid.size() <= 32)
             {
                 if(wifi->wifiConnect(ssid))
                     rc = Core::ERROR_NONE;
