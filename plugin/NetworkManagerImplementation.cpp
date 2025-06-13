@@ -46,6 +46,8 @@ namespace WPEFramework
             m_publicIP = "";
             m_ethConnected = false;
             m_wlanConnected = false;
+            m_IPv4Available = false;
+            m_IPv6Available = false;
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
