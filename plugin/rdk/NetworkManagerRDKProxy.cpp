@@ -667,18 +667,19 @@ namespace WPEFramework
             * Useful if NetworkManager plugin or WPEFramework is restarted
             * or netsrvmgr misses to post iarm events during bootup.
             */
-            GetInitialConnectionState();
+            getInitialConnectionState();
         }
 
-        void NetworkManagerImplementation::GetInitialConnectionState()
+        void NetworkManagerImplementation::getInitialConnectionState()
         {
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
             Exchange::INetworkManager::IInterfaceDetailsIterator* _tmpInterfaces{};
-            Exchange::INetworkManager::InterfaceDetails tmpIface{};
             uint32_t rc = GetAvailableInterfaces(_interfaces);
             _tmpInterfaces = _interfaces;
             size_t interfaceCount = 0;
+            Exchange::INetworkManager::InterfaceDetails tmpIface{};
+
             while (_tmpInterfaces->Next(tmpIface))
             {
                 if(tmpIface.enabled && tmpIface.connected)
@@ -712,7 +713,7 @@ namespace WPEFramework
                                     rc = GetIPSettings(iface.name, ipversion, addrv4);
                                     if (Core::ERROR_NONE == rc)
                                     {
-                                        if(!addrv4.ipaddress.empty()) {
+                                        if(!addrv4.ipaddress.empty()) {Add commentMore actions
                                             NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv4.ipaddress.c_str());
                                             ReportIPAddressChange(iface.name, addrv4.ipversion, addrv4.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
                                         }
@@ -819,7 +820,7 @@ namespace WPEFramework
                 * Useful if NetworkManager plugin or WPEFramework is restarted
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
-                std::thread connStateThread = std::thread(&NetworkManagerImplementation::GetInitialConnectionState, this);
+                std::thread connStateThread = std::thread(&NetworkManagerImplementation::getInitialConnectionState, this);
                 connStateThread.join(); // seprate thread will not use the wpeframework thread pool
             }
         }
@@ -1048,17 +1049,11 @@ namespace WPEFramework
                 {
                     address.ipversion = string ("IPv4");
                     address.prefix = NetmaskToPrefix(iarmData.netmask);
-                    /* Update the flags as we have seen failure to notify ip change but has address */
-                    if (!address.ipaddress.empty())
-                        m_IPv4Available = true;
                 }
                 else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                 {
                     address.ipversion = string ("IPv6");
                     address.prefix = std::atoi(iarmData.netmask);
-                    /* Update the flags as we have seen failure to notify ip change but has address */
-                    if (!address.ipaddress.empty())
-                        m_IPv6Available = true;
                 }
 
                 rc = Core::ERROR_NONE;

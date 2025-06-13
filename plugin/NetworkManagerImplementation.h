@@ -260,11 +260,11 @@ namespace WPEFramework
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
-                void GetInitialConnectionState(void);
 
             private:
                 void platform_init(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
+                void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids);
@@ -305,8 +305,6 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
-                bool m_IPv4Available;
-                bool m_IPv6Available;
         };
     }
 }
