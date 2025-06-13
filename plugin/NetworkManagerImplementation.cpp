@@ -573,7 +573,7 @@ namespace WPEFramework
 
         // WiFi Specific Methods
         /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const
+        uint32_t NetworkManagerImplementation::GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
             std::vector<WIFISecurityModeInfo> modeInfo {
@@ -584,7 +584,7 @@ namespace WPEFramework
                                                         };
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
-            securityModes = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
+            security = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
 
             return Core::ERROR_NONE;
         }
@@ -719,12 +719,17 @@ namespace WPEFramework
                 return;
             }
             m_isRunning = true;
-            m_stopThread = false;
             try {
+		if (m_monitorThread.joinable()) {
+		    m_stopThread = true;
+		    NMLOG_INFO("joinable monitorThreadFunction is active !");
+                    m_monitorThread.join();
+                }
+		m_stopThread = false;
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
             } catch (const std::exception& err) {
-                NMLOG_INFO("monitorThreadFunction thread creation failed: %s\n", err.what());
+                NMLOG_INFO("monitorThreadFunction thread creation failed: %s", err.what());
             }
         }
 
