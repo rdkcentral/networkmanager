@@ -45,6 +45,7 @@ using namespace std;
 #define ROUTE_METRIC_PRIORITY_HIGH                 1
 #define ROUTE_METRIC_PRIORITY_LOW                  100
 
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -270,7 +271,7 @@ namespace WPEFramework
                 void filterScanResults(JsonArray &ssids);
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();
-                void monitorThreadFunction(int interval);
+                static void* monitorThreadFunction(void* arg);
                 int32_t logSSIDs(Logging level, const JsonArray &ssids);
                 void processMonitor(uint16_t interval);
 
@@ -287,7 +288,7 @@ namespace WPEFramework
                 std::thread m_registrationThread;
                 string m_filterfrequency;
                 std::vector<std::string> m_filterSsidslist;
-                std::thread m_monitorThread;
+                pthread_t m_monitorThread;
 
                 std::thread m_processMonThread;
                 std::mutex m_processMonMutex;
