@@ -669,24 +669,10 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
-                if(!_instance->m_IPv4Available && !_instance->m_IPv6Available)
-                {
-                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-                    m_InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
-                    m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
-                    currentInternetState = INTERNET_NOT_AVAILABLE;
-                    if (InitialRetryCount == 0)
-                        m_notify = true;
-                    InitialRetryCount = 1;
-                }
                 NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
 
-                // Start threads for IPv4 and IPv6 checks
-                if(_instance->m_IPv4Available)
-                    ipv4thread = std::thread (curlCheckThrdIpv4);
-                if(_instance->m_IPv6Available)
-                    ipv6thread = std::thread (curlCheckThrdIpv6);
+                ipv4thread = std::thread (curlCheckThrdIpv4);
+                ipv6thread = std::thread (curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
                 if (ipv4thread.joinable())
