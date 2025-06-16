@@ -642,7 +642,8 @@ namespace WPEFramework
 
             nm_device_set_autoconnect(nmDevice, true); // set autoconnect true
 
-            devConnections = nm_device_get_available_connections(nmDevice);
+            // get all interface connections
+            devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL)
             {
                 NMLOG_WARNING("No connections specific dev found !");
