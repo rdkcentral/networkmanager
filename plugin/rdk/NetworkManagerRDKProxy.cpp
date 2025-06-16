@@ -1117,6 +1117,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_NONE;
+            if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
             if ("IPv4" == address.ipversion)
             {
                 IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = {0};
