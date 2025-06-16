@@ -1579,31 +1579,42 @@ namespace WPEFramework
                     deleteClientConnection();
                     return true;
                 }
-            }
-            else
-            {
+            } else {
                 NMLOG_DEBUG("Disabling interface...");
                 if (deviceState < NM_DEVICE_STATE_UNAVAILABLE) // already disabled
                 {
                     deleteClientConnection();
                     return true;
                 }
-                else if (deviceState > NM_DEVICE_STATE_DISCONNECTED)
-                {
-                    NMActiveConnection* devActiveConn = nm_device_get_active_connection (device);
-                    if(devActiveConn)
-                    {
-                        NMLOG_INFO("one active device found, disconnecting it");
-                        GError *error = NULL;
-                        nm_client_deactivate_connection(m_client, devActiveConn, NULL, &error);
-                        if (error) {
-                            NMLOG_ERROR("Failed to deactivate active connection: %s", error->message);
-                            g_error_free(error);
-                            deleteClientConnection();
-                            return false;
+                else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
+                    NMLOG_DEBUG("Disconnecting device...");
+                    // Disconnect the device before setting it to unmanaged.
+                    // This ensures that NetworkManager cleanly removes any IP addresses, routes,
+                    // and DNS configuration associated with the interface. Setting an interface
+                    // to unmanaged without disconnecting first may leave residual configuration
+                    // that can cause networking issues.
+                    nm_device_disconnect_async(device, nullptr, disconnectCb, this);
+                    wait(m_loop);
+                    // Wait until device is truly disconnected
+                    int retry = 24; // 12 seconds
+                    NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                    while (retry-- > 0) {
+                        /* Force glib event processing to update state
+                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
+                         */
+                        // while (g_main_context_iteration(NULL, FALSE));
+
+                        deviceState = nm_device_get_state(device);
+                        if(oldDevState != deviceState)
+                        {
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d", deviceState);
                         }
-                        NMLOG_DEBUG("Active connection deactivated successfully");
-                        //TODO Wait for the device to be fully disconnected
+
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
+                            break;
+
+                        g_usleep(500 * 1000);  // 500ms (much faster response)
                     }
                 }
             }
@@ -1620,6 +1631,27 @@ namespace WPEFramework
             nm_client_dbus_set_property( m_client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
                                                                     value, -1, nullptr, deviceManagedCb, this);
             wait(m_loop);
+
+            if(enabled)
+            {
+                int retry = 10; // 5 seconds
+                NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                while (retry-- > 0)
+                {
+                    deviceState = nm_device_get_state(device);
+                    if(oldDevState != deviceState)
+                    {
+                        oldDevState = deviceState;
+                        NMLOG_WARNING("enable device state: %d", deviceState);
+                    }
+
+                    if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)
+                        break;
+
+                    g_usleep(500 * 1000);  // 500ms (much faster response)
+                }
+            }
+
             deleteClientConnection();
 
             if(m_isSuccess)
