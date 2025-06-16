@@ -1638,6 +1638,7 @@ namespace WPEFramework
                 NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                 while (retry-- > 0)
                 {
+                    g_usleep(500 * 1000);  // 500ms (much faster response)
                     deviceState = nm_device_get_state(device);
                     if(oldDevState != deviceState)
                     {
@@ -1647,8 +1648,6 @@ namespace WPEFramework
 
                     if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)
                         break;
-
-                    g_usleep(500 * 1000);  // 500ms (much faster response)
                 }
             }
 
