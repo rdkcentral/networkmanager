@@ -821,11 +821,11 @@ namespace WPEFramework
                         tmp.connected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
                         if ("eth0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
-                            m_ethConnected = tmp.connected;
+                            m_ethConnected.store(tmp.connected);
                         }
                         else if ("wlan0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
-                            m_wlanConnected = tmp.connected;
+                            m_wlanConnected.store(tmp.connected);
                         }
 
                         interfaceList.push_back(tmp);

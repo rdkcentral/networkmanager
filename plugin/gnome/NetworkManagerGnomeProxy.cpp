@@ -139,12 +139,12 @@ namespace WPEFramework
                         if(ifaceStr == wifiname) {
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
-                            m_wlanConnected = interface.connected;
+                            m_wlanConnected.store(interface.connected);
                         }
                         if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
-                            m_ethConnected = interface.connected;
+                            m_ethConnected.store(interface.connected);
                         }
 
                         interfaceList.push_back(interface);
@@ -203,9 +203,9 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_wlanConnected)
+                if(m_wlanConnected.load())
                     ifacePtr = wifiname.c_str();
-                if(m_ethConnected)
+                if(m_ethConnected.load())
                     ifacePtr = ethname.c_str();
             }
 

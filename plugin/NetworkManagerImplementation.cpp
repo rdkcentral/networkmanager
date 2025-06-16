@@ -44,8 +44,8 @@ namespace WPEFramework
             m_stunCacheTimeout = 0;
             m_defaultInterface = "";
             m_publicIP = "";
-            m_ethConnected = false;
-            m_wlanConnected = false;
+            m_ethConnected.store(false);
+            m_wlanConnected.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
@@ -67,7 +67,7 @@ namespace WPEFramework
 
             {
                 std::unique_lock<std::mutex> lock(m_processMonMutex);
-                m_processMonThreadStop = true;
+                m_processMonThreadStop.store(true);
                 m_processMonCondVar.notify_one();
             }
 
@@ -315,7 +315,7 @@ namespace WPEFramework
             bool isIPv6 = (ipversion == "IPv6");
 
             // Either Interface must be connected to get the public IP
-            if (!(m_ethConnected | m_wlanConnected))
+            if (!(m_ethConnected.load() || m_wlanConnected.load()))
             {
                 NMLOG_WARNING("No interface Connected");
                 return Core::ERROR_GENERAL;
@@ -595,15 +595,15 @@ namespace WPEFramework
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
             {
                 if(interface == "eth0")
-                    m_ethConnected = false;
+                    m_ethConnected.store(false);
                 else if(interface == "wlan0")
-                    m_wlanConnected = false;
+                    m_wlanConnected.store(false);
                 connectivityMonitor.switchToInitialCheck();
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
-                m_ethConnected = true;
+                m_ethConnected.store(true);
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
@@ -619,9 +619,9 @@ namespace WPEFramework
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
-                m_ethConnected = true;
+                m_ethConnected.store(true);
             else if (currentActiveinterface == "wlan0")
-                m_wlanConnected = true;
+                m_wlanConnected.store(true);
 
             // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
             // m_defaultInterface = currentActiveinterface;
@@ -639,12 +639,12 @@ namespace WPEFramework
                 // Switch the connectivity monitor to initial check
                 // if ipaddress is aquired means there should be interface connected
                 if(interface == "eth0")
-                    m_ethConnected = true;
+                    m_ethConnected.store(true);
                 else if(interface == "wlan0")
-                    m_wlanConnected = true;
+                    m_wlanConnected.store(true);
 
                 // FIXME : Availability of ip address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
-                if (m_ethConnected && m_wlanConnected)
+                if (m_ethConnected.load() && m_wlanConnected.load())
                     m_defaultInterface = "eth0";
                 else
                     m_defaultInterface = interface;
@@ -714,18 +714,17 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::startWiFiSignalQualityMonitor(int interval)
         {
-            if (m_isRunning) {
+            if (m_isRunning.load()) {
                 NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
                 return;
             }
-            m_isRunning = true;
+            m_isRunning.store(true);
             try {
 		if (m_monitorThread.joinable()) {
-		    m_stopThread = true;
+                    m_isRunning.store(false);
 		    NMLOG_INFO("joinable monitorThreadFunction is active !");
                     m_monitorThread.join();
                 }
-		m_stopThread = false;
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
             } catch (const std::exception& err) {
@@ -735,18 +734,18 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
         {
-            if (!m_isRunning) {
+            if (!m_isRunning.load()) {
                 return; // No thread to stop
             }
             {
+                m_isRunning.store(false);
                 std::unique_lock<std::mutex> lock(m_condVariableMutex);
-                m_stopThread = true;
                 m_condVariable.notify_one();
             }
             if (m_monitorThread.joinable()) {
                 m_monitorThread.join();
             }
-            m_isRunning = false;
+            m_isRunning.store(false);
         }
 
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
@@ -908,11 +907,11 @@ namespace WPEFramework
 
                 std::unique_lock<std::mutex> lock(m_processMonMutex);
                 // Wait for the specified interval or until notified to stop
-                if (m_processMonCondVar.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_processMonThreadStop == true; }))
+                if (m_processMonCondVar.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_processMonThreadStop.load(); }))
                 {
                     NMLOG_INFO("Received stop signal");
                 }
-            } while (!m_processMonThreadStop);
+            } while (!m_processMonThreadStop.load());
 
             return;
         }
@@ -921,7 +920,7 @@ namespace WPEFramework
         {
             static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
             NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
-            while (!m_stopThread) {
+            while (m_isRunning.load()) {
                 std::string ssid{};
                 std::string strength{};
                 std::string noise{};
@@ -939,18 +938,17 @@ namespace WPEFramework
 
                 if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
                     NMLOG_WARNING("WiFiSignalQualityChanged to disconnect - WiFiSignalQualityMonitor exiting");
-                    m_stopThread = true; // Signal thread to stop
                     break; // Exit the loop
                 }
 
                 std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 // Wait for the specified interval or until notified to stop
-                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread == true; }))
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_isRunning.load(); }))
                 {
                     NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
                 }
             }
-            m_isRunning = false;
+            m_isRunning.store(false);
         }
 
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
@@ -958,7 +956,7 @@ namespace WPEFramework
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
-                m_wlanConnected = true;
+                m_wlanConnected.store(true);
                 if (!m_monitoringStarted)
                 {
                     startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
@@ -972,7 +970,7 @@ namespace WPEFramework
                     stopWiFiSignalQualityMonitor();
                     m_monitoringStarted = false;
                 }
-                m_wlanConnected = false; /* Any other state is considered as WiFi not connected. */
+                m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
             }
 
             _notificationLock.Lock();
