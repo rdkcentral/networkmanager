@@ -1631,6 +1631,27 @@ namespace WPEFramework
             nm_client_dbus_set_property( m_client, objectPath, NM_DBUS_INTERFACE_DEVICE,"Managed",
                                                                     value, -1, nullptr, deviceManagedCb, this);
             wait(m_loop);
+
+            if(enabled)
+            {
+                int retry = 10; // 5 seconds
+                NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                while (retry-- > 0)
+                {
+                    deviceState = nm_device_get_state(device);
+                    if(oldDevState != deviceState)
+                    {
+                        oldDevState = deviceState;
+                        NMLOG_WARNING("enable device state: %d", deviceState);
+                    }
+
+                    if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)
+                        break;
+
+                    g_usleep(500 * 1000);  // 500ms (much faster response)
+                }
+            }
+
             deleteClientConnection();
 
             if(m_isSuccess)
