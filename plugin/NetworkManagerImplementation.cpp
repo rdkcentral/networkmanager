@@ -745,7 +745,6 @@ namespace WPEFramework
             if (m_monitorThread.joinable()) {
                 m_monitorThread.join();
             }
-            m_isRunning.store(false);
         }
 
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
@@ -943,7 +942,7 @@ namespace WPEFramework
 
                 std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 // Wait for the specified interval or until notified to stop
-                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_isRunning.load(); }))
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return !m_isRunning.load(); }))
                 {
                     NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
                 }
