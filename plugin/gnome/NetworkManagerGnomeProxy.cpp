@@ -253,21 +253,21 @@ namespace WPEFramework
             }
 
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
-            if(enabled)
-            {
-                sleep(1); // wait for 1 sec to change the device state
-                if(interface == nmUtils::wlanIface() && _instance != NULL)
-                {
-                    NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
-                    wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
-                }
-                else if(interface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Activating connection 'Wired connection 1' ...");
-                    // default wired connection name is 'Wired connection 1'
-                    wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
-                }
-            }
+            // if(enabled)
+            // {
+            //     sleep(1); // wait for 1 sec to change the device state
+            //     if(interface == nmUtils::wlanIface() && _instance != NULL)
+            //     {
+            //         NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
+            //         wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
+            //     }
+            //     else if(interface == nmUtils::ethIface())
+            //     {
+            //         NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+            //         // default wired connection name is 'Wired connection 1'
+            //         wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
+            //     }
+            // }
 
             return Core::ERROR_NONE;
         }
