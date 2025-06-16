@@ -713,7 +713,7 @@ namespace WPEFramework
                                     rc = GetIPSettings(iface.name, ipversion, addrv4);
                                     if (Core::ERROR_NONE == rc)
                                     {
-                                        if(!addrv4.ipaddress.empty()) {Add commentMore actions
+                                        if(!addrv4.ipaddress.empty()) {
                                             NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv4.ipaddress.c_str());
                                             ReportIPAddressChange(iface.name, addrv4.ipversion, addrv4.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
                                         }
