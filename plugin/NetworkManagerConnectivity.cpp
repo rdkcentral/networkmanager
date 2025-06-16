@@ -669,8 +669,6 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
-                NMLOG_INFO("INTERNET_CONNECTIVITY_MONITORING_INITIAL_CHECK_ENTRY : Attempt#%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
-
                 ipv4thread = std::thread (curlCheckThrdIpv4);
                 ipv6thread = std::thread (curlCheckThrdIpv6);
 
