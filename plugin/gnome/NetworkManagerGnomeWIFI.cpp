@@ -1599,7 +1599,7 @@ namespace WPEFramework
                         if (error) {
                             NMLOG_ERROR("Failed to deactivate active connection: %s", error->message);
                             g_error_free(error);
-                            deleteClientConnection();
+                            deleteClientConnection()
                             return false;
                         }
                         NMLOG_DEBUG("Active connection deactivated successfully");
