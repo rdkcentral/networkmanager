@@ -723,7 +723,10 @@ namespace WPEFramework
                 return;
             }
             try {
-                stopWiFiSignalQualityMonitor();
+                if (m_monitorThread.joinable()) {
+                    NMLOG_INFO("joinable monitorThreadFunction is active !");
+                    m_monitorThread.join();
+                }
                 m_isRunning.store(true);
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
