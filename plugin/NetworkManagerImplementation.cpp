@@ -602,8 +602,12 @@ namespace WPEFramework
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
-            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
-                m_ethConnected.store(true);
+            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
+            {
+                connectivityMonitor.switchToInitialCheck();
+                if(interface == "eth0")
+                    m_ethConnected.store(true);
+            }
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
@@ -718,13 +722,9 @@ namespace WPEFramework
                 NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
                 return;
             }
-            m_isRunning.store(true);
             try {
-		if (m_monitorThread.joinable()) {
-                    m_isRunning.store(false);
-		    NMLOG_INFO("joinable monitorThreadFunction is active !");
-                    m_monitorThread.join();
-                }
+                stopWiFiSignalQualityMonitor();
+                m_isRunning.store(true);
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
             } catch (const std::exception& err) {
