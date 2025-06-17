@@ -961,8 +961,8 @@ namespace WPEFramework
                 m_wlanConnected.store(true);
                 if (!m_monitoringStarted)
                 {
-                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
                     m_monitoringStarted = true;
+                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
                 }
             }
             else
