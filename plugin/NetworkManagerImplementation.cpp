@@ -602,8 +602,12 @@ namespace WPEFramework
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
-            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state && interface == "eth0")
-                m_ethConnected.store(true);
+            if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
+            {
+                connectivityMonitor.switchToInitialCheck();
+                if(interface == "eth0")
+                    m_ethConnected.store(true);
+            }
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);

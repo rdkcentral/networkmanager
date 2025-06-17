@@ -674,7 +674,19 @@ namespace WPEFramework
         {
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
+            Exchange::INetworkManager::IInterfaceDetailsIterator* _tmpInterfaces{};
             uint32_t rc = GetAvailableInterfaces(_interfaces);
+            _tmpInterfaces = _interfaces;
+            size_t interfaceCount = 0;
+            Exchange::INetworkManager::InterfaceDetails tmpIface{};
+
+            while (_tmpInterfaces->Next(tmpIface))
+            {
+                if(tmpIface.enabled && tmpIface.connected)
+                {
+                    interfaceCount++;
+                }
+            }
 
             if (Core::ERROR_NONE == rc)
             {
@@ -683,23 +695,37 @@ namespace WPEFramework
                     Exchange::INetworkManager::InterfaceDetails iface{};
                     while (_interfaces->Next(iface) == true)
                     {
-                        Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
-                        if(iface.enabled)
+                        if((interfaceCount == 2 && "eth0" == iface.name) || interfaceCount == 1)
                         {
-                            NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
-                            // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
-                            if(iface.connected)
+                            Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
+                            if(iface.enabled)
                             {
-                                NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
-                                ReportActiveInterfaceChange(iface.name, iface.name);
-                                std::string ipversion = {};
-                                Exchange::INetworkManager::IPAddress addr;
-                                rc = GetIPSettings(iface.name, ipversion, addr);
-                                if (Core::ERROR_NONE == rc)
+                                NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
+                                // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
+                                if(iface.connected)
                                 {
-                                    if(!addr.ipaddress.empty()) {
-                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
-                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
+                                    if(m_defaultInterface != iface.name)
+                                        ReportActiveInterfaceChange(m_defaultInterface, iface.name);
+                                    Exchange::INetworkManager::IPAddress addrv4;
+                                    Exchange::INetworkManager::IPAddress addrv6;
+                                    std::string ipversion = "IPv4";
+                                    rc = GetIPSettings(iface.name, ipversion, addrv4);
+                                    if (Core::ERROR_NONE == rc)
+                                    {
+                                        if(!addrv4.ipaddress.empty()) {
+                                            NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv4.ipaddress.c_str());
+                                            ReportIPAddressChange(iface.name, addrv4.ipversion, addrv4.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                        }
+                                    }
+                                    ipversion = "IPv6";
+                                    rc = GetIPSettings(iface.name, ipversion, addrv6);
+                                    if (Core::ERROR_NONE == rc)
+                                    {
+                                        if(!addrv6.ipaddress.empty()) {
+                                            NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv6.ipaddress.c_str());
+                                            ReportIPAddressChange(iface.name, addrv6.ipversion, addrv6.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                        }
                                     }
                                 }
                             }
