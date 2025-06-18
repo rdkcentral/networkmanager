@@ -723,10 +723,6 @@ namespace WPEFramework
                 return;
             }
             try {
-                if (m_monitorThread.joinable()) {
-                    NMLOG_INFO("joinable monitorThreadFunction is active !");
-                    m_monitorThread.join();
-                }
                 m_isRunning.store(true);
                 m_monitorThread = std::thread(&NetworkManagerImplementation::monitorThreadFunction, this, interval);
                 NMLOG_INFO("monitorThreadFunction thread creation successful");
@@ -950,7 +946,6 @@ namespace WPEFramework
                     NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
                 }
             }
-            m_isRunning.store(false);
         }
 
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
