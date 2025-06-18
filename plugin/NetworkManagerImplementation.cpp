@@ -63,6 +63,7 @@ namespace WPEFramework
             {
                 m_registrationThread.join();
             }
+            /* Stop WiFi Signal Monitoring */
             stopWiFiSignalQualityMonitor();
 
             {
@@ -733,17 +734,19 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
         {
-            if (!m_isRunning.load()) {
+            if (!m_isRunning.load())
                 return; // No thread to stop
-            }
+
             {
-                m_isRunning.store(false);
-                std::unique_lock<std::mutex> lock(m_condVariableMutex);
-                m_condVariable.notify_one();
+                std::lock_guard<std::mutex> lock(m_condVariableMutex);
+                m_stopThread.store(true);
             }
+            m_condVariable.notify_one();
+
             if (m_monitorThread.joinable()) {
                 m_monitorThread.join();
             }
+            m_isRunning.store(false);
         }
 
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
@@ -918,7 +921,8 @@ namespace WPEFramework
         {
             static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
             NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
-            while (m_isRunning.load()) {
+            while (true)
+            {
                 std::string ssid{};
                 std::string strength{};
                 std::string noise{};
@@ -941,11 +945,13 @@ namespace WPEFramework
 
                 std::unique_lock<std::mutex> lock(m_condVariableMutex);
                 // Wait for the specified interval or until notified to stop
-                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return !m_isRunning.load(); }))
+                if (m_condVariable.wait_for(lock, std::chrono::seconds(interval), [this](){ return m_stopThread.load(); }))
                 {
                     NMLOG_INFO("WiFiSignalQualityMonitor received stop signal or timed out");
+                    break;
                 }
             }
+            m_stopThread.store(false);
         }
 
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
@@ -954,19 +960,11 @@ namespace WPEFramework
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
-                if (!m_monitoringStarted)
-                {
-                    m_monitoringStarted = true;
-                    startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
-                }
+                startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
             {
-                if (m_monitoringStarted)
-                {
-                    stopWiFiSignalQualityMonitor();
-                    m_monitoringStarted = false;
-                }
+                stopWiFiSignalQualityMonitor();
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
             }
 
