@@ -763,11 +763,11 @@ namespace WPEFramework
                 response["ssid"] = ssid;
                 //As enterprise data is not persisted, WPA_EAP mode is not considered here
                 if(security == "NONE")
-                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE);
+                    response["securityMode"] = JsonValue(NET_WIFI_SECURITY_NONE);
                 else if(security == "SAE")
-                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE);
+                    response["securityMode"] = JsonValue(NET_WIFI_SECURITY_WPA3_SAE);
                 else
-                    response["securityMode"] = JsonValue(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK);
+                    response["securityMode"] = JsonValue(NET_WIFI_SECURITY_WPA2_PSK_AES);
                                                     /* WPA3_PSK_AES has backward compatibility for PSK. So WPA-PSK is considered as default */
                 response["passphrase"] = passphrase;
                 response["success"] = true;
