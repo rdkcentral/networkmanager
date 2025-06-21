@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.9.5] - 2025-06-21
+### Fixed
+- Fixed the security mode thats returned for the migration API
+
 ## [0.9.4] - 2025-06-13
 ### Changed
 - Posted DefaultInterfaceChangedm only when there is actually a change; avoided redundant events
