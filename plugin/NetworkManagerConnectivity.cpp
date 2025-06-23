@@ -564,7 +564,7 @@ namespace WPEFramework
 
         if(_instance != nullptr) {
             NMLOG_INFO("connectivity monitor started - eth %s - wlan %s", 
-                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+                        _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down");
         }
 
         NMLOG_INFO("connectivity monitor is started");
@@ -590,7 +590,7 @@ namespace WPEFramework
         m_cmCv.notify_one();
         if(_instance != nullptr) {
             NMLOG_INFO("switching to initial check - eth %s - wlan %s",
-                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+                        _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down");
         }
         return true;
     }
@@ -636,7 +636,7 @@ namespace WPEFramework
                 InitialRetryCount = 0;
             }
             // Check if no interfaces are connected
-            else if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+            else if (_instance != nullptr && !_instance->m_ethConnected.load() && !_instance->m_wlanConnected.load()) {
                 NMLOG_DEBUG("no interface connected, no ccm check");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;

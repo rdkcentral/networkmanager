@@ -294,9 +294,8 @@ namespace WPEFramework
                 std::atomic<bool> m_processMonThreadStop{false};
                 std::condition_variable m_processMonCondVar;
 
-                std::atomic<bool> m_stopThread{false};
                 std::atomic<bool> m_isRunning{false};
-                bool m_monitoringStarted = false;
+                std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
 
