@@ -281,5 +281,46 @@ namespace WPEFramework
 
             return exitCode == 0;
         }
+
+        void nmUtils::setMarkerFile(const char* filename, bool unmark)
+        {
+            char fqn[64];
+            snprintf(fqn, sizeof(fqn), "%s", filename);
+            if (unmark)
+            {
+                 if (remove(fqn) != 0) {
+                    NMLOG_ERROR("Failed to remove marker file");
+                }
+            }
+            else
+            {
+                FILE *fp = fopen(fqn, "w");
+                if (fp != NULL) {
+                    fclose(fp);
+                } else {
+                    NMLOG_ERROR("Failed to open marker file %s", fqn);
+                }
+            }
+        }
+
+        bool nmUtils::isInterfaceEnabled(const std::string& interface)
+        {
+            std::string markerFile;
+            if (interface == nmUtils::ethIface()) {
+                markerFile = EthernetDisableMarker;
+            }
+            else if (interface == nmUtils::wlanIface()) {
+                markerFile = WiFiDisableMarker;
+            }
+            else {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
+            bool isAllowed = (access(markerFile.c_str(), F_OK) != 0);
+            NMLOG_DEBUG("isInterfaceEnabled %s: %s", interface.c_str(), isAllowed ? "true" : "false");
+            return isAllowed;
+        }
+
     }   // Plugin
 }   // WPEFramework

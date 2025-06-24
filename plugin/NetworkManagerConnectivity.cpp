@@ -387,7 +387,11 @@ namespace WPEFramework
                     }
                 }
                 else {
-                    NMLOG_ERROR("%s, curl error = %d (%s)", endpntConf, msg->data.result, curl_easy_strerror(msg->data.result));
+                    NMLOG_ERROR("INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : For endpoint = <%s> on (%s) got curl error = %d (%s)",
+                                                endpntConf,
+                                                (IP_ADDRESS_V4 == ipversion) ?  "IPv4" : "IPv6",
+                                                msg->data.result,
+                                                curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
                 }
                 http_responses.push_back(response_code);
@@ -560,7 +564,7 @@ namespace WPEFramework
 
         if(_instance != nullptr) {
             NMLOG_INFO("connectivity monitor started - eth %s - wlan %s", 
-                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+                        _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down");
         }
 
         NMLOG_INFO("connectivity monitor is started");
@@ -583,11 +587,10 @@ namespace WPEFramework
     bool ConnectivityMonitor::switchToInitialCheck()
     {
         m_switchToInitial = true;
-        m_notify = true; // m_notify internet state because some network state change may happen
         m_cmCv.notify_one();
         if(_instance != nullptr) {
             NMLOG_INFO("switching to initial check - eth %s - wlan %s",
-                        _instance->m_ethConnected? "up":"down", _instance->m_wlanConnected? "up":"down");
+                        _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down");
         }
         return true;
     }
@@ -618,10 +621,22 @@ namespace WPEFramework
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         m_notify = true;
+        std::thread ipv4thread;
+        std::thread ipv6thread;
 
         while (m_cmRunning) {
+            if (nullptr == _instance)
+            {
+                NMLOG_DEBUG("Must be right from the constructor; because the _instance is NULL");
+                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
+                m_InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv4InternetState = INTERNET_NOT_AVAILABLE;
+                m_Ipv6InternetState = INTERNET_NOT_AVAILABLE;
+                currentInternetState = INTERNET_NOT_AVAILABLE;
+                InitialRetryCount = 0;
+            }
             // Check if no interfaces are connected
-            if (_instance != nullptr && !_instance->m_ethConnected && !_instance->m_wlanConnected) {
+            else if (_instance != nullptr && !_instance->m_ethConnected.load() && !_instance->m_wlanConnected.load()) {
                 NMLOG_DEBUG("no interface connected, no ccm check");
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                 m_InternetState = INTERNET_NOT_AVAILABLE;
@@ -634,7 +649,7 @@ namespace WPEFramework
             }
             else if (m_switchToInitial)
             {
-                NMLOG_INFO("Initial cm check - retry count %d - %s", InitialRetryCount, getInternetStateString(currentInternetState));
+                NMLOG_INFO("Initial connectivity check - index:%d current state:%s", InitialRetryCount, getInternetStateString(currentInternetState));
                 timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
 
                 // Lambda functions to check connectivity for IPv4 and IPv6
@@ -654,13 +669,14 @@ namespace WPEFramework
                         m_captiveURI = testInternet.getCaptivePortal();
                 };
 
-                // Start threads for IPv4 and IPv6 checks
-                std::thread ipv4thread(curlCheckThrdIpv4);
-                std::thread ipv6thread(curlCheckThrdIpv6);
+                ipv4thread = std::thread (curlCheckThrdIpv4);
+                ipv6thread = std::thread (curlCheckThrdIpv6);
 
                 // Wait for both threads to finish
-                ipv4thread.join();
-                ipv6thread.join();
+                if (ipv4thread.joinable())
+                    ipv4thread.join();
+                if (ipv6thread.joinable())
+                    ipv6thread.join();
 
                 // Determine the current internet state based on the results
                 if (m_Ipv4InternetState == INTERNET_NOT_AVAILABLE && m_Ipv6InternetState == INTERNET_NOT_AVAILABLE) {
@@ -693,6 +709,7 @@ namespace WPEFramework
                         NMLOG_DEBUG("initial connectivity state change %s", getInternetStateString(m_InternetState));
                         m_InternetState = currentInternetState;
                         InitialRetryCount = 1; // reset retry count to get continuous 3 same state
+                        m_notify = true;
                     }
                     InitialRetryCount++;
                 }
@@ -701,8 +718,9 @@ namespace WPEFramework
                     m_switchToInitial = false;
                     m_notify = true;
                     InitialRetryCount = 0;
-                    IdealRetryCount = 0;
+                    NMLOG_INFO("Let us monitor internet connectivity on %s address further.", (IP_ADDRESS_V4 == m_ipversion) ? "IPv4" : "IPv6");
                 }
+                IdealRetryCount = 0;
             }
             // Ideal case monitoring
             else {

@@ -96,7 +96,6 @@ namespace WPEFramework
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
-            return;
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -140,12 +139,12 @@ namespace WPEFramework
                         if(ifaceStr == wifiname) {
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
-                            m_wlanConnected = interface.connected;
+                            m_wlanConnected.store(interface.connected);
                         }
                         if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
-                            m_ethConnected = interface.connected;
+                            m_ethConnected.store(interface.connected);
                         }
 
                         interfaceList.push_back(interface);
@@ -204,9 +203,9 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_wlanConnected)
+                if(m_wlanConnected.load())
                     ifacePtr = wifiname.c_str();
-                if(m_ethConnected)
+                if(m_ethConnected.load())
                     ifacePtr = ethname.c_str();
             }
 
@@ -254,6 +253,22 @@ namespace WPEFramework
             }
 
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+            if(enabled)
+            {
+                sleep(1); // wait for 1 sec to change the device state
+                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                {
+                    NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
+                    wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
+                }
+                else if(interface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+                    // default wired connection name is 'Wired connection 1'
+                    wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
+                }
+            }
+
             return Core::ERROR_NONE;
         }
 
@@ -546,6 +561,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
+            if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(wifi->setIpSettings(interface, address))
                 rc = Core::ERROR_NONE;
             return rc;
@@ -644,10 +663,10 @@ namespace WPEFramework
             if(ssid.ssid.empty() && _instance != NULL)
             {
                 NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                if(wifi->activateKnownWifiConnection(_instance->m_lastConnectedSSID))
+                if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
-            else if(ssid.ssid.size() < 32)
+            else if(ssid.ssid.size() <= 32)
             {
                 if(wifi->wifiConnect(ssid))
                     rc = Core::ERROR_NONE;

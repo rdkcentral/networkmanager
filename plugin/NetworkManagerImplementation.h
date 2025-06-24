@@ -243,7 +243,7 @@ namespace WPEFramework
                 /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const override;
+                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
@@ -294,9 +294,8 @@ namespace WPEFramework
                 std::atomic<bool> m_processMonThreadStop{false};
                 std::condition_variable m_processMonCondVar;
 
-                std::atomic<bool> m_stopThread{false};
                 std::atomic<bool> m_isRunning{false};
-                bool m_monitoringStarted = false;
+                std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
 
