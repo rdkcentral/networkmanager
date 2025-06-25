@@ -121,6 +121,7 @@ namespace WPEFramework
             return rc;
         }
 
+#if 0
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -130,6 +131,8 @@ namespace WPEFramework
                 NMLOG_ERROR("SetPrimaryInterface failed");
             return rc;
         }
+#endif
+
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;

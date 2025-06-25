@@ -50,7 +50,6 @@ namespace WPEFramework {
             void registerLegacyMethods(void);
             void unregisterLegacyMethods(void);
             void subscribeToEvents(void);
-            void activatePrimaryPlugin();
             uint32_t internalGetIPSettings(const JsonObject& parameters, JsonObject& response);
             string getInterfaceNameToType(const string & interface);
             string getInterfaceTypeToName(const string & interface);

@@ -56,7 +56,6 @@ namespace WPEFramework
             Register("SetLogLevel",                       &NetworkManager::SetLogLevel, this);
             Register("GetAvailableInterfaces",            &NetworkManager::GetAvailableInterfaces, this);
             Register("GetPrimaryInterface",               &NetworkManager::GetPrimaryInterface, this);
-            Register("SetPrimaryInterface",               &NetworkManager::SetPrimaryInterface, this);
             Register("SetInterfaceState",                 &NetworkManager::SetInterfaceState, this);
             Register("GetInterfaceState",                 &NetworkManager::GetInterfaceState, this);
             Register("GetIPSettings",                     &NetworkManager::GetIPSettings, this);
@@ -93,7 +92,6 @@ namespace WPEFramework
             Unregister("SetLogLevel");
             Unregister("GetAvailableInterfaces");
             Unregister("GetPrimaryInterface");
-            Unregister("SetPrimaryInterface");
             Unregister("SetInterfaceState");
             Unregister("GetInterfaceState");
             Unregister("GetIPSettings");
@@ -212,6 +210,7 @@ namespace WPEFramework
             returnJson(rc);
         }
 
+#if 0
         uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
@@ -231,6 +230,7 @@ namespace WPEFramework
 
             returnJson(rc);
         }
+#endif
 
         uint32_t NetworkManager::SetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {

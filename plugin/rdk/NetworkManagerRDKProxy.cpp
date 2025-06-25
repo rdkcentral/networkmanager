@@ -889,6 +889,7 @@ namespace WPEFramework
             return rc;
         }
 
+#if 0
         /* @brief Set the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
         {
@@ -920,6 +921,7 @@ namespace WPEFramework
             }
             return rc;
         }
+#endif
 
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enable /* @in */)
         {
