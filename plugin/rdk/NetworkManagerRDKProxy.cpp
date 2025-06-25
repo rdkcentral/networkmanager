@@ -468,20 +468,32 @@ namespace WPEFramework
             return 0; /* WIFI_SECURITY_NONE */
         }
 
-        static bool alreadySentRecently()
+        static bool alreadySentRecently(std::string &interface)
         {
             // Use std::chrono::steady_clock for measuring elapsed time.
             // steady_clock is monotonic and not affected by system time changes (e.g., NTP synchronization),
             // ensuring timing is reliable even if the system clock is adjusted.
-            static std::chrono::steady_clock::time_point last_time = std::chrono::steady_clock::time_point{};
+            static std::chrono::steady_clock::time_point eth_last_time = std::chrono::steady_clock::time_point{};
+            static std::chrono::steady_clock::time_point wlan_last_time = std::chrono::steady_clock::time_point{};
             auto now = std::chrono::steady_clock::now();
 
-            if (last_time != std::chrono::steady_clock::time_point{} &&
-                std::chrono::duration_cast<std::chrono::seconds>(now - last_time).count() < 3) {
-                return true;
+            if (interface == "eth0")
+            {
+                if (eth_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 1500) { // 1.5 seconds threshold
+                    return true;
+                }
+                eth_last_time = now;
+            }
+            else if (interface == "wlan0")
+            {
+                if (wlan_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 1500) { // 1.5 seconds threshold
+                    return true;
+                }
+                wlan_last_time = now;
             }
 
-            last_time = now;
             return false;
         }
 
@@ -525,7 +537,7 @@ namespace WPEFramework
                         interface = e->interface;
                         NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS :: %s", interface.c_str());
                         if(interface == "eth0" || interface == "wlan0") {
-                            if (e->status) {
+                            if (e->status)
                                 ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_LINK_UP, interface);
                             else
                                ::_instance->ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_LINK_DOWN, interface);
@@ -534,7 +546,6 @@ namespace WPEFramework
                     }
                     case IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS:
                     {
-                        static std::string lastInterface="unknown";
                         IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t *e = (IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t*) data;
                         interface = e->interface;
                         NMLOG_INFO ("IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS: %s - %s - %s", interface.c_str(), e->ip_address, e->acquired?"Acquired":"Lost");
@@ -542,12 +553,11 @@ namespace WPEFramework
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
                             Exchange::INetworkManager::IPStatus status = Exchange::INetworkManager::IP_LOST;
-                            if(alreadySentRecently() && lastInterface == interface)
+                            if(!e->is_ipv6 && alreadySentRecently(interface))
                             {
                                 NMLOG_INFO("Already sent recently, skipping IP address change event for %s", interface.c_str());
                                 break;
                             }
-                            lastInterface = interface;
 
                             if (e->is_ipv6)
                                 ipversion = "IPv6";
