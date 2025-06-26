@@ -642,10 +642,10 @@ namespace WPEFramework
 
             nm_device_set_autoconnect(nmDevice, true); // set autoconnect true
 
-            devConnections = nm_device_get_available_connections(nmDevice);
-            if(devConnections == NULL)
+            devConnections = nm_client_get_connections(m_client);
+            if(devConnections == NULL || devConnections->len == 0)
             {
-                NMLOG_WARNING("No connections specific dev found !");
+                NMLOG_ERROR("No connections found !");
                 deleteClientConnection();
                 return false;
             }
@@ -657,13 +657,26 @@ namespace WPEFramework
                     continue;
 
                 const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
-                if(connId != NULL) {
-                    NMLOG_DEBUG("wifi conn : %s", connId);
+                if (connId == NULL) {
+                    NMLOG_WARNING("connection id is NULL");
+                    continue;
+                }
+
+                const char *connTyp = nm_connection_get_connection_type(NM_CONNECTION(connection));
+                if (connTyp == NULL) {
+                    NMLOG_WARNING("connection type is NULL");
+                    continue;
+                }
+
+                std::string connTypStr = connTyp;
+                NMLOG_DEBUG("connection id: %s, type: %s", connId != NULL ? connId : "NULL", connTypStr.c_str());
+                if(connTypStr == "802-11-wireless") {
+                    NMLOG_INFO("wifi conn found : %s", connId);
+                    // if no known ssid given then use first wifi connection from list
+                    // it usefule when bootup there will be no known ssid
                     if(firstConnection == NULL)
                         firstConnection = connection;
                 }
-                else
-                    NMLOG_WARNING("wifi connection id is NULL");
 
                 if (connId != NULL && strcmp(connId, knowConnectionID.c_str()) == 0)
                 {
@@ -1566,6 +1579,7 @@ namespace WPEFramework
 
             if (device == nullptr)
             {
+                NMLOG_ERROR("Device not found: %s", interface.c_str());
                 deleteClientConnection();
                 return false;
             }
@@ -1603,7 +1617,7 @@ namespace WPEFramework
                          * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
                          */
                         // while (g_main_context_iteration(NULL, FALSE));
-
+                        g_usleep(500 * 1000);  // give some time to NM to process the request
                         deviceState = nm_device_get_state(device);
                         if(oldDevState != deviceState)
                         {
@@ -1613,8 +1627,6 @@ namespace WPEFramework
 
                         if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
                             break;
-
-                        g_usleep(500 * 1000);  // 500ms (much faster response)
                     }
                 }
             }
