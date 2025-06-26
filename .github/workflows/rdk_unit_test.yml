@@ -68,6 +68,15 @@ jobs:
           &&
           cmake --build build/Thunder --target install -j8
 
+      - name: ThunderInterfaces
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderInterfaces --target install -j8
+
       - name: Generate IARM headers
         run: |
             touch install/usr/lib/libIARMBus.so 
