@@ -158,7 +158,17 @@ namespace WPEFramework
             auto interface = m_service->QueryInterfaceByCallsign<PluginHost::IShell>(callsign);
             if (interface != nullptr)
             {
-                PluginHost::IShell::state state = interface->State();
+                int retry = 0;
+                PluginHost::IShell::state state = PluginHost::IShell::state::UNAVAILABLE;
+                do{
+                    state = interface->State();
+                    if(PluginHost::IShell::state::ACTIVATED  == state)
+                    {
+                        NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
+                        break;
+                    }
+                    usleep(500*1000);
+                } while(retry++ < 5);
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
