@@ -92,7 +92,7 @@ namespace WPEFramework
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
-            _nmGdbusClient = NetworkManagerClient::getInstance(this);
+            _nmGdbusClient = NetworkManagerClient::getInstance();
             _nmGdbusEvents = NetworkManagerEvents::getInstance();
             getInitialConnectionState();
         }

@@ -32,7 +32,8 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        NetworkManagerClient::NetworkManagerClient(NetworkManagerImplementation* implInstance) : NMImpInstance(implInstance) {
+        extern NetworkManagerImplementation* _instance;
+        NetworkManagerClient::NetworkManagerClient() {
             NMLOG_INFO("NetworkManagerClient");
         }
 
@@ -789,7 +790,7 @@ namespace WPEFramework
 
             if(interface.empty())
             {
-                if(Core::ERROR_NONE != NMImpInstance->GetPrimaryInterface(interface))
+                if(Core::ERROR_NONE != _instance->GetPrimaryInterface(interface))
                 {
                     NMLOG_WARNING("default interface get failed");
                     return true;

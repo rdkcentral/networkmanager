@@ -39,16 +39,13 @@ namespace WPEFramework
 
         class NetworkManagerClient
         {
-            private:
-                NetworkManagerImplementation* NMImpInstance;
             public:
-                static NetworkManagerClient* getInstance(NetworkManagerImplementation* implInstance)
+                static NetworkManagerClient* getInstance()
                 {
-                    static NetworkManagerClient instance(implInstance);
+                    static NetworkManagerClient instance;
                     return &instance;
                 }
 
-                NetworkManagerClient(NetworkManagerImplementation* implInstance);
                 NetworkManagerClient(const NetworkManagerClient&) = delete;
                 NetworkManagerClient& operator=(const NetworkManagerClient&) = delete;
 
