@@ -480,7 +480,7 @@ namespace WPEFramework
             if (interface == "eth0")
             {
                 if (eth_last_time != std::chrono::steady_clock::time_point{} &&
-                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 1500) { // 1.5 seconds threshold
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 500) { // 500 milliseconds threshold
                     return true;
                 }
                 eth_last_time = now;
@@ -488,7 +488,7 @@ namespace WPEFramework
             else if (interface == "wlan0")
             {
                 if (wlan_last_time != std::chrono::steady_clock::time_point{} &&
-                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 1500) { // 1.5 seconds threshold
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 500) { // 500 milliseconds threshold
                     return true;
                 }
                 wlan_last_time = now;
