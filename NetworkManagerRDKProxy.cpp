@@ -657,24 +657,22 @@ namespace WPEFramework
         {
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
-            Exchange::INetworkManager::IInterfaceDetailsIterator* _tmpInterfaces{};
             uint32_t rc = GetAvailableInterfaces(_interfaces);
-            _tmpInterfaces = _interfaces;
             size_t interfaceCount = 0;
             Exchange::INetworkManager::InterfaceDetails tmpIface{};
-
-            while (_tmpInterfaces->Next(tmpIface))
-            {
-                if(tmpIface.enabled && tmpIface.connected)
-                {
-                    interfaceCount++;
-                }
-            }
 
             if (Core::ERROR_NONE == rc)
             {
                 if (_interfaces != nullptr)
                 {
+                    while (_interfaces->Next(tmpIface))
+                    {
+                        if(tmpIface.enabled && tmpIface.connected)
+                        {
+                            interfaceCount++;
+                        }
+                    }
+                    _interfaces->Reset(0);
                     Exchange::INetworkManager::InterfaceDetails iface{};
                     while (_interfaces->Next(iface) == true)
                     {
