@@ -663,21 +663,23 @@ namespace WPEFramework
             size_t interfaceCount = 0;
             Exchange::INetworkManager::InterfaceDetails tmpIface{};
 
-            while (_tmpInterfaces->Next(tmpIface))
-            {
-                if(tmpIface.enabled && tmpIface.connected)
-                {
-                    interfaceCount++;
-                }
-            }
-
             if (Core::ERROR_NONE == rc)
             {
                 if (_interfaces != nullptr)
                 {
+                    while (_tmpInterfaces->Next(tmpIface))
+                    {
+                        if(tmpIface.enabled && tmpIface.connected)
+                        {
+                            interfaceCount++;
+                        }
+                        NMLOG_INFO("GURU 1: interfaceCount = %d", interfaceCount);
+                    }
+
                     Exchange::INetworkManager::InterfaceDetails iface{};
                     while (_interfaces->Next(iface) == true)
                     {
+                        NMLOG_INFO("GURU 2: interfaceCount = %d", interfaceCount);
                         if((interfaceCount == 2 && "eth0" == iface.name) || interfaceCount == 1)
                         {
                             Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
@@ -714,6 +716,7 @@ namespace WPEFramework
                             }
                         }
                     }
+                    NMLOG_INFO("GURU 3: Outside while");
 
                     _interfaces->Release();
                 }
