@@ -210,28 +210,6 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-#if 0
-        uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
-        {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string interface = parameters["interface"].String();
-
-            if ("wlan0" != interface && "eth0" != interface)
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            if (_networkManager)
-                rc = _networkManager->SetPrimaryInterface(interface);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
-            returnJson(rc);
-        }
-#endif
-
         uint32_t NetworkManager::SetInterfaceState(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();

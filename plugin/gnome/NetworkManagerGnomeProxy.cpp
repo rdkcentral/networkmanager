@@ -222,17 +222,6 @@ namespace WPEFramework
             return rc;
         }
 
-#if 0
-        /* @brief Set the active Interface used for external world communication */
-        uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
-        {
-            uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->setPrimaryInterface(interface))
-                rc = Core::ERROR_NONE;
-            return rc;
-        }
-#endif
-
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
