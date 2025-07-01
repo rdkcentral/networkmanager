@@ -113,12 +113,18 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
             if(_nmGdbusClient->getPrimaryInterface(interface))
-                rc = Core::ERROR_NONE;
+                return Core::ERROR_NONE;
             else
-                NMLOG_ERROR("GetPrimaryInterface failed");
-            return rc;
+            {
+                if(_nmGdbusClient->getDefaultInterface(interface))
+                {
+                    _instance->m_defaultInterface = interface;
+                    return Core::ERROR_NONE;
+                }
+                else
+                    return Core::ERROR_GENERAL;
+            }
         }
 
 #if 0
