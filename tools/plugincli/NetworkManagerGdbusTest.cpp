@@ -38,6 +38,7 @@ namespace WPEFramework
 {
    namespace Plugin
     {
+
         void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
         {
             NMLOG_INFO("calling 'ReportInterfaceStateChange' cb");
