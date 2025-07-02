@@ -127,15 +127,6 @@ namespace WPEFramework
             }
         }
 
-        uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
-        {
-            uint32_t rc = Core::ERROR_GENERAL;
-            if(_nmGdbusClient->setPrimaryInterface(interface))
-                rc = Core::ERROR_NONE;
-            else
-                NMLOG_ERROR("SetPrimaryInterface failed");
-            return rc;
-        }
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;

@@ -126,28 +126,6 @@ namespace WPEFramework
             _gWiFiInstance = nullptr;
         }
 
-        void WiFiManager::activatePrimaryPlugin()
-        {
-            uint32_t result = Core::ERROR_ASYNC_FAILED;
-            string callsign(NETWORK_MANAGER_CALLSIGN);
-            Core::Event event(false, true);
-            Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
-                auto interface = m_service->QueryInterfaceByCallsign<PluginHost::IShell>(callsign);
-                if (interface == nullptr) {
-                    result = Core::ERROR_UNAVAILABLE;
-                    NMLOG_WARNING("no IShell for %s", callsign.c_str());
-                } else {
-                    NMLOG_INFO("Activating %s", callsign.c_str());
-                    result = interface->Activate(PluginHost::IShell::reason::REQUESTED);
-                    interface->Release();
-                }
-                event.SetEvent();
-            })));
-            event.Lock();
-
-            return;
-        }
-
         const string WiFiManager::Initialize(PluginHost::IShell*  service )
         {
             m_service = service;
@@ -189,14 +167,8 @@ namespace WPEFramework
                         NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
                         break;
                     }
-                    else
-                    {
-                        NMLOG_INFO("Lets attempt to activate the Plugin '%s', retry %d", callsign.c_str(), retry+1);
-                        activatePrimaryPlugin();
-                    }
                     usleep(500*1000);
                 } while(retry++ < 5);
-
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
