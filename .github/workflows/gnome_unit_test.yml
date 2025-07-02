@@ -35,6 +35,7 @@ jobs:
         run: |
           git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
+          git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
          
       - name: Build ThunderTools
         run: >
@@ -57,6 +58,15 @@ jobs:
           -DPORT=9998
           &&
           cmake --build build/Thunder --target install -j8
+
+      - name: ThunderInterfaces
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderInterfaces --target install -j8
 
       - name: Checkout networkmanager
         uses: actions/checkout@v3
