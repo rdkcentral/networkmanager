@@ -84,12 +84,6 @@ namespace WPEFramework
             // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
             {
-                SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
-                if (_networkManager->Configure(service) != Core::ERROR_NONE)
-                {
-                    SYSLOG(Logging::Shutdown, (_T("NetworkManager failed to configure")));
-                    message = _T("NetworkManager failed to configure");
-                }
 
                 // Set the plugin log level
                 Exchange::INetworkManager::Logging _loglevel;
@@ -100,6 +94,20 @@ namespace WPEFramework
                 SYSLOG(Logging::Startup, (_T("Registering Notification to NetworkManager")));
                 _networkManager->Register(&_notification);
 
+                SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
+                Exchange::IConfiguration* config = _networkManager->QueryInterface<Exchange::IConfiguration>();
+                if (config != nullptr) {
+                    if(config->Configure(service) != Core::ERROR_NONE)
+                    {
+                        SYSLOG(Logging::Shutdown, (_T("NetworkManager failed to configure")));
+                        message = _T("NetworkManager failed to configure");
+                    }
+                    else
+                    {
+                        SYSLOG(Logging::Startup, (_T("Configuring successful")));
+                    }
+                    config->Release();
+                }
                 // Register all custom JSON-RPC methods
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
                 RegisterAllMethods();

@@ -30,6 +30,7 @@
 using namespace std;
 
 #include "INetworkManager.h"
+#include <interfaces/IConfiguration.h>
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
@@ -49,7 +50,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        class NetworkManagerImplementation : public Exchange::INetworkManager
+        class NetworkManagerImplementation : public Exchange::INetworkManager, public Exchange::IConfiguration
         {
             enum NetworkEvents
             {
@@ -177,6 +178,7 @@ namespace WPEFramework
 
                 BEGIN_INTERFACE_MAP(NetworkManagerImplementation)
                 INTERFACE_ENTRY(Exchange::INetworkManager)
+                INTERFACE_ENTRY(Exchange::IConfiguration)
                 END_INTERFACE_MAP
 
                 // Handle Notification registration/removal
@@ -190,8 +192,6 @@ namespace WPEFramework
 
                 /* @brief Get the active Interface used for external world communication */
                 uint32_t GetPrimaryInterface (string& interface /* @out */) override;
-                /* @brief Set the active Interface used for external world communication */
-                uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;

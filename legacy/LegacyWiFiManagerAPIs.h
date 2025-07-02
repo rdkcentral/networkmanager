@@ -87,7 +87,6 @@ namespace WPEFramework {
             void subscribeToEvents(void);
             static std::string getInterfaceMapping(const std::string &interface);
             static bool ErrorCodeMapping(const uint32_t ipvalue , uint32_t &opvalue);
-            void activatePrimaryPlugin();
 
         private:
             PluginHost::IShell* m_service;
