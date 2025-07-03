@@ -1,4 +1,4 @@
-name: rdk_unit_test
+name: rdk_proxy_l1_tests
 
 on:
   push:
@@ -7,14 +7,39 @@ on:
     branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
 
 env:
-  THUNDER_REF: "R4.4.1"
+  THUNDER_REF: "R4.4.3"
 
 jobs:
-  unit-tests:
+  L1-tests:
     name: Build and run unit tests
     runs-on: ubuntu-22.04
 
     steps:
+      # Set up Thunder cache
+      - name: Set up Thunder cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build/Thunder
+            build/ThunderInterfaces
+            build/ThunderTools
+            install
+            !install/etc/WPEFramework/plugins
+            !install/usr/bin/rdkproxy_l1_test
+            !install/usr/include/gmock
+            !install/usr/include/gtest
+            !install/usr/lib/libgmockd.a
+            !install/usr/lib/libgmock_maind.a
+            !install/usr/lib/libgtestd.a
+            !install/usr/lib/libgtest_maind.a
+            !install/usr/lib/cmake/GTest
+            !install/usr/lib/pkgconfig/gmock.pc
+            !install/usr/lib/pkgconfig/gmock_main.pc
+            !install/usr/lib/pkgconfig/gtest.pc
+            !install/usr/lib/pkgconfig/gtest_main.pc
+            !install/usr/lib/wpeframework/plugins
+          key: thunder-${{ env.THUNDER_REF }}-rdk
       - name: Install packages
         run: |
           sudo apt update
@@ -30,24 +55,26 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1.13
         with:
           cmake-version: '3.16.x'
-
       - name: Checkout thunder repositories
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
-          
+
       - name: Checkout networkmanager
         uses: actions/checkout@v3
         with:
           path: networkmanager
-          
+
       - name: Apply Thunder Patches
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd ${{github.workspace}}/Thunder
           git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/Remove-SmartLinkType.patch
 
       - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderTools" -B build/ThunderTools
@@ -58,6 +85,7 @@ jobs:
           cmake --build build/ThunderTools --target install -j8
 
       - name: Build Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/Thunder" -B build/Thunder
@@ -70,6 +98,7 @@ jobs:
           cmake --build build/Thunder --target install -j8
 
       - name: ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
@@ -92,7 +121,7 @@ jobs:
         run: >
           cmake
           -S "${{github.workspace}}/networkmanager"
-          -B build/RDKNetworkmanager
+          -B build/networkmanager_rdk
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
@@ -104,41 +133,18 @@ jobs:
           -DENABLE_UNIT_TESTING=ON
           -DENABLE_ROUTER_DISCOVERY_TOOL=ON
           &&
-          cmake --build build/RDKNetworkmanager --target install -j8
-          
-      - name: Run unit tests for common class
-        run: >
-          PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          common_class_tests
-          
+          cmake --build build/networkmanager_rdk --target install -j8
+
       - name: Run unit tests for rdk proxy
         run: >
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          rdkproxy_tests
-          
-      - name: Run unit tests for Legacy_WiFi
-        run: >
-          PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          legacywifi_tests
-          
-      - name: Run unit tests for Legacy_Network
-        run: >
-          PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          legacynetwork_tests
+          rdkproxy_l1_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/rdkproxy_l1_test.xml"
 
-      - name: Run unit tests for routerDiscovery
-        run: >
-          PATH=${{github.workspace}}/install/usr/bin:${PATH}
-          routerDiscovery_tests
-          
       - name: Generate coverage
         run: |
-            lcov -c -o coverage.info -d build/RDKNetworkmanager
-            lcov -r coverage.info '/usr/include/*' '*/build/RDKNetworkmanager/*' \
+            lcov -c -o coverage.info -d build/networkmanager_rdk
+            lcov -r coverage.info '/usr/include/*' '*/build/networkmanager_rdk/*' \
                                   '*/install/usr/include/*' '*/tests/*' 'googlemock/*' 'googletest/*' \
                                   -o filtered_coverage.info
       - name: Generate the html report
@@ -148,7 +154,7 @@ jobs:
       - name: Upload the coverage report to Pull request using actions
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: /tmp/coverage_report
-          
-       
+            name: coverage-report
+            path: |
+              /tmp/coverage_report
+              /tmp/gtest_log
