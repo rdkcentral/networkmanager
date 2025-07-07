@@ -213,6 +213,19 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
         {
             LOG_ENTRY_FUNCTION();
+
+            // If no parameters are provided, return error
+            if (endpoint.empty() && port == 0 && bindTimeout == 0 && cacheTimeout == 0) {
+                NMLOG_WARNING("No parameters provided to update STUN Endpoint");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            // If port is provided but is 0, reject as invalid
+            if (port == 0 && !endpoint.empty()) {
+                NMLOG_WARNING("Invalid STUN port: 0");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
             if (!endpoint.empty())
                 m_stunEndpoint = endpoint;
 
@@ -260,7 +273,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Get Internet Connectivty Status */ 
+        /* @brief Get Internet Connectivty Status */
         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
@@ -300,7 +313,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Get Authentication URL if the device is behind Captive Portal */ 
+        /* @brief Get Authentication URL if the device is behind Captive Portal */
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
@@ -363,18 +376,23 @@ namespace WPEFramework
 
         /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
-        {   
+        {
             char cmd[100] = "";
             string tempResult = "";
+            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
+            {
+                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
-            {   
+            {
                 snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             else
-            {   
+            {
                 snprintf(cmd, sizeof(cmd), "ping  -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
-            
+
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_PING, commandToExecute, tempResult);
@@ -392,6 +410,11 @@ namespace WPEFramework
         {
             char cmd[256] = "";
             string tempResult = "";
+            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
+            {
+                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
             {
                 snprintf(cmd, 256, "traceroute6 -w 3 -m 6 -q %d %s 64 2>&1", noOfRequest, endpoint.c_str());
@@ -423,7 +446,7 @@ namespace WPEFramework
 
             pipe = popen(commandToExecute.c_str(), "r");
             if (pipe == NULL)
-            {   
+            {
                 NMLOG_INFO ("%s: failed to open file '%s' for read mode with result: %s", __FUNCTION__, commandToExecute.c_str(), strerror(errno));
                 return;
             }
