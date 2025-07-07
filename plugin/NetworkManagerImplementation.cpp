@@ -213,6 +213,19 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
         {
             LOG_ENTRY_FUNCTION();
+
+            // If no parameters are provided, return error
+            if (endpoint.empty() && port == 0 && bindTimeout == 0 && cacheTimeout == 0) {
+                NMLOG_WARNING("No parameters provided to update STUN Endpoint");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            // If port is provided but is 0, reject as invalid
+            if (port == 0 && !endpoint.empty()) {
+                NMLOG_WARNING("Invalid STUN port: 0");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
             if (!endpoint.empty())
                 m_stunEndpoint = endpoint;
 
