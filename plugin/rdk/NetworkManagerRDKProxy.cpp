@@ -19,6 +19,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
 #include "libIBus.h"
+#include <chrono>
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -467,6 +468,35 @@ namespace WPEFramework
             return 0; /* WIFI_SECURITY_NONE */
         }
 
+        static bool alreadySentRecently(std::string &interface)
+        {
+            // Use std::chrono::steady_clock for measuring elapsed time.
+            // steady_clock is monotonic and not affected by system time changes (e.g., NTP synchronization),
+            // ensuring timing is reliable even if the system clock is adjusted.
+            static std::chrono::steady_clock::time_point eth_last_time = std::chrono::steady_clock::time_point{};
+            static std::chrono::steady_clock::time_point wlan_last_time = std::chrono::steady_clock::time_point{};
+            auto now = std::chrono::steady_clock::now();
+
+            if (interface == "eth0")
+            {
+                if (eth_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                eth_last_time = now;
+            }
+            else if (interface == "wlan0")
+            {
+                if (wlan_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                wlan_last_time = now;
+            }
+
+            return false;
+        }
+
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
         {
             LOG_ENTRY_FUNCTION();
@@ -523,6 +553,11 @@ namespace WPEFramework
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
                             Exchange::INetworkManager::IPStatus status = Exchange::INetworkManager::IP_LOST;
+                            if(!e->is_ipv6 && alreadySentRecently(interface))
+                            {
+                                NMLOG_INFO("Already sent recently, skipping IP address change event for %s", interface.c_str());
+                                break;
+                            }
 
                             if (e->is_ipv6)
                                 ipversion = "IPv6";
