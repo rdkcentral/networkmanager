@@ -121,6 +121,7 @@ TEST_F(NetworkTest, Initialize)
     WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
     //WPEFramework::PluginHost::IShell* mockShell = new ServiceMock();
     ServiceMock* mockShell = new ServiceMock();
+    EXPECT_EQ(string("Failed to get IShell for 'NetworkManager'"), plugin->Initialize(&service));
     EXPECT_CALL(service, AddRef()).Times(1);
     EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
         .Times(2)
