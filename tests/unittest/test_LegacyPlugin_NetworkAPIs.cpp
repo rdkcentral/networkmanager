@@ -88,7 +88,7 @@ protected:
                         return static_cast<void*>(mockShell);
                         }));
 
-        EXPECT_CALL(service, State()).Times(1);
+        EXPECT_CALL(service, State()).Times(1).WillOnce(::testing::Return(PluginHost::IShell::state::ACTIVATED));
         EXPECT_CALL(mockSystemInfo, SetEnvironment(::testing::_, ::testing::_, ::testing::_))
             .WillOnce(::testing::Return(true));
         bool setEnvironmentResult1 = mockSystemInfo.SetEnvironment("THUNDER_ACCESS", "127.0.0.1:9998", true);
