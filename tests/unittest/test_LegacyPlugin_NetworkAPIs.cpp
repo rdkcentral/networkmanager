@@ -165,6 +165,8 @@ TEST_F(NetworkTest, Initialize)
     EXPECT_TRUE(setEnvironmentResult1);
     MockSmartLinkType mockSmartLinkType("org.rdk.NetworkManager.1", "org.rdk.Network", "token=");
     mockShell->Release();
+    delete mockShell;
+    delete mock_security_agent;
 }
 
 TEST_F(NetworkTest, RegisteredMethods)
