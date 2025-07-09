@@ -119,7 +119,8 @@ TEST_F(NetworkTest, Initialize)
     NiceMock<MockIAuthenticate> mock_authenticate;
     MockSystemInfoImpl mockSystemInfo;
     WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
-    WPEFramework::PluginHost::IShell* mockShell = new ServiceMock();
+    //WPEFramework::PluginHost::IShell* mockShell = new ServiceMock();
+    ServiceMock* mockShell = new ServiceMock();
     EXPECT_CALL(service, AddRef()).Times(1);
     EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
         .Times(2)
@@ -156,14 +157,14 @@ TEST_F(NetworkTest, Initialize)
     mock_authenticate.Release();
     auto networkManager = service.QueryInterfaceByCallsign(0x12345678, "org.rdk.NetworkManager.1");
     EXPECT_EQ(networkManager, mockShell);
-    PluginHost::IShell::state state = (*mockShell)->State();
+    PluginHost::IShell::state state = mockShell->State();
     EXPECT_EQ(state, PluginHost::IShell::state::ACTIVATED);
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
 
     bool setEnvironmentResult1 = mockSystemInfo.SetEnvironment("THUNDER_ACCESS", "127.0.0.1:9998", true);
     EXPECT_TRUE(setEnvironmentResult1);
     MockSmartLinkType mockSmartLinkType("org.rdk.NetworkManager.1", "org.rdk.Network", "token=");
-    (*mockShell)->Release();
+    mockShell->Release();
 }
 
 TEST_F(NetworkTest, RegisteredMethods)
