@@ -75,5 +75,30 @@ public:
     MOCK_METHOD(string, SystemRootPath, (), (const, override));
 };
 
+class MockIAuthenticate : public WPEFramework::PluginHost::IAuthenticate {
+public:
+    MOCK_METHOD(WPEFramework::PluginHost::ISecurity*, Officer, (const string&), (override));
+    MOCK_METHOD(WPEFramework::Core::hresult, CreateToken, (const uint16_t, const uint8_t*, std::string&), (override));
+    MOCK_METHOD(void*, QueryInterface, (const uint32_t), (override));
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+};
+
+/* straight mock methods for the SystemInfo class is because it has a private constructor and assignment operator */
+class MockSystemInfo {
+public:
+    virtual bool SetEnvironment(const string& name, const TCHAR* value, const bool forced = true) = 0;
+};
+
+class MockSystemInfoImpl : public MockSystemInfo {
+public:
+    MOCK_METHOD(bool, SetEnvironment, (const string&, const TCHAR*, const bool), (override));
+};
+
+class MockSmartLinkType : public WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> {
+public:                                                                                                                                 MockSmartLinkType(const string& remoteCallsign, const TCHAR* localCallsign, const string& query)
+        : WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>(remoteCallsign, localCallsign, query) {
+    }                                                                                                                               };
+
 #endif //SERVICEMOCK_H
 
