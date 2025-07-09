@@ -144,7 +144,8 @@ TEST_F(NetworkTest, Initialize)
                     return 0;
                     }));
     EXPECT_CALL(mock_authenticate, Release()).Times(1);
-    EXPECT_CALL(service, State()).Times(1).WillOnce(::testing::Return(PluginHost::IShell::state::ACTIVATED));
+    EXPECT_CALL(mockShell, State()).Times(1).WillOnce(::testing::Return(PluginHost::IShell::state::ACTIVATED));
+    EXPECT_CALL(mockShell, Release()).Times(1);
     EXPECT_CALL(mockSystemInfo, SetEnvironment(::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Return(true));
 
