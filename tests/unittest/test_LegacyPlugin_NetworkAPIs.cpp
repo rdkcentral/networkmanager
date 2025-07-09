@@ -122,11 +122,16 @@ TEST_F(NetworkTest, Initialize)
     WPEFramework::PluginHost::IShell* mockShell = new ServiceMock();
     EXPECT_CALL(service, AddRef()).Times(1);
     EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
-        .Times(1)
+        .Times(2)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
                     EXPECT_EQ(name, string(_T("SecurityAgent")));
                     return mock_security_agent;
+                    }))
+        .WillOnce(::testing::Invoke(
+                    [&](const uint32_t, const string& name) -> void* {
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    return static_cast<PluginHost::IShell*>(mockShell);
                     }));
 
     string payload = "http://localhost";
@@ -139,15 +144,7 @@ TEST_F(NetworkTest, Initialize)
                     return 0;
                     }));
     EXPECT_CALL(mock_authenticate, Release()).Times(1);
-    EXPECT_CALL(service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
-        .Times(1)
-        .WillOnce(::testing::Invoke(
-                    [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
-                    return static_cast<PluginHost::IShell*>(mockShell);
-                    }));
-
-    EXPECT_CALL(service, State()).Times(1);
+    EXPECT_CALL(service, State()).Times(1).WillOnce(::testing::Return(PluginHost::IShell::state::ACTIVATED));
     EXPECT_CALL(mockSystemInfo, SetEnvironment(::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Return(true));
 
@@ -157,11 +154,14 @@ TEST_F(NetworkTest, Initialize)
     mock_authenticate.CreateToken(static_cast<uint16_t>(0x12345678), reinterpret_cast<const unsigned char*>("http://localhost"), token);
     mock_authenticate.Release();
     auto networkManager = service.QueryInterfaceByCallsign(0x12345678, "org.rdk.NetworkManager.1");
-    service.State();
+    EXPECT_EQ(networkManager, mockShell);
+    PluginHost::IShell::state state = mockShell->State();
+    EXPECT_EQ(state, PluginHost::IShell::state::ACTIVATED);
+    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
 
     bool setEnvironmentResult1 = mockSystemInfo.SetEnvironment("THUNDER_ACCESS", "127.0.0.1:9998", true);
     EXPECT_TRUE(setEnvironmentResult1);
-    MockSmartLinkType mockSmartLinkType("org.rdk.NetworkManager.1", "org.rdk.Network", "query");
+    MockSmartLinkType mockSmartLinkType("org.rdk.NetworkManager.1", "org.rdk.Network", "token=");
 }
 
 TEST_F(NetworkTest, RegisteredMethods)
