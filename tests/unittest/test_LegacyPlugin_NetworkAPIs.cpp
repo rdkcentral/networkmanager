@@ -150,6 +150,15 @@ TEST_F(NetworkTest, Initialize)
     EXPECT_CALL(service, State()).Times(1);
     EXPECT_CALL(mockSystemInfo, SetEnvironment(::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Return(true));
+
+    // Call the methods that you are expecting to be called
+    service.AddRef();
+    auto securityAgent = service.QueryInterfaceByCallsign(0x12345678, "SecurityAgent");
+    mock_authenticate.CreateToken(static_cast<uint16_t>(0x12345678), reinterpret_cast<const unsigned char*>("http://localhost"), token);
+    mock_authenticate.Release();
+    auto networkManager = service.QueryInterfaceByCallsign(0x12345678, "org.rdk.NetworkManager.1");
+    service.State();
+
     bool setEnvironmentResult1 = mockSystemInfo.SetEnvironment("THUNDER_ACCESS", "127.0.0.1:9998", true);
     EXPECT_TRUE(setEnvironmentResult1);
     MockSmartLinkType mockSmartLinkType("org.rdk.NetworkManager.1", "org.rdk.Network", "query");
