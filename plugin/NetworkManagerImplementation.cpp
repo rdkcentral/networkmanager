@@ -628,9 +628,11 @@ namespace WPEFramework
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
             {
-                connectivityMonitor.switchToInitialCheck();
                 if(interface == "eth0")
                     m_ethConnected.store(true);
+                else if(interface == "wlan0")
+                    m_wlanConnected = true;
+                connectivityMonitor.switchToInitialCheck();
             }
 
             _notificationLock.Lock();
