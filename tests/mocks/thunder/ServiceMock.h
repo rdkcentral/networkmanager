@@ -22,12 +22,14 @@
 
 #include <gmock/gmock.h>
 
+#include "LegacyNetworkAPIs.h"
 #include "Module.h"
 
 class ServiceMock : public WPEFramework::PluginHost::IShell {
 public:
     virtual ~ServiceMock() = default;
 
+    enum { ID = WPEFramework::RPC::ID_SHELL };
     MOCK_METHOD(void, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(string, Versions, (), (const, override));
@@ -95,10 +97,135 @@ public:
     MOCK_METHOD(bool, SetEnvironment, (const string&, const TCHAR*, const bool), (override));
 };
 
+template <typename INBOUND, typename METHOD>
 class MockSmartLinkType : public WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> {
-public:                                                                                                                                 MockSmartLinkType(const string& remoteCallsign, const TCHAR* localCallsign, const string& query)
-        : WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>(remoteCallsign, localCallsign, query) {
-    }                                                                                                                               };
+public:
+    MockSmartLinkType(const string& remoteCallsign, const TCHAR* localCallsign, const string& query): WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>(remoteCallsign, localCallsign, query) {}
+    MOCK_METHOD(uint32_t, Subscribe, (const uint32_t, const string&, const METHOD&), ());
+};
+
+class MockINotification : public WPEFramework::Exchange::INetworkManager::INotification {
+public:
+    MOCK_METHOD(void, onInterfaceStateChange, (const WPEFramework::Exchange::INetworkManager::InterfaceState, const string), (override));
+    MOCK_METHOD(void, onActiveInterfaceChange, (const string, const string), (override));
+    MOCK_METHOD(void, onIPAddressChange, (const string, const string, const string, const WPEFramework::Exchange::INetworkManager::IPStatus), (override));
+    MOCK_METHOD(void, onInternetStatusChange, (const WPEFramework::Exchange::INetworkManager::InternetStatus, const WPEFramework::Exchange::INetworkManager::InternetStatus), (override));
+    MOCK_METHOD(void, onAvailableSSIDs, (const string), (override));
+    MOCK_METHOD(void, onWiFiStateChange, (const WPEFramework::Exchange::INetworkManager::WiFiState), (override));
+    MOCK_METHOD(void, onWiFiSignalQualityChange, (const string, const string, const string, const string, const WPEFramework::Exchange::INetworkManager::WiFiSignalQuality), (override));
+    MOCK_METHOD(void*, QueryInterface, (const uint32_t), (override));
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+};
+
+class MockINetworkManager : public WPEFramework::Exchange::INetworkManager {
+public:
+    MOCK_METHOD(uint32_t, GetAvailableInterfaces, (WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator*& interfaces), (override));
+    MOCK_METHOD(uint32_t, GetPrimaryInterface, (string& interface), (override));
+    MOCK_METHOD(uint32_t, SetInterfaceState, (const string& interface, const bool enabled), (override));
+    MOCK_METHOD(uint32_t, GetInterfaceState, (const string& interface, bool& enabled), (override));
+    MOCK_METHOD(uint32_t, GetIPSettings, (string& interface, const string& ipversion, IPAddress& address), (override));
+    MOCK_METHOD(uint32_t, SetIPSettings, (const string& interface, const IPAddress& address), (override));
+    MOCK_METHOD(uint32_t, GetStunEndpoint, (string& endpoint, uint32_t& port, uint32_t& timeout, uint32_t& cacheLifetime), (const));
+    MOCK_METHOD(uint32_t, SetStunEndpoint, (string const endpoint, const uint32_t port, const uint32_t timeout, const uint32_t cacheLifetime), (override));
+    MOCK_METHOD(uint32_t, GetConnectivityTestEndpoints, (IStringIterator*& endpoints), (const));
+    MOCK_METHOD(uint32_t, SetConnectivityTestEndpoints, (IStringIterator* const endpoints), (override));
+    MOCK_METHOD(uint32_t, IsConnectedToInternet, (string& ipversion, string& interface, WPEFramework::Exchange::INetworkManager::InternetStatus& status), (override));
+    MOCK_METHOD(uint32_t, GetCaptivePortalURI, (string& uri), (const));
+    MOCK_METHOD(uint32_t, GetPublicIP, (string& interface, string& ipversion, string& ipaddress), (override));
+    MOCK_METHOD(uint32_t, Ping, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, string& response), (override));
+    MOCK_METHOD(uint32_t, Trace, (const string ipversion, const string endpoint, const uint32_t nqueries, const string guid, string& response), (override));
+    MOCK_METHOD(uint32_t, StartWiFiScan, (const string& frequency, IStringIterator* const ssids), (override));
+    MOCK_METHOD(uint32_t, StopWiFiScan, (), (override));
+    MOCK_METHOD(uint32_t, GetKnownSSIDs, (IStringIterator*& ssids), (override));
+    MOCK_METHOD(uint32_t, AddToKnownSSIDs, (const WiFiConnectTo& ssid), (override));
+    MOCK_METHOD(uint32_t, RemoveKnownSSID, (const string& ssid), (override));
+    MOCK_METHOD(uint32_t, WiFiConnect, (const WiFiConnectTo& ssid), (override));
+    MOCK_METHOD(uint32_t, WiFiDisconnect, (), (override));
+    MOCK_METHOD(uint32_t, GetConnectedSSID, (WiFiSSIDInfo& ssidInfo), (override));
+    MOCK_METHOD(uint32_t, StartWPS, (const WiFiWPS& method, const string& pin), (override));
+    MOCK_METHOD(uint32_t, StopWPS, (), (override));
+    MOCK_METHOD(uint32_t, GetWifiState, (WPEFramework::Exchange::INetworkManager::WiFiState& state), (override));
+    MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, string& strength, string& noise, string& snr, WPEFramework::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
+    MOCK_METHOD(uint32_t, GetSupportedSecurityModes, (ISecurityModeIterator*& modes), (const));
+    MOCK_METHOD(uint32_t, SetLogLevel, (const Logging& level), (override));
+    MOCK_METHOD(uint32_t, GetLogLevel, (Logging& level), (override));
+    MOCK_METHOD(uint32_t, Configure, (WPEFramework::PluginHost::IShell* service), (override));
+    MOCK_METHOD(uint32_t, Register, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
+    MOCK_METHOD(uint32_t, Unregister, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
+};
+
+class MockIInterfaceDetailsIterator : public WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator {
+public:
+    MOCK_METHOD(bool, Next, (WPEFramework::Exchange::INetworkManager::InterfaceDetails&), (override));
+    MOCK_METHOD(bool, Previous, (WPEFramework::Exchange::INetworkManager::InterfaceDetails&), (override));
+    MOCK_METHOD(void, Reset, (const uint32_t position), (override));
+    MOCK_METHOD(bool, IsValid, (), (const, override));
+    MOCK_METHOD(uint32_t, Count, (), (const, override));
+    MOCK_METHOD(WPEFramework::Exchange::INetworkManager::InterfaceDetails, Current, (), (const, override));
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
+};
+
+class MockTimer {
+public:
+    MOCK_METHOD(void, stop, (), ());
+    MOCK_METHOD(void, start, (uint32_t), ());
+};
+
+class MockNetwork: public WPEFramework::PluginHost::IPlugin, WPEFramework::PluginHost::JSONRPC{
+public:
+    MOCK_METHOD(void, subscribeToEvents, (), ());
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
+    MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, ReportonInterfaceStateChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonActiveInterfaceChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonIPAddressChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonInternetStatusChange, (const JsonObject&), ());
+};
+
+class StubNetwork : public WPEFramework::Plugin::Network {
+public:
+    MockNetwork* network;
+    void onInterfaceStateChange(const JsonObject& parameters) {
+        WPEFramework::Plugin::Network::ReportonInterfaceStateChange(parameters); // Call the method on this object
+    }
+
+    void onActiveInterfaceChange(const JsonObject& parameters) {
+        EXPECT_EQ(parameters["prevActiveInterface"].String(), "eth0");
+        EXPECT_EQ(parameters["currentActiveInterface"].String(), "wlan0");
+        WPEFramework::Plugin::Network::ReportonActiveInterfaceChange(parameters);
+    }
+
+    void onIPAddressChange(const JsonObject& parameters) {
+        WPEFramework::Plugin::Network::ReportonIPAddressChange(parameters);
+    }
+
+    void onInternetStatusChange(const JsonObject& parameters) {
+        EXPECT_EQ(parameters["state"].String(), "CONNECTED");
+        EXPECT_EQ(parameters["status"].String(), "OK");
+        WPEFramework::Plugin::Network::ReportonInternetStatusChange(parameters);
+    }
+
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
+    MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(std::string, Information, (), (override, const));
+    MOCK_METHOD(void, ReportonInterfaceStateChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonActiveInterfaceChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonIPAddressChange, (const JsonObject&), ());
+    MOCK_METHOD(void, ReportonInternetStatusChange, (const JsonObject&), ());
+    MOCK_METHOD(void, subscribeToEvents, (), ());
+};
 
 #endif //SERVICEMOCK_H
 

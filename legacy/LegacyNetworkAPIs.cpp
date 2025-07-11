@@ -22,26 +22,6 @@
 
 using namespace std;
 using namespace WPEFramework::Plugin;
-#define API_VERSION_NUMBER_MAJOR 2
-#define API_VERSION_NUMBER_MINOR 0
-#define API_VERSION_NUMBER_PATCH 0
-#define NETWORK_MANAGER_CALLSIGN    "org.rdk.NetworkManager.1"
-#define SUBSCRIPTION_TIMEOUT_IN_MILLISECONDS 500
-#define DEFAULT_PING_PACKETS 15
-
-#define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
-#define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
-
-#define returnJson(rc) \
-    { \
-        if (Core::ERROR_NONE == rc)                 \
-            response["success"] = true;             \
-        else                                        \
-            response["success"] = false;            \
-        LOG_OUTPARAM();                             \
-        return Core::ERROR_NONE;                    \
-    }
-
 namespace WPEFramework
 {
     class Job : public Core::IDispatch {
@@ -228,43 +208,6 @@ namespace WPEFramework
             Unregister("getCaptivePortalURI");
             Unregister("stopConnectivityMonitoring");
         }
-
-#define CIDR_NETMASK_IP_LEN 32
-const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
-                                                     "0.0.0.0",
-                                                     "128.0.0.0",
-                                                     "192.0.0.0",
-                                                     "224.0.0.0",
-                                                     "240.0.0.0",
-                                                     "248.0.0.0",
-                                                     "252.0.0.0",
-                                                     "254.0.0.0",
-                                                     "255.0.0.0",
-                                                     "255.128.0.0",
-                                                     "255.192.0.0",
-                                                     "255.224.0.0",
-                                                     "255.240.0.0",
-                                                     "255.248.0.0",
-                                                     "255.252.0.0",
-                                                     "255.254.0.0",
-                                                     "255.255.0.0",
-                                                     "255.255.128.0",
-                                                     "255.255.192.0",
-                                                     "255.255.224.0",
-                                                     "255.255.240.0",
-                                                     "255.255.248.0",
-                                                     "255.255.252.0",
-                                                     "255.255.254.0",
-                                                     "255.255.255.0",
-                                                     "255.255.255.128",
-                                                     "255.255.255.192",
-                                                     "255.255.255.224",
-                                                     "255.255.255.240",
-                                                     "255.255.255.248",
-                                                     "255.255.255.252",
-                                                     "255.255.255.254",
-                                                     "255.255.255.255",
-                                                   };
 
         uint32_t Network::getInterfaces (const JsonObject& parameters, JsonObject& response)
         {
