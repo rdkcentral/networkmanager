@@ -537,8 +537,6 @@ namespace WPEFramework
                     }
                 }
             }
-            else
-                NMLOG_WARNING("ipversion error IPv4/IPv6");
             if(result.ipaddress.empty())
             {
                 result.autoconfig = true;
