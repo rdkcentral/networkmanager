@@ -147,6 +147,7 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
                         wifiState = "NM_DEVICE_STATE_IP_CHECK";
