@@ -993,68 +993,77 @@ namespace WPEFramework
 
         bool wifiManager::removeKnownSSID(const string& ssid)
         {
-            NMConnection *m_connection = NULL;
-            bool ssidSpecified = false;
-
+            bool deleted = false;
             if(!createClientNewConnection())
                 return false;
 
-            if(!ssid.empty())
-                ssidSpecified = true;
-            else
-                NMLOG_WARNING("ssid is not specified, Deleting all availble wifi connection !");
-
-            const GPtrArray  *allconnections = nm_client_get_connections(m_client);
+            const GPtrArray *allconnections = nm_client_get_connections(m_client);
             if(allconnections == NULL)
             {
                 NMLOG_ERROR("nm connections list null ");
                 deleteClientConnection();
                 return false;
             }
-            for (guint i = 0; i < allconnections->len; i++)
-            {
-                GError *error = NULL;
-                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
-                if(connection == NULL)
-                {
-                    NMLOG_WARNING("ssid connection null !");
-                    continue;
-                }
-                if (!NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
-                    continue; // if not wireless connection skipt
-                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
-                if(connId == NULL)
-                {
-                    NMLOG_WARNING("ssid connection id null !");
-                    continue;
-                }
 
-                NMLOG_DEBUG("wireless connection '%s'", connId);
-                if (ssidSpecified && strcmp(connId, ssid.c_str()) != 0)
-                    continue;
-
-                m_connection = g_object_ref(connection);
-                if (NM_IS_REMOTE_CONNECTION(connection))
-                {
-                    nm_remote_connection_delete(NM_REMOTE_CONNECTION(connection), NULL, &error);
-                    if(error) {
-                        NMLOG_ERROR("deleting connection failed %s", error->message);
+            if(ssid.empty()) {
+                // Delete all wireless connections
+                for (guint i = 0; i < allconnections->len; i++) {
+                    GError *error = NULL;
+                    NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
+                    if(connection == NULL)
+                        continue;
+                    if (!NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                        continue;
+                    const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                    if(connId == NULL)
+                        continue;
+                    if (NM_IS_REMOTE_CONNECTION(connection)) {
+                        nm_remote_connection_delete(NM_REMOTE_CONNECTION(connection), NULL, &error);
+                        if(error) {
+                            NMLOG_ERROR("deleting connection failed %s", error->message);
+                            g_error_free(error);
+                        } else {
+                            NMLOG_INFO("delete '%s' connection...", connId);
+                            deleted = true;
+                        }
                     }
-                    else
-                        NMLOG_INFO("delete '%s' connection ...", connId);
                 }
-            }
-
-            if(!m_connection)
-            {
-                if(ssidSpecified)
+                if(!deleted)
+                    NMLOG_WARNING("No wifi connection profiles found!");
+                deleteClientConnection();
+                return deleted;
+            } else {
+                // Delete only matching connection
+                for (guint i = 0; i < allconnections->len; i++) {
+                    GError *error = NULL;
+                    NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(allconnections, i));
+                    if(connection == NULL)
+                        continue;
+                    if (!NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                        continue;
+                    const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                    if(connId == NULL)
+                        continue;
+                    if (strcmp(connId, ssid.c_str()) == 0) {
+                        if (NM_IS_REMOTE_CONNECTION(connection)) {
+                            nm_remote_connection_delete(NM_REMOTE_CONNECTION(connection), NULL, &error);
+                            if(error) {
+                                NMLOG_ERROR("deleting connection failed %s", error->message);
+                                g_error_free(error);
+                                deleted = false;
+                            } else {
+                                NMLOG_INFO("delete '%s' connection...", connId);
+                                deleted = true;
+                            }
+                        }
+                        break;
+                    }
+                }
+                if(!deleted)
                     NMLOG_WARNING("'%s' no such connection profile", ssid.c_str());
-                else
-                    NMLOG_WARNING("No wifi connection profiles found !!"); 
+                deleteClientConnection();
+                return deleted;
             }
-
-            deleteClientConnection();
-            return true;
         }
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
