@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's LICENSE
 * file the following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2024 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,10 +28,11 @@ public:
     virtual ~COMLinkMock() = default;
 
     MOCK_METHOD(void, Register, (WPEFramework::RPC::IRemoteConnection::INotification*), (override));
-    MOCK_METHOD(void, Unregister, (WPEFramework::RPC::IRemoteConnection::INotification*), (override));
+    MOCK_METHOD(void, Unregister, (const WPEFramework::RPC::IRemoteConnection::INotification*), (override));
+    MOCK_METHOD(void, Register, (INotification*), (override));
+    MOCK_METHOD(void, Unregister, (INotification*), (override));
     MOCK_METHOD(WPEFramework::RPC::IRemoteConnection*, RemoteConnection, (const uint32_t), (override));
-    MOCK_METHOD(void*, Instantiate, (const WPEFramework::RPC::Object&, const uint32_t, uint32_t&, const string&, const string&), (override));
+    MOCK_METHOD(void*, Instantiate, (const WPEFramework::RPC::Object&, const uint32_t, uint32_t&), (override));
 };
 
 #endif //RDKSERVICES_TESTS_MOCKS_COMLINKMOCK_H_
-

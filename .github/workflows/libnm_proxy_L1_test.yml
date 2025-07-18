@@ -1,0 +1,123 @@
+name: libnm_proxy_l1_tests
+
+on:
+  push:
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
+  pull_request:
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
+
+env:
+  THUNDER_REF: "R4.4.3"
+
+jobs:
+  L1-tests:
+    name: Build and run unit tests
+    runs-on: ubuntu-22.04
+
+    steps:
+      # Set up Thunder cache
+      - name: Set up Thunder cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build/Thunder
+            build/ThunderInterfaces
+            build/ThunderTools
+            install
+            !install/etc/WPEFramework/plugins
+            !install/usr/bin/libnmproxy_l1_test
+            !install/usr/include/gmock
+            !install/usr/include/gtest
+            !install/usr/lib/libgmockd.a
+            !install/usr/lib/libgmock_maind.a
+            !install/usr/lib/libgtestd.a
+            !install/usr/lib/libgtest_maind.a
+            !install/usr/lib/cmake/GTest
+            !install/usr/lib/pkgconfig/gmock.pc
+            !install/usr/lib/pkgconfig/gmock_main.pc
+            !install/usr/lib/pkgconfig/gtest.pc
+            !install/usr/lib/pkgconfig/gtest_main.pc
+            !install/usr/lib/wpeframework/plugins
+          key: thunder-${{ env.THUNDER_REF }}-libnm
+      - name: Install packages
+        run: |
+          sudo apt update
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
+
+      - name: Configure Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - run: pip install jsonref
+
+      - name: Configure CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.16.x'
+      - name: Checkout thunder repositories
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
+          git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
+          git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
+
+      - name: Checkout networkmanager
+        uses: actions/checkout@v3
+        with:
+          path: networkmanager
+
+      - name: Apply Thunder Patches
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd ${{github.workspace}}/Thunder
+          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/Remove-SmartLinkType.patch
+
+      - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderTools" -B build/ThunderTools
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DGENERIC_CMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderTools --target install -j8
+
+      - name: Build Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/Thunder" -B build/Thunder
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DBUILD_TYPE=Debug
+          -DBINDING=127.0.0.1
+          -DPORT=9998
+          &&
+          cmake --build build/Thunder --target install -j8
+
+      - name: ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: >
+          cmake
+          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          &&
+          cmake --build build/ThunderInterfaces --target install -j8
+
+      - name: Build networkmanager with Gnome libnm Proxy
+        run: >
+          cmake
+          -S "${{github.workspace}}/networkmanager"
+          -B build/networkmanager_libnm
+          -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
+          -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
+          -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
+          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
+          -DENABLE_GNOME_NETWORKMANAGER=ON
+          -DENABLE_PLUGIN_CLI=ON
+          &&
+          cmake --build build/networkmanager_libnm --target install -j8
+

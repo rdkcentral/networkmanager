@@ -21,8 +21,11 @@
 
 #include <gmock/gmock.h>
 #include "libIBus.h"
+#ifdef ENABLE_TEST_LOG
 #define TEST_LOG(x, ...) fprintf(stderr, "\033[1;32m[%s:%d](%s)<PID:%d><TID:%d>" x "\n\033[0m", __FILE__, __LINE__, __FUNCTION__, getpid(), gettid(), ##__VA_ARGS__); fflush(stderr);
-
+#else
+#define TEST_LOG(x, ...)
+#endif
 class IarmBusImplMock : public IarmBusImpl {
 public:
     IarmBusImplMock()
@@ -46,7 +49,6 @@ public:
         ON_CALL(*this, IARM_Bus_Connect())
             .WillByDefault(::testing::Invoke(
                 []() {
-                    TEST_LOG("Mock IARM_Bus_Connect called");
                     return IARM_RESULT_SUCCESS;
                 }));
         ON_CALL(*this, IARM_Bus_RegisterEventHandler(::testing::_, ::testing::_, ::testing::_))

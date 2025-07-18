@@ -351,6 +351,7 @@ namespace WPEFramework
             }
             else
             {
+                NMLOG_ERROR("stun bind failed for endpoint %s:%d", m_stunEndpoint.c_str(), m_stunPort);
                 return Core::ERROR_GENERAL;
             }
         }

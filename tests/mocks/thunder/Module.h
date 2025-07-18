@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's LICENSE
 * file the following copyright and licenses apply:
 *
-* Copyright 2023 RDK Management
+* Copyright 2024 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #pragma once
 
 #ifndef MODULE_NAME
-#define MODULE_NAME tests
+#define MODULE_NAME networkmanager_tests
 #endif
 
 #include <core/core.h>
