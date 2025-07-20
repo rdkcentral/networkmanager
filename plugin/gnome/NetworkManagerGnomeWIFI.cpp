@@ -713,6 +713,9 @@ namespace WPEFramework
                 NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
             }
 
+            if(knownConnection != NULL)
+                g_object_unref(knownConnection);
+
             deleteClientConnection();
             return m_isSuccess;
         }
@@ -995,6 +998,7 @@ namespace WPEFramework
         {
             NMConnection *m_connection = NULL;
             bool ssidSpecified = false;
+            bool connectionFound = false;
 
             if(!createClientNewConnection())
                 return false;
@@ -1042,10 +1046,17 @@ namespace WPEFramework
                     }
                     else
                         NMLOG_INFO("delete '%s' connection ...", connId);
+                    connectionFound = true;
+                }
+
+                if(m_connection)
+                {
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                 }
             }
 
-            if(!m_connection)
+            if(!connectionFound)
             {
                 if(ssidSpecified)
                     NMLOG_WARNING("'%s' no such connection profile", ssid.c_str());
@@ -1054,7 +1065,9 @@ namespace WPEFramework
             }
 
             deleteClientConnection();
-            return true;
+            // ssid is specified and connection is not found return false
+            // all other case return true, even if no wificonnection is found
+            return((ssidSpecified && !connectionFound)?false:true);
         }
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
