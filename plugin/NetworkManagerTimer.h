@@ -17,6 +17,8 @@
 * limitations under the License.
 **/
 
+#ifndef NETWORKMANAGER_TIMER_H
+#define NETWORKMANAGER_TIMER_H
 namespace WPEFramework {
 
     namespace Plugin {
@@ -130,3 +132,4 @@ namespace WPEFramework {
         };
     }
 }
+#endif 
