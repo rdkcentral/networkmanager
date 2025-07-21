@@ -92,6 +92,7 @@ protected:
     virtual ~NetworkTest() override
     {
         plugin->Deinitialize(m_service);
+        m_service->Release();
         delete m_service;
     }
 };
@@ -304,6 +305,7 @@ TEST_F(NetworkTest, getIPSettings) {
         .WillOnce(::testing::Invoke(
                     [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
                     address.ipaddress = "192.168.0.1";
+                    address.ipversion = "IPv4";
                     address.prefix = 24;
                     return Core::ERROR_NONE;
                     }));
@@ -341,7 +343,7 @@ TEST_F(NetworkTest, getIPSettingsError) {
                     address.ipaddress = "192.168.0.1";
                     address.ipversion = "IPv4";
                     address.prefix = 34;
-                    return Core::ERROR_GENERAL;
+                    return Core::ERROR_NONE;
                     }));
 
     EXPECT_CALL(*mockNetworkManager, Release())
@@ -554,6 +556,19 @@ TEST_F(NetworkTest, isInterfaceEnabled) {
     delete mockNetworkManager;
 }
 
+TEST_F(NetworkTest, isInterfaceEnabledErrorInvalidInterface) {
+    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
+
+    JsonObject parametersJson;
+    parametersJson["interface"] = "INVALID";
+    string parametersStr;
+    parametersJson.ToString(parametersStr);
+
+    EXPECT_EQ(Core::ERROR_BAD_REQUEST, handler.Invoke(connection, _T("isInterfaceEnabled"), _T(parametersStr), response));
+
+    delete mockNetworkManager;
+}
+
 TEST_F(NetworkTest, setConnectivityTestEndpoints) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
 
@@ -584,7 +599,25 @@ TEST_F(NetworkTest, setConnectivityTestEndpoints) {
     delete mockNetworkManager;
 }
 
-TEST_F(NetworkTest, setConnectivityTestEndpointsError) {
+TEST_F(NetworkTest, setConnectivityTestEndpointsErrorInvalidType) {
+    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
+
+    JsonArray array;
+    array.Add("http://example.com");
+    array.Add(1234);
+    array.Add("http://example3.com");
+
+    JsonObject parametersJson;
+    parametersJson["endpoints"] = array;
+    string parametersStr;
+    parametersJson.ToString(parametersStr);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setConnectivityTestEndpoints"), _T(parametersStr), response));
+
+    delete mockNetworkManager;
+}
+
+TEST_F(NetworkTest, setConnectivityTestEndpointsErrorEmptyArray) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
 
     JsonArray array;
@@ -648,10 +681,15 @@ TEST_F(NetworkTest, getStbIp) {
                     EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
-
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::Return(Core::ERROR_NONE));
+        .WillOnce(::testing::Invoke(
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    address.ipaddress = "192.168.0.1";
+                    address.ipversion = "IPv4";
+                    address.prefix = 24;
+                    return Core::ERROR_NONE;
+                    }));
 
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
@@ -677,10 +715,15 @@ TEST_F(NetworkTest, getSTBIPFamily) {
                     EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
-
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::Return(Core::ERROR_NONE));
+        .WillOnce(::testing::Invoke(
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    address.ipaddress = "192.168.0.1";
+                    address.ipversion = "IPv4";
+                    address.prefix = 24;
+                    return Core::ERROR_NONE;
+                    }));
 
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
@@ -755,4 +798,9 @@ TEST_F(NetworkTest, ReportonInternetStatusChange) {
     parameters["state"] = "CONNECTED";
     parameters["status"] = "OK";
     network.onInternetStatusChange(parameters);
+}
+
+TEST_F(NetworkTest, Information) {
+    StubNetwork network;
+    network.Information();
 }

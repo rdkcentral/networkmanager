@@ -214,12 +214,17 @@ public:
         WPEFramework::Plugin::Network::ReportonInternetStatusChange(parameters);
     }
 
+    string Information() const
+    {
+        WPEFramework::Plugin::Network::Information();
+        return(string());
+    }
+
     MOCK_METHOD(void, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
     MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
     MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
-    MOCK_METHOD(std::string, Information, (), (override, const));
     MOCK_METHOD(void, ReportonInterfaceStateChange, (const JsonObject&), ());
     MOCK_METHOD(void, ReportonActiveInterfaceChange, (const JsonObject&), ());
     MOCK_METHOD(void, ReportonIPAddressChange, (const JsonObject&), ());
