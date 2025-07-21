@@ -318,7 +318,43 @@ TEST_F(NetworkTest, getIPSettings) {
     delete mockNetworkManager;
 }
 
-TEST_F(NetworkTest, getIPSettingsError) {
+TEST_F(NetworkTest, getIPSettingsIPv6) {
+    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
+    JsonObject jsonParameters;
+    jsonParameters["interface"] = "WIFI";
+    jsonParameters["ipversion"] = "IPv6";
+    string parameters;
+    string response;
+    jsonParameters.ToString(parameters);
+
+    EXPECT_CALL(*m_service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+                    [&](const uint32_t, const string& name) -> void* {
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    return static_cast<void*>(mockNetworkManager);
+                    }));
+
+    WPEFramework::Exchange::INetworkManager::IPAddress address{};
+    EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    address.ipaddress = "fe80::1";
+                    address.ipversion = "IPv6";
+                    address.prefix = 64;
+                    return Core::ERROR_NONE;
+                    }));
+
+    EXPECT_CALL(*mockNetworkManager, Release())
+        .Times(1);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getIPSettings"), _T(parameters), response));
+
+    delete mockNetworkManager;
+}
+
+TEST_F(NetworkTest, getIPSettingsErrorEmptyString) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
     JsonObject jsonParameters;
     jsonParameters["interface"] = "WIFI";
@@ -340,7 +376,7 @@ TEST_F(NetworkTest, getIPSettingsError) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
-                    address.ipaddress = "192.168.0.1";
+                    address.ipaddress = "";
                     address.ipversion = "IPv4";
                     address.prefix = 34;
                     return Core::ERROR_NONE;
