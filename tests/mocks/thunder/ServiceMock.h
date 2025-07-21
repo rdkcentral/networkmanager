@@ -23,6 +23,7 @@
 #include <gmock/gmock.h>
 
 #include "LegacyNetworkAPIs.h"
+#include "LegacyWiFiManagerAPIs.h"
 #include "Module.h"
 
 class ServiceMock : public WPEFramework::PluginHost::IShell {
@@ -230,6 +231,48 @@ public:
     MOCK_METHOD(void, ReportonIPAddressChange, (const JsonObject&), ());
     MOCK_METHOD(void, ReportonInternetStatusChange, (const JsonObject&), ());
     MOCK_METHOD(void, subscribeToEvents, (), ());
+};
+
+class StubWiFi : public WPEFramework::Plugin::WiFiManager {
+public:
+    void onWiFiStateChange(const JsonObject& parameters) {
+        WPEFramework::Plugin::WiFiManager::onWiFiStateChange(parameters); // Call the method on this object
+    }
+
+    void onAvailableSSIDs(const JsonObject& parameters) {
+        WPEFramework::Plugin::WiFiManager::onAvailableSSIDs(parameters); // Call the method on this object
+    }
+
+    void onWiFiSignalQualityChange(const JsonObject& parameters) {
+        WPEFramework::Plugin::WiFiManager::onWiFiSignalQualityChange(parameters); // Call the method on this object
+    }
+
+    string Information() const
+    {
+        WPEFramework::Plugin::WiFiManager::Information();
+        return(string());
+    }
+
+    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
+    MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, subscribeToEvents, (), ());
+};
+
+template<typename ELEMENT, const uint32_t INTERFACE_ID>
+class MockStringIterator : public WPEFramework::RPC::IStringIterator{
+public:
+    MOCK_METHOD(bool, Next, (ELEMENT&), (override));
+    MOCK_METHOD(bool, Previous, (ELEMENT&), (override));
+    MOCK_METHOD(void, Reset, (uint32_t), (override));
+    MOCK_METHOD(bool, IsValid, (), (const));
+    MOCK_METHOD(uint32_t, Count, (), (const));
+    MOCK_METHOD(ELEMENT, Current, (), (const));
+    MOCK_METHOD(void, AddRef, (), (const));
+    MOCK_METHOD(uint32_t, Release, (), (const));
+    MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
 };
 
 #endif //SERVICEMOCK_H
