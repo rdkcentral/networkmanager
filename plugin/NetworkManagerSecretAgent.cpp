@@ -232,11 +232,11 @@ namespace WPEFramework
                             NULL,
                             &error);
 
-            if (!agentRegID) {
+            if (!agentRegID && error != NULL) {
                 NMLOG_ERROR("Failed to register object: %s", error->message);
                 g_error_free(error);
                 g_dbus_node_info_unref(node_info);
-                return ;
+                return;
             }
 
             NMLOG_INFO("Object registered with ID: %u", agentRegID);
