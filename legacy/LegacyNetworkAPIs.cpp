@@ -92,28 +92,6 @@ namespace WPEFramework
             _gNWInstance = nullptr;
         }
 
-        void Network::activatePrimaryPlugin()
-        {
-            uint32_t result = Core::ERROR_ASYNC_FAILED;
-            string callsign(NETWORK_MANAGER_CALLSIGN);
-            Core::Event event(false, true);
-            Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create([&]() {
-                auto interface = m_service->QueryInterfaceByCallsign<PluginHost::IShell>(callsign);
-                if (interface == nullptr) {
-                    result = Core::ERROR_UNAVAILABLE;
-                    NMLOG_WARNING("no IShell for %s", callsign.c_str());
-                } else {
-                    NMLOG_INFO("Activating %s", callsign.c_str());
-                    result = interface->Activate(PluginHost::IShell::reason::REQUESTED);
-                    interface->Release();
-                }
-                event.SetEvent();
-            })));
-            event.Lock();
-
-            return;
-        }
-
         const string Network::Initialize(PluginHost::IShell*  service )
         {
             m_service = service;
@@ -152,28 +130,21 @@ namespace WPEFramework
                         NMLOG_INFO("Dependency Plugin '%s' Ready", callsign.c_str());
                         break;
                     }
-                    else
-                    {
-                        NMLOG_INFO("Lets attempt to activate the Plugin '%s', retry %d", callsign.c_str(), retry+1);
-                        activatePrimaryPlugin();
-                    }
                     usleep(500*1000);
                 } while(retry++ < 5);
-
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
                     m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Network"), query);
+
                     subscribeToEvents();
                 }
                 else
                     message = _T("dependency Plugin 'NetworkManager' not Ready");
-
                 interface->Release();
             }
             else
                 message = _T("Failed to get IShell for 'NetworkManager'");
-
             return message;
         }
 
@@ -411,24 +382,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t Network::setDefaultInterface(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string givenInterface = parameters["interface"].String();
-            const string interface = getInterfaceTypeToName(givenInterface);
-
-            if ("wlan0" != interface && "eth0" != interface)
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr)
-            {
-                rc = _nwmgr->SetPrimaryInterface(interface);
-                _nwmgr->Release();
-            }
-            else
-                rc = Core::ERROR_UNAVAILABLE;
+            uint32_t rc = Core::ERROR_NONE;
 
             returnJson(rc);
         }
@@ -458,11 +412,21 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 return Core::ERROR_BAD_REQUEST;
             }
 
+            if (parameters.HasLabel("ipversion"))
+            {
+                address.ipversion = parameters["ipversion"].String();
+                if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
+                {
+                    return Core::ERROR_BAD_REQUEST;
+                }
+            }
+            else
+                return Core::ERROR_BAD_REQUEST;
+
             address.autoconfig = parameters["autoconfig"].Boolean();
             if (!address.autoconfig)
             {
                 address.ipaddress      = parameters["ipaddr"].String();
-                address.ipversion      = parameters["ipversion"].String();
                 address.gateway        = parameters["gateway"].String();
                 address.primarydns     = parameters["primarydns"].String();
                 address.secondarydns   = parameters["secondarydns"].String();

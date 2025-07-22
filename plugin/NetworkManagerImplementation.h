@@ -30,6 +30,7 @@
 using namespace std;
 
 #include "INetworkManager.h"
+#include <interfaces/IConfiguration.h>
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
@@ -49,7 +50,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        class NetworkManagerImplementation : public Exchange::INetworkManager
+        class NetworkManagerImplementation : public Exchange::INetworkManager, public Exchange::IConfiguration
         {
             enum NetworkEvents
             {
@@ -177,6 +178,7 @@ namespace WPEFramework
 
                 BEGIN_INTERFACE_MAP(NetworkManagerImplementation)
                 INTERFACE_ENTRY(Exchange::INetworkManager)
+                INTERFACE_ENTRY(Exchange::IConfiguration)
                 END_INTERFACE_MAP
 
                 // Handle Notification registration/removal
@@ -190,8 +192,6 @@ namespace WPEFramework
 
                 /* @brief Get the active Interface used for external world communication */
                 uint32_t GetPrimaryInterface (string& interface /* @out */) override;
-                /* @brief Set the active Interface used for external world communication */
-                uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;
@@ -243,7 +243,7 @@ namespace WPEFramework
                 /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& securityModes /* @out */) const override;
+                uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
@@ -294,9 +294,8 @@ namespace WPEFramework
                 std::atomic<bool> m_processMonThreadStop{false};
                 std::condition_variable m_processMonCondVar;
 
-                std::atomic<bool> m_stopThread{false};
                 std::atomic<bool> m_isRunning{false};
-                bool m_monitoringStarted = false;
+                std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
 

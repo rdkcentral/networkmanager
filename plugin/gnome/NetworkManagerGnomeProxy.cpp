@@ -139,12 +139,12 @@ namespace WPEFramework
                         if(ifaceStr == wifiname) {
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
-                            m_wlanConnected = interface.connected;
+                            m_wlanConnected.store(interface.connected);
                         }
                         if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
-                            m_ethConnected = interface.connected;
+                            m_ethConnected.store(interface.connected);
                         }
 
                         interfaceList.push_back(interface);
@@ -203,9 +203,9 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_wlanConnected)
+                if(m_wlanConnected.load())
                     ifacePtr = wifiname.c_str();
-                if(m_ethConnected)
+                if(m_ethConnected.load())
                     ifacePtr = ethname.c_str();
             }
 
@@ -219,15 +219,6 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_NONE;
 
-            return rc;
-        }
-
-        /* @brief Set the active Interface used for external world communication */
-        uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
-        {
-            uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->setPrimaryInterface(interface))
-                rc = Core::ERROR_NONE;
             return rc;
         }
 
@@ -546,8 +537,6 @@ namespace WPEFramework
                     }
                 }
             }
-            else
-                NMLOG_WARNING("ipversion error IPv4/IPv6");
             if(result.ipaddress.empty())
             {
                 result.autoconfig = true;
@@ -561,6 +550,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
+            if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(wifi->setIpSettings(interface, address))
                 rc = Core::ERROR_NONE;
             return rc;
@@ -662,7 +655,7 @@ namespace WPEFramework
                 if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
-            else if(ssid.ssid.size() < 32)
+            else if(ssid.ssid.size() <= 32)
             {
                 if(wifi->wifiConnect(ssid))
                     rc = Core::ERROR_NONE;

@@ -19,6 +19,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
 #include "libIBus.h"
+#include <chrono>
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -467,6 +468,35 @@ namespace WPEFramework
             return 0; /* WIFI_SECURITY_NONE */
         }
 
+        static bool alreadySentRecently(std::string &interface)
+        {
+            // Use std::chrono::steady_clock for measuring elapsed time.
+            // steady_clock is monotonic and not affected by system time changes (e.g., NTP synchronization),
+            // ensuring timing is reliable even if the system clock is adjusted.
+            static std::chrono::steady_clock::time_point eth_last_time = std::chrono::steady_clock::time_point{};
+            static std::chrono::steady_clock::time_point wlan_last_time = std::chrono::steady_clock::time_point{};
+            auto now = std::chrono::steady_clock::now();
+
+            if (interface == "eth0")
+            {
+                if (eth_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                eth_last_time = now;
+            }
+            else if (interface == "wlan0")
+            {
+                if (wlan_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                wlan_last_time = now;
+            }
+
+            return false;
+        }
+
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
         {
             LOG_ENTRY_FUNCTION();
@@ -523,6 +553,11 @@ namespace WPEFramework
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
                             Exchange::INetworkManager::IPStatus status = Exchange::INetworkManager::IP_LOST;
+                            if(!e->is_ipv6 && alreadySentRecently(interface))
+                            {
+                                NMLOG_INFO("Already sent recently, skipping IP address change event for %s", interface.c_str());
+                                break;
+                            }
 
                             if (e->is_ipv6)
                                 ipversion = "IPv6";
@@ -675,31 +710,54 @@ namespace WPEFramework
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
             uint32_t rc = GetAvailableInterfaces(_interfaces);
+            size_t interfaceCount = 0;
+            Exchange::INetworkManager::InterfaceDetails iface{};
 
             if (Core::ERROR_NONE == rc)
             {
                 if (_interfaces != nullptr)
                 {
-                    Exchange::INetworkManager::InterfaceDetails iface{};
+                    while (_interfaces->Next(iface))
+                    {
+                        if(iface.enabled && iface.connected)
+                        {
+                            interfaceCount++;
+                        }
+                    }
+                    _interfaces->Reset(0);
                     while (_interfaces->Next(iface) == true)
                     {
-                        Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
-                        if(iface.enabled)
+                        if((interfaceCount == 2 && "eth0" == iface.name) || interfaceCount == 1)
                         {
-                            NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
-                            // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
-                            if(iface.connected)
+                            Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{iface.type};
+                            if(iface.enabled)
                             {
-                                NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
-                                ReportActiveInterfaceChange(iface.name, iface.name);
-                                std::string ipversion = {};
-                                Exchange::INetworkManager::IPAddress addr;
-                                rc = GetIPSettings(iface.name, ipversion, addr);
-                                if (Core::ERROR_NONE == rc)
+                                NMLOG_INFO("'%s' interface is enabled", iface.name.c_str());
+                                // ReportInterfaceStateChange(Exchange::INetworkManager::INTERFACE_ADDED, iface.name);
+                                if(iface.connected)
                                 {
-                                    if(!addr.ipaddress.empty()) {
-                                        NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addr.ipaddress.c_str());
-                                        ReportIPAddressChange(iface.name, addr.ipversion, addr.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                    NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
+                                    if(m_defaultInterface != iface.name)
+                                        ReportActiveInterfaceChange(m_defaultInterface, iface.name);
+                                    Exchange::INetworkManager::IPAddress addrv4;
+                                    Exchange::INetworkManager::IPAddress addrv6;
+                                    std::string ipversion = "IPv4";
+                                    rc = GetIPSettings(iface.name, ipversion, addrv4);
+                                    if (Core::ERROR_NONE == rc)
+                                    {
+                                        if(!addrv4.ipaddress.empty()) {
+                                            NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv4.ipaddress.c_str());
+                                            ReportIPAddressChange(iface.name, addrv4.ipversion, addrv4.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                        }
+                                    }
+                                    ipversion = "IPv6";
+                                    rc = GetIPSettings(iface.name, ipversion, addrv6);
+                                    if (Core::ERROR_NONE == rc)
+                                    {
+                                        if(!addrv6.ipaddress.empty()) {
+                                            NMLOG_INFO("'%s' interface have ip '%s'", iface.name.c_str(), addrv6.ipaddress.c_str());
+                                            ReportIPAddressChange(iface.name, addrv6.ipversion, addrv6.ipaddress, Exchange::INetworkManager::IP_ACQUIRED);
+                                        }
                                     }
                                 }
                             }
@@ -821,11 +879,11 @@ namespace WPEFramework
                         tmp.connected  = ((list.interfaces[i].flags & IFF_RUNNING) != 0);
                         if ("eth0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
-                            m_ethConnected = tmp.connected;
+                            m_ethConnected.store(tmp.connected);
                         }
                         else if ("wlan0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
-                            m_wlanConnected = tmp.connected;
+                            m_wlanConnected.store(tmp.connected);
                         }
 
                         interfaceList.push_back(tmp);
@@ -859,38 +917,6 @@ namespace WPEFramework
             else
             {
                 NMLOG_ERROR ("Call to %s for %s failed", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface);
-            }
-            return rc;
-        }
-
-        /* @brief Set the active Interface used for external world communication */
-        uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
-        {
-            LOG_ENTRY_FUNCTION();
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_BUS_NetSrvMgr_Iface_EventData_t iarmData = { 0 };
-            iarmData.persist = true;
-
-            /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
-            //TODO: Fix netsrvmgr to accept eth0 & wlan0
-            if ("wlan0" == interface)
-                strncpy(iarmData.setInterface, "WIFI", INTERFACE_SIZE);
-            else if ("eth0" == interface)
-                strncpy(iarmData.setInterface, "ETHERNET", INTERFACE_SIZE);
-            else
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface, (void *)&iarmData, sizeof(iarmData)))
-            {
-                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface);
-                rc = Core::ERROR_NONE;
-            }
-            else
-            {
-                NMLOG_ERROR ("Call to %s for %s failed", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface);
             }
             return rc;
         }
@@ -1091,6 +1117,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
             uint32_t rc = Core::ERROR_NONE;
+            if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
+            {
+                return Core::ERROR_BAD_REQUEST;
+            }
             if ("IPv4" == address.ipversion)
             {
                 IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = {0};

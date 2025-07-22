@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.19.0"
+        "version": "0.22.0"
     },
     "definitions": {
         "success": {
@@ -273,37 +273,6 @@
                 },
                 "required": [
                     "interface"
-                ]
-            }
-        },
-        "SetPrimaryInterface":{
-            "summary": "Sets the primary/default interface for the device. This call fails if the interface is not enabled.",
-            "events":{
-                "onActiveInterfaceChange" : "Triggered when device’s default interface changed.",
-                "onInterfaceStateChange" : "Triggered when interface’s state changed",
-                "onAddressChange" : "Triggered when the device connects to router.",
-                "onInternetStatusChange" : "Triggered when each IP address is lost or acquired."
-            },
-            "params": {
-                "type":"object",
-                "properties": {
-                    "interface": {
-                        "$ref": "#/definitions/interface"
-                    }
-                },
-                "required": [
-                    "interface"
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "$ref": "#/definitions/success"
-                    }
-                },
-                "required": [
-                    "success"
                 ]
             }
         },
@@ -1265,7 +1234,7 @@
             "result": {
                 "type": "object",
                 "properties": {
-                    "security_modes": {
+                    "security": {
                         "summary": "The supported security modes and its associated integer value.",
                         "type": "object",
                         "properties": {
@@ -1302,7 +1271,7 @@
                     }
                 },
                 "required": [
-                    "security_modes",
+                    "security",
                     "success"
                 ]
             }
@@ -1393,7 +1362,7 @@
             }
         },
         "onActiveInterfaceChange":{
-            "summary": "Triggered when the primary/active interface changes, regardless if it's from a system operation or through the `SetPrimaryInterface` method.",
+            "summary": "Triggered when the primary/active interface changes",
             "params": {
                 "type": "object",
                 "properties": {
