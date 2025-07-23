@@ -1,0 +1,6 @@
+[Unit]
+Description=Router Discovery Service %i
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/routerDiscovery %i
