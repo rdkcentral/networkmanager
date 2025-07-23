@@ -203,6 +203,8 @@ write_config()
 write_config(PLUGINS LegacyPlugin_NetworkAPIs CLASSNAME Network LOCATOR lib${PLUGIN_LEGACY_DEPRECATED_NETWORK}.so)
 write_config(PLUGINS LegacyPlugin_WiFiManagerAPIs CLASSNAME WiFiManager LOCATOR lib${PLUGIN_LEGACY_DEPRECATED_WIFI}.so)
 
+add_subdirectory(tools)
+
 if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
