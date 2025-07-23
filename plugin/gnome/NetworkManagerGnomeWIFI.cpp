@@ -884,8 +884,8 @@ namespace WPEFramework
 
             if (!ret) {
                 if(error) {
-                    g_error_free(error);
                     NMLOG_ERROR("Error: %s.", error->message);
+                    g_error_free(error);
                 }
                 _wifiManager->m_isSuccess = false;
                 NMLOG_ERROR("AddToKnownSSIDs failed");
