@@ -80,8 +80,10 @@ namespace WPEFramework
             // initialize the NMClient object
             client = nm_client_new(NULL, &error);
             if (client == NULL) {
-                NMLOG_FATAL("Error initializing NMClient: %s", error->message);
-                g_error_free(error);
+                if (error) {
+                    NMLOG_FATAL("Error initializing NMClient: %s", error->message);
+                    g_error_free(error);
+                }
                 return;
             }
 
