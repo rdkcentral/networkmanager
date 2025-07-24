@@ -347,7 +347,11 @@ namespace WPEFramework
             _wifiManager->m_isSuccess = true;
             if (!nm_device_disconnect_finish(device, result, &error) && error != NULL) {
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                {
+                    NMLOG_ERROR("something went wrong no matching gerror found !");
+                    g_error_free(error);
                     return;
+                }
 
                 NMLOG_ERROR("Device '%s' (%s) disconnecting failed: %s",
                             nm_device_get_iface(device),
