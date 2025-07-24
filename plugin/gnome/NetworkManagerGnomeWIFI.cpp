@@ -1716,9 +1716,13 @@ namespace WPEFramework
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             NMLOG_DEBUG("activate connection completeing...");
             // Check if the operation was successful
-            if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error) && error != NULL) {
-                NMLOG_DEBUG("Activating connection failed: %s", error->message);
-                g_error_free(error);
+            if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
+                NMLOG_ERROR("Activating connection failed");
+                if(error != NULL)
+                {
+                    NMLOG_ERROR("Activating connection failed: %s", error->message);
+                    g_error_free(error);
+                }
                 _wifiManager->m_isSuccess = false;
             } else {
                 NMLOG_DEBUG("Activating connection successful");
