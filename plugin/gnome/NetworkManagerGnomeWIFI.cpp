@@ -571,10 +571,14 @@ namespace WPEFramework
                                                 ssidinfo.ca_cert.c_str(),
                                                 NM_SETTING_802_1X_CK_SCHEME_PATH,
                                                 NULL,
-                                                &error) && error != NULL)
+                                                &error))
                     {
-                        NMLOG_ERROR("ca certificate add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("ca certificate add failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
@@ -582,10 +586,14 @@ namespace WPEFramework
                                                 ssidinfo.client_cert.c_str(),
                                                 NM_SETTING_802_1X_CK_SCHEME_PATH,
                                                 NULL,
-                                                &error) && error != NULL)
+                                                &error))
                     {
-                        NMLOG_ERROR("client certificate add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("client certificate add failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
@@ -594,10 +602,14 @@ namespace WPEFramework
                                                     ssidinfo.private_key_passwd.c_str(),
                                                     NM_SETTING_802_1X_CK_SCHEME_PATH,
                                                     NULL,
-                                                    &error) && error != NULL)
+                                                    &error))
                     {
-                        NMLOG_ERROR("client private key add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("client private key failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
