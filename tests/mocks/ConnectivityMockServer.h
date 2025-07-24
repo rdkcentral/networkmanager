@@ -114,7 +114,11 @@ private:
         }
 
         char buffer[1024] = {0};
-        read(client_fd, buffer, sizeof(buffer));
+        ssize_t bytesRead = read(client_fd, buffer, sizeof(buffer));
+        if (bytesRead < 0) {
+            std::cerr << "Error reading from client socket: " << strerror(errno) << std::endl;
+            return;
+        }
 
         std::string response;
 

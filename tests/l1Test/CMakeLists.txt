@@ -18,8 +18,6 @@
 #############################################################################
 message ("building l1 test")
 
-set(NM_RDK_PROXY_L1_TEST "rdkproxy_l1_test")
-
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
@@ -33,56 +31,9 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(${NM_RDK_PROXY_L1_TEST}
-    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_rdkproxy.cpp
-    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_rdkproxyEvent.cpp
-    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_rdkproxyImpl.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/rdk/NetworkManagerRDKProxy.cpp
-    ${PROXY_STUB_SOURCES}
-)
-
-set_target_properties(${NM_RDK_PROXY_L1_TEST} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-)
-
-target_compile_options(${NM_RDK_PROXY_L1_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
-
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
-include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
-include_directories(${PROJECT_SOURCE_DIR}/tools/upnp/)
-
-target_include_directories(${NM_RDK_PROXY_L1_TEST} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/include  
-    ${gtest_SOURCE_DIR}/../googlemock/include
-)
-
-target_link_options(${NM_RDK_PROXY_L1_TEST} PRIVATE -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog -Wl,-wrap,pclose -Wl,-wrap,getmntent -Wl,-wrap,setmntent -Wl,-wrap,v_secure_popen -Wl,-wrap,v_secure_pclose -Wl,-wrap,v_secure_system)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
-
-target_link_libraries(${NM_RDK_PROXY_L1_TEST} PRIVATE
-    gmock_main
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-    ${CURL_LIBRARIES}
-)
-
-install(TARGETS ${NM_RDK_PROXY_L1_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
 set(NM_ROUTER_DISCOVERY_L1_TEST "upnpcli_l1_test")
 
@@ -115,3 +66,32 @@ target_include_directories(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
 )
 
 install(TARGETS ${NM_ROUTER_DISCOVERY_L1_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+
+set(NM_CLASS_L1_TEST "class_l1_test")
+
+add_executable(${NM_CLASS_L1_TEST}
+    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_stunclient.cpp
+    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_connectivity.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
+)
+
+target_link_libraries(${NM_CLASS_L1_TEST} PRIVATE
+    gmock_main
+    ${CURL_LIBRARIES}
+    ${NAMESPACE}Core::${NAMESPACE}Core
+)
+
+set_target_properties(${NM_CLASS_L1_TEST} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+)
+
+target_include_directories(${NM_CLASS_L1_TEST} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${gtest_SOURCE_DIR}/include  
+    ${gtest_SOURCE_DIR}/../googlemock/include
+)
+
+install(TARGETS ${NM_CLASS_L1_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
