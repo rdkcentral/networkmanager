@@ -233,10 +233,14 @@ namespace WPEFramework
                             &error);
 
             if (!agentRegID) {
-                NMLOG_ERROR("Failed to register object: %s", error->message);
-                g_error_free(error);
+                NMLOG_ERROR("Failed to register object:");
+                 if (error != NULL)
+                {
+                    NMLOG_ERROR("Error : %s", error->message);
+                    g_error_free(error);
+                }
                 g_dbus_node_info_unref(node_info);
-                return ;
+                return;
             }
 
             NMLOG_INFO("Object registered with ID: %u", agentRegID);
