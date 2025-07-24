@@ -339,27 +339,28 @@ namespace WPEFramework
 
         static void disconnectCb(GObject *object, GAsyncResult *result, gpointer user_data)
         {
-            NMDevice     *device = NM_DEVICE(object);
-            GError       *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMDevice *device = NM_DEVICE(object);
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
 
             NMLOG_DEBUG("Disconnecting... ");
             _wifiManager->m_isSuccess = true;
-            if (!nm_device_disconnect_finish(device, result, &error) && error != NULL) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+            if (!nm_device_disconnect_finish(device, result, &error))
+            {
+                NMLOG_ERROR("device '%s' disconnect failed !", nm_device_get_iface(device));
+                if(error != NULL)
                 {
-                    NMLOG_ERROR("something went wrong no matching gerror found !");
+                    if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Device path '%s': %s", nm_object_get_path(NM_OBJECT(device)), error->message);
+                    }
                     g_error_free(error);
-                    return;
                 }
-
-                NMLOG_ERROR("Device '%s' (%s) disconnecting failed: %s",
-                            nm_device_get_iface(device),
-                            nm_object_get_path(NM_OBJECT(device)),
-                            error->message);
-                g_error_free(error);
-                _wifiManager->quit(device);
-                 _wifiManager->m_isSuccess = false;
+                _wifiManager->m_isSuccess = false;
             }
             _wifiManager->quit(device);
         }
@@ -1557,16 +1558,25 @@ namespace WPEFramework
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             GError *error = nullptr;
 
-            if (!nm_client_dbus_set_property_finish(NM_CLIENT(object), result, &error) && error != NULL) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            if (!nm_client_dbus_set_property_finish(NM_CLIENT(object), result, &error))
+            {
+                NMLOG_ERROR("Failed to set Managed property");
+                if (error != nullptr)
+                {
+                    if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                    }
+                    else
+                    {
+                         NMLOG_ERROR("Failed Error msg: %s", error->message);
+                    }
                     g_error_free(error);
-                    return;
+                    _wifiManager->m_isSuccess = false;
                 }
-
-                NMLOG_ERROR("Failed to set Managed property: %s", error->message);
-                g_error_free(error);
-                _wifiManager->m_isSuccess = false;
-            } else {
+            }
+            else
+            {
                 NMLOG_DEBUG("Successfully set Managed property.");
                 _wifiManager->m_isSuccess = true;
             }
