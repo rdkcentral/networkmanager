@@ -24,6 +24,7 @@
 
 #include "FactoriesImplementation.h"
 #include "IarmBusMock.h"
+#include "WrapsMock.h"
 #include "ServiceMock.h"
 #include "ThunderPortability.h"
 #include "COMLinkMock.h"
@@ -47,6 +48,7 @@ protected:
 
     // Mock classes
     IarmBusImplMock  *p_iarmBusImplMock   = nullptr;
+    WrapsImplMock *p_wrapsImplMock = nullptr;
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
     NiceMock<COMLinkMock> comLinkMock;
@@ -63,6 +65,8 @@ protected:
     {
         p_iarmBusImplMock  = new NiceMock <IarmBusImplMock>;
         IarmBus::setImpl(p_iarmBusImplMock);
+        p_wrapsImplMock = new NiceMock <WrapsImplMock>;
+        Wraps::setImpl(p_wrapsImplMock);
         ON_CALL(service, COMLink())
         .WillByDefault(::testing::Invoke(
               [this]() {
@@ -135,10 +139,17 @@ protected:
         workerPool.Release();
 
         IarmBus::setImpl(nullptr);
-         if (p_iarmBusImplMock != nullptr)
+        if (p_iarmBusImplMock != nullptr)
         {
             delete p_iarmBusImplMock;
             p_iarmBusImplMock = nullptr;
+        }
+
+        Wraps::setImpl(nullptr);
+        if (p_wrapsImplMock != nullptr)
+        {
+            delete p_wrapsImplMock;
+            p_wrapsImplMock = nullptr;
         }
     }
 };
@@ -414,7 +425,44 @@ TEST_F(NetworkManagerTest, GetIPSettings)
     EXPECT_EQ(response, expectedResponse);
 }
 
-TEST_F(NetworkManagerTest, SetIPSettings)
+TEST_F(NetworkManagerTest, GetIPSettings_IPv6)
+{
+    IARM_BUS_NetSrvMgr_Iface_Settings_t mockSettings = {};
+    strcpy(mockSettings.interface, "eth0");
+    strcpy(mockSettings.ipversion, "IPv6");
+    mockSettings.autoconfig = true;
+    strcpy(mockSettings.ipaddress, "2001:db8::1");
+    strcpy(mockSettings.netmask, "64");
+    strcpy(mockSettings.gateway, "2001:db8::fe");
+    strcpy(mockSettings.primarydns, "2001:4860:4860::8888");
+    strcpy(mockSettings.secondarydns, "2001:4860:4860::8844");
+     mockSettings.isSupported = true;
+    mockSettings.errCode = NETWORK_IPADDRESS_ACQUIRED;
+
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_getIPSettings),
+                                                 ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockSettings](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockSettings, sizeof(mockSettings));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), 
+        _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\"}"), response));
+
+    // The response should include all IP settings in JSON format
+    std::string expectedResponse = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\",\"autoconfig\":true,\"ipaddress\":\"2001:db8::1\",\"prefix\":64,\"ula\":\"\",\"dhcpserver\":\"\",\"gateway\":\"2001:db8::fe\",\"primarydns\":\"2001:4860:4860::8888\",\"secondarydns\":\"2001:4860:4860::8844\",\"success\":true}");
+    EXPECT_EQ(response, expectedResponse);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_NoInterfaceNoIpVersion) {
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_StaticIPv4)
 {
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
                                                  ::testing::StrEq(IARM_BUS_NETSRVMGR_API_setIPSettings),
@@ -443,6 +491,154 @@ TEST_F(NetworkManagerTest, SetIPSettings)
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
     EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_DHCP)
+{
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_setIPSettings),
+                                                 ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([](const char*, const char*, void* arg, size_t) {
+                IARM_BUS_NetSrvMgr_Iface_Settings_t* settings = 
+                    static_cast<IARM_BUS_NetSrvMgr_Iface_Settings_t*>(arg);
+                
+                // Verify the parameters
+                EXPECT_STREQ(settings->interface, "ETHERNET");
+                EXPECT_STREQ(settings->ipversion, "IPv4");
+                EXPECT_EQ(settings->autoconfig, true);
+                
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    // Test setting DHCP configuration
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":true}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_WiFi)
+{
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_setIPSettings),
+                                                 ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([](const char*, const char*, void* arg, size_t) {
+                IARM_BUS_NetSrvMgr_Iface_Settings_t* settings = 
+                    static_cast<IARM_BUS_NetSrvMgr_Iface_Settings_t*>(arg);
+                
+                // Verify the parameters for WiFi interface
+                EXPECT_STREQ(settings->interface, "WIFI");
+                EXPECT_STREQ(settings->ipversion, "IPv4");
+                EXPECT_EQ(settings->autoconfig, false);
+                EXPECT_STREQ(settings->ipaddress, "192.168.1.100");
+                EXPECT_STREQ(settings->netmask, "255.255.255.0");
+                EXPECT_STREQ(settings->gateway, "192.168.1.1");
+                
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    std::string request = _T("{\"interface\":\"wlan0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_InvalidInterface)
+{
+    // Test with an invalid interface name
+    std::string request = _T("{\"interface\":\"invalid0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_InvalidIPVersion)
+{
+    // Test with an invalid IP version
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv5\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_IPv6NotSupported)
+{
+    // Test with IPv6, which is marked as not supported in the implementation
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\",\"autoconfig\":false,\"ipaddress\":\"2001:db8::1\",\"prefix\":64,\"gateway\":\"2001:db8::1:1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_InvalidPrefix)
+{
+    // Test with an invalid prefix value (greater than 32 for IPv4)
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":33,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_InvalidIPFormat)
+{
+    // Test with an invalid IP address format
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_SameIPAndGateway)
+{
+    // Test when IP and gateway are the same (should fail validation)
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.1\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_DifferentBroadcastDomain)
+{
+    // Test when IP and gateway are not in the same broadcast domain
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.2.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_IPEqualsBroadcast)
+{
+    // Test when IP equals broadcast address
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.255\",\"prefix\":24,\"gateway\":\"192.168.1.1\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_GatewayEqualsBroadcast)
+{
+    // Test when gateway equals broadcast address
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.1.255\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, SetIPSettings_APICallFailed)
+{
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_setIPSettings),
+                                                 ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
+
+    std::string request = _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddress\":\"192.168.1.100\",\"prefix\":24,\"gateway\":\"192.168.1.1\",\"primarydns\":\"8.8.8.8\",\"secondarydns\":\"8.8.4.4\"}");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetIPSettings"), request, response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
 TEST_F(NetworkManagerTest, StartWiFiScan_Success)
@@ -631,6 +827,32 @@ TEST_F(NetworkManagerTest, WiFiConnect_Success)
     EXPECT_EQ(response, _T("{\"success\":true}"));
 }
 
+TEST_F(NetworkManagerTest, WiFiConnectEAP_Success)
+{
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_connect),
+                                                ::testing::NotNull(), ::testing::_))
+    .WillOnce(::testing::DoAll(
+        ::testing::Invoke([](const char*, const char*, void* arg, size_t) {
+            IARM_Bus_WiFiSrvMgr_Param_t* param = static_cast<IARM_Bus_WiFiSrvMgr_Param_t*>(arg);
+            
+            // Verify the parameters
+            EXPECT_STREQ(param->data.connect.ssid, "TestNetwork");
+            EXPECT_STREQ(param->data.connect.passphrase, "TestPassword");
+            EXPECT_STREQ(param->data.connect.clientcert, "test_client_cert");
+            EXPECT_STREQ(param->data.connect.privatekey, "test_private_key");
+            EXPECT_EQ(param->data.connect.security_mode, NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE);
+            EXPECT_TRUE(param->data.connect.persistSSIDInfo);
+            param->status = true;
+            return IARM_RESULT_SUCCESS;
+        })
+    ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), 
+        _T("{\"ssid\":\"TestNetwork\",\"passphrase\":\"TestPassword\",\"security\":3,\"ca_cert\":\"test_ca_cert\",\"client_cert\":\"test_client_cert\",\"private_key\":\"test_private_key\",\"private_key_passwd\":\"test_private_key_passwd\",\"eap\":\"test_eap\",\"eap_identity\":\"test_eap_identity\",\"eap_password\":\"test_eap_password\",\"eap_phase1\":\"test_eap_phase1\",\"eap_phase2\":\"test_eap_phase2\",\"persist\":true}"), response));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
 TEST_F(NetworkManagerTest, WiFiConnect_Failed)
 {
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
@@ -729,6 +951,45 @@ TEST_F(NetworkManagerTest, StartWPS_Success)
     EXPECT_EQ(response, _T("{\"success\":true}"));
 }
 
+TEST_F(NetworkManagerTest, StartWPS_WIFI_WPS_PIN_Success)
+{
+    IARM_Bus_WiFiSrvMgr_WPS_Parameters_t mockWpsParams = {};
+    mockWpsParams.pbc = true;
+    mockWpsParams.status = true;
+
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_initiateWPSPairing2),
+                                                ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockWpsParams](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockWpsParams, sizeof(mockWpsParams));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWPS"), _T("{\"method\":\"PIN\", \"pin\":\"12345678\"}"), response));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, StartWPS_WIFI_WPS_SERIALIZED_PIN_Success)
+{
+    IARM_Bus_WiFiSrvMgr_WPS_Parameters_t mockWpsParams = {};
+    mockWpsParams.pbc = true;
+    mockWpsParams.status = true;
+
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_initiateWPSPairing2),
+                                                ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockWpsParams](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockWpsParams, sizeof(mockWpsParams));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWPS"), _T("{\"method\":\"SERIALIZED_PIN\", \"pin\":\"12345678\"}"), response));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
+}
+
 TEST_F(NetworkManagerTest, StartWPS_Failed)
 {
     IARM_Bus_WiFiSrvMgr_WPS_Parameters_t mockWpsParams = {};
@@ -820,46 +1081,6 @@ TEST_F(NetworkManagerTest, GetPublicIP_Failed)
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPublicIP"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
-}
-
-TEST_F(NetworkManagerTest, Ping_Success)
-{
-    // Mock successful ping command execution
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"127.0.0.1\",\"ipversion\":\"IPv4\",\"packets\":5,\"timeout\":2}"), response));
-    
-    // We expect the response to contain success and results fields at minimum
-    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
-}
-
-TEST_F(NetworkManagerTest, Ping_Failed)
-{
-    // Test with invalid IP address
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"invalidendpoint\",\"ipversion\":\"IPv4\",\"packets\":3,\"timeout\":2}"), response));
-    
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
-}
-
-TEST_F(NetworkManagerTest, Trace_Success)
-{
-    // Mock successful traceroute command execution
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
-        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
-    
-    // We expect the response to contain success and results fields
-    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
-    EXPECT_TRUE(response.find("\"results\":") != std::string::npos);
-    EXPECT_TRUE(response.find("\"endpoint\":\"8.8.8.8\"") != std::string::npos);
-}
-
-TEST_F(NetworkManagerTest, Trace_Failed)
-{
-    // Test with invalid parameters
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
-        _T("{\"endpoint\":\"Test\",\"ipversion\":\"IPv4\",\"packets\":3}"), response));
-    
-    EXPECT_EQ(response, _T("{\"results\":\"[\\\"sh: 1: traceroute: not found \\\"]\",\"endpoint\":\"Test\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetStunEndpoint)
@@ -994,4 +1215,342 @@ TEST_F(NetworkManagerTest, m_ipv6AddressCache)
     address.primarydns = "2001:4860:4860::8888";
     address.secondarydns = "2001:4860:4860::8844";
     plugin->m_ipv6AddressCache = address;
+}
+
+TEST_F(NetworkManagerTest, GetWiFiSignalQualityWpa_cliFailed)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(1)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            return nullptr;
+        }));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+}
+
+TEST_F(NetworkManagerTest, GetWiFiSignalQualityDisconnected2)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(2)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            // Create a temporary file with the mock output
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                      "wpa_state=DISCONNECTED\n"
+                      "p2p_device_address=d4:52:ee:d9:0a:39\n"
+                      "address=d4:52:ee:d9:0a:39\n"
+                      "uuid=feb4fcc9-04c3-5be3-a3f9-03fed1d0604c\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }))
+        .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss "));
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("driver error", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"quality\":\"Disconnected\",\"snr\":\"0\",\"strength\":\"0\",\"noise\":\"0\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(2)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            // Create a temporary file with the mock output
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                      "bssid=aa:bb:cc:dd:ee:ff\n"
+                      "freq=2462\n"
+                      "ssid=dummySSID\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }))
+        .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                    "ssid=dummySSID\n"
+                    "noise=-114\n"
+                    "level=-49\n"
+                    "snr=65\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"65\",\"strength\":\"-49\",\"noise\":\"-114\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(2)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            // Create a temporary file with the mock output
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                      "bssid=aa:bb:cc:dd:ee:ff\n"
+                      "freq=5462\n"
+                      "ssid=dummySSID\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }))
+        .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                    "ssid=dummySSID\n"
+                    "noise=-114\n"
+                    "level=-90\n"
+                    "snr=33\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-90\",\"noise\":\"-114\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(2)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            // Create a temporary file with the mock output
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                      "bssid=aa:bb:cc:dd:ee:ff\n"
+                      "freq=5462\n"
+                      "ssid=dummySSID\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }))
+        .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                    "ssid=dummySSID\n"
+                    "noise=-114\n"
+                    "level=-120\n"
+                    "snr=33\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-120\",\"noise\":\"-114\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, Trace_Success_ipv4)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute -w 3 -m 6 -q 1 8.8.8.8 52 2>&1"));
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n"
+                "1  gateway (10.46.5.1)  0.448 ms\n"
+                "2  10.46.0.240 (10.46.0.240)  3.117 ms\n"
+                "3  *\n"
+                "4  *\n"
+                "5  *\n"
+                "6  *\n", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+
+    // We expect the response to contain success and results fields
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"results\":") != std::string::npos);
+    EXPECT_TRUE(response.find("\"endpoint\":\"8.8.8.8\"") != std::string::npos);
+    EXPECT_TRUE(response.find("6 hops max, 52 byte packets") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, Trace_Failed_ipv6)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute6 -w 3 -m 6 -q 1 8.8.8.8 64 2>&1"));
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("traceroute6: bad address '8.8.8.8'", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv6\",\"packets\":1}"), response));
+
+    EXPECT_EQ(response, _T("{\"results\":\"[\\\"traceroute6: bad address '8.8.8.8' \\\"]\",\"endpoint\":\"8.8.8.8\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, Trace_Success_ipv6)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute6 -w 3 -m 6 -q 1 2001:4860:4860::8888 64 2>&1"));
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("traceroute to 2001:4860:4860::8888 (2001:4860:4860::8888), 6 hops max, 64 byte packets\n"
+                "1  2401:4900:9092:d613::d4 (2401:4900:9092:d613::d4)  14.503 ms !N\n", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
+        _T("{\"endpoint\":\"2001:4860:4860::8888\",\"ipversion\":\"IPv6\",\"packets\":1}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("6 hops max, 64 byte packets") != std::string::npos);
+    EXPECT_TRUE(response.find("\"endpoint\":\"2001:4860:4860::8888\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, Ping_Success_ipv4)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        std::string cmdStr = command;
+        EXPECT_TRUE(cmdStr.find("ping") != std::string::npos);
+        EXPECT_TRUE(cmdStr.find("8.8.8.8") != std::string::npos);
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+                  "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
+                  "64 bytes from 8.8.8.8: seq=1 ttl=119 time=23.440 ms\n"
+                  "64 bytes from 8.8.8.8: seq=2 ttl=119 time=23.384 ms\n"
+                  "\n"
+                  "--- 8.8.8.8 ping statistics ---\n"
+                  "3 packets transmitted, 3 packets received, 0% packet loss\n"
+                  "round-trip min/avg/max/mdev = 23.363/23.395/23.440/0.179 ms\n", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":5,\"timeout\":2}"), response));
+    
+    EXPECT_EQ(response, _T("{\"endpoint\":\"8.8.8.8\",\"success\":true,\"tripStdDev\":\"0.179 ms\",\"tripMax\":\"23.440\",\"tripAvg\":\"23.395\",\"tripMin\":\" 23.363\",\"packetLoss\":\" 0\",\"packetsReceived\":3,\"packetsTransmitted\":3}"));
+}
+
+TEST_F(NetworkManagerTest, Ping_Failed_ipv4)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        std::string cmdStr = command;
+        EXPECT_TRUE(cmdStr.find("ping") != std::string::npos);
+        EXPECT_TRUE(cmdStr.find("192.0.0.1") != std::string::npos);
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("PING 192.0.0.1 (192.0.0.1): 56 data bytes\n"
+                  "\n"
+                  "--- 192.0.0.1 ping statistics ---\n"
+                  "3 packets transmitted, 0 packets received, 100% packet loss\n", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
+        _T("{\"endpoint\":\"192.0.0.1\",\"ipversion\":\"IPv4\",\"packets\":5,\"timeout\":2}"), response));
+
+    EXPECT_EQ(response, _T("{\"endpoint\":\"192.0.0.1\",\"success\":true,\"packetLoss\":\" 100\",\"packetsReceived\":0,\"packetsTransmitted\":3}"));
+}
+
+TEST_F(NetworkManagerTest, Ping_success_ipv6)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        std::string cmdStr = command;
+        EXPECT_TRUE(cmdStr.find("ping6") != std::string::npos);
+        EXPECT_TRUE(cmdStr.find("2404:6800:4007:80b::200e") != std::string::npos);
+        EXPECT_EQ(type, "r");
+        // Create a temporary file with the mock output
+        FILE* tempFile = tmpfile();
+        if (tempFile) {
+            fputs("PING 2404:6800:4007:80b::200e (2404:6800:4007:80b::200e): 56 data bytes\n"
+                  "64 bytes from 2404:6800:4007:80b::200e: seq=0 ttl=117 time=39.546 ms\n"
+                  "64 bytes from 2404:6800:4007:80b::200e: seq=0 ttl=117 time=46.505 ms (DUP!)\n"
+                  "64 bytes from 2404:6800:4007:80b::200e: seq=1 ttl=117 time=35.637 ms\n"
+                  "64 bytes from 2404:6800:4007:80b::200e: seq=2 ttl=117 time=44.998 ms\n"
+                  "\n"
+                  "--- 2404:6800:4007:80b::200e ping statistics ---\n"
+                  "3 packets transmitted, 3 packets received, 1 duplicates, 0% packet loss\n"
+                  "round-trip min/avg/max/mdev = 35.637/41.671/46.505/4.345 ms\n", tempFile);
+            rewind(tempFile);
+        }
+        return tempFile;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
+        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\",\"packets\":5,\"timeout\":2}"), response));
+
+    EXPECT_EQ(response, _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"success\":true,\"tripStdDev\":\"4.345 ms\",\"tripMax\":\"46.505\",\"tripAvg\":\"41.671\",\"tripMin\":\" 35.637\",\"packetLoss\":\" 1 duplicates\",\"packetsReceived\":3,\"packetsTransmitted\":3}"));
+}
+
+TEST_F(NetworkManagerTest, Ping_Failed_ipv6)
+{
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+        .WillOnce([](const char* command, const char* type) -> FILE* {
+        std::string cmdStr = command;
+        EXPECT_TRUE(cmdStr.find("ping6") != std::string::npos);
+        EXPECT_TRUE(cmdStr.find("2404:6800:4007:80b::200e") != std::string::npos);
+        EXPECT_EQ(type, "r");
+        return NULL;
+    });
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
+        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\",\"packets\":5,\"timeout\":2}"), response));
+
+    EXPECT_EQ(response, _T("{\"endpoint\":\"2404:6800:4007:80b::200e\"}"));
 }

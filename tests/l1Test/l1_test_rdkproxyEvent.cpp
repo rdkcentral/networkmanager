@@ -24,6 +24,7 @@
 
 #include "FactoriesImplementation.h"
 #include "IarmBusMock.h"
+#include "WrapsMock.h"
 #include "ServiceMock.h"
 #include "ThunderPortability.h"
 #include "COMLinkMock.h"
@@ -48,6 +49,7 @@ protected:
 
     // Mock classes
     IarmBusImplMock  *p_iarmBusImplMock   = nullptr;
+    WrapsImplMock *p_wrapsImplMock = nullptr;
     IARM_EventHandler_t _nmEventHandler{};
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
@@ -66,6 +68,8 @@ protected:
     {
         p_iarmBusImplMock  = new NiceMock <IarmBusImplMock>;
         IarmBus::setImpl(p_iarmBusImplMock);
+        p_wrapsImplMock = new NiceMock <WrapsImplMock>;
+        Wraps::setImpl(p_wrapsImplMock);
         ON_CALL(service, COMLink())
         .WillByDefault(::testing::Invoke(
               [this]() {
@@ -169,6 +173,13 @@ protected:
             delete p_iarmBusImplMock;
             p_iarmBusImplMock = nullptr;
         }
+
+        Wraps::setImpl(nullptr);
+        if (p_wrapsImplMock != nullptr)
+        {
+            delete p_wrapsImplMock;
+            p_wrapsImplMock = nullptr;
+        }
     }
 };
 
@@ -260,6 +271,37 @@ TEST_F(NetworkManagerEventTest, onWiFiStateChange)
                 onWiFiStateChange.SetEvent();
                 return Core::ERROR_NONE;
             }));
+
+    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
+    .Times(2)
+    .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
+            // Create a temporary file with the mock output
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                      "bssid=aa:bb:cc:dd:ee:ff\n"
+                      "freq=5462\n"
+                      "ssid=dummySSID\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }))
+        .WillOnce(::testing::Invoke(
+            [&](const char* command, const char* type) -> FILE* {
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            FILE* tempFile = tmpfile();
+            if (tempFile) {
+                fputs("Selected interface 'wlan0'\n"
+                    "ssid=dummySSID\n"
+                    "noise=-114\n"
+                    "level=-90\n"
+                    "snr=33\n", tempFile);
+                rewind(tempFile);
+            }
+            return tempFile;
+        }));
 
     // Create and populate event data for WiFi state change
     IARM_BUS_WiFiSrvMgr_EventData_t eventData;

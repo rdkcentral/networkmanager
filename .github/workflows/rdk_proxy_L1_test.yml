@@ -129,6 +129,8 @@ jobs:
           -I ${{github.workspace}}/networkmanager/tests/headers
           -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
+          --include ${{github.workspace}}/networkmanager/tests/mocks/secure_wrappermock.h
+          -Wall --coverage
           "
           -DENABLE_UNIT_TESTING=ON
           -DENABLE_ROUTER_DISCOVERY_TOOL=ON
@@ -140,6 +142,12 @@ jobs:
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           rdkproxy_l1_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/rdkproxy_l1_test.xml"
+
+      - name: Run route discovery test
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          upnpcli_l1_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/upnpcli_l1_test.xml"
 
       - name: Generate coverage
         run: |

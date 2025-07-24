@@ -39,6 +39,7 @@ add_executable(${NM_RDK_PROXY_L1_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_rdkproxyImpl.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
+    ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
@@ -69,6 +70,8 @@ target_include_directories(${NM_RDK_PROXY_L1_TEST} PRIVATE
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
+
+target_link_options(${NM_RDK_PROXY_L1_TEST} PRIVATE -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog -Wl,-wrap,pclose -Wl,-wrap,getmntent -Wl,-wrap,setmntent -Wl,-wrap,v_secure_popen -Wl,-wrap,v_secure_pclose -Wl,-wrap,v_secure_system)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 
