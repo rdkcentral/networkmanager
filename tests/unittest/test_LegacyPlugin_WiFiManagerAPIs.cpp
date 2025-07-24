@@ -569,7 +569,7 @@ TEST_F(WiFiManagerTest, initiateWPSPairing) {
     delete mockNetworkManager;
 }
 
-#if 0
+#if 1
 TEST_F(WiFiManagerTest, initiateWPSPairing_Error) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
     EXPECT_CALL(*m_service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
@@ -964,7 +964,7 @@ TEST_F(WiFiManagerTest, retrieveSSIDSecuritySAE) {
     std::remove("/opt/secure/wifi/wpa_supplicant.conf");
 }
 
-#if 0
+#if 1
 TEST_F(WiFiManagerTest, retrieveSSID_Error) {
     // Try to open the configuration file, it should not exist
     std::ifstream configFile(WPA_SUPPLICANT_CONF);
