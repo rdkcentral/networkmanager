@@ -798,10 +798,12 @@ namespace WPEFramework
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
                     if (key == "bssid") {
                         bssid = value;
                         break;
                     }
+                }
             }
             pclose(fp);
 
@@ -817,6 +819,7 @@ namespace WPEFramework
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
                     if (key == "level") {
                         strength = value;
                     }
@@ -831,6 +834,7 @@ namespace WPEFramework
                     }
                     if (!strength.empty() && !noise.empty() && !ssid.empty() && !snr.empty())
                         break;
+                }
             }
             pclose(fp);
 

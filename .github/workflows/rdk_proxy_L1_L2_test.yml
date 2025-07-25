@@ -1,4 +1,4 @@
-name: rdk_proxy_l1_tests
+name: rdk_proxy_l1_l2_tests
 
 on:
   push:
