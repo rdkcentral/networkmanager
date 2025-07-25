@@ -207,3 +207,4 @@ if(ENABLE_UNIT_TESTING)
     include(Tests/unit_test/unit_tests.cmake)
 endif(ENABLE_UNIT_TESTING)
 
+add_subdirectory(tools)

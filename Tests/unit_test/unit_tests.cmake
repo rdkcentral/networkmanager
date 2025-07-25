@@ -17,6 +17,7 @@
 # limitations under the License.
 #############################################################################
 set(UNIT_TEST "unit_tests")
+set(NM_ROUTER_DISCOVERY_UT "routerDiscovery_tests")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -39,8 +40,16 @@ add_executable(${UNIT_TEST}
   NetworkManagerConnectivity.cpp
   NetworkManagerStunClient.cpp
 )
+add_executable(${NM_ROUTER_DISCOVERY_UT}
+    ${CMAKE_SOURCE_DIR}/tests/unittest/test_UpnpDiscoveryManager.cpp
+    ${CMAKE_SOURCE_DIR}/tools/upnp/UpnpDiscoveryManager.cpp
+)
 
 set_target_properties(${UNIT_TEST} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+)
+set_target_properties(${NM_ROUTER_DISCOVERY_UT} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
 )
@@ -58,7 +67,22 @@ target_include_directories(${UNIT_TEST} PRIVATE
     ${gtest_SOURCE_DIR}/include  
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
+target_include_directories(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+    ${PROJECT_SOURCE_DIR}/tools/upnp
+    ${GUPNP_INCLUDE_DIRS}
+    ${GLIB_INCLUDE_DIRS}
+    ${LIBSOUP_INCLUDE_DIRS}
+    ${GSSDP_INCLUDE_DIRS}
+)
 
 target_link_libraries(${UNIT_TEST} PRIVATE gmock_main ${NAMESPACE}Core::${NAMESPACE}Core ${GLIB_LIBRARIES} ${GIO_LIBRARIES} ${LIBNM_LIBRARIES} ${CURL_LIBRARIES})
+target_link_libraries(${NM_ROUTER_DISCOVERY_UT} PRIVATE
+      gmock_main
+      ${GLIB_LIBRARIES}
+      ${LIBSOUP_LIBRARIES} 
+      ${GUPNP_LIBRARIES} 
+      ${GSSDP_LIBRARIES}
+)
 target_include_directories(${UNIT_TEST} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}) 
 install(TARGETS ${UNIT_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${NM_ROUTER_DISCOVERY_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
