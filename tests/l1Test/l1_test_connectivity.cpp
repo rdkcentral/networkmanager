@@ -63,5 +63,5 @@ TEST_F(ConnectivityMonitorTest, SetEndpoints_InvalidShortEndpoints) {
 TEST_F(ConnectivityMonitorTest, SetEndpoints_DuplicateEndpoints) {
     std::vector<std::string> endpoints = {"https://github.com", "https://github.com"};
     cm.setConnectivityMonitorEndpoints(endpoints);
-    EXPECT_EQ(cm.getConnectivityMonitorEndpoints().size(), 2);
+    EXPECT_EQ((int)cm.getConnectivityMonitorEndpoints().size(), 2);
 }
