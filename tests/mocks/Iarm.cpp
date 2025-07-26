@@ -20,7 +20,11 @@
 #include "Iarm.h"
 #include <gmock/gmock.h>
 
+#ifdef ENABLE_TEST_LOG
 #define TEST_LOG(x, ...) fprintf(stderr, "\033[1;32m[%s:%d](%s)<PID:%d><TID:%d>" x "\n\033[0m", __FILE__, __LINE__, __FUNCTION__, getpid(), gettid(), ##__VA_ARGS__); fflush(stderr);
+#else
+#define TEST_LOG(x, ...)
+#endif
 
 IarmBusImpl* IarmBus::impl = nullptr;
 
