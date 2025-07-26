@@ -1,21 +1,21 @@
-/**
-* If not stated otherwise in this file or this component's LICENSE
-* file the following copyright and licenses apply:
-*
-* Copyright 2023 RDK Management
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-**/
+/*
+ * If not stated otherwise in this file or this component's LICENSE file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2022 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #ifndef SERVICEMOCK_H
 #define SERVICEMOCK_H
@@ -23,12 +23,11 @@
 #include <gmock/gmock.h>
 
 #include "Module.h"
-
 class ServiceMock : public WPEFramework::PluginHost::IShell {
 public:
     virtual ~ServiceMock() = default;
 
-    MOCK_METHOD(void, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(string, Versions, (), (const, override));
     MOCK_METHOD(string, Locator, (), (const, override));
@@ -52,7 +51,6 @@ public:
     MOCK_METHOD(WPEFramework::Core::hresult, Startup, (const startup value), (override));
     MOCK_METHOD(WPEFramework::Core::hresult, Resumed, (const bool value), (override));
     MOCK_METHOD(WPEFramework::Core::hresult, Metadata, (string& info), (const, override));
-
     MOCK_METHOD(bool, Resumed, (), (const, override));
     MOCK_METHOD(bool, IsSupported, (const uint8_t), (const, override));
     MOCK_METHOD(void, EnableWebServer, (const string&, const string&), (override));
@@ -76,4 +74,3 @@ public:
 };
 
 #endif //SERVICEMOCK_H
-
