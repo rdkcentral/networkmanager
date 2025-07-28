@@ -1044,7 +1044,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 if(!ssid.private_key.empty())
                     ssid.private_key.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
                 if(!ssid.private_key_passwd.empty())
-                    ssid.private_key_passwd.copy(param.data.connect.private_key_passwd, sizeof(param.data.connect.private_key_passwd) - 1);
+                    ssid.private_key_passwd.copy(param.data.connect.privatekeypasswd, sizeof(param.data.connect.privatekeypasswd) - 1);
                 param.data.connect.persistSSIDInfo = ssid.persist;
             }
 
