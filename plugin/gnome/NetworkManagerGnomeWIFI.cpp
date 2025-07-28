@@ -52,8 +52,10 @@ namespace WPEFramework
 
             m_client = nm_client_new(NULL, &error);
             if (!m_client || !m_loop) {
-                NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
-                g_error_free(error);
+                if (error) {
+                    NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
+                    g_error_free(error);
+                }
                 return false;
             }
             return true;
@@ -337,23 +339,28 @@ namespace WPEFramework
 
         static void disconnectCb(GObject *object, GAsyncResult *result, gpointer user_data)
         {
-            NMDevice     *device = NM_DEVICE(object);
-            GError       *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMDevice *device = NM_DEVICE(object);
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
 
             NMLOG_DEBUG("Disconnecting... ");
             _wifiManager->m_isSuccess = true;
-            if (!nm_device_disconnect_finish(device, result, &error)) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-                    return;
-
-                NMLOG_ERROR("Device '%s' (%s) disconnecting failed: %s",
-                            nm_device_get_iface(device),
-                            nm_object_get_path(NM_OBJECT(device)),
-                            error->message);
-                g_error_free(error);
-                _wifiManager->quit(device);
-                 _wifiManager->m_isSuccess = false;
+            if (!nm_device_disconnect_finish(device, result, &error))
+            {
+                NMLOG_ERROR("device '%s' disconnect failed !", nm_device_get_iface(device));
+                if(error != NULL)
+                {
+                    if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Device path '%s': %s", nm_object_get_path(NM_OBJECT(device)), error->message);
+                    }
+                    g_error_free(error);
+                }
+                _wifiManager->m_isSuccess = false;
             }
             _wifiManager->quit(device);
         }
@@ -566,8 +573,12 @@ namespace WPEFramework
                                                 NULL,
                                                 &error))
                     {
-                        NMLOG_ERROR("ca certificate add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("ca certificate add failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
@@ -577,8 +588,12 @@ namespace WPEFramework
                                                 NULL,
                                                 &error))
                     {
-                        NMLOG_ERROR("client certificate add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("client certificate add failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
@@ -589,8 +604,12 @@ namespace WPEFramework
                                                     NULL,
                                                     &error))
                     {
-                        NMLOG_ERROR("client private key add failed: %s", error->message);
-                        g_error_free(error);
+                        NMLOG_ERROR("client private key failed");
+                        if(error != NULL)
+                        {
+                            NMLOG_ERROR("Error message %s", error->message);
+                            g_error_free(error);
+                        }
                         return false;
                     }
 
@@ -712,6 +731,9 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
             }
+
+            if(knownConnection != NULL)
+                g_object_unref(knownConnection);
 
             deleteClientConnection();
             return m_isSuccess;
@@ -878,8 +900,10 @@ namespace WPEFramework
             ret = nm_remote_connection_update2_finish(remote_con, res, &error);
 
             if (!ret) {
-                NMLOG_ERROR("Error: %s.", error->message);
-                g_error_free(error);
+                if(error) {
+                    NMLOG_ERROR("Error: %s.", error->message);
+                    g_error_free(error);
+                }
                 _wifiManager->m_isSuccess = false;
                 NMLOG_ERROR("AddToKnownSSIDs failed");
             }
@@ -995,6 +1019,7 @@ namespace WPEFramework
         {
             NMConnection *m_connection = NULL;
             bool ssidSpecified = false;
+            bool connectionFound = false;
 
             if(!createClientNewConnection())
                 return false;
@@ -1039,13 +1064,27 @@ namespace WPEFramework
                     nm_remote_connection_delete(NM_REMOTE_CONNECTION(connection), NULL, &error);
                     if(error) {
                         NMLOG_ERROR("deleting connection failed %s", error->message);
+                        g_error_free(error);
+                        if(m_connection)
+                        {
+                            g_object_unref(m_connection);
+                            m_connection = NULL;
+                        }
+                        break; // error break the loop and return false
                     }
                     else
                         NMLOG_INFO("delete '%s' connection ...", connId);
+                    connectionFound = true;
+                }
+
+                if(m_connection)
+                {
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                 }
             }
 
-            if(!m_connection)
+            if(!connectionFound)
             {
                 if(ssidSpecified)
                     NMLOG_WARNING("'%s' no such connection profile", ssid.c_str());
@@ -1054,7 +1093,9 @@ namespace WPEFramework
             }
 
             deleteClientConnection();
-            return true;
+            // ssid is specified and connection is not found return false
+            // all other case return true, even if no wificonnection is found
+            return((ssidSpecified && !connectionFound)? false : true);
         }
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
@@ -1201,8 +1242,10 @@ namespace WPEFramework
             GMainLoop *loop = static_cast<GMainLoop *>(user_data);
             nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
 
-            if (error)
+            if (error) {
                 NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
+                g_error_free(error);
+            }
             else
                 NMLOG_INFO("WPS connection added/activated successfully");
             g_main_loop_quit(loop);
@@ -1236,6 +1279,7 @@ namespace WPEFramework
                         nm_remote_connection_delete (NM_REMOTE_CONNECTION(connection), NULL, &error);
                         if(error) {
                             NMLOG_ERROR("deleting connection failed %s", error->message);
+                            g_error_free(error);
                             return false;
                         }
                     }
@@ -1526,16 +1570,25 @@ namespace WPEFramework
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             GError *error = nullptr;
 
-            if (!nm_client_dbus_set_property_finish(NM_CLIENT(object), result, &error)) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+            if (!nm_client_dbus_set_property_finish(NM_CLIENT(object), result, &error))
+            {
+                NMLOG_ERROR("Failed to set Managed property");
+                if (error != nullptr)
+                {
+                    if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                    }
+                    else
+                    {
+                         NMLOG_ERROR("Failed Error msg: %s", error->message);
+                    }
                     g_error_free(error);
-                    return;
+                    _wifiManager->m_isSuccess = false;
                 }
-
-                NMLOG_ERROR("Failed to set Managed property: %s", error->message);
-                g_error_free(error);
-                _wifiManager->m_isSuccess = false;
-            } else {
+            }
+            else
+            {
                 NMLOG_DEBUG("Successfully set Managed property.");
                 _wifiManager->m_isSuccess = true;
             }
@@ -1664,8 +1717,12 @@ namespace WPEFramework
             NMLOG_DEBUG("activate connection completeing...");
             // Check if the operation was successful
             if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
-                NMLOG_DEBUG("Activating connection failed: %s", error->message);
-                g_error_free(error);
+                NMLOG_ERROR("Activating connection failed");
+                if(error != NULL)
+                {
+                    NMLOG_ERROR("Activating connection failed: %s", error->message);
+                    g_error_free(error);
+                }
                 _wifiManager->m_isSuccess = false;
             } else {
                 NMLOG_DEBUG("Activating connection successful");

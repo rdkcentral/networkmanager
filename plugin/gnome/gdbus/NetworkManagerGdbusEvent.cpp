@@ -48,6 +48,7 @@ namespace WPEFramework
         GVariant *ifaceVariant = g_dbus_proxy_get_cached_property(deviceProxy, "Interface");
         if (ifaceVariant == NULL) {
             NMLOG_WARNING("Interface property get error");
+            g_object_unref(deviceProxy);
             return ifname;
         }
 
@@ -750,7 +751,12 @@ namespace WPEFramework
 
         g_variant_get(result, "(ao)", &iter);
         if(iter == NULL)
+        {
+            NMLOG_ERROR("GetAllAccessPoints GVariantIter returned NULL");
+            g_variant_unref(result);
+            g_object_unref(wProxy);
             return;
+        }
         while (g_variant_iter_loop(iter, "o", &apPath)) {
             Exchange::INetworkManager::WiFiSSIDInfo wifiInfo;
             // NMLOG_DEBUG("Access Point Path: %s", apPath);
