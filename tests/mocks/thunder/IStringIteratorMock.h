@@ -17,20 +17,23 @@
  * limitations under the License.
  */
 
-#ifndef MOCKAUTHSERVICES_H
-#define MOCKAUTHSERVICES_H
+#ifndef MOCKSTRINGITERATOR_H
+#define MOCKSTRINGITERATOR_H
 
 #include <gmock/gmock.h>
-
 #include "Module.h"
 
-class MockIAuthenticate : public WPEFramework::PluginHost::IAuthenticate {
+template<typename ELEMENT, const uint32_t INTERFACE_ID>
+class MockStringIterator : public WPEFramework::RPC::IStringIterator{
 public:
-    MOCK_METHOD(void*, QueryInterfaceByCallsign, (const uint32_t, const string&));
-    MOCK_METHOD(uint32_t, CreateToken, (uint16_t, const uint8_t*, std::string&));
-    MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(bool, Next, (ELEMENT&), (override));
+    MOCK_METHOD(bool, Previous, (ELEMENT&), (override));
+    MOCK_METHOD(void, Reset, (uint32_t), (override));
+    MOCK_METHOD(bool, IsValid, (), (const));
+    MOCK_METHOD(uint32_t, Count, (), (const));
+    MOCK_METHOD(ELEMENT, Current, (), (const));
+    MOCK_METHOD(void, AddRef, (), (const));
+    MOCK_METHOD(uint32_t, Release, (), (const));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
-    MOCK_METHOD(void, AddRef, (), (const, override));
-    MOCK_METHOD(WPEFramework::PluginHost::ISecurity*, Officer, (const std::string& token), (override));
 };
 #endif
