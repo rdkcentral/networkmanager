@@ -150,6 +150,18 @@ jobs:
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
           rdkproxy_l2_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/rdkproxy_l2_test.xml"
 
+      - name: Run unit tests for Legacy_Network
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          legacynetwork_tests
+
+      - name: Run unit tests for Legacy_WiFi
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          legacywifi_tests
+
       - name: Generate coverage
         run: |
             lcov -c -o coverage.info -d build/networkmanager_rdk
