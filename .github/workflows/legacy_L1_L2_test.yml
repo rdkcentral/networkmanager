@@ -21,7 +21,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            build/Thunder
+            !build/Thunder
             build/ThunderInterfaces
             build/ThunderTools
             install
@@ -137,18 +137,17 @@ jobs:
           &&
           cmake --build build/networkmanager_rdk --target install -j8
 
-      - name: Run l1 tests
+      - name: Run unit tests for Legacy_Network
         run: >
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          upnpcli_l1_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/upnpcli_l1_test.xml"
-          class_l1_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/class_l1_test.xml"
+          legacynetwork_tests
 
-      - name: Run l2 rdk proxy tests
+      - name: Run unit tests for Legacy_WiFi
         run: >
           PATH=${{github.workspace}}/install/usr/bin:${PATH}
           LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
-          rdkproxy_l2_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/rdkproxy_l2_test.xml"
+          legacywifi_tests
 
       - name: Generate coverage
         run: |
