@@ -47,7 +47,6 @@ protected:
     DECL_CORE_JSONRPC_CONX connection;
     Core::JSONRPC::Message message;
     string response;
-    ServiceMock services;
     ServiceMock *m_service;
     bool m_subsIfaceStateChange;
     bool m_subsActIfaceChange;
@@ -141,7 +140,8 @@ TEST_F(NetworkTest, getInterfaces)
     EXPECT_CALL(*mockNetworkManager, Release()).Times(1);
     JsonObject parameters, JsonResponse;
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getInterfaces"), _T("{}"), response));
-
+    std::string expectedResponse = "{\"interfaces\":[{\"interface\":\"ETHERNET\",\"macAddress\":\"00:11:22:33:44:55\",\"enabled\":true,\"connected\":false},{\"interface\":\"WIFI\",\"macAddress\":\"66:77:88:99:AA:BB\",\"enabled\":false,\"connected\":true}],\"success\":true}";
+    EXPECT_EQ(response, expectedResponse);
     delete mockNetworkManager;
 }
 
@@ -192,6 +192,7 @@ TEST_F(NetworkTest, setStunEndpoint) {
                     }));
     EXPECT_CALL(*mockNetworkManager, Release()).Times(1);
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setStunEndPoint"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"success\":true}");
     delete mockNetworkManager;
 }
 
@@ -220,6 +221,7 @@ TEST_F(NetworkTest, setInterfaceEnabled){
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setInterfaceEnabled"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -238,18 +240,24 @@ TEST_F(NetworkTest, getDefaultInterface) {
 
     EXPECT_CALL(*mockNetworkManager, GetPrimaryInterface(::testing::_))
         .Times(1)
-        .WillOnce(::testing::Return(Core::ERROR_NONE));
+        .WillOnce(::testing::Invoke(
+                    [&](string& interface) -> uint32_t                     {
+                    interface = "eth0";
+                    return Core::ERROR_NONE;
+                    }));
 
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getDefaultInterface"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"interface\":\"ETHERNET\",\"success\":true}");
 
     delete mockNetworkManager;
 }
 
 TEST_F(NetworkTest, setDefaultInterface) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setDefaultInterface"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 }
 
 TEST_F(NetworkTest, setIPSettings) {
@@ -283,6 +291,7 @@ TEST_F(NetworkTest, setIPSettings) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setIPSettings"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -308,8 +317,12 @@ TEST_F(NetworkTest, getIPSettings) {
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
-                    address.ipaddress = "192.168.0.1";
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    address.primarydns = "75.75.75.76";
+                    address.secondarydns = "75.75.76.76";
+                    address.dhcpserver = "192.168.0.1";
+                    address.gateway = "192.168.0.1";
+                    address.ipaddress = "192.168.0.11";
                     address.ipversion = "IPv4";
                     address.prefix = 24;
                     return Core::ERROR_NONE;
@@ -319,6 +332,7 @@ TEST_F(NetworkTest, getIPSettings) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getIPSettings"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"primarydns\":\"75.75.75.76\",\"gateway\":\"192.168.0.1\",\"secondarydns\":\"75.75.76.76\",\"dhcpserver\":\"192.168.0.1\",\"netmask\":\"255.255.255.0\",\"ipaddr\":\"192.168.0.11\",\"autoconfig\":false,\"ipversion\":\"IPv4\",\"interface\":\"WIFI\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -344,10 +358,14 @@ TEST_F(NetworkTest, getIPSettingsIPv6) {
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
-                    address.ipaddress = "fe80::1";
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    address.ipaddress = "2001:0db8:85a3:0000:0000:8a2e:0370:7334";
                     address.ipversion = "IPv6";
                     address.prefix = 64;
+                    address.primarydns = "2001:4860:4860::8888";
+                    address.gateway = "fe80::1";
+                    address.secondarydns = "2001:4860:4860::8844";
+                    address.dhcpserver = "fe80::2";
                     return Core::ERROR_NONE;
                     }));
 
@@ -355,6 +373,7 @@ TEST_F(NetworkTest, getIPSettingsIPv6) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getIPSettings"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"primarydns\":\"2001:4860:4860::8888\",\"gateway\":\"fe80::1\",\"secondarydns\":\"2001:4860:4860::8844\",\"dhcpserver\":\"fe80::2\",\"netmask\":64,\"ipaddr\":\"2001:0db8:85a3:0000:0000:8a2e:0370:7334\",\"autoconfig\":false,\"ipversion\":\"IPv6\",\"interface\":\"WIFI\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -391,10 +410,10 @@ TEST_F(NetworkTest, getIPSettingsErrorEmptyString) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getIPSettings"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"success\":false}");
 
     delete mockNetworkManager;
 }
-
 
 TEST_F(NetworkTest, getIPSettings2) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
@@ -413,14 +432,27 @@ TEST_F(NetworkTest, getIPSettings2) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
+    WPEFramework::Exchange::INetworkManager::IPAddress address{};
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::Return(Core::ERROR_NONE));
+        .WillOnce(::testing::Invoke(
+                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    address.primarydns = "75.75.75.76";
+                    address.secondarydns = "75.75.76.76";
+                    address.dhcpserver = "192.168.0.1";
+                    address.gateway = "192.168.0.1";
+                    address.ipaddress = "192.168.0.11";
+                    address.ipversion = "IPv4";
+                    address.prefix = 24;
+                    return Core::ERROR_NONE;
+                    }));
 
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handlerV2.Invoke(connection, _T("getIPSettings"), _T(parameters), response));
+    string expectedResponse = "{\"interface\":\"WIFI\",\"ipversion\":\"IPv4\",\"autoconfig\":false,\"ipaddr\":\"192.168.0.11\",\"netmask\":\"255.255.255.0\",\"dhcpserver\":\"192.168.0.1\",\"gateway\":\"192.168.0.1\",\"primarydns\":\"75.75.75.76\",\"secondarydns\":\"75.75.76.76\",\"success\":true}";
+    EXPECT_EQ(response, expectedResponse);
 
     delete mockNetworkManager;
 }
@@ -442,12 +474,17 @@ TEST_F(NetworkTest, isConnectedToInternet) {
 
     EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::Return(Core::ERROR_NONE));
-
+        .WillOnce(::testing::Invoke(
+                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result) -> uint32_t
+                    {
+                    result = WPEFramework::Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
+                    return Core::ERROR_NONE;
+                    }));
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isConnectedToInternet"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"ipversion\":\"IPv4\",\"connectedToInternet\":true,\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -483,6 +520,7 @@ TEST_F(NetworkTest, getInternetConnectionState) {
             ::testing::Return(Core::ERROR_NONE)));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getInternetConnectionState"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"ipversion\":\"IPv4\",\"state\":2,\"URI\":\"\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -498,19 +536,35 @@ TEST_F(NetworkTest, doPing) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
+    std::string traceResult = "{"
+        "\"success\": true,"
+        "\"tripStdDev\": \"0.741 ms\","
+        "\"tripAvg\": \"16.702\","
+        "\"tripMin\": \"15.747\","
+        "\"tripMax\": \"17.564\","
+        "\"packetLoss\": \"0\","
+        "\"endpoint\": \"8.8.8.8\","
+        "\"packetsReceived\": 5,"
+        "\"packetsTransmitted\": 5,"
+        "\"target\": \"8.8.8.8\""
+        "}";
     EXPECT_CALL(*mockNetworkManager, Ping(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::DoAll(
-            ::testing::Return(Core::ERROR_NONE)));
+        .WillOnce(::testing::Invoke(
+                    [&](const string, const string, const uint32_t, const uint16_t, const string, string& result) -> uint32_t
+                    {
+                    result = traceResult;
+                    return Core::ERROR_NONE;
+                    }));
 
     JsonObject parametersJson;
     parametersJson["endpoint"] = "8.8.8.8";
-    parametersJson["ipversion"] = "IPv4";
-    parametersJson["packets"] = 3;
-    parametersJson["guid"] = "1234567890";
+    parametersJson["packets"] = 5;
     string parameters;
     parametersJson.ToString(parameters);
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("ping"), _T(parameters), response));
+    string expectedResponse = "{\"packetsTransmitted\":5,\"packetsReceived\":5,\"packetLoss\":\"0\",\"target\":\"8.8.8.8\",\"tripMax\":\"17.564\",\"tripMin\":\"15.747\",\"tripAvg\":\"16.702\",\"tripStdDev\":\"0.741 ms\",\"endpoint\":\"8.8.8.8\",\"success\":true}";
+    EXPECT_EQ(response, expectedResponse);
 
     delete mockNetworkManager;
 }
@@ -526,20 +580,40 @@ TEST_F(NetworkTest, doTrace) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
+    std::string traceResult = "{"
+    "\"results\": \"[\\\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \\\",\\\""
+    "1  gateway (10.46.5.1)  0.448 ms\\\",\\\""
+    "2  10.46.0.240 (10.46.0.240)  3.117 ms\\\",\\\""
+    "3  *\\\",\\\""
+    "4  *\\\",\\\""
+    "5  *\\\",\\\""
+    "6  *\\\"]\","
+    "\"endpoint\": \"8.8.8.8\","
+    "\"success\": true"
+    "}";
     EXPECT_CALL(*mockNetworkManager, Trace(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::DoAll(
-            ::testing::Return(Core::ERROR_NONE)));
+        .WillOnce(::testing::Invoke(
+                    [&](const string, const string, const uint32_t, const string, string& response1) -> uint32_t
+                    {
+                    response1 = traceResult;
+                    return Core::ERROR_NONE;
+                    }));
 
     JsonObject parametersJson;
     parametersJson["endpoint"] = "8.8.8.8";
     parametersJson["ipversion"] = "IPv4";
-    parametersJson["packets"] = 3;
-    parametersJson["guid"] = "1234567890";
+    parametersJson["packets"] = 1;
     string parametersStr;
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("trace"), _T(parametersStr), response));
+    // We expect the response to contain success and results fields
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"results\":") != std::string::npos);
+    EXPECT_TRUE(response.find("\"endpoint\":\"8.8.8.8\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"target\":\"8.8.8.8\"") != std::string::npos);
+    EXPECT_TRUE(response.find("6 hops max, 52 byte packets") != std::string::npos);
 
     delete mockNetworkManager;
 }
@@ -557,8 +631,12 @@ TEST_F(NetworkTest, getPublicIP) {
 
     EXPECT_CALL(*mockNetworkManager, GetPublicIP(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
-        .WillOnce(::testing::DoAll(
-            ::testing::Return(Core::ERROR_NONE)));
+        .WillOnce(::testing::Invoke(
+            [&](string&, string&, string& ipaddress) {
+                ipaddress = "69.136.49.95";
+                return Core::ERROR_NONE;
+            }));
+
 
     JsonObject parametersJson;
     parametersJson["ipv6"] = true;
@@ -567,6 +645,7 @@ TEST_F(NetworkTest, getPublicIP) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getPublicIP"), _T(parametersStr), response));
+    EXPECT_EQ(response, "{\"public_ip\":\"69.136.49.95\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -593,6 +672,7 @@ TEST_F(NetworkTest, isInterfaceEnabled) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isInterfaceEnabled"), _T(parametersStr), response));
+    EXPECT_EQ(response, "{\"enabled\":false,\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -606,6 +686,7 @@ TEST_F(NetworkTest, isInterfaceEnabledErrorInvalidInterface) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_BAD_REQUEST, handler.Invoke(connection, _T("isInterfaceEnabled"), _T(parametersStr), response));
+    EXPECT_EQ(response, string{});
 
     delete mockNetworkManager;
 }
@@ -636,6 +717,7 @@ TEST_F(NetworkTest, setConnectivityTestEndpoints) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setConnectivityTestEndpoints"), _T(parametersStr), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -654,6 +736,7 @@ TEST_F(NetworkTest, setConnectivityTestEndpointsErrorInvalidType) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setConnectivityTestEndpoints"), _T(parametersStr), response));
+    EXPECT_EQ(response, "{\"success\":false}");
 
     delete mockNetworkManager;
 }
@@ -668,6 +751,7 @@ TEST_F(NetworkTest, setConnectivityTestEndpointsErrorEmptyArray) {
     parametersJson.ToString(parametersStr);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("setConnectivityTestEndpoints"), _T(parametersStr), response));
+    EXPECT_EQ(response, "{\"success\":false}");
 
     delete mockNetworkManager;
 }
@@ -676,6 +760,7 @@ TEST_F(NetworkTest, startConnectivityMonitoring) {
     string parameters;
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("startConnectivityMonitoring"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 }
 
 TEST_F(NetworkTest, getCaptivePortalURI) {
@@ -692,10 +777,14 @@ TEST_F(NetworkTest, getCaptivePortalURI) {
 
     EXPECT_CALL(*mockNetworkManager, GetCaptivePortalURI(::testing::_))
         .Times(1)
-        .WillOnce(::testing::DoAll(
-            ::testing::Return(Core::ERROR_NONE)));
+        .WillOnce(::testing::Invoke(
+            [&](string& uri) {
+                uri = "http://10.0.0.1/captiveportal.jst";
+                return Core::ERROR_NONE;
+            }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getCaptivePortalURI"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"uri\":\"http:\\/\\/10.0.0.1\\/captiveportal.jst\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -704,6 +793,7 @@ TEST_F(NetworkTest, stopConnectivityMonitoring) {
     string parameters;
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("stopConnectivityMonitoring"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"success\":true}");
 }
 
 TEST_F(NetworkTest, getStbIp) {
@@ -736,6 +826,7 @@ TEST_F(NetworkTest, getStbIp) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getStbIp"), _T(parameters), response));
+    EXPECT_EQ(response, "{\"ip\":\"192.168.0.1\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -770,6 +861,7 @@ TEST_F(NetworkTest, getSTBIPFamily) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSTBIPFamily"), _T({}), response));
+    EXPECT_EQ(response, "{\"ip\":\"192.168.0.1\",\"success\":true}");
 
     delete mockNetworkManager;
 }

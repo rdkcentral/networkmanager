@@ -47,7 +47,6 @@ protected:
     ServiceMock *m_service;
     Core::JSONRPC::Message message;
     string response;
-    ServiceMock services;
 
     WiFiManagerTest()
         : plugin(Core::ProxyType<Plugin::WiFiManager>::Create())
@@ -125,6 +124,7 @@ TEST_F(WiFiManagerTest, cancelWPSPairing)
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("cancelWPSPairing"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"result\":\"\",\"success\":true}");
     delete mockNetworkManager;
 }
 
@@ -143,6 +143,7 @@ TEST_F(WiFiManagerTest, clearSSID) {
         .Times(1);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("clearSSID"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"result\":0,\"success\":true}");
     delete mockNetworkManager;
 }
 
@@ -170,6 +171,7 @@ TEST_F(WiFiManagerTest, connect) {
     jsonParameters.ToString(parameters);
     // Call the connect method
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("connect"), parameters, response));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -433,11 +435,10 @@ TEST_F(WiFiManagerTest, getPairedSSIDInfo) {
         .Times(1);
 
     // Call the getPairedSSIDInfo method
-    std::string response;
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getPairedSSIDInfo"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"success\":true}"));
+    EXPECT_EQ(response, "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -447,7 +448,8 @@ TEST_F(WiFiManagerTest, getSupportedSecurityModes) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getSupportedSecurityModes"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"security_modes\":{\"NET_WIFI_SECURITY_NONE\":0,\"NET_WIFI_SECURITY_WEP_64\":1,\"NET_WIFI_SECURITY_WEP_128\":2,\"NET_WIFI_SECURITY_WPA_PSK_TKIP\":3,\"NET_WIFI_SECURITY_WPA_PSK_AES\":4,\"NET_WIFI_SECURITY_WPA2_PSK_TKIP\":5,\"NET_WIFI_SECURITY_WPA2_PSK_AES\":6,\"NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP\":7,\"NET_WIFI_SECURITY_WPA_ENTERPRISE_AES\":8,\"NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP\":9,\"NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES\":10,\"NET_WIFI_SECURITY_WPA_WPA2_PSK\":11,\"NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE\":12,\"NET_WIFI_SECURITY_WPA3_PSK_AES\":13,\"NET_WIFI_SECURITY_WPA3_SAE\":14,\"NET_WIFI_SECURITY_NOT_SUPPORTED\":99},\"success\":true}"));
+    std::string expectedResponse = "{\"security_modes\":{\"NET_WIFI_SECURITY_NONE\":0,\"NET_WIFI_SECURITY_WEP_64\":1,\"NET_WIFI_SECURITY_WEP_128\":2,\"NET_WIFI_SECURITY_WPA_PSK_TKIP\":3,\"NET_WIFI_SECURITY_WPA_PSK_AES\":4,\"NET_WIFI_SECURITY_WPA2_PSK_TKIP\":5,\"NET_WIFI_SECURITY_WPA2_PSK_AES\":6,\"NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP\":7,\"NET_WIFI_SECURITY_WPA_ENTERPRISE_AES\":8,\"NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP\":9,\"NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES\":10,\"NET_WIFI_SECURITY_WPA_WPA2_PSK\":11,\"NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE\":12,\"NET_WIFI_SECURITY_WPA3_PSK_AES\":13,\"NET_WIFI_SECURITY_WPA3_SAE\":14,\"NET_WIFI_SECURITY_NOT_SUPPORTED\":99},\"success\":true}";
+    EXPECT_EQ(response, expectedResponse);
 
 }
 
@@ -464,15 +466,9 @@ TEST_F(WiFiManagerTest, saveSSID) {
     ssid.ssid = "my-ssid";
     ssid.passphrase = "my-passphrase";
     ssid.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
-//Exchange::INetworkManager::WiFiConnectTo ssidCopy = ssid;
-EXPECT_CALL(*mockNetworkManager, AddToKnownSSIDs(::testing::_))
+    EXPECT_CALL(*mockNetworkManager, AddToKnownSSIDs(::testing::_))
     .WillOnce(::testing::DoAll(
-        //::testing::SetArgReferee<0>(ssidCopy),
         ::testing::Return(Core::ERROR_NONE)));
-    /*EXPECT_CALL(*mockNetworkManager, AddToKnownSSIDs(::testing::_))
-        .WillOnce(::testing::DoAll(
-            ::testing::SetArgReferee<0>(ssid),
-            ::testing::Return(Core::ERROR_NONE)));*/
     EXPECT_CALL(*mockNetworkManager, Release())
         .Times(1);
 
@@ -489,7 +485,7 @@ EXPECT_CALL(*mockNetworkManager, AddToKnownSSIDs(::testing::_))
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("saveSSID"), parameters, response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":0,\"success\":true}"));
+    EXPECT_EQ(response, "{\"result\":0,\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -512,36 +508,10 @@ TEST_F(WiFiManagerTest, disconnect) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("disconnect"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":0,\"success\":true}"));
+    EXPECT_EQ(response, "{\"result\":0,\"success\":true}");
 
     delete mockNetworkManager;
 }
-
-#if 0
-TEST_F(WiFiManagerTest, disconnect_Error) {
-    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
-    EXPECT_CALL(*m_service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
-        .Times(1)
-        .WillOnce(::testing::Invoke(
-            [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
-                return static_cast<void*>(mockNetworkManager);
-            }));
-    EXPECT_CALL(*mockNetworkManager, WiFiDisconnect())
-        .WillOnce(::testing::Return(Core::ERROR_GENERAL));
-    EXPECT_CALL(*mockNetworkManager, Release())
-        .Times(1);
-
-    // Call the disconnect method
-    std::string response;
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("disconnect"), _T("{}"), response));
-    // Verify the response
-    std::string expectedResponse = "{\"success\":false}";
-    EXPECT_EQ(response, expectedResponse);
-
-    delete mockNetworkManager;
-}
-#endif
 
 TEST_F(WiFiManagerTest, initiateWPSPairing) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
@@ -568,43 +538,10 @@ TEST_F(WiFiManagerTest, initiateWPSPairing) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("initiateWPSPairing"), parameters, response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":0,\"success\":true}"));
+    EXPECT_EQ(response, "{\"result\":0,\"success\":true}");
 
     delete mockNetworkManager;
 }
-
-#if 0
-TEST_F(WiFiManagerTest, initiateWPSPairing_Error) {
-    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
-    EXPECT_CALL(*m_service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
-        .Times(1)
-        .WillOnce(::testing::Invoke(
-            [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
-                return static_cast<void*>(mockNetworkManager);
-            }));
-    EXPECT_CALL(*mockNetworkManager, StartWPS(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(Core::ERROR_GENERAL));
-    EXPECT_CALL(*mockNetworkManager, Release())
-        .Times(1);
-
-    // Create a sample parameters object
-    JsonObject jsonParameters;
-    jsonParameters["method"] = "INVALIDPIN";
-    jsonParameters["pin"] = "my-pin";
-
-    string parameters;
-    jsonParameters.ToString(parameters);
- 
-    // Call the initiateWPSPairing method
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("initiateWPSPairing"), parameters, response));
-
-    // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":1,\"success\":false}"));
-
-    delete mockNetworkManager;
-}
-#endif
 
 TEST_F(WiFiManagerTest, startScan) {
     MockINetworkManager* mockNetworkManager = new MockINetworkManager();
@@ -631,7 +568,7 @@ TEST_F(WiFiManagerTest, startScan) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("startScan"), parameters, response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr(""));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -655,7 +592,7 @@ TEST_F(WiFiManagerTest, stopScan) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("stopScan"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr(""));
+    EXPECT_EQ(response, "{\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -679,7 +616,7 @@ TEST_F(WiFiManagerTest, stopScan_Error) {
     EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("stopScan"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr(""));
+    EXPECT_EQ(response, string{});
 
     delete mockNetworkManager;
 }
@@ -749,8 +686,6 @@ TEST_F(WiFiManagerTest, onAvailableSSIDs) {
     ssid1["security"] = 2;
     ssid1["signalStrength"] = "-27.000";
     ssid1["frequency"] = "2.4";
-    //JsonArray ssid1Array;
-    //ssid1Array.Add(ssid1);
     ssids.Add(ssid1);
     parameters["ssids"] = ssids;
 
@@ -800,7 +735,7 @@ TEST_F(WiFiManagerTest, getPairedSSID) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getPairedSSID"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"ssid\":\"my-ssid\",\"success\":true}"));
+    EXPECT_EQ(response, "{\"ssid\":\"my-ssid\",\"success\":true}");
 
     // Clean up
     delete mockNetworkManager;
@@ -836,7 +771,7 @@ TEST_F(WiFiManagerTest, isPaired) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isPaired"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":1,\"success\":true}"));
+    EXPECT_EQ(response, "{\"result\":1,\"success\":true}");
 
     // Clean up
     delete mockNetworkManager;
@@ -857,22 +792,16 @@ TEST_F(WiFiManagerTest, isPairedNoSSID) {
             }));
 
     // Set up the mock string iterator to return a string
-    //MockStringIterator<string, RPC::ID_STRINGITERATOR>* mockStringIterator = new MockStringIterator<string, RPC::ID_STRINGITERATOR>();
     EXPECT_CALL(*mockNetworkManager, GetKnownSSIDs(::testing::_))
         .WillOnce(::testing::DoAll(
-            //::testing::SetArgReferee<0>(mockStringIterator),
             ::testing::Return(Core::ERROR_NONE)));
-    /*EXPECT_CALL(*mockStringIterator, Next(::testing::_))
-        .WillOnce(::testing::DoAll(
-            ::testing::SetArgReferee<0>("my-ssid"),
-            ::testing::Return(true)));*/
 
     // Call the getPairedSSID method
     std::string response;
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isPaired"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"result\":0,\"success\":true}"));
+    EXPECT_EQ(response, "{\"result\":0,\"success\":true}");
 
     // Clean up
     delete mockNetworkManager;
@@ -928,7 +857,7 @@ TEST_F(WiFiManagerTest, retrieveSSIDWPAPSK) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"ssid\":\"my-ssid\",\"securityMode\":6,\"passphrase\":\"my-passphrase\",\"success\":true}"));
+    EXPECT_EQ(response, "{\"ssid\":\"my-ssid\",\"securityMode\":6,\"passphrase\":\"my-passphrase\",\"success\":true}");
 
     // Remove the configuration file
     std::remove("/opt/secure/wifi/wpa_supplicant.conf");
@@ -945,7 +874,7 @@ TEST_F(WiFiManagerTest, retrieveSSIDSecurityNone) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"ssid\":\"my-ssid\",\"securityMode\":0,\"passphrase\":\"my-passphrase\",\"success\":true}"));
+    EXPECT_EQ(response, "{\"ssid\":\"my-ssid\",\"securityMode\":0,\"passphrase\":\"my-passphrase\",\"success\":true}");
 
     // Remove the configuration file
     std::remove("/opt/secure/wifi/wpa_supplicant.conf");
@@ -962,56 +891,8 @@ TEST_F(WiFiManagerTest, retrieveSSIDSecuritySAE) {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
 
     // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"ssid\":\"my-ssid\",\"securityMode\":14,\"passphrase\":\"my-passphrase\",\"success\":true}"));
+    EXPECT_EQ(response, "{\"ssid\":\"my-ssid\",\"securityMode\":14,\"passphrase\":\"my-passphrase\",\"success\":true}");
 
     // Remove the configuration file
     std::remove("/opt/secure/wifi/wpa_supplicant.conf");
 }
-
-#if 0
-TEST_F(WiFiManagerTest, retrieveSSID_Error) {
-    // Try to open the configuration file, it should not exist
-    std::ifstream configFile(WPA_SUPPLICANT_CONF);
-    EXPECT_FALSE(configFile.is_open());
-
-    // Call the retrieveSSID method
-    EXPECT_EQ(Core::ERROR_NOT_EXIST, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
-
-    std::cout << "Response: " << response << std::endl; // Print out the response string
-    // Verify the response
-    EXPECT_EQ(response, _T("{\"success\":false}"));
-    //EXPECT_THAT(response, ::testing::HasSubstr("{\"success\":false}"));
-}
-
-TEST_F(WiFiManagerTest, retrieveSSID_EmptyFile) {
-    // Create an empty configuration file
-    std::ofstream configFile(WPA_SUPPLICANT_CONF);
-    configFile.close();
-
-    // Call the retrieveSSID method
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
-
-    // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"success\":false}"));
-
-    // Remove the configuration file
-    std::remove(WPA_SUPPLICANT_CONF);
-}
-
-TEST_F(WiFiManagerTest, retrieveSSID_InvalidFile) {
-    // Create a configuration file with invalid content
-    std::string configFileContent = "Invalid content\n";
-    std::ofstream configFile(WPA_SUPPLICANT_CONF);
-    configFile << configFileContent;
-    configFile.close();
-
-    // Call the retrieveSSID method
-    EXPECT_EQ(Core::ERROR_GENERAL, handler.Invoke(connection, _T("retrieveSSID"), _T("{}"), response));
-
-    // Verify the response
-    EXPECT_THAT(response, ::testing::HasSubstr("{\"success\":false}"));
-
-    // Remove the configuration file
-    std::remove(WPA_SUPPLICANT_CONF);
-}
-#endif
