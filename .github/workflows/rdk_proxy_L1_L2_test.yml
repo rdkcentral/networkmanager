@@ -71,7 +71,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd ${{github.workspace}}/Thunder
-          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/Remove-SmartLinkType.patch
+          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/SubscribeStub.patch
 
       - name: Build ThunderTools
         if: steps.cache.outputs.cache-hit != 'true'
