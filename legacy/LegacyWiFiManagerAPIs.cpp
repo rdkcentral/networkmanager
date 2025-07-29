@@ -496,7 +496,7 @@ namespace WPEFramework
         uint32_t WiFiManager::getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
+            uint32_t rc = Core::ERROR_NONE;
             JsonObject security_modes;
             security_modes["NET_WIFI_SECURITY_NONE"]                 = (int)NET_WIFI_SECURITY_NONE;
             security_modes["NET_WIFI_SECURITY_WEP_64"]               = (int)NET_WIFI_SECURITY_WEP_64;
