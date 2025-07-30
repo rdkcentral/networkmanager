@@ -11,6 +11,9 @@ env:
 
 jobs:
   L1-tests:
+    permissions:
+        contents: read
+        pull-requests: write
     name: Build and run unit tests
     runs-on: ubuntu-22.04
 
