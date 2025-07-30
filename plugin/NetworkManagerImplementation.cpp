@@ -116,29 +116,19 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::Configure(PluginHost::IShell* service)
+        uint32_t NetworkManagerImplementation::Configure(const string configLine)
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
-            if (service)
+            if(configLine.empty())
             {
-                string configLine = service->ConfigLine();
-                if(configLine.empty())
-                {
-                    NMLOG_FATAL("config line : is empty !");
-                    return Core::ERROR_GENERAL;
-                }
-                else
-                {
-                    NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
-                    config.FromString(configLine);
-                }
+                NMLOG_FATAL("config line : is empty !");
+                return Core::ERROR_GENERAL;
             }
             else
             {
-                NMLOG_FATAL("Service is NULL!");
-                return Core::ERROR_GENERAL;
-
+                NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                config.FromString(configLine);
             }
 
             NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));

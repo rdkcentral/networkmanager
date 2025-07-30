@@ -258,7 +258,7 @@ namespace WPEFramework
             virtual uint32_t GetLogLevel(Logging& level /* @out */) = 0;
 
             /* @brief Configure the Network Manager plugin */
-            virtual uint32_t Configure(PluginHost::IShell* service /* @in */) = 0;
+            virtual uint32_t Configure(const string configLine/* @in */) = 0;
 
             /* @event */
             struct EXTERNAL INotification : virtual public Core::IUnknown

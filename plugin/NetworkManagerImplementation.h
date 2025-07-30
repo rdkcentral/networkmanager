@@ -30,7 +30,6 @@
 using namespace std;
 
 #include "INetworkManager.h"
-#include <interfaces/IConfiguration.h>
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
@@ -50,7 +49,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        class NetworkManagerImplementation : public Exchange::INetworkManager, public Exchange::IConfiguration
+        class NetworkManagerImplementation : public Exchange::INetworkManager
         {
             enum NetworkEvents
             {
@@ -178,7 +177,6 @@ namespace WPEFramework
 
                 BEGIN_INTERFACE_MAP(NetworkManagerImplementation)
                 INTERFACE_ENTRY(Exchange::INetworkManager)
-                INTERFACE_ENTRY(Exchange::IConfiguration)
                 END_INTERFACE_MAP
 
                 // Handle Notification registration/removal
@@ -250,7 +248,7 @@ namespace WPEFramework
                 uint32_t GetLogLevel(Logging& level /* @out */) override;
 
                 /* @brief configure network manager plugin */
-                uint32_t Configure(PluginHost::IShell* service) override;
+                uint32_t Configure(const string configLine) override;
 
                 /* Events */
                 void ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
