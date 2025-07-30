@@ -560,6 +560,8 @@ TEST_F(NetworkTest, doPing) {
     JsonObject parametersJson;
     parametersJson["endpoint"] = "8.8.8.8";
     parametersJson["packets"] = 5;
+    parametersJson["ipversion"] = "IPv4";
+    parametersJson["guid"] = "...";
     string parameters;
     parametersJson.ToString(parameters);
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("ping"), _T(parameters), response));
