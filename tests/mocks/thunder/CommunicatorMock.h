@@ -39,7 +39,7 @@ public:
 class CommunicatorClientMock : public ICommunicatorClient {
 public:
     virtual ~CommunicatorClientMock() = default;
-    MOCK_METHOD(void, AddRef, (), (const));
+    MOCK_METHOD(uint32_t, AddRef, (), (const));
     MOCK_METHOD(uint32_t, Release, (), (const));
     MOCK_METHOD(uint32_t, Open, (const uint32_t waitTime), (override));
     MOCK_METHOD(void*, Open, (const std::string& className, const uint32_t version, const uint32_t waitTime), (override));
