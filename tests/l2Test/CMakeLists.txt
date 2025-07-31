@@ -19,6 +19,8 @@
 message ("building l2 test")
 
 set(NM_RDK_PROXY_L2_TEST "rdkproxy_l2_test")
+set(NM_LEGACY_WIFI_UT "legacywifi_tests")
+set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
 
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
@@ -50,16 +52,42 @@ add_executable(${NM_RDK_PROXY_L2_TEST}
     ${PROXY_STUB_SOURCES}
 )
 
+add_executable(${NM_LEGACY_WIFI_UT}
+    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_LegacyPlugin_WiFiManagerAPIs.cpp
+    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
+    ${CMAKE_SOURCE_DIR}/legacy/LegacyWiFiManagerAPIs.cpp
+)
+
+add_executable(${NM_LEGACY_NETWORK_UT}
+    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_LegacyPlugin_NetworkAPIs.cpp
+    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
+    ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
+)
+
 set_target_properties(${NM_RDK_PROXY_L2_TEST} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
 )
 
+set_target_properties(${NM_LEGACY_WIFI_UT} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+)
+set_target_properties(${NM_LEGACY_NETWORK_UT} PROPERTIES
+    CXX_STANDARD 11
+    CXX_STANDARD_REQUIRED YES
+)
+
 target_compile_options(${NM_RDK_PROXY_L2_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
+target_compile_options(${NM_LEGACY_WIFI_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
+target_compile_options(${NM_LEGACY_NETWORK_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
+include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
 include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
@@ -67,7 +95,19 @@ include_directories(${PROJECT_SOURCE_DIR}/tools/upnp/)
 
 target_include_directories(${NM_RDK_PROXY_L2_TEST} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/include  
+    ${gtest_SOURCE_DIR}/include
+    ${gtest_SOURCE_DIR}/../googlemock/include
+)
+
+target_include_directories(${NM_LEGACY_WIFI_UT} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${gtest_SOURCE_DIR}/include
+    ${gtest_SOURCE_DIR}/../googlemock/include
+)
+
+target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${gtest_SOURCE_DIR}/include
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
 
@@ -81,5 +121,21 @@ target_link_libraries(${NM_RDK_PROXY_L2_TEST} PRIVATE
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
     ${CURL_LIBRARIES}
 )
+target_link_libraries(${NM_LEGACY_WIFI_UT} PRIVATE
+    gmock_main
+    ${NAMESPACE}Core::${NAMESPACE}Core
+    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+    ${NAMESPACE}Core::${NAMESPACE}Core
+    ${CURL_LIBRARIES}
+)
+target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
+    gmock_main
+    ${NAMESPACE}Core::${NAMESPACE}Core
+    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+    ${NAMESPACE}Core::${NAMESPACE}Core
+    ${CURL_LIBRARIES}
+)
 
 install(TARGETS ${NM_RDK_PROXY_L2_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${NM_LEGACY_WIFI_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${NM_LEGACY_NETWORK_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

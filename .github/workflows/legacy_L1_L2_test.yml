@@ -1,4 +1,4 @@
-name: gdbus_proxy_l1_tests
+name: legacy_l1_l2_tests
 
 on:
   push:
@@ -11,6 +11,9 @@ env:
 
 jobs:
   L1-tests:
+    permissions:
+        contents: read
+        pull-requests: write
     name: Build and run unit tests
     runs-on: ubuntu-22.04
 
@@ -21,12 +24,12 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            build/Thunder
+            !build/Thunder
             build/ThunderInterfaces
             build/ThunderTools
             install
             !install/etc/WPEFramework/plugins
-            !install/usr/bin/gdbusproxy_l1_test
+            !install/usr/bin/rdkproxy_l1_test
             !install/usr/include/gmock
             !install/usr/include/gtest
             !install/usr/lib/libgmockd.a
@@ -39,11 +42,11 @@ jobs:
             !install/usr/lib/pkgconfig/gtest.pc
             !install/usr/lib/pkgconfig/gtest_main.pc
             !install/usr/lib/wpeframework/plugins
-          key: thunder-${{ env.THUNDER_REF }}-gdbus
+          key: thunder-${{ env.THUNDER_REF }}-rdk
       - name: Install packages
         run: |
           sudo apt update
-          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build
+          sudo apt-get install -y pkg-config libglib2.0-dev libnm-dev libcurl4-openssl-dev lcov ninja-build libgupnp-1.2-1 libgupnp-1.2-dev libgssdp-1.2-0 libsoup2.4-1
 
       - name: Configure Python
         uses: actions/setup-python@v4
@@ -107,19 +110,62 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
-      - name: Build networkmanager with Gnome GDBUS Proxy
+      - name: Generate IARM headers
+        run: |
+            touch install/usr/lib/libIARMBus.so 
+            mkdir -p install/usr/include/rdk/iarmbus
+            touch install/usr/include/rdk/iarmbus/libIARM.h
+            cd "${{github.workspace}}/networkmanager/tests/"
+            mkdir -p headers/rdk/iarmbus
+            cd headers
+            touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
+
+      - name: Build networkmanager with RDK Proxy
         run: >
           cmake
           -S "${{github.workspace}}/networkmanager"
-          -B build/networkmanager_gdbus
+          -B build/networkmanager_rdk
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
-          -DENABLE_GNOME_NETWORKMANAGER=ON
-          -DENABLE_GNOME_GDBUS=ON
-          -DENABLE_PLUGIN_CLI=ON
+          -DCMAKE_CXX_FLAGS="
+          -I ${{github.workspace}}/networkmanager/tests/headers
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
+          --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
+          --include ${{github.workspace}}/networkmanager/tests/mocks/secure_wrappermock.h
+          -Wall --coverage
+          "
+          -DENABLE_UNIT_TESTING=ON
+          -DENABLE_ROUTER_DISCOVERY_TOOL=ON
           &&
-          cmake --build build/networkmanager_gdbus --target install -j8
+          cmake --build build/networkmanager_rdk --target install -j8
 
+      - name: Run unit tests for Legacy_Network
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          legacynetwork_tests
 
+      - name: Run unit tests for Legacy_WiFi
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          legacywifi_tests
+
+      - name: Generate coverage
+        run: |
+            lcov -c -o coverage.info -d build/networkmanager_rdk
+            lcov -r coverage.info '/usr/include/*' '*/build/networkmanager_rdk/*' \
+                                  '*/install/usr/include/*' '*/tests/*' 'googlemock/*' 'googletest/*' \
+                                  -o filtered_coverage.info
+      - name: Generate the html report
+        run: |
+            genhtml filtered_coverage.info --output-directory /tmp/coverage_report
+
+      - name: Upload the coverage report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+            name: coverage-report
+            path: |
+              /tmp/coverage_report
+              /tmp/gtest_log
