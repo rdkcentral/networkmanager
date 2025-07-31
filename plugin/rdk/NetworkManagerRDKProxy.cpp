@@ -1043,10 +1043,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     ssid.client_cert.copy(param.data.connect.clientcert, sizeof(param.data.connect.clientcert) - 1);
                 if(!ssid.private_key.empty())
                     ssid.private_key.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
-                NMLOG_ERROR ("MYTEST: In WiFiConnect");
                 if(!ssid.private_key_passwd.empty())
                 {
-                    NMLOG_ERROR ("MYTEST: Password is %s\n", ssid.private_key_passwd.c_str());
                     ssid.private_key_passwd.copy(param.data.connect.privatekeypasswd, sizeof(param.data.connect.privatekeypasswd) - 1);
                 }
                 param.data.connect.persistSSIDInfo = ssid.persist;
