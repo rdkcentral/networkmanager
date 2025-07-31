@@ -14,6 +14,12 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.23.0] - 2025-07-30
+### Added
+- Added L1/L2 workflow for LegacyNetwork, LegacyWiFi and NetworkManager Plugins
+- Fixed RemoveKnownSSID method to handle the invalid inputs
+- Fixed the logging in GetIPSettings
+
 ## [0.22.0] - 2025-07-14
 ### Fixed
 - Fixed trigger point for the connectivity monitoring
