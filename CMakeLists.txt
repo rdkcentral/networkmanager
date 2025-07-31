@@ -53,7 +53,11 @@ endif (ENABLE_LEGACY_PLUGINS)
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
-    add_subdirectory(tests/l1Test)
-    add_subdirectory(tests/l2Test)
+    if(NOT ENABLE_GNOME_NETWORKMANAGER)
+        add_subdirectory(tests/l1Test)
+        add_subdirectory(tests/l2Test)
+    else()
+        add_subdirectory(tests/l2Test/libnm)
+    endif()
 endif(ENABLE_UNIT_TESTING)
 
