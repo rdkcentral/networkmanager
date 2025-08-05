@@ -1,0 +1,22 @@
+name: Coverity Full Analysis Scan
+
+on:
+  push:
+    branches: [ develop, main ]
+    paths: ['**/*.c', '**/*.cpp', '**/*.cc', '**/*.cxx', '**/*.h', '**/*.hpp']
+
+jobs:
+  call_coverity_full_scan:
+    uses: rdk-e/build_tools_workflows/.github/workflows/coverity_component_full_scan.yml@develop
+    with:
+      branchName: develop
+      # Specify your actual build command here
+      buildCommand: sh build.sh
+      customSetup: |
+        apt-get update -y
+        apt-get install -y libsqlite3-dev libcurl4-openssl-dev valgrind lcov clang libsystemd-dev libboost-all-dev libwebsocketpp-dev meson libcunit1 libcunit1-dev curl protobuf-compiler-grpc libgrpc-dev libgrpc++-dev libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+        pip install jsonref
+    secrets: 
+      RDKE_GITHUB_TOKEN: ${{ secrets.RDKE_GITHUB_TOKEN }}
+      RDKE_ARTIFACTORY_USER_APIKEY: ${{ secrets.RDKE_ARTIFACTORY_USER_APIKEY }}
+      RDKE_COVERITY_APIKEY: ${{ secrets.RDKE_COVERITY_APIKEY }}
