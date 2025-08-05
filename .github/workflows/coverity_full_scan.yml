@@ -12,7 +12,7 @@ jobs:
   call_coverity_full_scan:
     uses: rdkcentral/build_tools_workflows/.github/workflows/coverity_component_full_scan.yml@develop
     with:
-      branchName: develop
+      branchName: topic/coverity
       # Specify your actual build command here
       buildCommand: sh build.sh
       customSetup: |
