@@ -10,7 +10,7 @@ on:
 
 jobs:
   call_coverity_full_scan:
-    uses: rdk-e/build_tools_workflows/.github/workflows/coverity_component_full_scan.yml@develop
+    uses: rdkcentral/build_tools_workflows/.github/workflows/coverity_component_full_scan.yml@develop
     with:
       branchName: develop
       # Specify your actual build command here
