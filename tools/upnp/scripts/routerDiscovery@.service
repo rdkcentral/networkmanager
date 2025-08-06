@@ -4,3 +4,4 @@ Description=Router Discovery Service %i
 [Service]
 Type=simple
 ExecStart=/usr/bin/routerDiscovery %i
+SuccessExitStatus=0 137
