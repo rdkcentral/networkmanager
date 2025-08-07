@@ -20,9 +20,11 @@
 . /etc/device.properties
 
 ifc=$1
-pid=`pidof routerDiscovery`
+# Find the PID of the routerDiscovery process that is running specifically on this interface.
+pid=$(pgrep -f "routerDiscovery $ifc")
 if [ -n "$pid" ]; then
-    kill -9 $pid
-fi 
-echo "Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
+    echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Found existing routerDiscovery ($pid) for $ifc, Killing it." >> /opt/logs/routerInfo.log
+    kill -15 "$pid"
+fi
+echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
 systemctl start routerDiscovery@$ifc
