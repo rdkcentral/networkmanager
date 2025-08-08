@@ -25,7 +25,7 @@ ifc=$3
 flags=$5
 file="/tmp/.routerdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
-    if [ "$cmd" == "add" ] && [ "$flags" = "global" ]; then
+    if [ "$cmd" == "add" ] && [ "$flags" = "global" ] && [ "$mode" = "ipv4" ]; then
         if [ ! -f $file ]; then
             touch /tmp/.routerdiscover
             # Find the PID of the routerDiscovery process that is running specifically on this interface.
