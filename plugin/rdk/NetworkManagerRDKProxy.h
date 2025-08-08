@@ -245,6 +245,7 @@ typedef struct _WiFiConnection
     char carootcert[MAX_FILE_PATH_LEN];
     char clientcert[MAX_FILE_PATH_LEN];
     char privatekey[MAX_FILE_PATH_LEN];
+    char privatekeypasswd[PASSPHRASE_BUFF];
     bool persistSSIDInfo;
 } WiFiConnection;
 
