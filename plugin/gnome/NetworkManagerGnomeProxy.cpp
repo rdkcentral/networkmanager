@@ -64,6 +64,139 @@ namespace WPEFramework
             return deviceState;
         }
 
+        static bool SetInterfaceMTU(NMConnection *connection, const std::string& interface, uint32_t mtu)
+        {
+            GError *error = NULL;
+            if(interface == nmUtils::ethIface())
+            {
+                NMSettingWired *sEth = (NMSettingWired *) nm_connection_get_setting_wired(connection);
+                if (!sEth) {
+                    sEth = (NMSettingWired *) nm_setting_wired_new();
+                    nm_connection_add_setting(connection, NM_SETTING(sEth));
+                }
+                g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)mtu, NULL);
+                NMLOG_INFO("Setting Ethernet MTU to '%d'", mtu);
+            }
+            else if(interface == nmUtils::wlanIface())
+            {
+                NMSettingWireless *sWifi = (NMSettingWireless *) nm_connection_get_setting_wireless(connection);
+                if (!sWifi) {
+                    sWifi = (NMSettingWireless *) nm_setting_wireless_new();
+                    nm_connection_add_setting(connection, NM_SETTING(sWifi));
+                }
+                g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)mtu, NULL);
+                NMLOG_INFO("Setting WiFi MTU to '%d'", mtu);
+            }
+            else
+            {
+                NMLOG_ERROR("Invalid interface: %s", interface.c_str());
+                return false;
+            }
+
+            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection),
+                                                    TRUE,  // save to disk
+                                                    NULL,  // cancellable
+                                                    &error);
+            if(error)
+            {
+                NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                g_error_free(error);
+                return false;
+            }
+
+            return true;
+        }
+
+        static bool SetHostname(NMConnection *connection, const std::string& hostname)
+        {
+            GError *error = NULL;
+            NMSettingIPConfig *sIPv4 = NULL;
+            NMSettingIPConfig *sIPv6 = NULL;
+
+            if(connection == NULL) {
+                NMLOG_ERROR("Connection is NULL");
+                return false;
+            }
+            sIPv4 = nm_connection_get_setting_ip4_config(connection);
+            if (!sIPv4) {
+                sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
+                nm_connection_add_setting(connection, NM_SETTING(sIPv4));
+            }
+
+            g_object_set(sIPv4,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+
+            sIPv6 = nm_connection_get_setting_ip6_config(connection);
+            if (!sIPv6) {
+                sIPv6 = NM_SETTING_IP_CONFIG(nm_setting_ip6_config_new());
+                nm_connection_add_setting(connection, NM_SETTING(sIPv6));
+            }
+
+            g_object_set(sIPv6,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+
+            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection),
+                                                    TRUE,  // save to disk
+                                                    NULL,  // cancellable
+                                                    &error);
+            if(error)
+            {
+                NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                g_error_free(error);
+                return false;
+            }
+
+            return true;
+        }
+
+        static bool setDefaultConnConfig(NMClient *client)
+        {
+            GError *error = NULL;
+            const GPtrArray *connections = NULL;
+            NMConnection *connection = NULL;
+
+            connections = nm_client_get_connections(client);
+            if (connections == NULL || connections->len == 0) {
+                NMLOG_ERROR("Could not get nm connections");
+                return false;
+            }
+
+            for (uint32_t i = 0; i < connections->len; i++)
+            {
+                connection = NM_CONNECTION(connections->pdata[i]);
+                if(connection == NULL)
+                {
+                    NMLOG_ERROR("Connection at index %d is NULL", i);
+                    continue;
+                }
+
+               const char *connectionType =  nm_connection_get_connection_type(connection);
+               if(connectionType == NULL)
+               {
+                   NMLOG_ERROR("Failed to get connection type !");
+                   continue;
+               }
+
+               if(std::string("802-11-wireless") != connectionType && std::string("802-3-ethernet") != connectionType) {
+                     NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", connectionType);
+                     continue;
+               }
+
+            //    const char *id = nm_connection_get_id(connection);
+
+            //     if (g_strcmp0(id, connection_name) == 0) {
+            //         connection = candidate;
+            //         found = TRUE;
+            //         g_print("Found connection: %s\n", id);
+            //         break;
+            //     }
+            }
+        }
+
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
         {
             /* set networkmanager daemon log level based on current plugin log level */
@@ -87,7 +220,7 @@ namespace WPEFramework
                 return;
             }
 
-            nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
+            nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 m_defaultInterface = nmUtils::ethIface();

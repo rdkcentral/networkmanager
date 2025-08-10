@@ -37,9 +37,11 @@ namespace WPEFramework
     {
         static std::string m_ethifname = "eth0";
         static std::string m_wlanifname = "wlan0";
+        static std::string m_deviceName = ""; // Device name can be empty if not set in /etc/device.properties
 
         const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}
         const char* nmUtils::ethIface() {return m_ethifname.c_str();}
+        const char* nmUtils::deviceName() {return m_deviceName.c_str();}
 
         uint8_t nmUtils::wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint)
         {
@@ -205,11 +207,12 @@ namespace WPEFramework
             return upperStr1 == upperStr2;
         }
 
-        bool nmUtils::getInterfacesName()
+        bool nmUtils::getDeviceProperties()
         {
             std::string line;
             std::string wifiIfname;
             std::string ethIfname; // cached interface name
+            std::string deviceName;
 
             std::ifstream file("/etc/device.properties");
             if (!file.is_open()) {
@@ -243,12 +246,23 @@ namespace WPEFramework
                         wifiIfname = "wlan0_missing"; // means device doesnot have wifi interface
                     }
                 }
+
+                if (line.find("DEVICE_NAME=") != std::string::npos) {
+                    deviceName.erase(deviceName.find_last_not_of("\r\n\t") + 1);
+                    deviceName.erase(0, deviceName.find_first_not_of("\r\n\t"));
+                    if(deviceName.empty())
+                    {
+                        NMLOG_WARNING("DEVICE_NAME is empty in /etc/device.properties");
+                        deviceName = ""; // set empty device name
+                    }
+                }
             }
             file.close();
 
             m_wlanifname = wifiIfname;
             m_ethifname = ethIfname;
-            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s", m_ethifname.c_str(), m_wlanifname.c_str());
+            m_deviceName = deviceName;
+            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, device: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceName.c_str());
             return true;
         }
 

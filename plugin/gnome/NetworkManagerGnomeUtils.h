@@ -25,6 +25,8 @@
 #include <atomic>
 #include "Module.h"
 
+#define DEFAULT_INTERFACE_MTU 1452 // Default MTU for Ethernet and WiFi interfaces 1500 - 48 (VPNs, tunneling, and PPPoE overhead)
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -35,9 +37,10 @@ namespace WPEFramework
         {
 
             public:
-               static bool getInterfacesName();
+               static bool getDeviceProperties();
                static const char* wlanIface();
                static const char* ethIface();
+               static const char* deviceName();
                static const char* convertPercentageToSignalStrengtStr(int percentage);
                static bool caseInsensitiveCompare(const std::string& str1, const std::string& str2);
                static uint8_t wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint = true);
