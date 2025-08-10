@@ -134,10 +134,12 @@ install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
-install(PROGRAMS     gnome/scripts/nm_interface_handler.sh
+install(PROGRAMS gnome/scripts/nm_interface_handler.sh
         DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
 install(FILES gnome/systemd/gnome-networkmanager-migration.conf
         DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
+install(FILES gnome/scripts/20-connection-mtu-dhcp.conf
+        DESTINATION /etc/NetworkManager/conf.d)
 endif(ENABLE_GNOME_NETWORKMANAGER)
 
 #Generate Plugin configuration file
