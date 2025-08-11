@@ -248,6 +248,7 @@ namespace WPEFramework
                 }
 
                 if (line.find("DEVICE_NAME=") != std::string::npos) {
+                    deviceName = line.substr(line.find('=') + 1);  // Add this line to extract the value
                     deviceName.erase(deviceName.find_last_not_of("\r\n\t") + 1);
                     deviceName.erase(0, deviceName.find_first_not_of("\r\n\t"));
                     if(deviceName.empty())
@@ -262,7 +263,7 @@ namespace WPEFramework
             m_wlanifname = wifiIfname;
             m_ethifname = ethIfname;
             m_deviceName = deviceName;
-            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, device: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceName.c_str());
+            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, device name: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceName.c_str());
             return true;
         }
 
