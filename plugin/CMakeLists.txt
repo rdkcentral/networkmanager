@@ -117,6 +117,8 @@ set_target_properties(${MODULE_IMPL_NAME} PROPERTIES
                                           CXX_STANDARD_REQUIRED YES
                                           FRAMEWORK FALSE)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+
 target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins

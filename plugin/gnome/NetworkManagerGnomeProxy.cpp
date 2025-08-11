@@ -64,7 +64,7 @@ namespace WPEFramework
             return deviceState;
         }
 
-        static bool SetInterfaceMTU(NMConnection *connection, const std::string& interface, uint32_t mtu)
+        static bool SetInterfaceMTU(NMConnection *connection, const std::string& interface)
         {
             GError *error = NULL;
             if(interface == nmUtils::ethIface())
@@ -74,8 +74,8 @@ namespace WPEFramework
                     sEth = (NMSettingWired *) nm_setting_wired_new();
                     nm_connection_add_setting(connection, NM_SETTING(sEth));
                 }
-                g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)mtu, NULL);
-                NMLOG_INFO("Setting Ethernet MTU to '%d'", mtu);
+                g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                NMLOG_INFO("Setting Ethernet MTU to '%d'", DEFAULT_INTERFACE_MTU);
             }
             else if(interface == nmUtils::wlanIface())
             {
@@ -84,8 +84,8 @@ namespace WPEFramework
                     sWifi = (NMSettingWireless *) nm_setting_wireless_new();
                     nm_connection_add_setting(connection, NM_SETTING(sWifi));
                 }
-                g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)mtu, NULL);
-                NMLOG_INFO("Setting WiFi MTU to '%d'", mtu);
+                g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                NMLOG_INFO("Setting WiFi MTU to '%d'", DEFAULT_INTERFACE_MTU);
             }
             else
             {
@@ -153,11 +153,16 @@ namespace WPEFramework
             return true;
         }
 
-        static bool setDefaultConnConfig(NMClient *client)
+        static bool modifyDefaultConnConfig(NMClient *client)
         {
             GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
+
+            if (client == nullptr) {
+                NMLOG_ERROR("NMClient is NULL");
+                return false;
+            }
 
             connections = nm_client_get_connections(client);
             if (connections == NULL || connections->len == 0) {
@@ -173,28 +178,35 @@ namespace WPEFramework
                     NMLOG_ERROR("Connection at index %d is NULL", i);
                     continue;
                 }
+                const char *interfaceName = nm_connection_get_interface_name(connection);
+                if(!interfaceName)
+                {
+                    NMLOG_ERROR("Failed to get connection interface name !");
+                    continue;
+                }
+                std::string ifaceName(interfaceName);
+                if(ifaceName != nmUtils::ethIface() && ifaceName != nmUtils::wlanIface()) {
+                    NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interfaceName);
+                    continue;
+                }
 
-               const char *connectionType =  nm_connection_get_connection_type(connection);
-               if(connectionType == NULL)
-               {
-                   NMLOG_ERROR("Failed to get connection type !");
-                   continue;
-               }
+                NMDevice *device = nm_client_get_device_by_iface(client, ifaceName.c_str());
+                if (device == nullptr) {
+                    NMLOG_ERROR("Failed to get device for interface %s", ifaceName.c_str());
+                    continue;
+                }
 
-               if(std::string("802-11-wireless") != connectionType && std::string("802-3-ethernet") != connectionType) {
-                     NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", connectionType);
-                     continue;
-               }
-
-            //    const char *id = nm_connection_get_id(connection);
-
-            //     if (g_strcmp0(id, connection_name) == 0) {
-            //         connection = candidate;
-            //         found = TRUE;
-            //         g_print("Found connection: %s\n", id);
-            //         break;
-            //     }
+                uint32_t currentMtu = nm_device_get_mtu(device);
+                if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
+                {
+                    NMLOG_INFO("Changing MTU for %s from %u to %u", ifaceName.c_str(), currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+                    SetInterfaceMTU(connection, ifaceName);
+                }
+                else
+                    NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", ifaceName.c_str(), currentMtu);
+                // setHostname
             }
+            return true;
         }
 
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
@@ -221,6 +233,7 @@ namespace WPEFramework
             }
 
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
+            modifyDefaultConnConfig(client);
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 m_defaultInterface = nmUtils::ethIface();
