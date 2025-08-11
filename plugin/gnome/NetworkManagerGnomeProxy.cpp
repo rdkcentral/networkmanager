@@ -206,6 +206,7 @@ namespace WPEFramework
                     NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", ifaceName.c_str(), currentMtu);
                 // setHostname
             }
+
             return true;
         }
 
