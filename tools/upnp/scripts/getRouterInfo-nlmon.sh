@@ -29,7 +29,7 @@ if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
         if [ ! -f $file ]; then
             touch /tmp/.routerdiscover
             # Find the PID of the routerDiscovery process that is running specifically on this interface.
-            pid=$(pgrep -f "routerDiscovery $ifc")
+            pid=`pidof routerDiscovery`
             if [ -n "$pid" ]; then
                 echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Found existing routerDiscovery ($pid) for $ifc, Killing it." >> /opt/logs/routerInfo.log
                 kill -15 "$pid"
