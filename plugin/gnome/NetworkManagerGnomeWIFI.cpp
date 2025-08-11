@@ -631,14 +631,18 @@ namespace WPEFramework
                 }
             }
 
-            /* Build up the 'ipv4' Setting */
+            /* Build up the 'IPv4' Setting */
             NMSettingIP4Config *sIpv4Conf = (NMSettingIP4Config *) nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, nmUtils::deviceName(), NULL); // hostname = devicename
+            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
-            /* Build up the 'ipv6' Setting */
+            /* Build up the 'IPv6' Setting */
             NMSettingIP6Config *sIpv6Conf = (NMSettingIP6Config *) nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, nmUtils::deviceName(), NULL); // hostname = devicename
+            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
             return true;
         }

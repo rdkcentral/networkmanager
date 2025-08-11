@@ -75,7 +75,6 @@ namespace WPEFramework
                     nm_connection_add_setting(connection, NM_SETTING(sEth));
                 }
                 g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
-                NMLOG_INFO("Setting Ethernet MTU to '%d'", DEFAULT_INTERFACE_MTU);
             }
             else if(interface == nmUtils::wlanIface())
             {
@@ -112,39 +111,64 @@ namespace WPEFramework
             GError *error = NULL;
             NMSettingIPConfig *sIPv4 = NULL;
             NMSettingIPConfig *sIPv6 = NULL;
+            bool needChange = false;
 
             if(connection == NULL) {
                 NMLOG_ERROR("Connection is NULL");
                 return false;
             }
+
             sIPv4 = nm_connection_get_setting_ip4_config(connection);
+            if (sIPv4) {
+                const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv4);
+                gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv4);
+
+                if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                    needChange = true;
+                }
+            }
+            else
+                needChange = true;
+
+            sIPv6 = nm_connection_get_setting_ip6_config(connection);
+            if (sIPv6) {
+                const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv6);
+                gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv6);
+                
+                if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                    needChange = true;
+                }
+            }
+            else
+                needChange = true;
+
+            if (!needChange) {
+                NMLOG_DEBUG("Hostname already set to '%s', no changes needed", hostname.c_str());
+                return true;
+            }
+
+            NMLOG_INFO("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+
             if (!sIPv4) {
                 sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
                 nm_connection_add_setting(connection, NM_SETTING(sIPv4));
             }
-
             g_object_set(sIPv4,
                         NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
                         NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
                         NULL);
 
-            sIPv6 = nm_connection_get_setting_ip6_config(connection);
             if (!sIPv6) {
                 sIPv6 = NM_SETTING_IP_CONFIG(nm_setting_ip6_config_new());
                 nm_connection_add_setting(connection, NM_SETTING(sIPv6));
             }
-
             g_object_set(sIPv6,
                         NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
                         NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
                         NULL);
 
-            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection),
-                                                    TRUE,  // save to disk
-                                                    NULL,  // cancellable
-                                                    &error);
-            if(error)
-            {
+            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);
+            if(error) {
                 NMLOG_ERROR("Failed to commit changes: %s", error->message);
                 g_error_free(error);
                 return false;
@@ -204,7 +228,8 @@ namespace WPEFramework
                 }
                 else
                     NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", ifaceName.c_str(), currentMtu);
-                // setHostname
+
+                SetHostname(connection, ifaceName);
             }
 
             return true;
@@ -222,7 +247,7 @@ namespace WPEFramework
         {
             ::_instance = this;
             GError *error = NULL;
-            
+
             // initialize the NMClient object
             client = nm_client_new(NULL, &error);
             if (client == NULL) {
