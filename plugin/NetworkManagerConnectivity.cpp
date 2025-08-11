@@ -705,6 +705,7 @@ namespace WPEFramework
                 }
             }
             // Ideal case monitoring
+#if ENABLE_CONTINUOUS_MONITORING
             else {
 
                 timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
@@ -772,6 +773,7 @@ namespace WPEFramework
                 notifyInternetStatusChangedEvent(m_InternetState);
                 m_notify = false;
             }
+#endif /* ENABLE_CONTINUOUS_MONITORING */
 
             if (!m_cmRunning)
                 break;
