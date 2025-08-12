@@ -237,9 +237,31 @@ namespace WPEFramework
         }
     }
 
+    static std::string getDeviceModel()
+    {
+        const std::string filePath = "/etc/device.properties";
+        std::ifstream file(filePath);
+        if (!file.is_open()) {
+            NMLOG_ERROR("Error opening file: %s", filePath.c_str());
+            return "";
+        }
+
+        std::string line;
+        const std::string key = "MODEL_NUM=";
+
+        while (std::getline(file, line)) {
+            if (line.find(key) == 0) { // line starts with "MODEL_NUM="
+                return line.substr(key.length()); // return value after '='
+            }
+        }
+
+        return "";
+    }
+
     TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, 
         long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
+        deviceModel = getDeviceModel();
         internetSate = INTERNET_UNKNOWN;
         if(endpoints.size() < 1) {
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
@@ -291,6 +313,8 @@ namespace WPEFramework
         struct curl_slist *chunk = NULL;
         chunk = curl_slist_append(chunk, "Cache-Control: no-cache, no-store");
         chunk = curl_slist_append(chunk, "Connection: close");
+        std::string deviceModelHeader = "Device-Model: " + deviceModel;
+        chunk = curl_slist_append(chunk, deviceModelHeader.c_str());
         for (const auto& endpoint : endpoints)
         {
             CURL *curl_easy_handle = curl_easy_init();
