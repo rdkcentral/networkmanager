@@ -510,7 +510,9 @@ namespace WPEFramework
 
     Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(std::string& interface, Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
+#if ENABLE_CONTINUOUS_MONITORING
         if(!interface.empty()) /* interface is specified, so doing a fresh curl check not taking cache value */
+#endif /* ENABLE_CONTINUOUS_MONITORING */
         {
             NMLOG_WARNING("getInternetState specified interface %s", interface.c_str());
             if(ipVersionNotSpecified)
@@ -521,6 +523,7 @@ namespace WPEFramework
             return testInternet.getInternetState();
         }
 
+#if ENABLE_CONTINUOUS_MONITORING
         if(ipVersionNotSpecified) {
             ipversion = m_ipversion;
             NMLOG_DEBUG("ipversion %s - %s", ipversion == IP_ADDRESS_V4? "IPv4":"IPv6", getInternetStateString(m_InternetState.load()));
@@ -532,6 +535,7 @@ namespace WPEFramework
             return m_Ipv6InternetState.load();
         else
             return INTERNET_UNKNOWN;
+#endif /* ENABLE_CONTINUOUS_MONITORING */
     }
 
     std::string ConnectivityMonitor::getCaptivePortalURI()
