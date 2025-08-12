@@ -64,9 +64,43 @@ namespace WPEFramework
             return deviceState;
         }
 
-        static bool SetInterfaceMTU(NMConnection *connection, const std::string& interface)
+        static bool setInterfaceMTU(NMConnection *connection)
         {
             GError *error = NULL;
+            std::string interface;
+            if(connection == NULL) {
+                NMLOG_ERROR("Connection is NULL");
+                return false;
+            }
+
+            const char *interfaceName = nm_connection_get_interface_name(connection);
+            if(!interfaceName)
+            {
+                NMLOG_ERROR("Failed to get connection interface name !");
+                return false;
+            }
+
+            interface = interfaceName;
+            if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interfaceName);
+                return false;
+            }
+
+            NMDevice *device = nm_client_get_device_by_iface(client, interface.c_str());
+            if (device == nullptr) {
+                NMLOG_ERROR("Failed to get device for interface %s", interface.c_str());
+                return false;
+            }
+
+            uint32_t currentMtu = nm_device_get_mtu(device);
+            if (currentMtu == (uint32_t)DEFAULT_INTERFACE_MTU)
+            {
+                NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", interface.c_str(), currentMtu);
+                return true;
+            }
+
+            NMLOG_INFO("Changing MTU for %s from %u to %u", interface.c_str(), currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+
             if(interface == nmUtils::ethIface())
             {
                 NMSettingWired *sEth = (NMSettingWired *) nm_connection_get_setting_wired(connection);
@@ -86,11 +120,6 @@ namespace WPEFramework
                 g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
                 NMLOG_INFO("Setting WiFi MTU to '%d'", DEFAULT_INTERFACE_MTU);
             }
-            else
-            {
-                NMLOG_ERROR("Invalid interface: %s", interface.c_str());
-                return false;
-            }
 
             nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection),
                                                     TRUE,  // save to disk
@@ -106,7 +135,7 @@ namespace WPEFramework
             return true;
         }
 
-        static bool SetHostname(NMConnection *connection, const std::string& hostname)
+        static bool setHostname(NMConnection *connection, const std::string& hostname)
         {
             GError *error = NULL;
             NMSettingIPConfig *sIPv4 = NULL;
@@ -182,10 +211,17 @@ namespace WPEFramework
             GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
+            std::string hostname;
 
             if (client == nullptr) {
                 NMLOG_ERROR("NMClient is NULL");
                 return false;
+            }
+
+            // read persistent hostname if exist
+            if(!nmUtils::readPersistentHostname(hostname))
+            {
+                hostname = nmUtils::deviceName();
             }
 
             connections = nm_client_get_connections(client);
@@ -202,37 +238,62 @@ namespace WPEFramework
                     NMLOG_ERROR("Connection at index %d is NULL", i);
                     continue;
                 }
-                const char *interfaceName = nm_connection_get_interface_name(connection);
-                if(!interfaceName)
-                {
-                    NMLOG_ERROR("Failed to get connection interface name !");
-                    continue;
-                }
-                std::string ifaceName(interfaceName);
-                if(ifaceName != nmUtils::ethIface() && ifaceName != nmUtils::wlanIface()) {
-                    NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interfaceName);
-                    continue;
-                }
 
-                NMDevice *device = nm_client_get_device_by_iface(client, ifaceName.c_str());
-                if (device == nullptr) {
-                    NMLOG_ERROR("Failed to get device for interface %s", ifaceName.c_str());
-                    continue;
-                }
-
-                uint32_t currentMtu = nm_device_get_mtu(device);
-                if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
-                {
-                    NMLOG_INFO("Changing MTU for %s from %u to %u", ifaceName.c_str(), currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
-                    SetInterfaceMTU(connection, ifaceName);
-                }
-                else
-                    NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", ifaceName.c_str(), currentMtu);
-
-                SetHostname(connection, ifaceName);
+                setInterfaceMTU(connection);
+                setHostname(connection, hostname);
             }
 
             return true;
+        }
+
+        /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            const GPtrArray *connections = NULL;
+            NMConnection *connection = NULL;
+
+            if (client == nullptr) {
+                NMLOG_ERROR("NMClient is NULL");
+                return Core::ERROR_GENERAL;
+            }
+
+            if(hostname.length() < 1 || hostname.length() > 32)
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            connections = nm_client_get_connections(client);
+            if (connections == NULL || connections->len == 0) {
+                NMLOG_ERROR("Could not get nm connections");
+                return false;
+            }
+
+            NMLOG_INFO("Setting DHCP hostname to %s", hostname.c_str());
+
+            for (uint32_t i = 0; i < connections->len; i++)
+            {
+                connection = NM_CONNECTION(connections->pdata[i]);
+                if(connection != NULL)
+                {
+                    if(setHostname(connection, hostname))
+                    {
+                        NMLOG_DEBUG("set hostname for connection at index %d", i);
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
+                        return Core::ERROR_GENERAL;
+                    }
+                }
+                else
+                    NMLOG_ERROR("Connection at index %d is NULL", i);
+            }
+
+            // Write the hostname to persistent storage
+            nmUtils::writePersistentHostname(hostname);
+
+            return Core::ERROR_NONE;
         }
 
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)

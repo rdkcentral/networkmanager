@@ -318,6 +318,8 @@ namespace WPEFramework
             }
         }
 
+        
+
         bool nmUtils::isInterfaceEnabled(const std::string& interface)
         {
             std::string markerFile;
@@ -335,6 +337,58 @@ namespace WPEFramework
             bool isAllowed = (access(markerFile.c_str(), F_OK) != 0);
             NMLOG_DEBUG("isInterfaceEnabled %s: %s", interface.c_str(), isAllowed ? "true" : "false");
             return isAllowed;
+        }
+
+        bool nmUtils::writePersistentHostname(const std::string& hostname)
+        {
+            if (hostname.empty()) {
+                NMLOG_ERROR("Cannot write empty hostname to persistent storage");
+                return false;
+            }
+
+            std::ofstream file(HostnameFile);
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open %s for writing", HostnameFile);
+                return false;
+            }
+
+            file << hostname;
+            bool success = !file.fail();
+            file.close();
+
+            if (success)
+                NMLOG_INFO("Successfully wrote hostname '%s' to %s",hostname.c_str(), HostnameFile);
+            else
+                NMLOG_ERROR("Error writing hostname to %s", HostnameFile);
+
+            return success;
+        }
+
+        bool nmUtils::readPersistentHostname(std::string& hostname)
+        {
+            std::ifstream file(HostnameFile);
+            if (!file.is_open()) {
+                NMLOG_DEBUG("Could not open %s - file may not exist yet", HostnameFile);
+                hostname = "";
+                return false;
+            }
+
+            std::string line;
+            if (std::getline(file, line)) {
+                // Remove any whitespace, newlines, etc.
+                line.erase(line.find_last_not_of("\r\n\t") + 1);
+                line.erase(0, line.find_first_not_of("\r\n\t"));
+                hostname = line;
+                file.close();
+
+                NMLOG_INFO("Read persistent hostname: '%s'", hostname.c_str());
+                return true;
+            }
+
+            NMLOG_WARNING("Persistent hostname file exists but is empty");
+            hostname = "";
+            file.close();
+            return false;
         }
 
     }   // Plugin

@@ -250,6 +250,7 @@ namespace WPEFramework
             uint32_t GetPublicIP(const JsonObject& parameters, JsonObject& response);
             uint32_t Ping(const JsonObject& parameters, JsonObject& response);
             uint32_t Trace(const JsonObject& parameters, JsonObject& response);
+            uint32_t SetHostname (const JsonObject& parameters, JsonObject& response);
             uint32_t StartWiFiScan(const JsonObject& parameters, JsonObject& response);
             uint32_t StopWiFiScan(const JsonObject& parameters, JsonObject& response);
             uint32_t GetKnownSSIDs(const JsonObject& parameters, JsonObject& response);

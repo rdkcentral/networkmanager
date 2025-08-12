@@ -515,6 +515,19 @@ namespace WPEFramework
             }
         }
 
+         /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            //TODO update netsrvmgr side dhcp hostname option
+
+            NMLOG_INFO("Setting hostname to '%s'", hostname.c_str());
+            if(nmUtils::writePersistentHostname(hostname))
+            {
+                NMLOG_DEBUG("Successfully wrote hostname to %s", HostnameFile);
+            }
+            return Core::ERROR_NONE;
+        }
+
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
         {
             LOG_ENTRY_FUNCTION();

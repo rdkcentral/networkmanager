@@ -245,6 +245,9 @@ namespace WPEFramework
 
                 uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
+                /* @brief Set the dhcp hostname */
+                uint32_t SetHostname(const string& hostname /* @in */) override;
+
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
                 uint32_t GetLogLevel(Logging& level /* @out */) override;

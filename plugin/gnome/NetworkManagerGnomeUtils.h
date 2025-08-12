@@ -33,6 +33,7 @@ namespace WPEFramework
     {
         constexpr const char* EthernetDisableMarker = "/opt/persistent/ethernet.interface.disable";
         constexpr const char* WiFiDisableMarker = "/opt/persistent/wifi.interface.disable";
+        constexpr const char* HostnameFile = "/opt/persistent/nm.plugin.hostname";
         class nmUtils
         {
 
@@ -49,6 +50,8 @@ namespace WPEFramework
                static bool setNetworkManagerlogLevelToTrace();
                static void setMarkerFile(const char* filename, bool unmark = false);
                static bool isInterfaceEnabled(const std::string& interface);
+               static bool writePersistentHostname(const std::string& hostname);
+               static bool readPersistentHostname(std::string& hostname);
         };
     }
 }
