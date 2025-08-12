@@ -711,6 +711,7 @@ namespace WPEFramework
                 timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
                 InitialRetryCount = 0;
 
+#if ENABLE_CONTINUOUS_MONITORING
                 TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
                                                 NMCONNECTIVITY_CURL_HEAD_REQUEST, m_ipversion);
                 currentInternetState = testInternet.getInternetState();
