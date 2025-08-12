@@ -68,6 +68,9 @@ namespace WPEFramework
         {
             GError *error = NULL;
             std::string interface;
+            uint32_t currentMtu = 0;
+            bool needUpdate = false;
+
             if(connection == NULL) {
                 NMLOG_ERROR("Connection is NULL");
                 return false;
@@ -86,29 +89,33 @@ namespace WPEFramework
                 return false;
             }
 
-            NMDevice *device = nm_client_get_device_by_iface(client, interface.c_str());
-            if (device == nullptr) {
-                NMLOG_ERROR("Failed to get device for interface %s", interface.c_str());
-                return false;
-            }
-
-            uint32_t currentMtu = nm_device_get_mtu(device);
-            if (currentMtu == (uint32_t)DEFAULT_INTERFACE_MTU)
-            {
-                NMLOG_DEBUG("MTU for %s is already set to %u, no change needed", interface.c_str(), currentMtu);
-                return true;
-            }
-
-            NMLOG_INFO("Changing MTU for %s from %u to %u", interface.c_str(), currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
-
             if(interface == nmUtils::ethIface())
             {
                 NMSettingWired *sEth = (NMSettingWired *) nm_connection_get_setting_wired(connection);
-                if (!sEth) {
+                if (!sEth)
+                {
                     sEth = (NMSettingWired *) nm_setting_wired_new();
                     nm_connection_add_setting(connection, NM_SETTING(sEth));
+                    needUpdate = true;
                 }
-                g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                else
+                {
+                    currentMtu = nm_setting_wired_get_mtu(sEth);
+                    if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
+                    {
+                        needUpdate = true;
+                        NMLOG_INFO("Changing Ethernet MTU in connection settings from %u to %u",
+                                   currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Ethernet MTU already set to %u in connection settings, no change needed", currentMtu);
+                    }
+                }
+
+                if (needUpdate) {
+                    g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                }
             }
             else if(interface == nmUtils::wlanIface())
             {
@@ -116,20 +123,40 @@ namespace WPEFramework
                 if (!sWifi) {
                     sWifi = (NMSettingWireless *) nm_setting_wireless_new();
                     nm_connection_add_setting(connection, NM_SETTING(sWifi));
+                    needUpdate = true;
                 }
-                g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
-                NMLOG_INFO("Setting WiFi MTU to '%d'", DEFAULT_INTERFACE_MTU);
+                else
+                {
+                    currentMtu = nm_setting_wireless_get_mtu(sWifi);
+                    if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
+                    {
+                        needUpdate = true;
+                        NMLOG_INFO("Changing WiFi MTU in connection settings from %u to %u", currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("WiFi MTU already set to %u in connection settings, no change needed", currentMtu);
+                    }
+                }
+
+                if (needUpdate)
+                {
+                    g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                    NMLOG_INFO("Setting WiFi MTU to '%d'", DEFAULT_INTERFACE_MTU);
+                }
             }
 
-            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection),
-                                                    TRUE,  // save to disk
-                                                    NULL,  // cancellable
-                                                    &error);
-            if(error)
+            // Only commit changes if needed
+            if (needUpdate)
             {
-                NMLOG_ERROR("Failed to commit changes: %s", error->message);
-                g_error_free(error);
-                return false;
+                nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);
+                if(error)
+                {
+                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                    g_error_free(error);
+                    return false;
+                }
+                NMLOG_INFO("Successfully committed MTU changes for %s", interface.c_str());
             }
 
             return true;
@@ -276,11 +303,7 @@ namespace WPEFramework
                 connection = NM_CONNECTION(connections->pdata[i]);
                 if(connection != NULL)
                 {
-                    if(setHostname(connection, hostname))
-                    {
-                        NMLOG_DEBUG("set hostname for connection at index %d", i);
-                    }
-                    else
+                    if(!setHostname(connection, hostname))
                     {
                         NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
                         return Core::ERROR_GENERAL;
