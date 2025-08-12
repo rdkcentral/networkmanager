@@ -117,7 +117,6 @@ set_target_properties(${MODULE_IMPL_NAME} PROPERTIES
                                           CXX_STANDARD_REQUIRED YES
                                           FRAMEWORK FALSE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
 target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
@@ -136,10 +135,8 @@ install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
-install(PROGRAMS gnome/scripts/nm_interface_handler.sh
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
-install(PROGRAMS gnome/scripts/20-connection-mtu-dhcp.conf
-        DESTINATION ${CMAKE_INSTALL_PREFIX}/../etc/NetworkManager/conf.d)
+install(PROGRAMS     gnome/scripts/nm_interface_handler.sh
+        DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
 install(FILES gnome/systemd/gnome-networkmanager-migration.conf
         DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
 endif(ENABLE_GNOME_NETWORKMANAGER)
