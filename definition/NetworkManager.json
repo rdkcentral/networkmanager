@@ -1301,7 +1301,7 @@
             }
         },
         "SetHostname": {
-            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name), note that the change will only take effect after a device reboot, creating a new Wi-Fi connection, reactivation of existing NetworkManager connection, or renewal of the DHCP lease.",
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).",
             "params": {
                 "type": "object",
                 "properties": {

@@ -102,7 +102,7 @@ NetworkManager interface methods:
 | [GetWiFiSignalQuality](#method.GetWiFiSignalQuality) | Get WiFi signal quality of currently connected SSID |
 | [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
-| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name), note that the change will only take effect after a device reboot, creating a new Wi-Fi connection, reactivation of existing NetworkManager connection, or renewal of the DHCP lease |
+| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name). |
 
 <a name="method.SetLogLevel"></a>
 ## *SetLogLevel [<sup>method</sup>](#head.Methods)*

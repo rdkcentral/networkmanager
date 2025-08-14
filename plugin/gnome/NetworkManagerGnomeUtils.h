@@ -25,8 +25,6 @@
 #include <atomic>
 #include "Module.h"
 
-#define DEFAULT_INTERFACE_MTU 1452 // Default MTU for Ethernet and WiFi interfaces 1500 - 48 (VPNs, tunneling, and PPPoE overhead)
-
 namespace WPEFramework
 {
     namespace Plugin

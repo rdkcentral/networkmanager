@@ -105,7 +105,7 @@ namespace WPEFramework
                 return true;
             }
 
-            NMLOG_INFO("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+            NMLOG_DEBUG("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
 
             if (!sIPv4) {
                 sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
@@ -192,9 +192,10 @@ namespace WPEFramework
             }
 
             connections = nm_client_get_connections(client);
-            if (connections == NULL || connections->len == 0) {
+            if (connections == NULL || connections->len == 0)
+            {
                 NMLOG_ERROR("Could not get nm connections");
-                return false;
+                return Core::ERROR_GENERAL;
             }
 
             NMLOG_INFO("Setting DHCP hostname to %s", hostname.c_str());

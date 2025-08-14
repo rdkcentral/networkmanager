@@ -357,7 +357,7 @@ namespace WPEFramework
             file.close();
 
             if (success)
-                NMLOG_INFO("Successfully wrote hostname '%s' to %s",hostname.c_str(), HostnameFile);
+                NMLOG_DEBUG("Successfully wrote hostname '%s' to %s",hostname.c_str(), HostnameFile);
             else
                 NMLOG_ERROR("Error writing hostname to %s", HostnameFile);
 
