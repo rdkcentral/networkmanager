@@ -25,14 +25,16 @@ ifc=$3
 flags=$5
 file="/tmp/.routerdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
-    if [ "$cmd" == "add" ] && [ "$flags" = "global" ]; then
+    if [ "$cmd" == "add" ] && [ "$flags" = "global" ] && [ "$mode" = "ipv4" ]; then
         if [ ! -f $file ]; then
             touch /tmp/.routerdiscover
-            pid=`pidof routerDiscovery`
+            # Find the PID of the routerDiscovery process that is running specifically on this interface.
+            pid=$(pgrep -f "routerDiscovery $ifc")
             if [ -n "$pid" ]; then
-                kill -9 $pid
+                echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Found existing routerDiscovery ($pid) for $ifc, Killing it." >> /opt/logs/routerInfo.log
+                kill -15 $pid
             fi 
-            echo "Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
+            echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Starting routerDiscovery on $ifc" >> /opt/logs/routerInfo.log
             systemctl start routerDiscovery@$ifc
         fi
     fi
