@@ -64,6 +64,104 @@ namespace WPEFramework
             return deviceState;
         }
 
+        static bool setInterfaceMTU(NMConnection *connection)
+        {
+            GError *error = NULL;
+            std::string interface;
+            uint32_t currentMtu = 0;
+            bool needUpdate = false;
+
+            if(connection == NULL) {
+                NMLOG_ERROR("Connection is NULL");
+                return false;
+            }
+
+            const char *interfaceName = nm_connection_get_interface_name(connection);
+            if(!interfaceName)
+            {
+                NMLOG_ERROR("Failed to get connection interface name !");
+                return false;
+            }
+
+            interface = interfaceName;
+            if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interfaceName);
+                return false;
+            }
+
+            if(interface == nmUtils::ethIface())
+            {
+                NMSettingWired *sEth = (NMSettingWired *) nm_connection_get_setting_wired(connection);
+                if (!sEth)
+                {
+                    sEth = (NMSettingWired *) nm_setting_wired_new();
+                    nm_connection_add_setting(connection, NM_SETTING(sEth));
+                    needUpdate = true;
+                }
+                else
+                {
+                    currentMtu = nm_setting_wired_get_mtu(sEth);
+                    if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
+                    {
+                        needUpdate = true;
+                        NMLOG_INFO("Changing Ethernet MTU in connection settings from %u to %u",
+                                   currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Ethernet MTU already set to %u in connection settings, no change needed", currentMtu);
+                    }
+                }
+
+                if (needUpdate) {
+                    g_object_set(sEth, NM_SETTING_WIRED_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                }
+            }
+            else if(interface == nmUtils::wlanIface())
+            {
+                NMSettingWireless *sWifi = (NMSettingWireless *) nm_connection_get_setting_wireless(connection);
+                if (!sWifi) {
+                    sWifi = (NMSettingWireless *) nm_setting_wireless_new();
+                    nm_connection_add_setting(connection, NM_SETTING(sWifi));
+                    needUpdate = true;
+                }
+                else
+                {
+                    currentMtu = nm_setting_wireless_get_mtu(sWifi);
+                    if (currentMtu != (uint32_t)DEFAULT_INTERFACE_MTU)
+                    {
+                        needUpdate = true;
+                        NMLOG_INFO("Changing WiFi MTU in connection settings from %u to %u", currentMtu, (uint32_t)DEFAULT_INTERFACE_MTU);
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("WiFi MTU already set to %u in connection settings, no change needed", currentMtu);
+                    }
+                }
+
+                if (needUpdate)
+                {
+                    g_object_set(sWifi, NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL);
+                    NMLOG_INFO("Setting WiFi MTU to '%d'", DEFAULT_INTERFACE_MTU);
+                }
+            }
+
+            // Only commit changes if needed
+            if (needUpdate)
+            {
+                nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);
+                if(error)
+                {
+                    NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                    g_error_free(error);
+                    return false;
+                }
+                NMLOG_INFO("Successfully committed MTU changes for %s", interface.c_str());
+            }
+
+            return true;
+        }
+
         static bool setHostname(NMConnection *connection, const std::string& hostname)
         {
             GError *error = NULL;
@@ -168,6 +266,7 @@ namespace WPEFramework
                     continue;
                 }
 
+                setInterfaceMTU(connection);
                 setHostname(connection, hostname);
             }
 
