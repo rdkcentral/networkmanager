@@ -1299,9 +1299,35 @@
                     "success"
                 ]
             }
+        },
+        "SetHostname": {
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name), note that the change will only take effect after a device reboot, creating a new Wi-Fi connection, reactivation of existing NetworkManager connection, or renewal of the DHCP lease.",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "hostname": {
+                        "summary": "The hostname to be set for the device (maximum 32 characters)",
+                        "type": "string",
+                        "example": "RDK-Device"
+                    }
+                },
+                "required": [
+                    "hostname"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
         }
     },
-
     "events": {
         "onInterfaceStateChange":{
             "summary": "Triggered when an interface state is changed. The possible states are \n* 'INTERFACE_ADDED' \n* 'INTERFACE_LINK_UP' \n* 'INTERFACE_LINK_DOWN' \n* 'INTERFACE_ACQUIRING_IP' \n* 'INTERFACE_REMOVED' \n* 'INTERFACE_DISABLED' \n",

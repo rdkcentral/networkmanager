@@ -512,6 +512,7 @@ namespace WPEFramework
             GBytes *ssid = g_bytes_new(ssidinfo.ssid.c_str(), strlen(ssidinfo.ssid.c_str()));
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_SSID, ssid, NULL); // ssid in Gbyte
             g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MODE, NM_SETTING_WIRELESS_MODE_INFRA, NULL); // infra mode
+            g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_MTU, (guint32)DEFAULT_INTERFACE_MTU, NULL); // mtu != 1500 (default)
             if(!iswpsAP) // wps never be a hidden AP, it will be always visible
                 g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
             if(ssid)
@@ -630,14 +631,27 @@ namespace WPEFramework
                 }
             }
 
-            /* Build up the 'ipv4' Setting */
+            std::string hostname;
+            if(!nmUtils::readPersistentHostname(hostname))
+            {
+                hostname = nmUtils::deviceName();
+                NMLOG_DEBUG("no persistent hostname found taking device name as hostname !");
+            }
+
+            NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
+
+            /* Build up the 'IPv4' Setting */
             NMSettingIP4Config *sIpv4Conf = (NMSettingIP4Config *) nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
-            /* Build up the 'ipv6' Setting */
+            /* Build up the 'IPv6' Setting */
             NMSettingIP6Config *sIpv6Conf = (NMSettingIP6Config *) nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
+            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
             return true;
         }
