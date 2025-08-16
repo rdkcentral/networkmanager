@@ -37,7 +37,7 @@ namespace WPEFramework
     {
         static std::string m_ethifname = "eth0";
         static std::string m_wlanifname = "wlan0";
-        static std::string m_deviceName = ""; // Device name can be empty if not set in /etc/device.properties
+        static std::string m_deviceName = "rdk-device"; // Device name can be empty if not set in /etc/device.properties
 
         const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}
         const char* nmUtils::ethIface() {return m_ethifname.c_str();}

@@ -140,7 +140,7 @@ namespace WPEFramework
             GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
-            std::string hostname;
+            std::string hostname{};
 
             if (client == nullptr) {
                 NMLOG_ERROR("NMClient is NULL");
@@ -150,7 +150,7 @@ namespace WPEFramework
             // read persistent hostname if exist
             if(!nmUtils::readPersistentHostname(hostname))
             {
-                hostname = nmUtils::deviceName();
+                hostname = nmUtils::deviceName(); // default hostname as device name
             }
 
             connections = nm_client_get_connections(client);
@@ -168,7 +168,22 @@ namespace WPEFramework
                     continue;
                 }
 
-                setHostname(connection, hostname);
+                const char *iface = nm_connection_get_interface_name(connection);
+                if(!iface)
+                {
+                    NMLOG_WARNING("Failed to get connection interface name !");
+                    continue;
+                }
+
+                std::string interface = iface;
+                if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                    NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interface.c_str());
+                    continue;
+                }
+
+                if(!setHostname(connection, hostname)) {
+                    NMLOG_WARNING("Failed to set hostname for connection at index %d", i);
+                }
             }
 
             return true;
@@ -205,6 +220,19 @@ namespace WPEFramework
                 connection = NM_CONNECTION(connections->pdata[i]);
                 if(connection != NULL)
                 {
+                    const char *iface = nm_connection_get_interface_name(connection);
+                    if(!iface)
+                    {
+                        NMLOG_WARNING("Failed to get connection interface name !");
+                        continue;
+                    }
+
+                    std::string interface = iface;
+                    if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                        NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interface.c_str());
+                        continue;
+                    }
+
                     if(!setHostname(connection, hostname))
                     {
                         NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
