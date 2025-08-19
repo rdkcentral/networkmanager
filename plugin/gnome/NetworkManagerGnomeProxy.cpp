@@ -150,7 +150,7 @@ namespace WPEFramework
             // read persistent hostname if exist
             if(!nmUtils::readPersistentHostname(hostname))
             {
-                hostname = nmUtils::deviceName(); // default hostname as device name
+                hostname = nmUtils::deviceHostname(); // default hostname as device name
             }
 
             connections = nm_client_get_connections(client);

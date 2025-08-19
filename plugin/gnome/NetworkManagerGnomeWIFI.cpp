@@ -633,7 +633,7 @@ namespace WPEFramework
             std::string hostname;
             if(!nmUtils::readPersistentHostname(hostname))
             {
-                hostname = nmUtils::deviceName();
+                hostname = nmUtils::deviceHostname();
                 NMLOG_DEBUG("no persistent hostname found taking device name as hostname !");
             }
 

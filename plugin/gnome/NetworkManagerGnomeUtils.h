@@ -39,7 +39,7 @@ namespace WPEFramework
                static bool getDeviceProperties();
                static const char* wlanIface();
                static const char* ethIface();
-               static const char* deviceName();
+               static const char* deviceHostname();
                static const char* convertPercentageToSignalStrengtStr(int percentage);
                static bool caseInsensitiveCompare(const std::string& str1, const std::string& str2);
                static uint8_t wifiSecurityModeFromAp(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags, bool doPrint = true);
