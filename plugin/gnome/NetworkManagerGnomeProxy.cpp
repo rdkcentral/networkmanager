@@ -64,6 +64,191 @@ namespace WPEFramework
             return deviceState;
         }
 
+        static bool setHostname(NMConnection *connection, const std::string& hostname)
+        {
+            GError *error = NULL;
+            NMSettingIPConfig *sIPv4 = NULL;
+            NMSettingIPConfig *sIPv6 = NULL;
+            bool needChange = false;
+
+            if(connection == NULL) {
+                NMLOG_ERROR("Connection is NULL");
+                return false;
+            }
+
+            sIPv4 = nm_connection_get_setting_ip4_config(connection);
+            if (sIPv4) {
+                const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv4);
+                gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv4);
+
+                if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                    needChange = true;
+                }
+            }
+            else
+                needChange = true;
+
+            sIPv6 = nm_connection_get_setting_ip6_config(connection);
+            if (sIPv6) {
+                const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv6);
+                gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv6);
+                
+                if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                    needChange = true;
+                }
+            }
+            else
+                needChange = true;
+
+            if (!needChange) {
+                NMLOG_DEBUG("Hostname already set to '%s', no changes needed", hostname.c_str());
+                return true;
+            }
+
+            NMLOG_DEBUG("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+
+            if (!sIPv4) {
+                sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
+                nm_connection_add_setting(connection, NM_SETTING(sIPv4));
+            }
+            g_object_set(sIPv4,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+
+            if (!sIPv6) {
+                sIPv6 = NM_SETTING_IP_CONFIG(nm_setting_ip6_config_new());
+                nm_connection_add_setting(connection, NM_SETTING(sIPv6));
+            }
+            g_object_set(sIPv6,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+
+            nm_remote_connection_commit_changes(NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);
+            if(error) {
+                NMLOG_ERROR("Failed to commit changes: %s", error->message);
+                g_error_free(error);
+                return false;
+            }
+
+            return true;
+        }
+
+        static bool modifyDefaultConnConfig(NMClient *client)
+        {
+            GError *error = NULL;
+            const GPtrArray *connections = NULL;
+            NMConnection *connection = NULL;
+            std::string hostname{};
+
+            if (client == nullptr) {
+                NMLOG_ERROR("NMClient is NULL");
+                return false;
+            }
+
+            // read persistent hostname if exist
+            if(!nmUtils::readPersistentHostname(hostname))
+            {
+                hostname = nmUtils::deviceHostname(); // default hostname as device name
+            }
+
+            connections = nm_client_get_connections(client);
+            if (connections == NULL || connections->len == 0) {
+                NMLOG_ERROR("Could not get nm connections");
+                return false;
+            }
+
+            for (uint32_t i = 0; i < connections->len; i++)
+            {
+                connection = NM_CONNECTION(connections->pdata[i]);
+                if(connection == NULL)
+                {
+                    NMLOG_ERROR("Connection at index %d is NULL", i);
+                    continue;
+                }
+
+                const char *iface = nm_connection_get_interface_name(connection);
+                if(!iface)
+                {
+                    NMLOG_WARNING("Failed to get connection interface name !");
+                    continue;
+                }
+
+                std::string interface = iface;
+                if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                    NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interface.c_str());
+                    continue;
+                }
+
+                if(!setHostname(connection, hostname)) {
+                    NMLOG_WARNING("Failed to set hostname for connection at index %d", i);
+                }
+            }
+
+            return true;
+        }
+
+        /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            const GPtrArray *connections = NULL;
+            NMConnection *connection = NULL;
+
+            if (client == nullptr) {
+                NMLOG_ERROR("NMClient is NULL");
+                return Core::ERROR_GENERAL;
+            }
+
+            if(hostname.length() < 1 || hostname.length() > 32)
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            connections = nm_client_get_connections(client);
+            if (connections == NULL || connections->len == 0)
+            {
+                NMLOG_ERROR("Could not get nm connections");
+                return Core::ERROR_GENERAL;
+            }
+
+            NMLOG_INFO("Setting DHCP hostname to %s", hostname.c_str());
+
+            for (uint32_t i = 0; i < connections->len; i++)
+            {
+                connection = NM_CONNECTION(connections->pdata[i]);
+                if(connection != NULL)
+                {
+                    const char *iface = nm_connection_get_interface_name(connection);
+                    if(!iface)
+                    {
+                        NMLOG_WARNING("Failed to get connection interface name !");
+                        continue;
+                    }
+
+                    std::string interface = iface;
+                    if(interface != nmUtils::ethIface() && interface != nmUtils::wlanIface()) {
+                        NMLOG_DEBUG("Skipping non-ethernet/wifi connection type: %s", interface.c_str());
+                        continue;
+                    }
+
+                    if(!setHostname(connection, hostname))
+                    {
+                        NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
+                        return Core::ERROR_GENERAL;
+                    }
+                }
+                else
+                    NMLOG_ERROR("Connection at index %d is NULL", i);
+            }
+
+            // Write the hostname to persistent storage
+            nmUtils::writePersistentHostname(hostname);
+
+            return Core::ERROR_NONE;
+        }
+
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
         {
             /* set networkmanager daemon log level based on current plugin log level */
@@ -76,7 +261,7 @@ namespace WPEFramework
         {
             ::_instance = this;
             GError *error = NULL;
-            
+
             // initialize the NMClient object
             client = nm_client_new(NULL, &error);
             if (client == NULL) {
@@ -87,7 +272,8 @@ namespace WPEFramework
                 return;
             }
 
-            nmUtils::getInterfacesName(); // get interface name form '/etc/device.proprties'
+            nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
+            modifyDefaultConnConfig(client);
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 m_defaultInterface = nmUtils::ethIface();

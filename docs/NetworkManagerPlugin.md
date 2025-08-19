@@ -102,6 +102,7 @@ NetworkManager interface methods:
 | [GetWiFiSignalQuality](#method.GetWiFiSignalQuality) | Get WiFi signal quality of currently connected SSID |
 | [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
+| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name). |
 
 <a name="method.SetLogLevel"></a>
 ## *SetLogLevel [<sup>method</sup>](#head.Methods)*
@@ -1662,6 +1663,52 @@ This method takes no parameters.
   "result": {
     "state": 4,
     "status": "WIFI_STATE_CONNECTED",
+    "success": true
+  }
+}
+```
+
+<a name="method.SetHostname"></a>
+## *SetHostname [<sup>method</sup>](#head.Methods)*
+
+To configure a custom DHCP hostname instead of the default (which is typically the device name), note that the change will only take effect after a device reboot, creating a new Wi-Fi connection, reactivation of existing NetworkManager connection, or renewal of the DHCP lease.
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.hostname | string | The hostname to be set for the device (maximum 32 characters) |
+
+### Result
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| result | object |  |
+| result.success | boolean | Whether the request succeeded |
+
+### Example
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.SetHostname",
+  "params": {
+    "hostname": "RDK-Device"
+  }
+}
+```
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
     "success": true
   }
 }
