@@ -25,6 +25,8 @@
 #include <atomic>
 #include "Module.h"
 
+#define DEFAULT_INTERFACE_MTU 1452 // Default MTU for Ethernet and WiFi interfaces 1500 - 48 (VPNs, tunneling, and PPPoE overhead)
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -34,7 +36,6 @@ namespace WPEFramework
         constexpr const char* HostnameFile = "/opt/persistent/nm.plugin.hostname";
         class nmUtils
         {
-
             public:
                static bool getDeviceProperties();
                static const char* wlanIface();
