@@ -433,6 +433,13 @@ namespace WPEFramework
             return;
         }
 
+                /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            // TODO: Implement setting the DHCP hostname for netsrvmgr
+            return Core::ERROR_NONE;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             LOG_ENTRY_FUNCTION();
