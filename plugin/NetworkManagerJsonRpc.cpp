@@ -69,6 +69,7 @@ namespace WPEFramework
             Register("GetPublicIP",                       &NetworkManager::GetPublicIP, this);
             Register("Ping",                              &NetworkManager::Ping, this);
             Register("Trace",                             &NetworkManager::Trace, this);
+            Register("SetHostname",                       &NetworkManager::SetHostname, this);
             Register("StartWiFiScan",                     &NetworkManager::StartWiFiScan, this);
             Register("StopWiFiScan",                      &NetworkManager::StopWiFiScan, this);
             Register("GetKnownSSIDs",                     &NetworkManager::GetKnownSSIDs, this);
@@ -105,6 +106,7 @@ namespace WPEFramework
             Unregister("GetPublicIP");
             Unregister("Ping");
             Unregister("Trace");
+            Unregister("SetHostname");
             Unregister("StartWiFiScan");
             Unregister("StopWiFiScan");
             Unregister("GetKnownSSIDs");
@@ -605,6 +607,29 @@ namespace WPEFramework
                     response = reply;
                 }
             }
+            returnJson(rc);
+        }
+
+        uint32_t NetworkManager::SetHostname (const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string hostname{};
+
+            if (parameters.HasLabel("hostname") && !parameters["hostname"].String().empty())
+            {
+                hostname = parameters["hostname"].String();
+                if (_networkManager)
+                    rc = _networkManager->SetHostname(hostname);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+            }
+            else
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                rc = Core::ERROR_BAD_REQUEST;
+            }
+
             returnJson(rc);
         }
 
