@@ -233,6 +233,8 @@ namespace WPEFramework
             /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
             virtual uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t nqueries /* @in */, const string guid /* @in */, string& response /* @out */) = 0;
 
+            /* @brief Set the dhcp hostname */
+            virtual uint32_t SetHostname(const string& hostname /* @in */) = 0;
 
             // WiFi Specific Methods
             /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */

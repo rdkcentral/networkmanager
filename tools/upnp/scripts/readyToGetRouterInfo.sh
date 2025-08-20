@@ -23,7 +23,7 @@ ifc=$1
 file="/tmp/.routerdiscover"
 if [[ "$ifc" == "$WIFI_INTERFACE" || "$ifc" == "$ETHERNET_INTERFACE" ]]; then
     if [ -f "$file" ]; then
-        echo "Ready to read router details" >> /opt/logs/routerInfo.log
+        echo "$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ") Ready to read router details" >> /opt/logs/routerInfo.log
         rm "$file"
     fi
 fi

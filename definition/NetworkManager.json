@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.23.0"
+        "version": "0.24.0"
     },
     "definitions": {
         "success": {
@@ -1299,9 +1299,35 @@
                     "success"
                 ]
             }
+        },
+        "SetHostname": {
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "hostname": {
+                        "summary": "The hostname to be set for the device (maximum 32 characters)",
+                        "type": "string",
+                        "example": "RDK-Device"
+                    }
+                },
+                "required": [
+                    "hostname"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
         }
     },
-
     "events": {
         "onInterfaceStateChange":{
             "summary": "Triggered when an interface state is changed. The possible states are \n* 'INTERFACE_ADDED' \n* 'INTERFACE_LINK_UP' \n* 'INTERFACE_LINK_DOWN' \n* 'INTERFACE_ACQUIRING_IP' \n* 'INTERFACE_REMOVED' \n* 'INTERFACE_DISABLED' \n",

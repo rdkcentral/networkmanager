@@ -50,6 +50,7 @@ public:
     MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, string& strength, string& noise, string& snr, WPEFramework::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
     MOCK_METHOD(uint32_t, GetSupportedSecurityModes, (ISecurityModeIterator*& modes), (const));
     MOCK_METHOD(uint32_t, SetLogLevel, (const Logging& level), (override));
+    MOCK_METHOD(uint32_t, SetHostname, (const string& hostname), (override));
     MOCK_METHOD(uint32_t, GetLogLevel, (Logging& level), (override));
     MOCK_METHOD(uint32_t, Configure, (const string configLine), (override));
     MOCK_METHOD(uint32_t, Register, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));

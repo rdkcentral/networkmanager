@@ -433,6 +433,13 @@ namespace WPEFramework
             return;
         }
 
+                /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            // TODO: Implement setting the DHCP hostname for netsrvmgr
+            return Core::ERROR_NONE;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             LOG_ENTRY_FUNCTION();
@@ -1043,6 +1050,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     ssid.client_cert.copy(param.data.connect.clientcert, sizeof(param.data.connect.clientcert) - 1);
                 if(!ssid.private_key.empty())
                     ssid.private_key.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
+                if(!ssid.private_key_passwd.empty())
+                {
+                    ssid.private_key_passwd.copy(param.data.connect.privatekeypasswd, sizeof(param.data.connect.privatekeypasswd) - 1);
+                }
                 param.data.connect.persistSSIDInfo = ssid.persist;
             }
 
