@@ -313,8 +313,6 @@ namespace WPEFramework
         struct curl_slist *chunk = NULL;
         chunk = curl_slist_append(chunk, "Cache-Control: no-cache, no-store");
         chunk = curl_slist_append(chunk, "Connection: close");
-        std::string deviceModelHeader = "Device-Model: " + deviceModel;
-        chunk = curl_slist_append(chunk, deviceModelHeader.c_str());
         for (const auto& endpoint : endpoints)
         {
             CURL *curl_easy_handle = curl_easy_init();
@@ -327,7 +325,11 @@ namespace WPEFramework
             logmsg += endpoint;
             /* set our custom set of headers */
             curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, "RDKCaptiveCheck/1.0");
+            if(deviceModel.empty())
+                userAgent = "RDKCaptiveCheck/1.0";
+            else
+                userAgent = "Device-Model: " + deviceModel;
+            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, userAgent.c_str());
             if(!headReq)
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
