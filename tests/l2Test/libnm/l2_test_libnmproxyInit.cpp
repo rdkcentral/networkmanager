@@ -31,7 +31,6 @@
 #include "COMLinkMock.h"
 #include "WorkerPoolImplementation.h"
 #include "NetworkManagerImplementation.h"
-#include "NetworkManagerRDKProxy.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
 #include <libnm/NetworkManager.h>

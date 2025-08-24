@@ -57,12 +57,10 @@ target_compile_definitions(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
 )
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
-include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
-include_directories(${PROJECT_SOURCE_DIR}/tools/upnp/)
 
 target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
