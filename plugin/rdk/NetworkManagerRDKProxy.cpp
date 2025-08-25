@@ -1114,10 +1114,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
                 ssidInfo.rate             = to_string((int)connectedSsid.rate);
 
-                if(((int) connectedSsid.noise >= 0) ||
-                   ((int) connectedSsid.noise < DEFAULT_NOISE))
+                if(((int) connectedSsid.noise >= 0) || ((int) connectedSsid.noise < DEFAULT_NOISE))
                 {
-                    NMLOG_INFO ("Received Noise (%f) from wifi driver is not valid", connectedSsid.noise);
+                    NMLOG_DEBUG ("Received Noise (%f) from wifi driver is not valid; so clamping it", connectedSsid.noise);
                     if (connectedSsid.noise >= 0) {
                         ssidInfo.noise = std::to_string(0);
                     }
