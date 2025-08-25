@@ -58,10 +58,115 @@ extern "C" void __real_nm_device_wifi_request_scan_options_async(NMDeviceWifi *d
 extern "C" gboolean __real_nm_device_wifi_request_scan_finish(NMDeviceWifi *device,
                                                              GAsyncResult *result,
                                                              GError **error);
+extern "C" const GPtrArray *__real_nm_device_wifi_get_access_points(NMDeviceWifi *device);
+extern "C" const GPtrArray *__real_nm_device_get_available_connections(NMDevice *device);
+
+
+// New API real functions
+extern "C" gint64 __real_nm_device_wifi_get_last_scan(NMDeviceWifi *device);
+extern "C" void __real_nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect);
+extern "C" const GPtrArray* __real_nm_client_get_connections(NMClient *client);
+extern "C" const char* __real_nm_connection_get_id(NMConnection *connection);
+extern "C" const char* __real_nm_connection_get_connection_type(NMConnection *connection);
+extern "C" void __real_nm_client_activate_connection_async(NMClient *client,
+                                                          NMConnection *connection,
+                                                          NMDevice *device,
+                                                          const char *specific_object,
+                                                          GCancellable *cancellable,
+                                                          GAsyncReadyCallback callback,
+                                                          gpointer user_data);
+extern "C" NMActiveConnection* __real_nm_client_activate_connection_finish(NMClient *client, GAsyncResult *result, GError **error);
+extern "C" void __real_nm_client_add_and_activate_connection_async(NMClient *client,
+                                                                  NMConnection *partial,
+                                                                  NMDevice *device,
+                                                                  const char *specific_object,
+                                                                  GCancellable *cancellable,
+                                                                  GAsyncReadyCallback callback,
+                                                                  gpointer user_data);
+extern "C" NMActiveConnection* __real_nm_client_add_and_activate_connection_finish(NMClient *client,
+                                                                                 GAsyncResult *result,
+                                                                                 GError **error);
+extern "C" GVariant* __real_nm_remote_connection_update2_finish(NMRemoteConnection *connection,
+                                                               GAsyncResult *result,
+                                                               GError **error);
+extern "C" void __real_nm_client_add_connection2(NMClient *client,
+                                               GVariant *settings,
+                                               NMSettingsAddConnection2Flags flags,
+                                               GVariant *args,
+                                               gboolean ignore_out_result,
+                                               GCancellable *cancellable,
+                                               GAsyncReadyCallback callback,
+                                               gpointer user_data);
+extern "C" NMRemoteConnection* __real_nm_client_add_connection2_finish(NMClient *client,
+                                                                     GAsyncResult *result,
+                                                                     GVariant **out_result,
+                                                                     GError **error);
+
 
 class LibnmWrapsImplMock : public LibnmWrapsImpl {
 public:
     LibnmWrapsImplMock() : LibnmWrapsImpl() {
+
+        ON_CALL(*this, nm_device_wifi_get_last_scan(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMDeviceWifi* device) -> gint64 {
+                return __real_nm_device_wifi_get_last_scan(device);
+            }));
+        ON_CALL(*this, nm_device_set_autoconnect(::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMDevice* device, gboolean autoconnect) {
+                __real_nm_device_set_autoconnect(device, autoconnect);
+            }));
+        ON_CALL(*this, nm_client_get_connections(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client) -> const GPtrArray* {
+                return __real_nm_client_get_connections(client);
+            }));
+        ON_CALL(*this, nm_connection_get_id(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMConnection* connection) -> const char* {
+                return __real_nm_connection_get_id(connection);
+            }));
+        ON_CALL(*this, nm_connection_get_connection_type(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMConnection* connection) -> const char* {
+                return __real_nm_connection_get_connection_type(connection);
+            }));
+        ON_CALL(*this, nm_client_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, NMConnection* connection, NMDevice* device, const char* specific_object, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                __real_nm_client_activate_connection_async(client, connection, device, specific_object, cancellable, callback, user_data);
+            }));
+        ON_CALL(*this, nm_client_activate_connection_finish(::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, GAsyncResult* result, GError** error) -> NMActiveConnection* {
+                return __real_nm_client_activate_connection_finish(client, result, error);
+            }));
+        ON_CALL(*this, nm_client_add_and_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, NMConnection* partial, NMDevice* device, const char* specific_object, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                __real_nm_client_add_and_activate_connection_async(client, partial, device, specific_object, cancellable, callback, user_data);
+            }));
+        ON_CALL(*this, nm_client_add_and_activate_connection_finish(::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, GAsyncResult* result, GError** error) -> NMActiveConnection* {
+                return __real_nm_client_add_and_activate_connection_finish(client, result, error);
+            }));
+        ON_CALL(*this, nm_remote_connection_update2_finish(::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMRemoteConnection* connection, GAsyncResult* result, GError** error) -> GVariant* {
+                return __real_nm_remote_connection_update2_finish(connection, result, error);
+            }));
+        ON_CALL(*this, nm_client_add_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, GVariant* settings, NMSettingsAddConnection2Flags flags, GVariant* args, gboolean ignore_out_result, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                __real_nm_client_add_connection2(client, settings, flags, args, ignore_out_result, cancellable, callback, user_data);
+            }));
+        ON_CALL(*this, nm_client_add_connection2_finish(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, GAsyncResult* result, GVariant** out_result, GError** error) -> NMRemoteConnection* {
+                return __real_nm_client_add_connection2_finish(client, result, out_result, error);
+            }));
 
         ON_CALL(*this, nm_device_get_iface(::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -81,12 +186,6 @@ public:
         ON_CALL(*this, nm_device_disconnect_async(::testing::_, ::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](NMDevice* device, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
-                // Call the callback function directly with dummy values
-                // if (callback) {
-                //     GObject* source_object = G_OBJECT(device);
-                //     GAsyncResult* result = nullptr; // In a real implementation, you'd create a GAsyncResult
-                //     callback(source_object, result, user_data);
-                // }
                 return __real_nm_device_disconnect_async(device, cancellable, callback, user_data);
             }));
         
@@ -285,6 +384,16 @@ public:
             [&](NMDeviceWifi *device, GAsyncResult *result, GError **error) -> gboolean {
                 return __real_nm_device_wifi_request_scan_finish(device, result, error);
             }));
+        ON_CALL(*this, nm_device_wifi_get_access_points(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMDeviceWifi *device) -> const GPtrArray* {
+                return __real_nm_device_wifi_get_access_points(device);
+            }));
+        ON_CALL(*this, nm_device_get_available_connections(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMDevice *device) -> const GPtrArray* {
+                return __real_nm_device_get_available_connections(device);
+            }));
     }
 
     virtual ~LibnmWrapsImplMock() = default;
@@ -329,9 +438,25 @@ public:
     MOCK_METHOD(guint32, nm_access_point_get_max_bitrate, (NMAccessPoint *ap), (override));
     MOCK_METHOD(guint8, nm_access_point_get_strength, (NMAccessPoint *ap), (override));
     MOCK_METHOD(NMAccessPoint*, nm_device_wifi_get_active_access_point, (NMDeviceWifi *device), (override));
-    
+    MOCK_METHOD(const GPtrArray*, nm_device_wifi_get_access_points, (NMDeviceWifi *device), (override));
+    MOCK_METHOD(const GPtrArray*, nm_device_get_available_connections, (NMDevice *device), (override));
+
     // WiFi Scan API mock methods
     MOCK_METHOD(void, nm_device_wifi_request_scan_async, (NMDeviceWifi *device, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(void, nm_device_wifi_request_scan_options_async, (NMDeviceWifi *device, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(gboolean, nm_device_wifi_request_scan_finish, (NMDeviceWifi *device, GAsyncResult *result, GError **error), (override));
+    
+    // New API mock methods
+    MOCK_METHOD(gint64, nm_device_wifi_get_last_scan, (NMDeviceWifi *device), (override));
+    MOCK_METHOD(void, nm_device_set_autoconnect, (NMDevice *device, gboolean autoconnect), (override));
+    MOCK_METHOD(const GPtrArray*, nm_client_get_connections, (NMClient *client), (override));
+    MOCK_METHOD(const char*, nm_connection_get_id, (NMConnection *connection), (override));
+    MOCK_METHOD(const char*, nm_connection_get_connection_type, (NMConnection *connection), (override));
+    MOCK_METHOD(void, nm_client_activate_connection_async, (NMClient *client, NMConnection *connection, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
+    MOCK_METHOD(NMActiveConnection*, nm_client_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
+    MOCK_METHOD(void, nm_client_add_and_activate_connection_async, (NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
+    MOCK_METHOD(NMActiveConnection*, nm_client_add_and_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
+    MOCK_METHOD(GVariant*, nm_remote_connection_update2_finish, (NMRemoteConnection *connection, GAsyncResult *result, GError **error), (override));
+    MOCK_METHOD(void, nm_client_add_connection2, (NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
+    MOCK_METHOD(NMRemoteConnection*, nm_client_add_connection2_finish, (NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error), (override));
 };

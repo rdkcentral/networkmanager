@@ -9,6 +9,12 @@ class LibnmWrapsImpl {
 public:
     virtual ~LibnmWrapsImpl() = default;
 
+    // New APIs
+    virtual gint64 nm_device_wifi_get_last_scan(NMDeviceWifi *device) = 0;
+    virtual void nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect) = 0;
+    virtual const GPtrArray* nm_client_get_connections(NMClient *client) = 0;
+    virtual const char* nm_connection_get_id(NMConnection *connection) = 0;
+    virtual const char* nm_connection_get_connection_type(NMConnection *connection) = 0;
     virtual const char* nm_device_get_iface(NMDevice* device) = 0;
     virtual NMDevice* nm_client_get_device_by_iface(NMClient *client, const char *iface) = 0;
     virtual NMDeviceState nm_device_get_state(NMDevice *device) = 0;
@@ -48,6 +54,8 @@ public:
     virtual guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap) = 0;
     virtual guint8 nm_access_point_get_strength(NMAccessPoint *ap) = 0;
     virtual NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device) = 0;
+    virtual const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device) = 0;
+    virtual const GPtrArray* nm_device_get_available_connections(NMDevice* device) = 0;
     
     // WiFi Scan APIs
     virtual void nm_device_wifi_request_scan_async(NMDeviceWifi *device,
@@ -62,6 +70,35 @@ public:
     virtual gboolean nm_device_wifi_request_scan_finish(NMDeviceWifi *device,
                                                        GAsyncResult *result,
                                                        GError **error) = 0;
+    virtual void nm_client_activate_connection_async(NMClient *client, NMConnection *connection, NMDevice *device, 
+                                                    const char *specific_object, GCancellable *cancellable, 
+                                                    GAsyncReadyCallback callback, gpointer user_data) = 0;
+    virtual NMActiveConnection *nm_client_activate_connection_finish(NMClient *client, GAsyncResult *result, GError **error) = 0;
+    virtual void nm_client_add_and_activate_connection_async(NMClient *client,
+                                                            NMConnection *partial,
+                                                            NMDevice *device,
+                                                            const char *specific_object,
+                                                            GCancellable *cancellable,
+                                                            GAsyncReadyCallback callback,
+                                                            gpointer user_data) = 0;
+    virtual NMActiveConnection *nm_client_add_and_activate_connection_finish(NMClient *client,
+                                                                            GAsyncResult *result,
+                                                                            GError **error) = 0;
+    virtual GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
+                                                        GAsyncResult *result,
+                                                        GError **error) = 0;
+    virtual void nm_client_add_connection2(NMClient *client,
+                                        GVariant *settings,
+                                        NMSettingsAddConnection2Flags flags,
+                                        GVariant *args,
+                                        gboolean ignore_out_result,
+                                        GCancellable *cancellable,
+                                        GAsyncReadyCallback callback,
+                                        gpointer user_data) = 0;
+    virtual NMRemoteConnection *nm_client_add_connection2_finish(NMClient *client,
+                                                                GAsyncResult *result,
+                                                                GVariant **out_result,
+                                                                GError **error) = 0;
 };
 
 class LibnmWraps {
@@ -74,6 +111,41 @@ public:
     static void setImpl(LibnmWrapsImpl* newImpl);
     static LibnmWraps& getInstance();
 
+    // New APIs
+    static gint64 nm_device_wifi_get_last_scan(NMDeviceWifi *device);
+    static void nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect);
+    static const GPtrArray* nm_client_get_connections(NMClient *client);
+    static const char* nm_connection_get_id(NMConnection *connection);
+    static const char* nm_connection_get_connection_type(NMConnection *connection);
+    static void nm_client_activate_connection_async(NMClient *client, NMConnection *connection, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+    static NMActiveConnection *nm_client_activate_connection_finish(NMClient *client, GAsyncResult *result, GError **error);
+    static void nm_client_add_and_activate_connection_async(NMClient *client,
+                                                          NMConnection *partial,
+                                                          NMDevice *device,
+                                                          const char *specific_object,
+                                                          GCancellable *cancellable,
+                                                          GAsyncReadyCallback callback,
+                                                          gpointer user_data);
+    static NMActiveConnection *nm_client_add_and_activate_connection_finish(NMClient *client,
+                                                                          GAsyncResult *result,
+                                                                          GError **error);
+    static GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
+                                                       GAsyncResult *result,
+                                                       GError **error);
+    static void nm_client_add_connection2(NMClient *client,
+                                        GVariant *settings,
+                                        NMSettingsAddConnection2Flags flags,
+                                        GVariant *args,
+                                        gboolean ignore_out_result,
+                                        GCancellable *cancellable,
+                                        GAsyncReadyCallback callback,
+                                        gpointer user_data);
+    static NMRemoteConnection *nm_client_add_connection2_finish(NMClient *client,
+                                                              GAsyncResult *result,
+                                                              GVariant **out_result,
+                                                              GError **error);
+
+    // Access Point APIs
     static const char* nm_device_get_iface(NMDevice* device);
     static NMDevice* nm_client_get_device_by_iface(NMClient *client, const char *iface);
     static NMDeviceState nm_device_get_state(NMDevice *device);
@@ -113,6 +185,8 @@ public:
     static guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap);
     static guint8 nm_access_point_get_strength(NMAccessPoint *ap);
     static NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device);
+    static const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device);
+    static const GPtrArray* nm_device_get_available_connections(NMDevice* device);
     
     // WiFi Scan APIs
     static void nm_device_wifi_request_scan_async(NMDeviceWifi *device,

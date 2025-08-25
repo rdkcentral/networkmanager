@@ -971,24 +971,22 @@ namespace WPEFramework
             }
 
             const GPtrArray  *availableConnections = nm_device_get_available_connections(device);
-            if(availableConnections == NULL)
+            if(availableConnections != NULL)
             {
-                NMLOG_ERROR("No available connections found !");
-                deleteClientConnection();
-                return false;
-            }
-
-            for (guint i = 0; i < availableConnections->len; i++)
-            {
-                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
-                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
-                if (connId != NULL && strcmp(connId, ssidinfo.ssid.c_str()) == 0)
+                for (guint i = 0; i < availableConnections->len; i++)
                 {
-                    m_connection = g_object_ref(connection);
+                    NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
+                    const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                    if (connId != NULL && strcmp(connId, ssidinfo.ssid.c_str()) == 0)
+                    {
+                        m_connection = g_object_ref(connection);
+                    }
                 }
             }
+            else
+                NMLOG_WARNING("No known available connections found !");
 
-            if (NM_IS_REMOTE_CONNECTION(m_connection))
+            if (m_connection && NM_IS_REMOTE_CONNECTION(m_connection))
             {
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
