@@ -920,6 +920,81 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success)
     EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"0\",\"success\":true}"));
 }
 
+TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_9999)
+{
+    IARM_Bus_WiFiSrvMgr_Param_t mockParam = {};
+    mockParam.status = true;
+    strncpy(mockParam.data.getConnectedSSID.ssid, "TestNetwork", SSID_SIZE - 1);
+    mockParam.data.getConnectedSSID.securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+    mockParam.data.getConnectedSSID.signalStrength = -30.00; // Example signal strength
+    mockParam.data.getConnectedSSID.frequency = 2412; // Example frequency in MHz
+    mockParam.data.getConnectedSSID.rate = 0; // Example rate
+    mockParam.data.getConnectedSSID.noise = 9999; // Example noise level
+    strncpy(mockParam.data.getConnectedSSID.bssid, "AB:CD:EF:GH:IJ:KL", BSSID_BUFF - 1); // Example BSSID
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
+                                                ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockParam](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockParam, sizeof(mockParam));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"0\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_100)
+{
+    IARM_Bus_WiFiSrvMgr_Param_t mockParam = {};
+    mockParam.status = true;
+    strncpy(mockParam.data.getConnectedSSID.ssid, "TestNetwork", SSID_SIZE - 1);
+    mockParam.data.getConnectedSSID.securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+    mockParam.data.getConnectedSSID.signalStrength = -30.00; // Example signal strength
+    mockParam.data.getConnectedSSID.frequency = 2412; // Example frequency in MHz
+    mockParam.data.getConnectedSSID.rate = 0; // Example rate
+    mockParam.data.getConnectedSSID.noise = -100; // Example noise level
+    strncpy(mockParam.data.getConnectedSSID.bssid, "AB:CD:EF:GH:IJ:KL", BSSID_BUFF - 1); // Example BSSID
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
+                                                ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockParam](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockParam, sizeof(mockParam));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"-96\",\"success\":true}"));
+}
+
+TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_50)
+{
+    IARM_Bus_WiFiSrvMgr_Param_t mockParam = {};
+    mockParam.status = true;
+    strncpy(mockParam.data.getConnectedSSID.ssid, "TestNetwork", SSID_SIZE - 1);
+    mockParam.data.getConnectedSSID.securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+    mockParam.data.getConnectedSSID.signalStrength = -30.00; // Example signal strength
+    mockParam.data.getConnectedSSID.frequency = 2412; // Example frequency in MHz
+    mockParam.data.getConnectedSSID.rate = 0; // Example rate
+    mockParam.data.getConnectedSSID.noise = -100; // Example noise level
+    strncpy(mockParam.data.getConnectedSSID.bssid, "AB:CD:EF:GH:IJ:KL", BSSID_BUFF - 1); // Example BSSID
+    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
+                                                ::testing::NotNull(), ::testing::_))
+        .WillOnce(::testing::DoAll(
+            ::testing::Invoke([&mockParam](const char*, const char*, void* arg, size_t) {
+                memcpy(arg, &mockParam, sizeof(mockParam));
+                return IARM_RESULT_SUCCESS;
+            })
+        ));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"-50\",\"success\":true}"));
+}
+
 TEST_F(NetworkManagerTest, GetConnectedSSID_Failed)
 {
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),

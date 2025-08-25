@@ -35,7 +35,15 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define DEFAULT_NOISE                              -180
+/*
+ * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
+ * for a 20MHz channel,
+ * = -174dBm/Hz + 10*log10(20MHz) + 5
+ * = -174 + 73 + 5 = -96dBm
+ * Even if the channel width increases, the noise value will be increases by 3 dBm; (ie -93 dBm). 
+ * So the minimum noise value cannot go beyond -96 dBm.
+ */
+#define DEFAULT_NOISE                              -96
 #define MAX_SNR_VALUE                              180
 
 #define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
