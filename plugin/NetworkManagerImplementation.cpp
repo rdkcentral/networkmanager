@@ -32,6 +32,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        extern NetworkManagerImplementation* _instance;
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
@@ -59,6 +60,8 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+            connectivityMonitor.stopConnectivityMonitor();
+            _instance = nullptr;
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
