@@ -543,7 +543,7 @@ namespace WPEFramework
 
     Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(std::string& interface, Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
-        NMLOG_WARNING("getInternetState specified interface %s", interface.c_str());
+        NMLOG_DEBUG("getInternetState specified interface %s", interface.c_str());
         if(ipVersionNotSpecified)
             ipversion = m_ipversion; /* ipversion not specified, taking global ip version */
 
