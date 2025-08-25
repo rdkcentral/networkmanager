@@ -853,9 +853,9 @@ namespace WPEFramework
             readSnr = std::stoi(snr);
 
             /* Check the Noise is within range between 0 and -96 dbm*/
-            if(readNoise >= 0 || readNoise < DEFAULT_NOISE)
+            if((readNoise >= 0) || (readNoise < DEFAULT_NOISE))
             {
-                NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid", readNoise);
+                NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
                     noise = std::to_string(0);
                 }
