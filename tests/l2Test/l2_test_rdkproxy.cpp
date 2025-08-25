@@ -979,7 +979,7 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_50)
     mockParam.data.getConnectedSSID.signalStrength = -30.00; // Example signal strength
     mockParam.data.getConnectedSSID.frequency = 2412; // Example frequency in MHz
     mockParam.data.getConnectedSSID.rate = 0; // Example rate
-    mockParam.data.getConnectedSSID.noise = -100; // Example noise level
+    mockParam.data.getConnectedSSID.noise = -50; // Example noise level
     strncpy(mockParam.data.getConnectedSSID.bssid, "AB:CD:EF:GH:IJ:KL", BSSID_BUFF - 1); // Example BSSID
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
                                                 ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
@@ -1365,7 +1365,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
                     "ssid=dummySSID\n"
-                    "noise=-114\n"
+                    "noise=-117\n"
                     "level=-49\n"
                     "snr=65\n", tempFile);
                 rewind(tempFile);
@@ -1374,7 +1374,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"65\",\"strength\":\"-49\",\"noise\":\"-114\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"65\",\"strength\":\"-49\",\"noise\":\"-96\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
@@ -1402,7 +1402,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
                     "ssid=dummySSID\n"
-                    "noise=-114\n"
+                    "noise=-30\n"
                     "level=-90\n"
                     "snr=33\n", tempFile);
                 rewind(tempFile);
@@ -1411,7 +1411,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-90\",\"noise\":\"-114\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-90\",\"noise\":\"-30\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
@@ -1439,7 +1439,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
                     "ssid=dummySSID\n"
-                    "noise=-114\n"
+                    "noise=9999\n"
                     "level=-120\n"
                     "snr=33\n", tempFile);
                 rewind(tempFile);
@@ -1448,7 +1448,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-120\",\"noise\":\"-114\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, Trace_Success_ipv4)
