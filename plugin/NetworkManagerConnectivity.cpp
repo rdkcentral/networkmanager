@@ -237,31 +237,35 @@ namespace WPEFramework
         }
     }
 
-    static std::string getDeviceModel()
+    static void getDeviceModel(std::string& modelNum, std::string& buildVersion)
     {
         const std::string filePath = "/etc/device.properties";
         std::ifstream file(filePath);
         if (!file.is_open()) {
             NMLOG_ERROR("Error opening file: %s", filePath.c_str());
-            return "";
+            return;
         }
 
         std::string line;
-        const std::string key = "MODEL_NUM=";
+        const std::string modelKey = "MODEL_NUM=";
+        const std::string buildKey = "BUILD_VERSION=";
 
         while (std::getline(file, line)) {
-            if (line.find(key) == 0) { // line starts with "MODEL_NUM="
-                return line.substr(key.length()); // return value after '='
+            if (line.find(modelKey) == 0) { // line starts with "MODEL_NUM="
+                modelNum = line.substr(modelKey.length()); // return value after '='
+            } else if (line.find(buildKey) == 0) { // line starts with "BUILD_VERSION="
+                buildVersion = line.substr(buildKey.length());
+            }
+            if (!modelNum.empty() && !buildVersion.empty()) {
+                break;
             }
         }
-
-        return "";
     }
 
     TestConnectivity::TestConnectivity(const std::vector<std::string>& endpoints, 
         long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface)
     {
-        deviceModel = getDeviceModel();
+        getDeviceModel(deviceModel, buildVersion);
         internetSate = INTERNET_UNKNOWN;
         if(endpoints.size() < 1) {
             NMLOG_ERROR("Endpoints size error ! curl check not possible");
@@ -311,6 +315,16 @@ namespace WPEFramework
         std::vector<CURL*> curl_easy_handles;
         std::vector<int> http_responses;
         struct curl_slist *chunk = NULL;
+        std::string userAgent = "RDKCaptiveCheck/1.0";
+        if(!deviceModel.empty() || !buildVersion.empty())
+        {
+            userAgent += " ";
+            if(!deviceModel.empty())
+                userAgent += deviceModel;
+            if(!buildVersion.empty())
+                userAgent += "/" + buildVersion;
+        }
+
         chunk = curl_slist_append(chunk, "Cache-Control: no-cache, no-store");
         chunk = curl_slist_append(chunk, "Connection: close");
         for (const auto& endpoint : endpoints)
@@ -325,10 +339,6 @@ namespace WPEFramework
             logmsg += endpoint;
             /* set our custom set of headers */
             curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            if(deviceModel.empty())
-                userAgent = "RDKCaptiveCheck/1.0";
-            else
-                userAgent = "Device-Model: " + deviceModel;
             curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, userAgent.c_str());
             if(!headReq)
             {
