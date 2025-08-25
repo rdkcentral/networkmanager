@@ -109,8 +109,8 @@ namespace WPEFramework
                             long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
-            std::string m_deviceModel;
-            std::string m_buildVersion;
+            std::string m_deviceModel{};
+            std::string m_buildVersion{};
             Exchange::INetworkManager::InternetStatus internetSate;
             int curlErrorCode = 0;
             template<typename curlValue>
