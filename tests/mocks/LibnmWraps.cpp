@@ -1,5 +1,6 @@
 #include "LibnmWraps.h"
 #include <gmock/gmock.h>
+#include <glib.h>
 
 extern "C" gint64 __wrap_nm_device_wifi_get_last_scan(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_last_scan(device);
@@ -60,6 +61,10 @@ extern "C" const char* __wrap_nm_device_get_iface(NMDevice* device) {
 
 extern "C" NMActiveConnection* __wrap_nm_client_get_primary_connection(NMClient *client) {
     return LibnmWraps::getInstance().nm_client_get_primary_connection(client);
+}
+
+extern "C" NMActiveConnection* __wrap_nm_device_get_active_connection(NMDevice *device) {
+    return LibnmWraps::getInstance().nm_device_get_active_connection(device);
 }
 
 extern "C" NMRemoteConnection* __wrap_nm_active_connection_get_connection(NMActiveConnection *connection) {
@@ -203,6 +208,60 @@ extern "C" const GPtrArray* __wrap_nm_device_get_available_connections(NMDevice 
     return LibnmWraps::getInstance().nm_device_get_available_connections(device);
 }
 
+extern "C" const char* __wrap_nm_object_get_path(NMObject *object) {
+    return LibnmWraps::getInstance().nm_object_get_path(object);
+}
+
+extern "C" void __wrap_nm_client_dbus_set_property(NMClient *client,
+                                                  const char *object_path,
+                                                  const char *interface_name,
+                                                  const char *property_name,
+                                                  GVariant *value,
+                                                  int timeout_msec,
+                                                  GCancellable *cancellable,
+                                                  GAsyncReadyCallback callback,
+                                                  gpointer user_data) {
+    LibnmWraps::getInstance().nm_client_dbus_set_property(client, object_path, interface_name, property_name, value, timeout_msec, cancellable, callback, user_data);
+}
+
+extern "C" gboolean __wrap_nm_client_dbus_set_property_finish(NMClient *client,
+                                                             GAsyncResult *result,
+                                                             GError **error) {
+    return LibnmWraps::getInstance().nm_client_dbus_set_property_finish(client, result, error);
+}
+
+// New wrapper functions for commit changes and DHCP hostname
+extern "C" gboolean __wrap_nm_remote_connection_commit_changes(NMRemoteConnection *connection,
+                                                            gboolean save_to_disk,
+                                                            GCancellable *cancellable,
+                                                            GError **error) {
+    return LibnmWraps::getInstance().nm_remote_connection_commit_changes(connection, save_to_disk, cancellable, error);
+}
+
+extern "C" const char* __wrap_nm_setting_ip_config_get_dhcp_hostname(NMSettingIPConfig *setting) {
+    return LibnmWraps::getInstance().nm_setting_ip_config_get_dhcp_hostname(setting);
+}
+
+extern "C" gboolean __wrap_nm_setting_ip_config_get_dhcp_send_hostname(NMSettingIPConfig *setting) {
+    return LibnmWraps::getInstance().nm_setting_ip_config_get_dhcp_send_hostname(setting);
+}
+
+extern "C" void __wrap_nm_connection_add_setting(NMConnection *connection, NMSetting *setting) {
+    LibnmWraps::getInstance().nm_connection_add_setting(connection, setting);
+}
+
+extern "C" NMSettingWireless* __wrap_nm_connection_get_setting_wireless(NMConnection *connection) {
+    return LibnmWraps::getInstance().nm_connection_get_setting_wireless(connection);
+}
+
+extern "C" GBytes* __wrap_nm_setting_wireless_get_ssid(NMSettingWireless *setting) {
+    return LibnmWraps::getInstance().nm_setting_wireless_get_ssid(setting);
+}
+
+extern "C" gboolean __wrap_nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) {
+    return LibnmWraps::getInstance().nm_remote_connection_delete(connection, cancellable, error);
+}
+
 // WiFi Scan API wrappers
 extern "C" void __wrap_nm_device_wifi_request_scan_async(NMDeviceWifi *device,
                                                         GCancellable *cancellable,
@@ -246,6 +305,11 @@ const char* LibnmWraps::nm_device_get_iface(NMDevice* device) {
 NMActiveConnection* LibnmWraps::nm_client_get_primary_connection(NMClient *client) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_client_get_primary_connection(client);
+}
+
+NMActiveConnection* LibnmWraps::nm_device_get_active_connection(NMDevice *device) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_device_get_active_connection(device);
 }
 
 NMRemoteConnection* LibnmWraps::nm_active_connection_get_connection(NMActiveConnection *connection) {
@@ -434,6 +498,31 @@ const GPtrArray* LibnmWraps::nm_device_get_available_connections(NMDevice *devic
     return impl->nm_device_get_available_connections(device);
 }
 
+const char* LibnmWraps::nm_object_get_path(NMObject *object) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_object_get_path(object);
+}
+
+void LibnmWraps::nm_client_dbus_set_property(NMClient *client,
+                                           const char *object_path,
+                                           const char *interface_name,
+                                           const char *property_name,
+                                           GVariant *value,
+                                           int timeout_msec,
+                                           GCancellable *cancellable,
+                                           GAsyncReadyCallback callback,
+                                           gpointer user_data) {
+    EXPECT_NE(impl, nullptr);
+    impl->nm_client_dbus_set_property(client, object_path, interface_name, property_name, value, timeout_msec, cancellable, callback, user_data);
+}
+
+gboolean LibnmWraps::nm_client_dbus_set_property_finish(NMClient *client,
+                                                      GAsyncResult *result,
+                                                      GError **error) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_client_dbus_set_property_finish(client, result, error);
+}
+
 // WiFi Scan API implementation
 void LibnmWraps::nm_device_wifi_request_scan_async(NMDeviceWifi *device,
                                                   GCancellable *cancellable,
@@ -513,4 +602,40 @@ void LibnmWraps::nm_client_add_connection2(NMClient *client, GVariant *settings,
 NMRemoteConnection* LibnmWraps::nm_client_add_connection2_finish(NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_client_add_connection2_finish(client, result, out_result, error);
+}
+
+// New commit and DHCP hostname implementation
+gboolean LibnmWraps::nm_remote_connection_commit_changes(NMRemoteConnection *connection, gboolean save_to_disk, GCancellable *cancellable, GError **error) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_remote_connection_commit_changes(connection, save_to_disk, cancellable, error);
+}
+
+const char* LibnmWraps::nm_setting_ip_config_get_dhcp_hostname(NMSettingIPConfig *setting) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_setting_ip_config_get_dhcp_hostname(setting);
+}
+
+gboolean LibnmWraps::nm_setting_ip_config_get_dhcp_send_hostname(NMSettingIPConfig *setting) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_setting_ip_config_get_dhcp_send_hostname(setting);
+}
+
+void LibnmWraps::nm_connection_add_setting(NMConnection *connection, NMSetting *setting) {
+    EXPECT_NE(impl, nullptr);
+    impl->nm_connection_add_setting(connection, setting);
+}
+
+NMSettingWireless* LibnmWraps::nm_connection_get_setting_wireless(NMConnection *connection) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_connection_get_setting_wireless(connection);
+}
+
+GBytes* LibnmWraps::nm_setting_wireless_get_ssid(NMSettingWireless *setting) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_setting_wireless_get_ssid(setting);
+}
+
+gboolean LibnmWraps::nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_remote_connection_delete(connection, cancellable, error);
 }

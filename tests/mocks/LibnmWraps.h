@@ -2,7 +2,7 @@
 
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
-#include <glib-object.h>
+#include <glib.h>
 #include <string>
 
 class LibnmWrapsImpl {
@@ -21,6 +21,7 @@ public:
     virtual void nm_device_disconnect_async(NMDevice *device, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) = 0;
     virtual gboolean nm_device_disconnect_finish(NMDevice *device, GAsyncResult *result, GError **error) = 0;
     virtual NMActiveConnection* nm_client_get_primary_connection(NMClient *client) = 0;
+    virtual NMActiveConnection* nm_device_get_active_connection(NMDevice *device) = 0;
     virtual NMRemoteConnection* nm_active_connection_get_connection(NMActiveConnection *connection) = 0;
     virtual const char* nm_connection_get_interface_name(NMRemoteConnection *connection) = 0;
     virtual NMClient* nm_client_new(GCancellable* cancellable, GError** error) = 0;
@@ -99,6 +100,31 @@ public:
                                                                 GAsyncResult *result,
                                                                 GVariant **out_result,
                                                                 GError **error) = 0;
+    virtual const char *nm_object_get_path(NMObject *object) = 0;
+    virtual void nm_client_dbus_set_property(NMClient *client,
+                                           const char *object_path,
+                                           const char *interface_name,
+                                           const char *property_name,
+                                           GVariant *value,
+                                           int timeout_msec,
+                                           GCancellable *cancellable,
+                                           GAsyncReadyCallback callback,
+                                           gpointer user_data) = 0;
+    virtual gboolean nm_client_dbus_set_property_finish(NMClient *client,
+                                                      GAsyncResult *result,
+                                                      GError **error) = 0;
+                                                      
+    // New commit and DHCP hostname functions
+    virtual gboolean nm_remote_connection_commit_changes(NMRemoteConnection *connection,
+                                                        gboolean save_to_disk,
+                                                        GCancellable *cancellable,
+                                                        GError **error) = 0;
+    virtual const char *nm_setting_ip_config_get_dhcp_hostname(NMSettingIPConfig *setting) = 0;
+    virtual gboolean nm_setting_ip_config_get_dhcp_send_hostname(NMSettingIPConfig *setting) = 0;
+    virtual void nm_connection_add_setting(NMConnection *connection, NMSetting *setting) = 0;
+    virtual NMSettingWireless *nm_connection_get_setting_wireless(NMConnection *connection) = 0;
+    virtual GBytes *nm_setting_wireless_get_ssid(NMSettingWireless *setting) = 0;
+    virtual gboolean nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) = 0;
 };
 
 class LibnmWraps {
@@ -152,6 +178,7 @@ public:
     static void nm_device_disconnect_async(NMDevice *device, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
     static gboolean nm_device_disconnect_finish(NMDevice *device, GAsyncResult *result, GError **error);
     static NMActiveConnection* nm_client_get_primary_connection(NMClient *client);
+    static NMActiveConnection* nm_device_get_active_connection(NMDevice *device);
     static NMRemoteConnection* nm_active_connection_get_connection(NMActiveConnection *connection);
     static const char* nm_connection_get_interface_name(NMRemoteConnection *connection);
     static NMClient* nm_client_new(GCancellable* cancellable, GError** error);
@@ -201,4 +228,29 @@ public:
     static gboolean nm_device_wifi_request_scan_finish(NMDeviceWifi *device,
                                                       GAsyncResult *result,
                                                       GError **error);
+    static const char *nm_object_get_path(NMObject *object);
+    static void nm_client_dbus_set_property(NMClient *client,
+                                          const char *object_path,
+                                          const char *interface_name,
+                                          const char *property_name,
+                                          GVariant *value,
+                                          int timeout_msec,
+                                          GCancellable *cancellable,
+                                          GAsyncReadyCallback callback,
+                                          gpointer user_data);
+    static gboolean nm_client_dbus_set_property_finish(NMClient *client,
+                                                     GAsyncResult *result,
+                                                     GError **error);
+                                                     
+    // New commit and DHCP hostname functions
+    static gboolean nm_remote_connection_commit_changes(NMRemoteConnection *connection,
+                                                      gboolean save_to_disk,
+                                                      GCancellable *cancellable,
+                                                      GError **error);
+    static const char *nm_setting_ip_config_get_dhcp_hostname(NMSettingIPConfig *setting);
+    static gboolean nm_setting_ip_config_get_dhcp_send_hostname(NMSettingIPConfig *setting);
+    static void nm_connection_add_setting(NMConnection *connection, NMSetting *setting);
+    static NMSettingWireless *nm_connection_get_setting_wireless(NMConnection *connection);
+    static GBytes *nm_setting_wireless_get_ssid(NMSettingWireless *setting);
+    static gboolean nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error);
 };

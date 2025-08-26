@@ -99,7 +99,7 @@ protected:
             ));
 
         EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_new(::testing::_, ::testing::_))
-            .WillOnce(::testing::Return(nullptr));
+            .WillRepeatedly(::testing::Return(nullptr));
 
         ON_CALL(comLinkMock, Instantiate(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -159,4 +159,13 @@ TEST_F(NetworkManagerInitTest, platformInit)
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test-host\"}"), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetLogLevel"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"level\":4,\"success\":true}"));
+    
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetSupportedSecurityModes"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"security\":{\"NONE\":0,\"WPA_PSK\":1,\"SAE\":2,\"EAP\":3},\"success\":true}"));
 }

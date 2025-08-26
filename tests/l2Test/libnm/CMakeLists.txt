@@ -138,6 +138,17 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     -Wl,-wrap,nm_client_add_and_activate_connection_finish
     -Wl,-wrap,nm_device_wifi_get_access_points
     -Wl,-wrap,nm_device_get_available_connections
+    -Wl,-wrap,nm_object_get_path
+    -Wl,-wrap,nm_client_dbus_set_property
+    -Wl,-wrap,nm_client_dbus_set_property_finish
+    -Wl,-wrap,nm_device_get_active_connection
+    -Wl,-wrap,nm_remote_connection_commit_changes
+    -Wl,-wrap,nm_setting_ip_config_get_dhcp_hostname
+    -Wl,-wrap,nm_setting_ip_config_get_dhcp_send_hostname
+    -Wl,-wrap,nm_connection_add_setting
+    -Wl,-wrap,nm_setting_wireless_get_ssid
+    -Wl,-wrap,nm_connection_get_setting_wireless
+    -Wl,-wrap,nm_remote_connection_delete
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")

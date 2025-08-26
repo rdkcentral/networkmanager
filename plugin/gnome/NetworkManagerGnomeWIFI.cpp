@@ -1789,12 +1789,6 @@ namespace WPEFramework
             if(interface == nmUtils::ethIface())
             {
                 NMSettingConnection *settings = NULL;
-                if(device == NULL)
-                {
-                    deleteClientConnection();
-                    return false;
-                }
-
                 const GPtrArray *connections = nm_device_get_available_connections(device);
                 if (connections == NULL || connections->len == 0)
                 {

@@ -107,6 +107,12 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
+      - name: Generate dependency files
+        run: |
+          sudo bash -c 'echo "ETHERNET_INTERFACE=eth0
+          WIFI_INTERFACE=wlan0
+          DEVICE_NAME=rdk_test_device " > /etc/device.properties'
+
       - name: Build networkmanager with Gnome libnm Proxy
         run: >
           cmake
