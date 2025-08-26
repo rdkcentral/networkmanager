@@ -753,7 +753,7 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        bool wifiManager::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo)
+        bool wifiManager::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfoParam)
         {
             NMAccessPoint *AccessPoint = NULL;
             const GPtrArray* ApList = NULL;
@@ -763,8 +763,9 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
 
+            Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
             if(!createClientNewConnection())
                 return false;
