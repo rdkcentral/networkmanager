@@ -315,8 +315,11 @@ namespace WPEFramework
                     if(ifaceStr == wifiname || ifaceStr == ethname) // only wifi and ethenet taking
                     {
                         NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-                        Exchange::INetworkManager::InterfaceDetails interface;
-                        interface.mac = nm_device_get_hw_address(device);
+                        Exchange::INetworkManager::InterfaceDetails interface{};
+                        const char* macAddr = nm_device_get_hw_address(device);
+                        if(macAddr != nullptr) {
+                            interface.mac = macAddr;
+                        }
                         deviceState = nm_device_get_state(device);
                         interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)? true : false;
                         if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING)
@@ -393,8 +396,15 @@ namespace WPEFramework
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
                 if(m_wlanConnected.load())
                     ifacePtr = wifiname.c_str();
-                if(m_ethConnected.load())
+                else if(m_ethConnected.load())
                     ifacePtr = ethname.c_str();
+            }
+
+            if(ifacePtr == NULL)
+            {
+                NMLOG_ERROR("Failed to determine interface name");
+                interface.clear();
+                return Core::ERROR_GENERAL;
             }
 
             interface = ifacePtr;

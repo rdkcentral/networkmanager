@@ -150,6 +150,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             isSecretAgentLoopRunning = false;
+            isSecurityAgentRegistered = false;
             NMLOG_INFO("SecretAgent Constructor");
             GDBusconn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
             if (!GDBusconn) {
@@ -158,7 +159,6 @@ namespace WPEFramework
                 return;
             }
 
-            isSecurityAgentRegistered = false;
             startSecurityAgent();
         }
 

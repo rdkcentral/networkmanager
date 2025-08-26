@@ -493,6 +493,7 @@ namespace WPEFramework
         m_ipversion = IP_ADDRESS_V4;
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
+        m_switchToInitial = true;
         startConnectivityMonitor();
     }
 
@@ -794,10 +795,14 @@ namespace WPEFramework
             if (!m_cmRunning)
                 break;
 
-            // Wait for next interval
+            /* To address spurious wakeup scenario mentioned by coverity */
             std::unique_lock<std::mutex> lock(m_cmMutex);
-            if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
-                NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
+            auto endTime = std::chrono::steady_clock::now() + std::chrono::seconds(timeoutInSec);
+            while (m_cmRunning && std::chrono::steady_clock::now() < endTime) {
+                if (m_cmCv.wait_until(lock, endTime) != std::cv_status::timeout) {
+                    NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
+                    break;
+                }
             }
         }
     }
