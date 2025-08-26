@@ -39,8 +39,7 @@ namespace WPEFramework
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
 
-        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false),
-                                        m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr) {
+        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr) {
             NMLOG_INFO("wifiManager");
             m_nmContext = g_main_context_new();
             g_main_context_push_thread_default(m_nmContext);
@@ -1333,7 +1332,7 @@ namespace WPEFramework
             std::string wpsApSsid{};
             GMainContext *wpsContext = NULL;
             const char *wpsApPath = NULL;
-            GMainLoop *loop;
+            GMainLoop *loop = NULL;
             NMClient* client = NULL;
             Exchange::INetworkManager::WiFiConnectTo wifiConnectInfo{};
             Exchange::INetworkManager::WiFiSSIDInfo wpsApInfo{};

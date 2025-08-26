@@ -395,19 +395,14 @@ namespace WPEFramework
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
                 if(m_wlanConnected.load())
-                    ifacePtr = wifiname.c_str();
+                    interface = ifacePtr = wifiname.c_str();
                 else if(m_ethConnected.load())
-                    ifacePtr = ethname.c_str();
+                    interface = ifacePtr = ethname.c_str();
             }
-
-            if(ifacePtr == NULL)
+            else
             {
-                NMLOG_ERROR("Failed to determine interface name");
-                interface.clear();
-                return Core::ERROR_GENERAL;
+                interface = ifacePtr;
             }
-
-            interface = ifacePtr;
             m_defaultInterface = interface;
             if(interface != wifiname && interface != ethname)
             {
