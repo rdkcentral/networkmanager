@@ -107,6 +107,12 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
+      - name: Generate dependency files
+        run: |
+          sudo bash -c 'echo "ETHERNET_INTERFACE=eth0
+          WIFI_INTERFACE=wlan0
+          DEVICE_NAME=rdk_test_device " > /etc/device.properties'
+
       - name: Build networkmanager with Gnome libnm Proxy
         run: >
           cmake
@@ -117,7 +123,31 @@ jobs:
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
+          -DENABLE_LEGACY_PLUGINS=OFF
+          -DENABLE_UNIT_TESTING=ON
           -DENABLE_PLUGIN_CLI=ON
           &&
           cmake --build build/networkmanager_libnm --target install -j8
 
+      - name: Run l2 libnm proxy tests
+        run: >
+          PATH=${{github.workspace}}/install/usr/bin:${PATH}
+          LD_LIBRARY_PATH=${{github.workspace}}/install/usr/lib:${{github.workspace}}/install/usr/lib/wpeframework/plugins:${LD_LIBRARY_PATH}
+          libnm_proxy_l2_test --gtest_color=yes --gtest_output="xml:/tmp/gtest_log/libnm_proxy_l2_test.xml"
+
+      - name: Generate coverage
+        run: |
+            lcov -c -o coverage.info -d build/networkmanager_libnm/
+            lcov -e coverage.info '*/networkmanager/plugin/gnome/*' -o filtered_coverage.info
+
+      - name: Generate the html report
+        run: |
+            genhtml filtered_coverage.info --output-directory /tmp/coverage_report
+
+      - name: Upload the coverage report to Pull request using actions
+        uses: actions/upload-artifact@v4
+        with:
+            name: coverage-report
+            path: |
+              /tmp/coverage_report
+              /tmp/gtest_log

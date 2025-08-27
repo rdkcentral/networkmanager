@@ -396,7 +396,7 @@ namespace WPEFramework
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
                 if(m_wlanConnected.load())
                     interface = ifacePtr = wifiname.c_str();
-                else if(m_ethConnected.load())
+                else // default always wifi
                     interface = ifacePtr = ethname.c_str();
             }
             else
@@ -777,7 +777,7 @@ namespace WPEFramework
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterfrequency))
+            if(wifi->wifiScanRequest(m_filterSsidslist.size() == 1 ? m_filterSsidslist[0] : ""))
                 rc = Core::ERROR_NONE;
             return rc;
         }
