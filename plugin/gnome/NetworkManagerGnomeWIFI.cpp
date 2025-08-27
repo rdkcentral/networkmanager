@@ -39,7 +39,7 @@ namespace WPEFramework
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
 
-        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false) {
+        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr) {
             NMLOG_INFO("wifiManager");
             m_nmContext = g_main_context_new();
             g_main_context_push_thread_default(m_nmContext);
@@ -753,7 +753,7 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo)
+        bool wifiManager::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfoParam)
         {
             NMAccessPoint *AccessPoint = NULL;
             const GPtrArray* ApList = NULL;
@@ -763,8 +763,9 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
 
+            Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
             if(!createClientNewConnection())
                 return false;
@@ -955,7 +956,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo)
+        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo)
         {
             m_isSuccess = false;
             NMConnection *m_connection = NULL;
@@ -1760,7 +1761,7 @@ namespace WPEFramework
             return false;
         }
 
-        bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address)
+        bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress &address)
         {
             m_isSuccess = false;
             NMConnection *connection = NULL;
@@ -1789,6 +1790,7 @@ namespace WPEFramework
             if(interface == nmUtils::ethIface())
             {
                 NMSettingConnection *settings = NULL;
+
                 const GPtrArray *connections = nm_device_get_available_connections(device);
                 if (connections == NULL || connections->len == 0)
                 {
