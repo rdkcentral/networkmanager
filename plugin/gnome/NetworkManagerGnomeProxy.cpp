@@ -394,10 +394,10 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_wlanConnected.load())
-                    interface = ifacePtr = wifiname.c_str();
-                else // default always wifi
+                if(m_ethConnected.load())
                     interface = ifacePtr = ethname.c_str();
+                else // default always wifi
+                    interface = ifacePtr = wifiname.c_str();
             }
             else
             {
