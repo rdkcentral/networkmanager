@@ -395,23 +395,23 @@ namespace WPEFramework
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
                 if(m_ethConnected.load())
-                    interface = ifacePtr = ethname.c_str();
+                    interface = ethname;
                 else // default always wifi
-                    interface = ifacePtr = wifiname.c_str();
+                    interface = wifiname;
+                rc = Core::ERROR_NONE;
             }
             else
             {
                 interface = ifacePtr;
-            }
+                if(interface != wifiname && interface != ethname)
+                {
+                    NMLOG_ERROR("primary interface is not Ethernet or WiFi");
+                    interface.clear();
+                }
+                else
+                    rc = Core::ERROR_NONE;
+            } 
             m_defaultInterface = interface;
-            if(interface != wifiname && interface != ethname)
-            {
-                NMLOG_ERROR("primary interface is not eth/wlan");
-                interface.clear();
-            }
-            else
-                rc = Core::ERROR_NONE;
-
             return rc;
         }
 
