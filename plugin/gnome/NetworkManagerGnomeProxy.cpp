@@ -777,7 +777,7 @@ namespace WPEFramework
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterfrequency))
+            if(wifi->wifiScanRequest(m_filterSsidslist.size() == 1 ? m_filterSsidslist[0] : ""))
                 rc = Core::ERROR_NONE;
             return rc;
         }

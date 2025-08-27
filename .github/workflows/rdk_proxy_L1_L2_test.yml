@@ -134,6 +134,7 @@ jobs:
           "
           -DENABLE_UNIT_TESTING=ON
           -DENABLE_ROUTER_DISCOVERY_TOOL=ON
+          -DENABLE_LEGACY_PLUGINS=OFF
           &&
           cmake --build build/networkmanager_rdk --target install -j8
 
