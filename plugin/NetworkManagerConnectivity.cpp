@@ -795,7 +795,7 @@ namespace WPEFramework
             if (!m_cmRunning)
                 break;
 
-            /* To address spurious wakeup scenario mentioned by coverity */
+            // Wait for next interval
             std::unique_lock<std::mutex> lock(m_cmMutex);
             if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
                 NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
