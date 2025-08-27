@@ -315,8 +315,11 @@ namespace WPEFramework
                     if(ifaceStr == wifiname || ifaceStr == ethname) // only wifi and ethenet taking
                     {
                         NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-                        Exchange::INetworkManager::InterfaceDetails interface;
-                        interface.mac = nm_device_get_hw_address(device);
+                        Exchange::INetworkManager::InterfaceDetails interface{};
+                        const char* macAddr = nm_device_get_hw_address(device);
+                        if(macAddr != nullptr) {
+                            interface.mac = macAddr;
+                        }
                         deviceState = nm_device_get_state(device);
                         interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)? true : false;
                         if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING)
@@ -391,22 +394,24 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("nm_connection_get_interface_name is failed");
                 /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_wlanConnected.load())
-                    ifacePtr = wifiname.c_str();
                 if(m_ethConnected.load())
-                    ifacePtr = ethname.c_str();
-            }
-
-            interface = ifacePtr;
-            m_defaultInterface = interface;
-            if(interface != wifiname && interface != ethname)
-            {
-                NMLOG_ERROR("primary interface is not eth/wlan");
-                interface.clear();
+                    interface = ethname;
+                else // default always wifi
+                    interface = wifiname;
+                rc = Core::ERROR_NONE;
             }
             else
-                rc = Core::ERROR_NONE;
-
+            {
+                interface = ifacePtr;
+                if(interface != wifiname && interface != ethname)
+                {
+                    NMLOG_ERROR("primary interface is not Ethernet or WiFi");
+                    interface.clear();
+                }
+                else
+                    rc = Core::ERROR_NONE;
+            } 
+            m_defaultInterface = interface;
             return rc;
         }
 
@@ -772,7 +777,7 @@ namespace WPEFramework
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterfrequency))
+            if(wifi->wifiScanRequest(m_filterSsidslist.size() == 1 ? m_filterSsidslist[0] : ""))
                 rc = Core::ERROR_NONE;
             return rc;
         }

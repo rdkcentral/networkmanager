@@ -207,6 +207,7 @@ namespace WPEFramework
                 break;
                 case NM_DEVICE_STATE_IP_CONFIG:
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::ethIface());
+                break;
                 case NM_DEVICE_STATE_NEED_AUTH:
                 case NM_DEVICE_STATE_SECONDARIES:
                 case NM_DEVICE_STATE_ACTIVATED:
@@ -522,6 +523,10 @@ namespace WPEFramework
     {
         NMLOG_DEBUG("GnomeNetworkManagerEvents");
         GError *error = NULL;
+        eventThrdID = nullptr;
+        isEventThrdActive = false;
+        doScanNotify = false;
+
         nmEvents.client = nm_client_new(NULL, &error);
         if(!nmEvents.client || error )
         {

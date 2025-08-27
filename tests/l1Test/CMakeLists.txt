@@ -23,49 +23,43 @@ find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
 
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip
-)
-
-FetchContent_MakeAvailable(googletest)
-
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
-set(NM_ROUTER_DISCOVERY_L1_TEST "upnpcli_l1_test")
+if(ENABLE_ROUTER_DISCOVERY_TOOL)
+    set(NM_ROUTER_DISCOVERY_L1_TEST "upnpcli_l1_test")
 
-add_executable(${NM_ROUTER_DISCOVERY_L1_TEST}
-    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_routediscovery.cpp
-    ${CMAKE_SOURCE_DIR}/tools/upnp/UpnpDiscoveryManager.cpp
-)
+    add_executable(${NM_ROUTER_DISCOVERY_L1_TEST}
+        ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_routediscovery.cpp
+        ${CMAKE_SOURCE_DIR}/tools/upnp/UpnpDiscoveryManager.cpp
+    )
 
-target_link_libraries(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
-      gmock_main
-      ${GLIB_LIBRARIES}
-      ${LIBSOUP_LIBRARIES} 
-      ${GUPNP_LIBRARIES} 
-      ${GSSDP_LIBRARIES}
-)
+    target_link_libraries(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
+        gmock_main
+        ${GLIB_LIBRARIES}
+        ${LIBSOUP_LIBRARIES} 
+        ${GUPNP_LIBRARIES} 
+        ${GSSDP_LIBRARIES}
+    )
 
-set_target_properties(${NM_ROUTER_DISCOVERY_L1_TEST} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-)
+    set_target_properties(${NM_ROUTER_DISCOVERY_L1_TEST} PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES
+    )
 
-target_include_directories(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
-    ${gtest_SOURCE_DIR}/include  
-    ${gtest_SOURCE_DIR}/../googlemock/include
-    ${PROJECT_SOURCE_DIR}/tools/upnp
-    ${GUPNP_INCLUDE_DIRS}
-    ${GLIB_INCLUDE_DIRS} 
-    ${LIBSOUP_INCLUDE_DIRS}
-    ${GSSDP_INCLUDE_DIRS}
-)
+    target_include_directories(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
+        ${gtest_SOURCE_DIR}/include  
+        ${gtest_SOURCE_DIR}/../googlemock/include
+        ${PROJECT_SOURCE_DIR}/tools/upnp
+        ${GUPNP_INCLUDE_DIRS}
+        ${GLIB_INCLUDE_DIRS} 
+        ${LIBSOUP_INCLUDE_DIRS}
+        ${GSSDP_INCLUDE_DIRS}
+    )
 
-install(TARGETS ${NM_ROUTER_DISCOVERY_L1_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+    install(TARGETS ${NM_ROUTER_DISCOVERY_L1_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+endif()
 
 set(NM_CLASS_L1_TEST "class_l1_test")
 

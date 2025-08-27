@@ -529,6 +529,7 @@ namespace WPEFramework
         m_ipversion = IP_ADDRESS_V4;
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
+        m_switchToInitial = true;
         startConnectivityMonitor();
     }
 

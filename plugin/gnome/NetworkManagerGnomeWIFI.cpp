@@ -39,7 +39,7 @@ namespace WPEFramework
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
 
-        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false) {
+        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr) {
             NMLOG_INFO("wifiManager");
             m_nmContext = g_main_context_new();
             g_main_context_push_thread_default(m_nmContext);
@@ -269,9 +269,10 @@ namespace WPEFramework
 
             NMDevice *wifiDevice = getWifiDevice();
             if(wifiDevice == NULL) {
-                NMLOG_FATAL("NMDeviceWifi * NULL !");
+                NMLOG_WARNING("wifi state disabled !");
+                state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
                 deleteClientConnection();
-                return false;
+                return true;
             }
             NMDeviceState deviceState = nm_device_get_state(wifiDevice);
             // Todo check NMDeviceStateReason for more information
@@ -752,7 +753,7 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        bool wifiManager::wifiConnect(Exchange::INetworkManager::WiFiConnectTo ssidInfo)
+        bool wifiManager::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfoParam)
         {
             NMAccessPoint *AccessPoint = NULL;
             const GPtrArray* ApList = NULL;
@@ -762,8 +763,9 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfo.ssid.c_str(), ssidInfo.security, ssidInfo.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
 
+            Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
             if(!createClientNewConnection())
                 return false;
@@ -954,7 +956,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo ssidinfo)
+        bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo)
         {
             m_isSuccess = false;
             NMConnection *m_connection = NULL;
@@ -970,24 +972,22 @@ namespace WPEFramework
             }
 
             const GPtrArray  *availableConnections = nm_device_get_available_connections(device);
-            if(availableConnections == NULL)
+            if(availableConnections != NULL)
             {
-                NMLOG_ERROR("No available connections found !");
-                deleteClientConnection();
-                return false;
-            }
-
-            for (guint i = 0; i < availableConnections->len; i++)
-            {
-                NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
-                const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
-                if (connId != NULL && strcmp(connId, ssidinfo.ssid.c_str()) == 0)
+                for (guint i = 0; i < availableConnections->len; i++)
                 {
-                    m_connection = g_object_ref(connection);
+                    NMConnection *connection = static_cast<NMConnection*>(g_ptr_array_index(availableConnections, i));
+                    const char *connId = nm_connection_get_id(NM_CONNECTION(connection));
+                    if (connId != NULL && strcmp(connId, ssidinfo.ssid.c_str()) == 0)
+                    {
+                        m_connection = g_object_ref(connection);
+                    }
                 }
             }
+            else
+                NMLOG_WARNING("No known available connections found !");
 
-            if (NM_IS_REMOTE_CONNECTION(m_connection))
+            if (m_connection && NM_IS_REMOTE_CONNECTION(m_connection))
             {
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
@@ -1197,7 +1197,7 @@ namespace WPEFramework
                 return false;
             }
             m_isSuccess = false;
-            if(!ssidReq.empty() && ssidReq != "null")
+            if(!ssidReq.empty())
             {
                 NMLOG_INFO("staring wifi scanning .. %s", ssidReq.c_str());
                 GVariantBuilder builder, array_builder;
@@ -1761,7 +1761,7 @@ namespace WPEFramework
             return false;
         }
 
-        bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress address)
+        bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress &address)
         {
             m_isSuccess = false;
             NMConnection *connection = NULL;
@@ -1790,11 +1790,6 @@ namespace WPEFramework
             if(interface == nmUtils::ethIface())
             {
                 NMSettingConnection *settings = NULL;
-                if(device == NULL)
-                {
-                    deleteClientConnection();
-                    return false;
-                }
 
                 const GPtrArray *connections = nm_device_get_available_connections(device);
                 if (connections == NULL || connections->len == 0)
