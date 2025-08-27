@@ -2,7 +2,7 @@
 # If not stated otherwise in this file or this component's LICENSE file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 RDK Management
+# Copyright 2023 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #############################################################################
-message ("building l2 test")
-
-set(NM_RDK_PROXY_L2_TEST "rdkproxy_l2_test")
-set(NM_LEGACY_WIFI_UT "legacywifi_tests")
-set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
+cmake_minimum_required(VERSION 3.3)
+message ("building Networkmanager plugin l2 tests")
 
 find_package(CURL)
+find_package(WPEFramework)
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
@@ -35,107 +33,12 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(${NM_RDK_PROXY_L2_TEST}
-    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_rdkproxy.cpp
-    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_rdkproxyEvent.cpp
-    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_rdkproxyImpl.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/rdk/NetworkManagerRDKProxy.cpp
-    ${PROXY_STUB_SOURCES}
-)
+if(ENABLE_LEGACY_PLUGINS)
+    add_subdirectory(legacy)
+endif()
 
-add_executable(${NM_LEGACY_WIFI_UT}
-    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_LegacyPlugin_WiFiManagerAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
-    ${CMAKE_SOURCE_DIR}/legacy/LegacyWiFiManagerAPIs.cpp
-)
-
-add_executable(${NM_LEGACY_NETWORK_UT}
-    ${CMAKE_SOURCE_DIR}/tests/l2Test/l2_test_LegacyPlugin_NetworkAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
-    ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
-)
-
-set_target_properties(${NM_RDK_PROXY_L2_TEST} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-)
-
-set_target_properties(${NM_LEGACY_WIFI_UT} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-)
-set_target_properties(${NM_LEGACY_NETWORK_UT} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED YES
-)
-
-target_compile_options(${NM_RDK_PROXY_L2_TEST} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
-target_compile_options(${NM_LEGACY_WIFI_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
-target_compile_options(${NM_LEGACY_NETWORK_UT} PRIVATE -Wall -include ${CMAKE_SOURCE_DIR}/interface/INetworkManager.h)
-
-include_directories(${PROJECT_SOURCE_DIR}/interface)
-include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
-include_directories(${PROJECT_SOURCE_DIR}/plugin)
-include_directories(${PROJECT_SOURCE_DIR}/legacy)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
-include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
-include_directories(${PROJECT_SOURCE_DIR}/tools/upnp/)
-
-target_include_directories(${NM_RDK_PROXY_L2_TEST} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/include
-    ${gtest_SOURCE_DIR}/../googlemock/include
-)
-
-target_include_directories(${NM_LEGACY_WIFI_UT} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/include
-    ${gtest_SOURCE_DIR}/../googlemock/include
-)
-
-target_include_directories(${NM_LEGACY_NETWORK_UT} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${gtest_SOURCE_DIR}/include
-    ${gtest_SOURCE_DIR}/../googlemock/include
-)
-
-target_link_options(${NM_RDK_PROXY_L2_TEST} PRIVATE -Wl,-wrap,system -Wl,-wrap,popen -Wl,-wrap,syslog -Wl,-wrap,pclose -Wl,-wrap,getmntent -Wl,-wrap,setmntent -Wl,-wrap,v_secure_popen -Wl,-wrap,v_secure_pclose -Wl,-wrap,v_secure_system)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
-
-target_link_libraries(${NM_RDK_PROXY_L2_TEST} PRIVATE
-    gmock_main
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-    ${CURL_LIBRARIES}
-)
-target_link_libraries(${NM_LEGACY_WIFI_UT} PRIVATE
-    gmock_main
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${CURL_LIBRARIES}
-)
-target_link_libraries(${NM_LEGACY_NETWORK_UT} PRIVATE
-    gmock_main
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${NAMESPACE}Plugins::${NAMESPACE}Plugins
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${CURL_LIBRARIES}
-)
-
-install(TARGETS ${NM_RDK_PROXY_L2_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(TARGETS ${NM_LEGACY_WIFI_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(TARGETS ${NM_LEGACY_NETWORK_UT} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(ENABLE_GNOME_NETWORKMANAGER)
+    add_subdirectory(libnm)
+else()
+    add_subdirectory(rdk)
+endif()

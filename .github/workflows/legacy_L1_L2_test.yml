@@ -42,7 +42,7 @@ jobs:
             !install/usr/lib/pkgconfig/gtest.pc
             !install/usr/lib/pkgconfig/gtest_main.pc
             !install/usr/lib/wpeframework/plugins
-          key: thunder-${{ env.THUNDER_REF }}-rdk
+          key: thunder-${{ env.THUNDER_REF }}-legacy
       - name: Install packages
         run: |
           sudo apt update
@@ -136,7 +136,7 @@ jobs:
           -Wall --coverage
           "
           -DENABLE_UNIT_TESTING=ON
-          -DENABLE_ROUTER_DISCOVERY_TOOL=ON
+          -DENABLE_ROUTER_DISCOVERY_TOOL=OFF
           &&
           cmake --build build/networkmanager_rdk --target install -j8
 
