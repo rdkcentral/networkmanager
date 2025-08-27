@@ -338,8 +338,8 @@ namespace WPEFramework
             logmsg += endpoint;
             /* set our custom set of headers */
             curlSetOpt(curl_easy_handle, CURLOPT_HTTPHEADER, chunk);
-            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, userAgent.c_str());
             NMLOG_INFO ("INTERNET_CONNECTIVITY_MONITORING_USERAGENT : %s", userAgent.c_str());
+            curlSetOpt(curl_easy_handle, CURLOPT_USERAGENT, userAgent.c_str());
             if(!headReq)
             {
                 /* HTTPGET request added insted of HTTPHEAD request fix for DELIA-61526 */
