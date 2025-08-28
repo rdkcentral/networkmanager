@@ -22,7 +22,6 @@
 #include "Module.h"
 
 #include "INetworkManager.h"
-#include <interfaces/IConfiguration.h>
 #include "NetworkManagerLogger.h"
 
 #include <string>

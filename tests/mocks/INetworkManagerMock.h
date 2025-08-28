@@ -52,7 +52,7 @@ public:
     MOCK_METHOD(uint32_t, SetLogLevel, (const Logging& level), (override));
     MOCK_METHOD(uint32_t, SetHostname, (const string& hostname), (override));
     MOCK_METHOD(uint32_t, GetLogLevel, (Logging& level), (override));
-    MOCK_METHOD(uint32_t, Configure, (WPEFramework::PluginHost::IShell* service), (override));
+    MOCK_METHOD(uint32_t, Configure, (const string configLine), (override));
     MOCK_METHOD(uint32_t, Register, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
     MOCK_METHOD(uint32_t, Unregister, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
