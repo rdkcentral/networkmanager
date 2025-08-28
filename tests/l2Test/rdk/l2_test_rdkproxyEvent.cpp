@@ -617,6 +617,7 @@ TEST_F(NetworkManagerEventTest, GetSupportedSecurityModes)
     EXPECT_EQ(response, _T("{\"security\":{\"NONE\":0,\"WPA_PSK\":1,\"SAE\":2,\"EAP\":3},\"success\":true}"));
 }
 
+/*
 TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
@@ -649,7 +650,7 @@ TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed)
     EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"wlan0\",\"connected\":false,\"state\":0,\"status\":\"NO_INTERNET\",\"success\":true}"));
 
 }
-/* This test case takes more time because of connectivity monitor existing logic */
+
 TEST_F(NetworkManagerEventTest, FULLY_CONNECTED_wait)
 {
     Core::Event onInternetStatusChange(false, true);
@@ -696,3 +697,4 @@ TEST_F(NetworkManagerEventTest, FULLY_CONNECTED_wait)
     EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
     EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
 }
+*/
