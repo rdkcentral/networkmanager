@@ -149,6 +149,7 @@ namespace WPEFramework
             std::mutex m_cmMutex;
             std::atomic<bool> m_notify;
             std::atomic<bool> m_switchToInitial;
+            std::atomic<bool> m_resumeMonitoring;
             std::string m_captiveURI;
             std::atomic<Exchange::INetworkManager::InternetStatus> m_InternetState; // IPv4 or IPv6
             std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv4InternetState; //  IPv4
