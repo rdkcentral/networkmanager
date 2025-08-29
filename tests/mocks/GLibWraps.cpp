@@ -1,15 +1,15 @@
 #include "GLibWraps.h"
 #include <gmock/gmock.h>
 
-// // Define the real function to ensure it exists for the wrapper to call
-// extern "C" gboolean __real_g_main_loop_is_running(GMainLoop* loop) {
-//     // Default implementation if the real function can't be called
-//     return FALSE;
-// }
 
 extern "C" gboolean __wrap_g_main_loop_is_running(GMainLoop* loop) {
     return GLibWraps::getInstance().g_main_loop_is_running(loop);
 }
+
+ extern "C" gulong __wrap_g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GCallback c_handler,
+                                          gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags){
+     return GLibWraps::getInstance().g_signal_connect_data(instance, detailed_signal, c_handler, data, destroy_data, connect_flags);
+ }
 
 GLibWrapsImpl* GLibWraps::impl = nullptr;
 GLibWraps::GLibWraps() {}
@@ -27,4 +27,10 @@ GLibWraps& GLibWraps::getInstance() {
 gboolean GLibWraps::g_main_loop_is_running(GMainLoop* loop) {
     EXPECT_NE(impl, nullptr);
     return impl->g_main_loop_is_running(loop);
+}
+
+gulong GLibWraps::g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GCallback c_handler,
+                                         gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags) {
+    EXPECT_NE(impl, nullptr);
+    return impl->g_signal_connect_data(instance, detailed_signal, c_handler, data, destroy_data, connect_flags);
 }
