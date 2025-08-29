@@ -530,6 +530,7 @@ namespace WPEFramework
         m_Ipv4InternetState = INTERNET_UNKNOWN;
         m_Ipv6InternetState = INTERNET_UNKNOWN;
         m_switchToInitial = true;
+        m_wakeupMonitoring = false;
         startConnectivityMonitor();
     }
 
@@ -576,6 +577,7 @@ namespace WPEFramework
     {
         if (m_cmRunning)
         {
+            m_wakeupMonitoring = true;
             m_cmCv.notify_one();
             NMLOG_DEBUG("connectivity monitor is already running");
             return true;
@@ -596,6 +598,7 @@ namespace WPEFramework
     bool ConnectivityMonitor::stopConnectivityMonitor()
     {
         m_cmRunning = false;
+        m_wakeupMonitoring = true;
         m_cmCv.notify_one();
         if(m_cmThrdID.joinable())
             m_cmThrdID.join();
@@ -609,6 +612,7 @@ namespace WPEFramework
     bool ConnectivityMonitor::switchToInitialCheck()
     {
         m_switchToInitial = true;
+        m_wakeupMonitoring = true;
         m_cmCv.notify_one();
         if(_instance != nullptr) {
             NMLOG_INFO("switching to initial check - eth %s - wlan %s",
@@ -825,8 +829,10 @@ namespace WPEFramework
 
             // Wait for next interval
             std::unique_lock<std::mutex> lock(m_cmMutex);
-            if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec)) != std::cv_status::timeout) {
+            if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec), [this] { return m_wakeupMonitoring.load(); }))
+            {
                 NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
+                m_wakeupMonitoring = false;
             }
         }
     }
