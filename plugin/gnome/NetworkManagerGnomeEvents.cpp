@@ -71,7 +71,7 @@ namespace WPEFramework
         }
     }
 
-    static void deviceStateChangeCb(NMDevice *device, GParamSpec *pspec, NMEvents *nmEvents)
+    void GnomeNetworkManagerEvents::deviceStateChangeCb(NMDevice *device, GParamSpec *pspec, NMEvents *nmEvents)
     {
         static bool isEthDisabled = false;
         static bool isWlanDisabled = false;
@@ -340,7 +340,7 @@ namespace WPEFramework
             /* ip events added only for eth0 and wlan0 */
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
-                g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(deviceStateChangeCb), nmEvents);
+                g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                 // TODO call notify::" NM_DEVICE_ACTIVE_CONNECTION if needed
                 NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                 NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
@@ -364,11 +364,11 @@ namespace WPEFramework
             std::string ifname = nm_device_get_iface(device);
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
-                g_signal_handlers_disconnect_by_func(device, (gpointer)deviceStateChangeCb, nmEvents);
+                g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
             }
             else if(ifname == nmUtils::ethIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
-                g_signal_handlers_disconnect_by_func(device, (gpointer)deviceStateChangeCb, nmEvents);
+                g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
             }
         }
 
@@ -442,8 +442,8 @@ namespace WPEFramework
                         NMLOG_WARNING("device %s is not enabled, So no event monitor", ifname.c_str());
                         continue;
                     }
-                    deviceStateChangeCb(device, nullptr, nullptr); //posting event if interface already connected
-                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(deviceStateChangeCb), nmEvents);
+                    GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr); //posting event if interface already connected
+                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
