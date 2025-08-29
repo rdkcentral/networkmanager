@@ -23,7 +23,6 @@ FetchContent_MakeAvailable(googletest)
 
 message("networkmanager building with libnm")
 add_executable(${NM_LIBNM_PROXY_L2_TEST}
-    # l2_test_libnmproxyEvent should be first test
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyEvent.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyWifi.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyInit.cpp
@@ -87,6 +86,10 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,v_secure_pclose
     -Wl,-wrap,v_secure_system
     -Wl,-wrap,nm_device_get_iface
+    -Wl,-wrap,nm_active_connection_get_id
+    -Wl,-wrap,nm_active_connection_get_connection_type
+    -Wl,-wrap,nm_device_get_state_reason
+    -Wl,-wrap,nm_ip_address_get_family
     -Wl,-wrap,nm_client_get_state
     -Wl,-wrap,nm_client_get_nm_running
     -Wl,-wrap,nm_client_get_primary_connection

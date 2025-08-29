@@ -291,6 +291,23 @@ extern "C" gboolean __wrap_nm_device_wifi_request_scan_finish(NMDeviceWifi *devi
     return LibnmWraps::getInstance().nm_device_wifi_request_scan_finish(device, result, error);
 }
 
+
+extern "C" const char* __wrap_nm_active_connection_get_id(NMActiveConnection *connection) {
+    return LibnmWraps::getInstance().nm_active_connection_get_id(connection);
+}
+
+extern "C" const char* __wrap_nm_active_connection_get_connection_type(NMActiveConnection *connection) {
+    return LibnmWraps::getInstance().nm_active_connection_get_connection_type(connection);
+}
+
+extern "C" NMDeviceStateReason __wrap_nm_device_get_state_reason(NMDevice *device) {
+    return LibnmWraps::getInstance().nm_device_get_state_reason(device);
+}
+
+extern "C" int __wrap_nm_ip_address_get_family(NMIPAddress *address) {
+    return LibnmWraps::getInstance().nm_ip_address_get_family(address);
+}
+
 LibnmWrapsImpl* LibnmWraps::impl = nullptr;
 LibnmWraps::LibnmWraps() {}
 
@@ -655,4 +672,24 @@ NMState LibnmWraps::nm_client_get_state(NMClient *client) {
 gboolean LibnmWraps::nm_client_get_nm_running(NMClient *client) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_client_get_nm_running(client);
+}
+
+const char* LibnmWraps::nm_active_connection_get_id(NMActiveConnection* connection) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_active_connection_get_id(connection);
+}
+
+const char* LibnmWraps::nm_active_connection_get_connection_type(NMActiveConnection* connection) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_active_connection_get_connection_type(connection);
+}
+
+NMDeviceStateReason LibnmWraps::nm_device_get_state_reason(NMDevice* device) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_device_get_state_reason(device);
+}
+
+int LibnmWraps::nm_ip_address_get_family(NMIPAddress* address) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_ip_address_get_family(address);
 }

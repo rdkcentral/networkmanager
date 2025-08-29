@@ -127,6 +127,11 @@ public:
     virtual gboolean nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) = 0;
     virtual NMState nm_client_get_state(NMClient *client) = 0;
     virtual gboolean nm_client_get_nm_running(NMClient *client) = 0;
+    virtual const char* nm_active_connection_get_id(NMActiveConnection *connection) = 0;
+    virtual const char* nm_active_connection_get_connection_type(NMActiveConnection *connection) = 0;
+    virtual NMDeviceStateReason nm_device_get_state_reason(NMDevice *device) = 0;
+    virtual int nm_ip_address_get_family(NMIPAddress *address) = 0;
+  
 
 };
 
@@ -140,6 +145,10 @@ public:
     static void setImpl(LibnmWrapsImpl* newImpl);
     static LibnmWraps& getInstance();
 
+    static const char* nm_active_connection_get_id(NMActiveConnection *connection);
+    static const char* nm_active_connection_get_connection_type(NMActiveConnection *connection);
+    static NMDeviceStateReason nm_device_get_state_reason(NMDevice *device);
+    static int nm_ip_address_get_family(NMIPAddress *address);
     static NMState nm_client_get_state(NMClient *client);
     static gboolean nm_client_get_nm_running(NMClient *client);
     static gint64 nm_device_wifi_get_last_scan(NMDeviceWifi *device);

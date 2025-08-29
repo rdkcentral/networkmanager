@@ -33,6 +33,7 @@
 #include "COMLinkMock.h"
 #include "WorkerPoolImplementation.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
 #include <libnm/NetworkManager.h>
@@ -47,13 +48,10 @@ protected:
     DECL_CORE_JSONRPC_CONX connection;
     Core::JSONRPC::Message message;
     string response;
-    NMClient* gNmClient = NULL;
+
     /* every event callback */
     GCallback nmClientRunCb = NULL;
     GCallback nmStateChange = NULL;
-    GCallback nmPrimaryConnCb = NULL;
-    GCallback nmDeviceAdd = NULL;
-    GCallback nmDeviceRemove = NULL;
 
     WrapsImplMock *p_wrapsImplMock = nullptr;
     GLibWrapsImplMock *p_gLibWrapsImplMock = nullptr;
@@ -97,6 +95,23 @@ protected:
                 "}"
             ));
 
+     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+            .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+
+    EXPECT_CALL(*p_gLibWrapsImplMock, g_signal_connect_data(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Invoke(
+        [&](gpointer instance, const gchar *detailed_signal, GCallback c_handler,
+            gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags) -> gulong {
+
+            if(detailed_signal == NULL)
+                printf("g_signal_connect_data: NULL\n");
+            else
+                printf("g_signal_connect_data - siganal: %s\n", detailed_signal);
+            return 0;
+        }));
 
         ON_CALL(comLinkMock, Instantiate(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -110,10 +125,10 @@ protected:
         Core::IWorkerPool::Assign(&(*workerPool));
         workerPool->Run();
 
-
         dispatcher = static_cast<PLUGINHOST_DISPATCHER*>(
         plugin->QueryInterface(PLUGINHOST_DISPATCHER_ID));
         dispatcher->Activate(&service);
+        EXPECT_EQ(string(""), (response = plugin->Initialize(&service)));
     }
 
     virtual void SetUp() override
@@ -154,50 +169,81 @@ protected:
     }
 };
 
-TEST_F(NetworkManagerEventTest, EventCallbacksTest)
+TEST_F(NetworkManagerEventTest, onInterfaceStateChangeCb)
 {
-     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-            .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_STATE_DISCONNECTED))
-        .WillOnce(::testing::Return(NM_STATE_CONNECTED_GLOBAL)); 
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_nm_running(::testing::_))
-        .WillOnce(::testing::Return(FALSE));
-
-    EXPECT_CALL(*p_gLibWrapsImplMock, g_signal_connect_data(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
-        .WillRepeatedly(::testing::Invoke(
-        [&](gpointer instance, const gchar *detailed_signal, GCallback c_handler,
-            gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags) -> gulong {
-
-            if(detailed_signal == NULL)
-                printf("g_signal_connect_data: NULL\n");
-            else
-                printf("g_signal_connect_data - siganal: %s\n", detailed_signal);
-
-            std::string signal(detailed_signal ? detailed_signal : "");
-
-            if (signal == "notify::nm-running") {
-                ((void (*)(NMClient *, GParamSpec *, gpointer))c_handler)(NULL, NULL, NULL);
-            } else if (signal == "notify::state") {
-                ((void (*)(NMClient *, GParamSpec *, gpointer))c_handler)(NULL, NULL, NULL);
-                ((void (*)(NMClient *, GParamSpec *, gpointer))c_handler)(NULL, NULL, NULL);
-            } else if (signal == "notify::primary-connection") {
-                nmPrimaryConnCb = c_handler;
-            } else if (signal == "device-added") {
-                nmDeviceAdd = c_handler;
-            } else if (signal == "device-removed") {
-                nmDeviceRemove = c_handler;
-            }
-            return 0;
-        }));
-
-        EXPECT_EQ(string(""), (response = plugin->Initialize(&service)));
+    // Testing all interface state change events for Ethernet interface
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, "eth0");
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, "eth0");
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, "eth0");
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, "eth0");
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, "eth0");
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
 }
 
-TEST_F(NetworkManagerEventTest, EventCallbacksTest2)
+TEST_F(NetworkManagerEventTest, onAddressChangeCb)
 {
+    // Test acquiring IPv4 address
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "192.168.1.100", true, false);
+    
+    // Test acquiring IPv6 address
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
+    
+    // Test acquiring same IPv6 address again (should skip posting)
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
+    
+    // Test acquiring different IPv6 address
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::2", true, true);
+    
+    // Test losing IPv4 address
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, false);
+    
+    // Test losing IPv6 address
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, true);
+    
+    // Test losing IP on interface with empty cache (should skip posting)
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, false);
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, true);
+}
+
+TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
+{
+    NMDeviceWifi *deviceDummy = static_cast<NMDeviceWifi*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+
+    GPtrArray* fakeAccessPoints = g_ptr_array_new();
+    g_ptr_array_add(fakeAccessPoints, reinterpret_cast<NMAccessPoint*>(0x833332));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_access_points(::testing::_))
+        .WillOnce(::testing::Return(fakeAccessPoints));
+
+    // Create a fake SSID GBytes object
+    const char* ssid_str = "TestWiFiNetwork";
+    GBytes* fake_ssid = g_bytes_new_static(ssid_str, strlen(ssid_str));
+
+    // AP property mocks
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
+        .WillOnce(::testing::Return(fake_ssid));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
+
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(nullptr, nullptr, nullptr);
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(deviceDummy, nullptr, nullptr);
+
+    g_ptr_array_free(fakeAccessPoints, TRUE);
+}
+
+TEST_F(NetworkManagerEventTest, onWIFIStateChanged)
+{
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onWIFIStateChanged(1);
 }

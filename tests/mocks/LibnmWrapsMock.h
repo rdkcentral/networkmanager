@@ -5,6 +5,10 @@
 #include "LibnmWraps.h"
 #include <glib.h>
 
+extern "C" const char* __real_nm_active_connection_get_id(NMActiveConnection *connection);
+extern "C" const char* __real_nm_active_connection_get_connection_type(NMActiveConnection *connection);
+extern "C" NMDeviceStateReason __real_nm_device_get_state_reason(NMDevice *device);
+extern "C" int __real_nm_ip_address_get_family(NMIPAddress *address);
 extern "C" const char* __real_nm_device_get_iface(NMDevice* device);
 extern "C" gboolean __real_nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error);
 extern "C" NMActiveConnection* __real_nm_client_get_primary_connection(NMClient *client);
@@ -35,7 +39,6 @@ extern "C" NMDhcpConfig* __real_nm_active_connection_get_dhcp4_config(NMActiveCo
 extern "C" NMDhcpConfig* __real_nm_active_connection_get_dhcp6_config(NMActiveConnection* connection);
 extern "C" const char* __real_nm_dhcp_config_get_one_option(NMDhcpConfig* config, const char* option);
 
-// Access Point API real functions
 extern "C" NM80211ApFlags __real_nm_access_point_get_flags(NMAccessPoint *ap);
 extern "C" NM80211ApSecurityFlags __real_nm_access_point_get_wpa_flags(NMAccessPoint *ap);
 extern "C" NM80211ApSecurityFlags __real_nm_access_point_get_rsn_flags(NMAccessPoint *ap);
@@ -47,7 +50,6 @@ extern "C" guint32 __real_nm_access_point_get_max_bitrate(NMAccessPoint *ap);
 extern "C" guint8 __real_nm_access_point_get_strength(NMAccessPoint *ap);
 extern "C" NMAccessPoint* __real_nm_device_wifi_get_active_access_point(NMDeviceWifi *device);
 
-// WiFi Scan API real functions
 extern "C" void __real_nm_device_wifi_request_scan_async(NMDeviceWifi *device,
                                                         GCancellable *cancellable,
                                                         GAsyncReadyCallback callback,
@@ -63,8 +65,6 @@ extern "C" gboolean __real_nm_device_wifi_request_scan_finish(NMDeviceWifi *devi
 extern "C" const GPtrArray *__real_nm_device_wifi_get_access_points(NMDeviceWifi *device);
 extern "C" const GPtrArray *__real_nm_device_get_available_connections(NMDevice *device);
 
-
-// New API real functions
 extern "C" gint64 __real_nm_device_wifi_get_last_scan(NMDeviceWifi *device);
 extern "C" void __real_nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect);
 extern "C" const GPtrArray* __real_nm_client_get_connections(NMClient *client);
@@ -117,7 +117,6 @@ extern "C" gboolean __real_nm_client_dbus_set_property_finish(NMClient *client,
                                                             GAsyncResult *result,
                                                             GError **error);
 
-// New real functions for commit changes and DHCP hostname
 extern "C" gboolean __real_nm_remote_connection_commit_changes(NMRemoteConnection *connection,
                                                              gboolean save_to_disk,
                                                              GCancellable *cancellable,
@@ -135,6 +134,29 @@ class LibnmWrapsImplMock : public LibnmWrapsImpl {
 public:
     LibnmWrapsImplMock() : LibnmWrapsImpl() {
 
+         ON_CALL(*this, nm_active_connection_get_id(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMActiveConnection* connection) -> const char* {
+                return __real_nm_active_connection_get_id(connection);
+            }));
+            
+        ON_CALL(*this, nm_active_connection_get_connection_type(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMActiveConnection* connection) -> const char* {
+                return __real_nm_active_connection_get_connection_type(connection);
+            }));
+            
+        ON_CALL(*this, nm_device_get_state_reason(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMDevice* device) -> NMDeviceStateReason {
+                return __real_nm_device_get_state_reason(device);
+            }));
+            
+        ON_CALL(*this, nm_ip_address_get_family(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMIPAddress* address) -> int {
+                return __real_nm_ip_address_get_family(address);
+            }));
         ON_CALL(*this, nm_device_wifi_get_last_scan(::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](NMDeviceWifi* device) -> gint64 {
@@ -459,10 +481,9 @@ public:
                 return __real_nm_client_get_nm_running(client);
             }));
     }
-// NMActiveConnection *nm_device_get_active_connection(NMDevice *device);
+
     virtual ~LibnmWrapsImplMock() = default;
 
-    // Mock methods
     MOCK_METHOD(const char*, nm_device_get_iface, (NMDevice* device), (override));
     MOCK_METHOD(NMDevice*, nm_client_get_device_by_iface, (NMClient *client, const char *iface), (override));
     MOCK_METHOD(NMDeviceState, nm_device_get_state, (NMDevice *device), (override));
@@ -492,7 +513,6 @@ public:
     MOCK_METHOD(NMDhcpConfig*, nm_active_connection_get_dhcp4_config, (NMActiveConnection* connection), (override));
     MOCK_METHOD(const char*, nm_dhcp_config_get_one_option, (NMDhcpConfig* config, const char* option), (override));
 
-    // Access Point API mock methods
     MOCK_METHOD(NM80211ApFlags, nm_access_point_get_flags, (NMAccessPoint *ap), (override));
     MOCK_METHOD(NM80211ApSecurityFlags, nm_access_point_get_wpa_flags, (NMAccessPoint *ap), (override));
     MOCK_METHOD(NM80211ApSecurityFlags, nm_access_point_get_rsn_flags, (NMAccessPoint *ap), (override));
@@ -509,12 +529,10 @@ public:
     MOCK_METHOD(void, nm_client_dbus_set_property, (NMClient *client, const char *object_path, const char *interface_name, const char *property_name, GVariant *value, int timeout_msec, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(gboolean, nm_client_dbus_set_property_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
 
-    // WiFi Scan API mock methods
     MOCK_METHOD(void, nm_device_wifi_request_scan_async, (NMDeviceWifi *device, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(void, nm_device_wifi_request_scan_options_async, (NMDeviceWifi *device, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(gboolean, nm_device_wifi_request_scan_finish, (NMDeviceWifi *device, GAsyncResult *result, GError **error), (override));
-    
-    // New API mock methods
+
     MOCK_METHOD(gint64, nm_device_wifi_get_last_scan, (NMDeviceWifi *device), (override));
     MOCK_METHOD(void, nm_device_set_autoconnect, (NMDevice *device, gboolean autoconnect), (override));
     MOCK_METHOD(const GPtrArray*, nm_client_get_connections, (NMClient *client), (override));
@@ -523,8 +541,7 @@ public:
     MOCK_METHOD(void, nm_client_activate_connection_async, (NMClient *client, NMConnection *connection, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(NMActiveConnection*, nm_client_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
     MOCK_METHOD(void, nm_client_add_and_activate_connection_async, (NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
-    
-    // New commit and DHCP hostname mock methods
+
     MOCK_METHOD(gboolean, nm_remote_connection_commit_changes, (NMRemoteConnection *connection, gboolean save_to_disk, GCancellable *cancellable, GError **error), (override));
     MOCK_METHOD(const char*, nm_setting_ip_config_get_dhcp_hostname, (NMSettingIPConfig *setting), (override));
     MOCK_METHOD(gboolean, nm_setting_ip_config_get_dhcp_send_hostname, (NMSettingIPConfig *setting), (override));
@@ -538,4 +555,8 @@ public:
     MOCK_METHOD(gboolean, nm_remote_connection_delete, (NMRemoteConnection *connection, GCancellable *cancellable, GError **error), (override));
     MOCK_METHOD(NMState, nm_client_get_state, (NMClient *client), (override));
     MOCK_METHOD(gboolean, nm_client_get_nm_running, (NMClient *client), (override));
+    MOCK_METHOD(const char*, nm_active_connection_get_id, (NMActiveConnection *connection), (override));
+    MOCK_METHOD(const char*, nm_active_connection_get_connection_type, (NMActiveConnection *connection), (override));
+    MOCK_METHOD(NMDeviceStateReason, nm_device_get_state_reason, (NMDevice *device), (override));
+    MOCK_METHOD(int, nm_ip_address_get_family, (NMIPAddress *address), (override));
 };
