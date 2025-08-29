@@ -23,6 +23,7 @@ FetchContent_MakeAvailable(googletest)
 
 message("networkmanager building with libnm")
 add_executable(${NM_LIBNM_PROXY_L2_TEST}
+    ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyEvent.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyWifi.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyInit.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxy.cpp
@@ -58,6 +59,7 @@ target_compile_definitions(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
+include_directories(${PROJECT_SOURCE_DIR}/plugin/gnome)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
@@ -71,7 +73,7 @@ target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${gtest_SOURCE_DIR}/../googlemock/include
 )
 
-target_link_options(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
+target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -g
     -Wall
     -Wl,-wrap,system
@@ -84,6 +86,12 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     -Wl,-wrap,v_secure_pclose
     -Wl,-wrap,v_secure_system
     -Wl,-wrap,nm_device_get_iface
+    -Wl,-wrap,nm_active_connection_get_id
+    -Wl,-wrap,nm_active_connection_get_connection_type
+    -Wl,-wrap,nm_device_get_state_reason
+    -Wl,-wrap,nm_ip_address_get_family
+    -Wl,-wrap,nm_client_get_state
+    -Wl,-wrap,nm_client_get_nm_running
     -Wl,-wrap,nm_client_get_primary_connection
     -Wl,-wrap,nm_active_connection_get_connection
     -Wl,-wrap,nm_connection_get_interface_name
@@ -111,6 +119,7 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     -Wl,-wrap,nm_device_disconnect_async
     -Wl,-wrap,nm_device_disconnect_finish
     -Wl,-wrap,g_main_loop_is_running
+    -Wl,--wrap=g_signal_connect_data
     -Wl,-wrap,nm_access_point_get_flags
     -Wl,-wrap,nm_access_point_get_wpa_flags
     -Wl,-wrap,nm_access_point_get_rsn_flags
@@ -155,10 +164,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 
 target_link_libraries(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     gmock_main
+    ${GLIB_LIBRARIES}
     ${NAMESPACE}Core::${NAMESPACE}Core
     ${NAMESPACE}Plugins::${NAMESPACE}Plugins
     ${CURL_LIBRARIES}
-    ${GLIB_LIBRARIES}
     ${LIBNM_LIBRARIES}
     ${GIO_LIBRARIES}
 )
