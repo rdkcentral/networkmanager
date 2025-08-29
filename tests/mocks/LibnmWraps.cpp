@@ -6,6 +6,13 @@ extern "C" gint64 __wrap_nm_device_wifi_get_last_scan(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_last_scan(device);
 }
 
+extern "C" NMState __wrap_nm_client_get_state(NMClient *client) {
+    return LibnmWraps::getInstance().nm_client_get_state(client);
+}
+
+extern "C" gboolean __wrap_nm_client_get_nm_running(NMClient *client) {
+    return LibnmWraps::getInstance().nm_client_get_nm_running(client);
+}
 extern "C" void __wrap_nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect) {
     LibnmWraps::getInstance().nm_device_set_autoconnect(device, autoconnect);
 }
@@ -638,4 +645,14 @@ GBytes* LibnmWraps::nm_setting_wireless_get_ssid(NMSettingWireless *setting) {
 gboolean LibnmWraps::nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_remote_connection_delete(connection, cancellable, error);
+}
+
+NMState LibnmWraps::nm_client_get_state(NMClient *client) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_client_get_state(client);
+}
+
+gboolean LibnmWraps::nm_client_get_nm_running(NMClient *client) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_client_get_nm_running(client);
 }

@@ -617,7 +617,7 @@ TEST_F(NetworkManagerEventTest, GetSupportedSecurityModes)
     EXPECT_EQ(response, _T("{\"security\":{\"NONE\":0,\"WPA_PSK\":1,\"SAE\":2,\"EAP\":3},\"success\":true}"));
 }
 
-/*
+
 TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed)
 {
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
@@ -650,7 +650,7 @@ TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed)
     EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"wlan0\",\"connected\":false,\"state\":0,\"status\":\"NO_INTERNET\",\"success\":true}"));
 
 }
-
+/*
 TEST_F(NetworkManagerEventTest, FULLY_CONNECTED_wait)
 {
     Core::Event onInternetStatusChange(false, true);

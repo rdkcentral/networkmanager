@@ -125,6 +125,9 @@ public:
     virtual NMSettingWireless *nm_connection_get_setting_wireless(NMConnection *connection) = 0;
     virtual GBytes *nm_setting_wireless_get_ssid(NMSettingWireless *setting) = 0;
     virtual gboolean nm_remote_connection_delete(NMRemoteConnection *connection, GCancellable *cancellable, GError **error) = 0;
+    virtual NMState nm_client_get_state(NMClient *client) = 0;
+    virtual gboolean nm_client_get_nm_running(NMClient *client) = 0;
+
 };
 
 class LibnmWraps {
@@ -137,7 +140,8 @@ public:
     static void setImpl(LibnmWrapsImpl* newImpl);
     static LibnmWraps& getInstance();
 
-    // New APIs
+    static NMState nm_client_get_state(NMClient *client);
+    static gboolean nm_client_get_nm_running(NMClient *client);
     static gint64 nm_device_wifi_get_last_scan(NMDeviceWifi *device);
     static void nm_device_set_autoconnect(NMDevice *device, gboolean autoconnect);
     static const GPtrArray* nm_client_get_connections(NMClient *client);

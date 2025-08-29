@@ -127,6 +127,8 @@ extern "C" gboolean __real_nm_setting_ip_config_get_dhcp_send_hostname(NMSetting
 extern "C" void __real_nm_connection_add_setting(NMConnection *connection, NMSetting *setting);
 extern "C" NMSettingWireless *__real_nm_connection_get_setting_wireless(NMConnection *connection);
 extern "C" GBytes *__real_nm_setting_wireless_get_ssid(NMSettingWireless *setting);
+extern "C" NMState __real_nm_client_get_state(NMClient *client);
+extern "C" gboolean __real_nm_client_get_nm_running(NMClient *client);
 
 
 class LibnmWrapsImplMock : public LibnmWrapsImpl {
@@ -445,6 +447,17 @@ public:
             [&](NMRemoteConnection *connection, GCancellable *cancellable, GError **error) -> gboolean {
                 return __real_nm_remote_connection_delete(connection, cancellable, error);
             }));
+        ON_CALL(*this, nm_client_get_state(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client) -> NMState {
+                return __real_nm_client_get_state(client);
+            }));
+            
+        ON_CALL(*this, nm_client_get_nm_running(::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client) -> gboolean {
+                return __real_nm_client_get_nm_running(client);
+            }));
     }
 // NMActiveConnection *nm_device_get_active_connection(NMDevice *device);
     virtual ~LibnmWrapsImplMock() = default;
@@ -523,4 +536,6 @@ public:
     MOCK_METHOD(void, nm_client_add_connection2, (NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(NMRemoteConnection*, nm_client_add_connection2_finish, (NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error), (override));
     MOCK_METHOD(gboolean, nm_remote_connection_delete, (NMRemoteConnection *connection, GCancellable *cancellable, GError **error), (override));
+    MOCK_METHOD(NMState, nm_client_get_state, (NMClient *client), (override));
+    MOCK_METHOD(gboolean, nm_client_get_nm_running, (NMClient *client), (override));
 };
