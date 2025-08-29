@@ -2,9 +2,9 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 0.25.0**
+**Version: 1.0.0**
 
-**Status: :white_circle::white_circle::white_circle:**
+**Status: :black_circle::black_circle::black_circle:**
 
 org.rdk.NetworkManager interface for Thunder framework.
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 0.25.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 1.0.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -102,7 +102,7 @@ NetworkManager interface methods:
 | [GetWiFiSignalQuality](#method.GetWiFiSignalQuality) | Get WiFi signal quality of currently connected SSID |
 | [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
-| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name). |
+| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name) |
 
 <a name="method.SetLogLevel"></a>
 ## *SetLogLevel [<sup>method</sup>](#head.Methods)*
@@ -1671,7 +1671,9 @@ This method takes no parameters.
 <a name="method.SetHostname"></a>
 ## *SetHostname [<sup>method</sup>](#head.Methods)*
 
-To configure a custom DHCP hostname instead of the default (which is typically the device name), note that the change will only take effect after a device reboot, creating a new Wi-Fi connection, reactivation of existing NetworkManager connection, or renewal of the DHCP lease.
+To configure a custom DHCP hostname instead of the default (which is typically the device name).
+
+Setting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.
 
 ### Parameters
 

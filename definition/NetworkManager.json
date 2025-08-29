@@ -6,10 +6,10 @@
         "class": "NetworkManager",
         "callsign": "org.rdk.NetworkManager",
         "locator": "libWPEFrameworkNetworkManager.so",
-        "status": "development",
+        "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.25.0"
+        "version": "1.0.0"
     },
     "definitions": {
         "success": {
@@ -1301,7 +1301,7 @@
             }
         },
         "SetHostname": {
-            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).",
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).\n\nSetting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.",
             "params": {
                 "type": "object",
                 "properties": {
