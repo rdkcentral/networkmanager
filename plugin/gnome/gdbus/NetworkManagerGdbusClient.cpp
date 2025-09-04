@@ -2022,8 +2022,6 @@ namespace WPEFramework
 
         bool NetworkManagerClient::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP)
         {
-            // TODO check sudo nmcli device wifi connect HomeNet password rafi@123
-            //            Error: Connection activation failed: Device disconnected by user or client error ?
             GVariantBuilder connBuilder;
             bool reuseConnection = false;
             deviceInfo deviceProp;
