@@ -109,6 +109,8 @@ namespace WPEFramework
                             long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
+            std::string m_deviceModel{};
+            std::string m_buildVersion{};
             Exchange::INetworkManager::InternetStatus internetSate;
             int curlErrorCode = 0;
             template<typename curlValue>
@@ -147,6 +149,7 @@ namespace WPEFramework
             std::mutex m_cmMutex;
             std::atomic<bool> m_notify;
             std::atomic<bool> m_switchToInitial;
+            std::atomic<bool> m_wakeupMonitoring;
             std::string m_captiveURI;
             std::atomic<Exchange::INetworkManager::InternetStatus> m_InternetState; // IPv4 or IPv6
             std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv4InternetState; //  IPv4

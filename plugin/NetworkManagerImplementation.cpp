@@ -32,6 +32,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        extern NetworkManagerImplementation* _instance;
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
@@ -59,6 +60,8 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+            connectivityMonitor.stopConnectivityMonitor();
+            _instance = nullptr;
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
@@ -116,29 +119,19 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::Configure(PluginHost::IShell* service)
+        uint32_t NetworkManagerImplementation::Configure(const string configLine)
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
-            if (service)
+            if(configLine.empty())
             {
-                string configLine = service->ConfigLine();
-                if(configLine.empty())
-                {
-                    NMLOG_FATAL("config line : is empty !");
-                    return Core::ERROR_GENERAL;
-                }
-                else
-                {
-                    NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
-                    config.FromString(configLine);
-                }
+                NMLOG_FATAL("config line : is empty !");
+                return Core::ERROR_GENERAL;
             }
             else
             {
-                NMLOG_FATAL("Service is NULL!");
-                return Core::ERROR_GENERAL;
-
+                NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                config.FromString(configLine);
             }
 
             NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
@@ -849,11 +842,16 @@ namespace WPEFramework
             readNoise = std::stoi(noise);
             readSnr = std::stoi(snr);
 
-            /* Check the Noise is within range */
-            if(!(readNoise < 0 && readNoise >= DEFAULT_NOISE))
+            /* Check the Noise is within range between 0 and -96 dbm*/
+            if((readNoise >= 0) || (readNoise < DEFAULT_NOISE))
             {
-                NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
-                noise = "0";
+                NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
+                if (readNoise >= 0) {
+                    noise = std::to_string(0);
+                }
+                else if (readNoise < DEFAULT_NOISE) {
+                    noise = std::to_string(DEFAULT_NOISE);
+                }
             }
 
             /* mapping rssi value when the SNR value is not proper */
