@@ -139,9 +139,24 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
 /* @brief Callback getting invoked when SSDP reply is received from gateway */
 void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlPoint, GUPnPDeviceProxy *proxy)
 { 
-    m_apMake = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
-    m_apModelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
-    m_apModelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
+    char* make = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
+	if (make != NULL) {
+        m_apMake = make;
+    } else {
+        m_apMake = "Unknown";
+    }
+    char* modelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
+	if (modelName != NULL) {
+        m_apModelName = modelName;
+    } else {
+        m_apModelName = "Unknown";
+    }
+	char* modelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
+	if (modelNumber != NULL) {
+        m_apModelNumber = modelNumber;
+    } else {
+        m_apModelNumber = "Unknown";
+    }
     // Remove the string after symbol <,> For example: <manufacturer>NETGEAR,Inc.</manufacturer> 
     m_apMake = m_apMake.substr(0, m_apMake.find(','));
     m_apModelName = m_apModelName.substr(0, m_apModelName.find(','));
