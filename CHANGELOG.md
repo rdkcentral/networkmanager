@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.20.2] - 2025-09-09
+### Fixed 
+- Fixed Internet Connectivity Monitoring when the device is FULLY_CONNECTED
+
 ## [0.20.1] - 2025-08-29
 ### Fixed 
 - Fixed WiFi On/Off toggling failure
