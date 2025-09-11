@@ -352,16 +352,40 @@ namespace WPEFramework
                     g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                 }
 
-                if(NM_IS_DEVICE_WIFI(device)) {
-                    NMLOG_INFO("WIFI device added, so connecting scan signal");
+                if (NM_IS_DEVICE_WIFI(device))
+                {
                     nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
-                    g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
+                    // To avoid multiple signal connections, first check if the signal is already connected
+                    gulong handler_id = g_signal_handler_find(
+                        NM_DEVICE_WIFI(device),
+                        G_SIGNAL_MATCH_FUNC,
+                        0, // signal_id (0 means any)
+                        0, // detail
+                        NULL, // closure
+                        (gpointer)GnomeNetworkManagerEvents::onAvailableSSIDsCb,
+                        nmEvents
+                    );
+
+                    if (handler_id == 0)
+                    {
+                        NMLOG_INFO("WIFI device added, adding signal handler for last-scan");
+                        g_signal_connect(
+                            nmEvents->wifiDevice,
+                            "notify::" NM_DEVICE_WIFI_LAST_SCAN,
+                            G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb),
+                            nmEvents
+                        );
+                    }
+                    else
+                    {
+                        NMLOG_WARNING("Signal handler for last-scan already connected, skipping");
+                    }
                 }
             }
         }
         else
             NMLOG_DEBUG("device error null");
-    } 
+    }
 
     static void deviceRemovedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
