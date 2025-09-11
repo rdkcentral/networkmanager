@@ -354,32 +354,10 @@ namespace WPEFramework
 
                 if (NM_IS_DEVICE_WIFI(device))
                 {
+                    // Register signal handler for WiFi scanning events to detect when scan operations complete
                     nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
-                    // To avoid multiple signal connections, first check if the signal is already connected
-                    gulong handler_id = g_signal_handler_find(
-                        NM_DEVICE_WIFI(device),
-                        G_SIGNAL_MATCH_FUNC,
-                        0, // signal_id (0 means any)
-                        0, // detail
-                        NULL, // closure
-                        (gpointer)GnomeNetworkManagerEvents::onAvailableSSIDsCb,
-                        nmEvents
-                    );
-
-                    if (handler_id == 0)
-                    {
-                        NMLOG_INFO("WIFI device added, adding signal handler for last-scan");
-                        g_signal_connect(
-                            nmEvents->wifiDevice,
-                            "notify::" NM_DEVICE_WIFI_LAST_SCAN,
-                            G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb),
-                            nmEvents
-                        );
-                    }
-                    else
-                    {
-                        NMLOG_WARNING("Signal handler for last-scan already connected, skipping");
-                    }
+                    NMLOG_INFO("WIFI device added, adding signal handler for last-scan");
+                    g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
                 }
             }
         }
@@ -392,23 +370,32 @@ namespace WPEFramework
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
             std::string ifname = nm_device_get_iface(device);
-            if(ifname == nmUtils::wlanIface()) {
-                GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
+            if(ifname == nmUtils::wlanIface() || ifname == nmUtils::ethIface())
+            {
+                // cleaning up signal handlers when you no longer need them, to avoid unwanted callbacks after an object is destroyed or a module is unloaded
+
+                GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, ifname);
                 g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
-            }
-            else if(ifname == nmUtils::ethIface()) {
-                GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
-                g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
+
+                // Disconnect IPv4 address signal handler
+                NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
+                if (ipv4Config) {
+                    g_signal_handlers_disconnect_by_func(ipv4Config, (gpointer)ip4ChangedCb, device);
+                }
+
+                // Disconnect IPv6 address signal handler
+                NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
+                if (ipv6Config) {
+                    g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
+                }
+
+                // Disconnect WiFi scan signal handler
+                if (nmEvents && nmEvents->wifiDevice) {
+                    g_signal_handlers_disconnect_by_func(nmEvents->wifiDevice, (gpointer)GnomeNetworkManagerEvents::onAvailableSSIDsCb, nmEvents);
+                    nmEvents->wifiDevice = nullptr;
+                }
             }
         }
-
-        //     guint disconnected_count = g_signal_handlers_disconnect_matched( _nmEventInstance->activeConn,
-        //                                                                     G_SIGNAL_MATCH_FUNC,
-        //                                                                     0, 0, NULL,
-        //                                                                     (gpointer)onActiveConnectionStateChanged,
-        //                                                                     NULL );
-        //     NMLOG_ERROR("Disconnected %u signal handlers\n", disconnected_count);
-
     }
 
     static void clientStateChangedCb (NMClient *client, GParamSpec *pspec, gpointer user_data)
