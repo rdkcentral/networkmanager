@@ -351,6 +351,12 @@ namespace WPEFramework
                 if (ipv6Config) {
                     g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                 }
+
+                if(NM_IS_DEVICE_WIFI(device)) {
+                    NMLOG_INFO("WIFI device added, so connecting scan signal");
+                    nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
+                    g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
+                }
             }
         }
         else

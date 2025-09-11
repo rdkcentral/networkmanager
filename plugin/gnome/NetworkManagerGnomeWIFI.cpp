@@ -1171,6 +1171,7 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             if(nm_device_wifi_request_scan_finish(NM_DEVICE_WIFI(object), result, &error)) {
                  _wifiManager->m_isSuccess = true;
+                 NMLOG_DEBUG("wifi scanning reuest success ..");
             }
             else
             {
@@ -1213,6 +1214,7 @@ namespace WPEFramework
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
+                NMLOG_INFO("staring normal wifi scanning ..");
                 nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
             }
             wait(m_loop);
