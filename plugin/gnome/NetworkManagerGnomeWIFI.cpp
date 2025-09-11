@@ -1171,7 +1171,7 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             if(nm_device_wifi_request_scan_finish(NM_DEVICE_WIFI(object), result, &error)) {
                  _wifiManager->m_isSuccess = true;
-                 NMLOG_DEBUG("wifi scanning reuest success ..");
+                 NMLOG_DEBUG("wifi scanning request success ..");
             }
             else
             {
