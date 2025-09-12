@@ -303,7 +303,7 @@ namespace WPEFramework
             _nmGdbusEvents->setwifiScanOptions(false);
             if(!_nmGdbusClient->startWifiScan())
             {
-                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+                NMLOG_WARNING("scanning request failed; trying to connect wps");
             }
 
             if(_nmGdbusClient->startWPS())

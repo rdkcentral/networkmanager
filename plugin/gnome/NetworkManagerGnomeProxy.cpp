@@ -947,7 +947,7 @@ namespace WPEFramework
 
             if(!wifi->wifiScanRequest())
             {
-                NMLOG_WARNING("scanning reuest failed; trying to connect wps");
+                NMLOG_WARNING("scanning request failed; trying to connect wps");
             }
 
             if(wifi->startWPS())
