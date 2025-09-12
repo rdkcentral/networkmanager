@@ -6,10 +6,10 @@
         "class": "NetworkManager",
         "callsign": "org.rdk.NetworkManager",
         "locator": "libWPEFrameworkNetworkManager.so",
-        "status": "development",
+        "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.20.0"
+        "version": "1.0.0"
     },
     "definitions": {
         "success": {
@@ -273,37 +273,6 @@
                 },
                 "required": [
                     "interface"
-                ]
-            }
-        },
-        "SetPrimaryInterface":{
-            "summary": "Sets the primary/default interface for the device. This call fails if the interface is not enabled.",
-            "events":{
-                "onActiveInterfaceChange" : "Triggered when device’s default interface changed.",
-                "onInterfaceStateChange" : "Triggered when interface’s state changed",
-                "onAddressChange" : "Triggered when the device connects to router.",
-                "onInternetStatusChange" : "Triggered when each IP address is lost or acquired."
-            },
-            "params": {
-                "type":"object",
-                "properties": {
-                    "interface": {
-                        "$ref": "#/definitions/interface"
-                    }
-                },
-                "required": [
-                    "interface"
-                ]
-            },
-            "result": {
-                "type": "object",
-                "properties": {
-                    "success": {
-                        "$ref": "#/definitions/success"
-                    }
-                },
-                "required": [
-                    "success"
                 ]
             }
         },
@@ -1330,9 +1299,35 @@
                     "success"
                 ]
             }
+        },
+        "SetHostname": {
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).\n\nSetting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "hostname": {
+                        "summary": "The hostname to be set for the device (maximum 32 characters)",
+                        "type": "string",
+                        "example": "RDK-Device"
+                    }
+                },
+                "required": [
+                    "hostname"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success": {
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
         }
     },
-
     "events": {
         "onInterfaceStateChange":{
             "summary": "Triggered when an interface state is changed. The possible states are \n* 'INTERFACE_ADDED' \n* 'INTERFACE_LINK_UP' \n* 'INTERFACE_LINK_DOWN' \n* 'INTERFACE_ACQUIRING_IP' \n* 'INTERFACE_REMOVED' \n* 'INTERFACE_DISABLED' \n",
@@ -1393,7 +1388,7 @@
             }
         },
         "onActiveInterfaceChange":{
-            "summary": "Triggered when the primary/active interface changes, regardless if it's from a system operation or through the `SetPrimaryInterface` method.",
+            "summary": "Triggered when the primary/active interface changes",
             "params": {
                 "type": "object",
                 "properties": {

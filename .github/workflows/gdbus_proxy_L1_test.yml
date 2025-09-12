@@ -1,4 +1,4 @@
-name: gnome_unit_test
+name: gdbus_proxy_l1_tests
 
 on:
   push:
@@ -7,14 +7,39 @@ on:
     branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**']
 
 env:
-  THUNDER_REF: "R4.4.1"
+  THUNDER_REF: "R4.4.3"
 
 jobs:
-  unit-tests:
+  L1-tests:
     name: Build and run unit tests
     runs-on: ubuntu-22.04
-        
+
     steps:
+      # Set up Thunder cache
+      - name: Set up Thunder cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            build/Thunder
+            build/ThunderInterfaces
+            build/ThunderTools
+            install
+            !install/etc/WPEFramework/plugins
+            !install/usr/bin/gdbusproxy_l1_test
+            !install/usr/include/gmock
+            !install/usr/include/gtest
+            !install/usr/lib/libgmockd.a
+            !install/usr/lib/libgmock_maind.a
+            !install/usr/lib/libgtestd.a
+            !install/usr/lib/libgtest_maind.a
+            !install/usr/lib/cmake/GTest
+            !install/usr/lib/pkgconfig/gmock.pc
+            !install/usr/lib/pkgconfig/gmock_main.pc
+            !install/usr/lib/pkgconfig/gtest.pc
+            !install/usr/lib/pkgconfig/gtest_main.pc
+            !install/usr/lib/wpeframework/plugins
+          key: thunder-${{ env.THUNDER_REF }}-gdbus
       - name: Install packages
         run: |
           sudo apt update
@@ -30,13 +55,26 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1.13
         with:
           cmake-version: '3.16.x'
-
       - name: Checkout thunder repositories
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           git clone https://github.com/rdkcentral/ThunderTools ThunderTools --branch ${{ env.THUNDER_REF }}
           git clone https://github.com/rdkcentral/Thunder Thunder --branch ${{ env.THUNDER_REF }}
-         
+          git clone https://github.com/rdkcentral/ThunderInterfaces ThunderInterfaces --branch ${{ env.THUNDER_REF }}
+
+      - name: Checkout networkmanager
+        uses: actions/checkout@v3
+        with:
+          path: networkmanager
+
+      - name: Apply Thunder Patches
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd ${{github.workspace}}/Thunder
+          git apply ${{github.workspace}}/networkmanager/tests/patches/thunder/SubscribeStub.patch
+
       - name: Build ThunderTools
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/ThunderTools" -B build/ThunderTools
@@ -47,6 +85,7 @@ jobs:
           cmake --build build/ThunderTools --target install -j8
 
       - name: Build Thunder
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
           -S "${{github.workspace}}/Thunder" -B build/Thunder
@@ -58,30 +97,21 @@ jobs:
           &&
           cmake --build build/Thunder --target install -j8
 
-      - name: Checkout networkmanager
-        uses: actions/checkout@v3
-        with:
-          path: networkmanager
-
-      - name: Build networkmanager with Gnome libnm Proxy
+      - name: ThunderInterfaces
+        if: steps.cache.outputs.cache-hit != 'true'
         run: >
           cmake
-          -S "${{github.workspace}}/networkmanager"
-          -B build/GnomeLibnmNetworkmanager
-          -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
+          -S "${{github.workspace}}/ThunderInterfaces" -B build/ThunderInterfaces
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
-          -DENABLE_GNOME_NETWORKMANAGER=ON
-          -DENABLE_PLUGIN_CLI=ON
           &&
-          cmake --build build/GnomeLibnmNetworkmanager --target install -j8
+          cmake --build build/ThunderInterfaces --target install -j8
 
       - name: Build networkmanager with Gnome GDBUS Proxy
         run: >
           cmake
           -S "${{github.workspace}}/networkmanager"
-          -B build/GnomeGdbusNetworkmanager
+          -B build/networkmanager_gdbus
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
@@ -90,6 +120,6 @@ jobs:
           -DENABLE_GNOME_GDBUS=ON
           -DENABLE_PLUGIN_CLI=ON
           &&
-          cmake --build build/GnomeGdbusNetworkmanager --target install -j8
+          cmake --build build/networkmanager_gdbus --target install -j8
 
 

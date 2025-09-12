@@ -22,8 +22,8 @@ project(NetworkManager)
 find_package(WPEFramework)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-set(VERSION_MAJOR 0)
-set(VERSION_MINOR 20)
+set(VERSION_MAJOR 1)
+set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -53,6 +53,7 @@ endif (ENABLE_LEGACY_PLUGINS)
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
-    add_subdirectory(tests/unittest)
+    add_subdirectory(tests/l1Test)
+    add_subdirectory(tests/l2Test)
 endif(ENABLE_UNIT_TESTING)
 

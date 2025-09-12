@@ -150,6 +150,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             isSecretAgentLoopRunning = false;
+            isSecurityAgentRegistered = false;
             NMLOG_INFO("SecretAgent Constructor");
             GDBusconn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
             if (!GDBusconn) {
@@ -158,7 +159,6 @@ namespace WPEFramework
                 return;
             }
 
-            isSecurityAgentRegistered = false;
             startSecurityAgent();
         }
 
@@ -233,10 +233,14 @@ namespace WPEFramework
                             &error);
 
             if (!agentRegID) {
-                NMLOG_ERROR("Failed to register object: %s", error->message);
-                g_error_free(error);
+                NMLOG_ERROR("Failed to register object:");
+                 if (error != NULL)
+                {
+                    NMLOG_ERROR("Error : %s", error->message);
+                    g_error_free(error);
+                }
                 g_dbus_node_info_unref(node_info);
-                return ;
+                return;
             }
 
             NMLOG_INFO("Object registered with ID: %u", agentRegID);

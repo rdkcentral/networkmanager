@@ -56,7 +56,6 @@ namespace WPEFramework
             Register("SetLogLevel",                       &NetworkManager::SetLogLevel, this);
             Register("GetAvailableInterfaces",            &NetworkManager::GetAvailableInterfaces, this);
             Register("GetPrimaryInterface",               &NetworkManager::GetPrimaryInterface, this);
-            Register("SetPrimaryInterface",               &NetworkManager::SetPrimaryInterface, this);
             Register("SetInterfaceState",                 &NetworkManager::SetInterfaceState, this);
             Register("GetInterfaceState",                 &NetworkManager::GetInterfaceState, this);
             Register("GetIPSettings",                     &NetworkManager::GetIPSettings, this);
@@ -70,6 +69,7 @@ namespace WPEFramework
             Register("GetPublicIP",                       &NetworkManager::GetPublicIP, this);
             Register("Ping",                              &NetworkManager::Ping, this);
             Register("Trace",                             &NetworkManager::Trace, this);
+            Register("SetHostname",                       &NetworkManager::SetHostname, this);
             Register("StartWiFiScan",                     &NetworkManager::StartWiFiScan, this);
             Register("StopWiFiScan",                      &NetworkManager::StopWiFiScan, this);
             Register("GetKnownSSIDs",                     &NetworkManager::GetKnownSSIDs, this);
@@ -93,7 +93,6 @@ namespace WPEFramework
             Unregister("SetLogLevel");
             Unregister("GetAvailableInterfaces");
             Unregister("GetPrimaryInterface");
-            Unregister("SetPrimaryInterface");
             Unregister("SetInterfaceState");
             Unregister("GetInterfaceState");
             Unregister("GetIPSettings");
@@ -107,6 +106,7 @@ namespace WPEFramework
             Unregister("GetPublicIP");
             Unregister("Ping");
             Unregister("Trace");
+            Unregister("SetHostname");
             Unregister("StartWiFiScan");
             Unregister("StopWiFiScan");
             Unregister("GetKnownSSIDs");
@@ -209,26 +209,6 @@ namespace WPEFramework
             {
                 response["interface"] = interface;      
             }
-            returnJson(rc);
-        }
-
-        uint32_t NetworkManager::SetPrimaryInterface (const JsonObject& parameters, JsonObject& response)
-        {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string interface = parameters["interface"].String();
-
-            if ("wlan0" != interface && "eth0" != interface)
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            if (_networkManager)
-                rc = _networkManager->SetPrimaryInterface(interface);
-            else
-                rc = Core::ERROR_UNAVAILABLE;
-
             returnJson(rc);
         }
 
@@ -627,6 +607,29 @@ namespace WPEFramework
                     response = reply;
                 }
             }
+            returnJson(rc);
+        }
+
+        uint32_t NetworkManager::SetHostname (const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string hostname{};
+
+            if (parameters.HasLabel("hostname") && !parameters["hostname"].String().empty())
+            {
+                hostname = parameters["hostname"].String();
+                if (_networkManager)
+                    rc = _networkManager->SetHostname(hostname);
+                else
+                    rc = Core::ERROR_UNAVAILABLE;
+            }
+            else
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                rc = Core::ERROR_BAD_REQUEST;
+            }
+
             returnJson(rc);
         }
 

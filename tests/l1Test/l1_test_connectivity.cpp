@@ -17,15 +17,9 @@
 * limitations under the License.
 **/
 #include "NetworkManagerImplementation.h"
-#include "NetworkManagerLogger.h"
-#include "INetworkManager.h"
+#include "NetworkManagerConnectivity.h"
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <list>
-#include <string>
 
 using namespace std;
 using namespace WPEFramework;
@@ -35,11 +29,6 @@ namespace WPEFramework
    namespace Plugin
     {
         NetworkManagerImplementation* _instance = nullptr;
-        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const WiFiSignalQuality quality)
-        {
-            return;
-        }
-
         void NetworkManagerImplementation::ReportInternetStatusChange(const InternetStatus prevState, const InternetStatus currState)
         {
             return;
@@ -47,23 +36,32 @@ namespace WPEFramework
     }
 }
 
-class WiFiSignalQualityMonitorTest : public ::testing::Test {
- protected:
-     WPEFramework::Plugin::WiFiSignalQualityMonitor monitor;
+class ConnectivityMonitorTest : public ::testing::Test {
+protected:
+   WPEFramework::Plugin::ConnectivityMonitor cm;
 };
 
-TEST_F(WiFiSignalQualityMonitorTest, GetSignalData_Connected) {
-    std::string ssid = "TestSSID";
-    Exchange::INetworkManager::WiFiSignalQuality quality;
-    std::string strengthOut= "-55";
-    monitor.getSignalData(ssid, quality, strengthOut);
+TEST_F(ConnectivityMonitorTest, StartConnectivityMonitor_Success) {
+    bool result = cm.startConnectivityMonitor();
+    EXPECT_TRUE(result);
+    result = cm.startConnectivityMonitor();
+    EXPECT_TRUE(result);
 }
 
-TEST_F(WiFiSignalQualityMonitorTest, StartWiFiSignalQualityMonitor) {
-    monitor.startWiFiSignalQualityMonitor(1);
+TEST_F(ConnectivityMonitorTest, SetEndpoints_Valid) {
+    std::vector<std::string> endpoints = {"https://github.com/rdkcentral", "https://github.com/rdkcentral/rdkservices"};
+    cm.setConnectivityMonitorEndpoints(endpoints);
+    EXPECT_EQ(cm.getConnectivityMonitorEndpoints(), endpoints);  
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleMock(&argc, argv);
-    return RUN_ALL_TESTS();
+TEST_F(ConnectivityMonitorTest, SetEndpoints_InvalidShortEndpoints) {
+    std::vector<std::string> endpoints = {"ab", "htt", "xyz"};
+    cm.setConnectivityMonitorEndpoints(endpoints);
+    EXPECT_TRUE(cm.getConnectivityMonitorEndpoints().empty());
+}
+
+TEST_F(ConnectivityMonitorTest, SetEndpoints_DuplicateEndpoints) {
+    std::vector<std::string> endpoints = {"https://github.com", "https://github.com"};
+    cm.setConnectivityMonitorEndpoints(endpoints);
+    EXPECT_EQ((int)cm.getConnectivityMonitorEndpoints().size(), 2);
 }

@@ -14,6 +14,45 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.0.0] - 2025-08-29
+### Added
+- Implemented additional L1/L2 for libnm backends
+- Addressed Coverity issues in Connectivity Monitoring Thread
+- Marking official production release.
+
+## [0.25.0] - 2025-08-27
+### Added
+- Implemented SetHostname method which can send device's hostname over DHCP explicitly
+- Implemented L1/L2 for netsrvmgr (RDK), libnm backends
+- Clamped the WIFI Noise value to be within 0 dBm to -96 dBm
+- Handled Plugin Termination sequence to stop the monitoring thread before exit
+- Handled out-of-process plugin configuration as string
+- Fixed Router Discovery to handle dual interface
+- Fixed Internet Connectivity Monitoring to not to poll unless requested
+- Addressed coverity reported issue
+
+## [0.24.0] - 2025-08-11
+### Added
+- Use incoming EAP-PrivateKey Password to connect to WiFi when given
+
+## [0.23.0] - 2025-07-30
+### Added
+- Added L1/L2 workflow for LegacyNetwork, LegacyWiFi and NetworkManager Plugins
+- Fixed RemoveKnownSSID method to handle the invalid inputs
+- Fixed the logging in GetIPSettings
+
+## [0.22.0] - 2025-07-14
+### Fixed
+- Fixed trigger point for the connectivity monitoring
+- Posting onWiFiStateChange Event when link-up for wifi event is received.
+
+## [0.21.0] - 2025-07-08
+### Fixed
+- Fixed WiFi On/Off toggling failure
+- Fixed the bug in IPAddress availability check upon wake-up
+- Removed the SetPrimartInterface method
+- Added input param validation for Ping and Stun methods
+
 ## [0.20.0] - 2025-06-20
 ### Fixed
 - Fixed the bug in Resetting of Manual IPv4

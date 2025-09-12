@@ -34,7 +34,15 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#define DEFAULT_NOISE                              -180
+/*
+ * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
+ * for a 20MHz channel,
+ * = -174dBm/Hz + 10*log10(20MHz) + 5
+ * = -174 + 73 + 5 = -96dBm
+ * Even if the channel width increases, the noise value will be increases by 3 dBm; (ie -93 dBm). 
+ * So the minimum noise value cannot go beyond -96 dBm.
+ */
+#define DEFAULT_NOISE                              -96
 #define MAX_SNR_VALUE                              180
 
 #define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
@@ -190,8 +198,6 @@ namespace WPEFramework
 
                 /* @brief Get the active Interface used for external world communication */
                 uint32_t GetPrimaryInterface (string& interface /* @out */) override;
-                /* @brief Set the active Interface used for external world communication */
-                uint32_t SetPrimaryInterface (const string& interface/* @in */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;
@@ -245,12 +251,15 @@ namespace WPEFramework
 
                 uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
+                /* @brief Set the dhcp hostname */
+                uint32_t SetHostname(const string& hostname /* @in */) override;
+
                 /* @brief Set the network manager plugin log level */
                 uint32_t SetLogLevel(const Logging& level /* @in */) override;
                 uint32_t GetLogLevel(Logging& level /* @out */) override;
 
                 /* @brief configure network manager plugin */
-                uint32_t Configure(PluginHost::IShell* service) override;
+                uint32_t Configure(const string configLine) override;
 
                 /* Events */
                 void ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);

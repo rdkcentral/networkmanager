@@ -18,7 +18,9 @@
 **/
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
+#include "NetworkManagerRDKProxy.h"
 #include "libIBus.h"
+#include <chrono>
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -26,349 +28,6 @@ using namespace std;
 
 namespace WPEC = WPEFramework::Core;
 namespace WPEJ = WPEFramework::Core::JSON;
-
-#define IARM_BUS_NM_SRV_MGR_NAME "NET_SRV_MGR"
-
-#define MAX_IP_ADDRESS_LEN          46
-#define NETSRVMGR_INTERFACES_MAX    16
-#define MAX_ENDPOINTS                5
-#define MAX_ENDPOINT_SIZE          512
-#define MAX_URI_LEN                512
-#define MAX_HOST_NAME_LEN          128
-#define DEFAULT_PING_PACKETS        15
-#define CIDR_NETMASK_IP_LEN         32
-#define INTERFACE_SIZE              10
-#define INTERFACE_LIST              50
-#define MAX_IP_FAMILY_SIZE          10
-
-
-#define BUFF_LENGTH_64              65
-#define BUFF_LENGTH_256            257
-#define BUFF_MAX                  1025
-#define BUFF_MAC                    18
-#define BUFF_MIN                    17
-#define BUFF_LENGTH_4                4
-#define SSID_SIZE                   33
-#define BSSID_BUFF                  20
-#define BUFF_LENGTH_24              24
-#define PASSPHRASE_BUFF            385
-#define MAX_SSIDLIST_BUF     (48*1024)
-#define MAX_FILE_PATH_LEN         4096
-
-typedef enum _NetworkManager_EventId_t {
-    IARM_BUS_NETWORK_MANAGER_EVENT_SET_INTERFACE_ENABLED=50,
-    IARM_BUS_NETWORK_MANAGER_EVENT_SET_INTERFACE_CONTROL_PERSISTENCE,
-    IARM_BUS_NETWORK_MANAGER_EVENT_WIFI_INTERFACE_STATE,
-    IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS,
-    IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS,
-    IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS,
-    IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE,
-    IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED,
-    IARM_BUS_NETWORK_MANAGER_MAX,
-} IARM_Bus_NetworkManager_EventId_t;
-
-typedef enum _IARM_Bus_NMgr_WiFi_EventId_t {
-    IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged = 1,
-    IARM_BUS_WIFI_MGR_EVENT_onError,
-    IARM_BUS_WIFI_MGR_EVENT_onSSIDsChanged,
-    IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs,
-    IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDsIncr,
-    IARM_BUS_WIFI_MGR_EVENT_onWIFILNFStateChanged,
-    IARM_BUS_WIFI_MGR_EVENT_MAX,                /*!< Maximum event id*/
-} IARM_Bus_NMgr_WiFi_EventId_t;
-
-
-typedef struct {
-    char name[16];
-    char mac[20];
-    unsigned int flags;
-} NetSrvMgr_Interface_t;
-
-typedef struct {
-    unsigned char         size;
-    NetSrvMgr_Interface_t interfaces[NETSRVMGR_INTERFACES_MAX];
-} IARM_BUS_NetSrvMgr_InterfaceList_t;
-
-typedef enum _NetworkManager_GetIPSettings_ErrorCode_t
-{
-  NETWORK_IPADDRESS_ACQUIRED,
-  NETWORK_IPADDRESS_NOTFOUND,
-  NETWORK_NO_ROUTE_INTERFACE,
-  NETWORK_NO_DEFAULT_ROUTE,
-  NETWORK_DNS_NOT_CONFIGURED,
-  NETWORK_INVALID_IPADDRESS,
-} NetworkManager_GetIPSettings_ErrorCode_t;
-
-typedef struct {
-    char interface[16];
-    char ipversion[16];
-    bool autoconfig;
-    char ipaddress[MAX_IP_ADDRESS_LEN];
-    char netmask[MAX_IP_ADDRESS_LEN];
-    char gateway[MAX_IP_ADDRESS_LEN];
-    char dhcpserver[MAX_IP_ADDRESS_LEN];
-    char primarydns[MAX_IP_ADDRESS_LEN];
-    char secondarydns[MAX_IP_ADDRESS_LEN];
-    bool isSupported;
-    NetworkManager_GetIPSettings_ErrorCode_t errCode;
-} IARM_BUS_NetSrvMgr_Iface_Settings_t;
-
-typedef struct {
-    char interface[16];
-    char gateway[MAX_IP_ADDRESS_LEN];
-} IARM_BUS_NetSrvMgr_DefaultRoute_t;
-
-typedef struct {
-    char interface[16];
-    bool status;
-} IARM_BUS_NetSrvMgr_Iface_EventInterfaceStatus_t;
-
-typedef IARM_BUS_NetSrvMgr_Iface_EventInterfaceStatus_t IARM_BUS_NetSrvMgr_Iface_EventInterfaceEnabledStatus_t;
-typedef IARM_BUS_NetSrvMgr_Iface_EventInterfaceStatus_t IARM_BUS_NetSrvMgr_Iface_EventInterfaceConnectionStatus_t;
-
-typedef struct {
-    char interface[16];
-    char ip_address[MAX_IP_ADDRESS_LEN];
-    bool is_ipv6;
-    bool acquired;
-} IARM_BUS_NetSrvMgr_Iface_EventInterfaceIPAddress_t;
-
-typedef struct {
-    char oldInterface[16];
-    char newInterface[16];
-} IARM_BUS_NetSrvMgr_Iface_EventDefaultInterface_t;
-
-typedef struct
-{
-    char server[MAX_HOST_NAME_LEN];
-    uint16_t port;
-    bool ipv6;
-    char interface[16];
-    uint16_t bind_timeout;
-    uint16_t cache_timeout;
-    bool sync;
-    char public_ip[MAX_IP_ADDRESS_LEN];
-} IARM_BUS_NetSrvMgr_Iface_StunRequest_t;
-
-typedef struct
-{
-    bool disableConnectivityTest;
-} IARM_BUS_NetSrvMgr_configurePNI_t;
-
-
-
-/*! Supported values are NONE - 0, WPA - 1, WEP - 2*/
-typedef enum _SsidSecurity
-{
-    NET_WIFI_SECURITY_NONE = 0,
-    NET_WIFI_SECURITY_WEP_64,
-    NET_WIFI_SECURITY_WEP_128,
-    NET_WIFI_SECURITY_WPA_PSK_TKIP,
-    NET_WIFI_SECURITY_WPA_PSK_AES,
-    NET_WIFI_SECURITY_WPA2_PSK_TKIP,
-    NET_WIFI_SECURITY_WPA2_PSK_AES,
-    NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP,
-    NET_WIFI_SECURITY_WPA_ENTERPRISE_AES,
-    NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,
-    NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES,
-    NET_WIFI_SECURITY_WPA_WPA2_PSK,
-    NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE,
-    NET_WIFI_SECURITY_WPA3_PSK_AES,
-    NET_WIFI_SECURITY_WPA3_SAE,
-    NET_WIFI_SECURITY_NOT_SUPPORTED = 99,
-} SsidSecurity;
-
-
-/*! Event states associated with WiFi connection  */
-typedef enum _WiFiStatusCode_t {
-    WIFI_UNINSTALLED,        /**< The device was in an installed state, and was uninstalled */
-    WIFI_DISABLED,           /**< The device is installed (or was just installed) and has not yet been enabled */
-    WIFI_DISCONNECTED,       /**< The device is not connected to a network */
-    WIFI_PAIRING,            /**< The device is not connected to a network, but not yet connecting to a network */
-    WIFI_CONNECTING,         /**< The device is attempting to connect to a network */
-    WIFI_CONNECTED,          /**< The device is successfully connected to a network */
-    WIFI_FAILED              /**< The device has encountered an unrecoverable error with the wifi adapter */
-} WiFiStatusCode_t;
-
-/*! Error code: A recoverable, unexpected error occurred,
- * as defined by one of the following values */
-typedef enum _WiFiErrorCode_t {
-    WIFI_SSID_CHANGED,              /**< The SSID of the network changed */
-    WIFI_CONNECTION_LOST,           /**< The connection to the network was lost */
-    WIFI_CONNECTION_FAILED,         /**< The connection failed for an unknown reason */
-    WIFI_CONNECTION_INTERRUPTED,    /**< The connection was interrupted */
-    WIFI_INVALID_CREDENTIALS,       /**< The connection failed due to invalid credentials */
-    WIFI_NO_SSID,                   /**< The SSID does not exist */
-    WIFI_UNKNOWN,                   /**< Any other error */
-    WIFI_AUTH_FAILED                /**< The connection failed due to auth failure */
-} WiFiErrorCode_t;
-
-typedef enum _WiFiLNFState_t {
-    LNF_SSID_CONNECTED,                    /**< Connected to the LNF network */
-    LNF_SSID_CONNECT_FAILED,               /**< failed connect to the LNF network */
-    LNF_ENDPOINT_BACKOFF_TIME,             /**< lnf in last requested backoff time */
-    LNF_ENDPOINT_CONNECTED,                /**< lnf connected to end point and get the LFAT */
-    LNF_RECEIVED_PRIVATE_SSID_INFO,        /**< lnf process Got private cridential*/
-    LNF_SWITCHING_TO_PRIVATE,              /**< lnf connected to private*/
-    LNF_SSID_DISCONNECTED,                 /**< disconnected form lnf ssid */
-    LNF_ERROR                              /**< common lnf error replay from lnf library */
-} WiFiLNFState_t;
-
-typedef struct _IARM_Bus_WiFiSrvMgr_WPS_Parameters_t
-{
-    bool pbc;
-    char pin[9];
-    bool status;
-} IARM_Bus_WiFiSrvMgr_WPS_Parameters_t;
-
-
-/*! LNF states  */
-typedef enum _WiFiLNFStatusCode_t {
-    LNF_UNITIALIZED,                       /**< Network manager hasn't started the LNF process */
-    LNF_IN_PROGRESS,                       /**< Network manager has started LNF, and waiting for operation to complete */
-    CONNECTED_LNF,                         /**< Connected to the LNF network */
-    CONNECTED_PRIVATE,                     /** Connected to a network that is not LNF */
-    DISCONNECTED_NO_LNF_GATEWAY_DETECTED,  /**< unable to connect to LNF network */
-    DISCONNECTED_GET_LFAT_FAILED,          /**< client wasn't able to acquire an LFAT */
-    DISCONNECTED_CANT_CONNECT_TO_PRIVATE // client could obtain LFAT, but couldn't connect to private network */
-                    /**< The device has encountered an unrecoverable error with the wifi adapter */
-} WiFiLNFStatusCode_t;
-
-
-typedef struct _setWiFiAdapter
-{
-    bool enable;
-} setWiFiAdapter;
-
-typedef struct _WiFiConnection
-{
-    char ssid[SSID_SIZE];
-    char bssid[BSSID_BUFF];
-    char security[BUFF_LENGTH_64];
-    char passphrase[PASSPHRASE_BUFF];
-    SsidSecurity security_mode;
-    char security_WEPKey[PASSPHRASE_BUFF];
-    char security_PSK[PASSPHRASE_BUFF];
-    char eapIdentity[BUFF_LENGTH_256];
-    char carootcert[MAX_FILE_PATH_LEN];
-    char clientcert[MAX_FILE_PATH_LEN];
-    char privatekey[MAX_FILE_PATH_LEN];
-    bool persistSSIDInfo;
-} WiFiConnection;
-
-typedef struct _WiFiConnectedSSIDInfo
-{
-    char ssid[SSID_SIZE];     /**< The name of connected SSID. */
-    char bssid[BSSID_BUFF];   /**< The the Basic Service Set ID (mac address). */
-    char band[BUFF_MIN];      /**< The frequency band at which the client is conneted to. */
-    int securityMode;         /**< Current WiFi Security Mode used for connection. */
-    int  frequency;           /**< The Frequency wt which the client is connected to. */
-    float rate;               /**< The Physical data rate in Mbps */
-    float noise;              /**< The average noise strength in dBm. */
-    float signalStrength;     /**< The RSSI value in dBm. */
-
-} WiFiConnectedSSIDInfo_t;
-
-typedef struct _WiFiPairedSSIDInfo
-{
-    char ssid[SSID_SIZE];      /**< The name of connected SSID. */
-    char bssid[BSSID_BUFF];    /**< The the Basic Service Set ID (mac address). */
-    char security[BUFF_LENGTH_64];    /**< security of AP */
-    SsidSecurity secMode;
-} WiFiPairedSSIDInfo_t;
-
-
-typedef enum _WiFiConnectionTypeCode_t {
-    WIFI_CON_UNKNOWN,
-    WIFI_CON_WPS,
-    WIFI_CON_MANUAL,
-    WIFI_CON_LNF,
-    WIFI_CON_PRIVATE,
-    WIFI_CON_MAX,
-} WiFiConnectionTypeCode_t;
-
-
-typedef struct _IARM_Bus_WiFiSrvMgr_Param_t {
-    union {
-        WiFiLNFStatusCode_t wifiLNFStatus;
-        WiFiStatusCode_t wifiStatus;
-        setWiFiAdapter setwifiadapter;
-        WiFiConnection connect;
-        WiFiConnection saveSSID;
-        WiFiConnection clearSSID;
-        WiFiConnectedSSIDInfo_t getConnectedSSID;
-        WiFiPairedSSIDInfo_t getPairedSSIDInfo;
-        WiFiConnectionTypeCode_t connectionType;
-        struct getPairedSSID {
-            char ssid[SSID_SIZE];
-        } getPairedSSID;
-        bool isPaired;
-    } data;
-    bool status;
-} IARM_Bus_WiFiSrvMgr_Param_t;
-
-typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
-   union {
-        char activeIface[INTERFACE_SIZE];
-        char allNetworkInterfaces[INTERFACE_LIST];
-        char setInterface[INTERFACE_SIZE];
-        char activeIfaceIpaddr[MAX_IP_ADDRESS_LEN];
-        };
-   char interfaceCount;
-   bool isInterfaceEnabled;
-   bool persist;
-   char ipfamily[MAX_IP_FAMILY_SIZE];
-} IARM_BUS_NetSrvMgr_Iface_EventData_t;
-
-typedef struct _IARM_BUS_WiFiSrvMgr_EventData_t {
-    union {
-        struct _WIFI_STATECHANGE_DATA {
-            WiFiStatusCode_t state;
-        } wifiStateChange;
-        struct _WIFI_ERROR {
-            WiFiErrorCode_t code;
-        } wifiError;
-        struct _WIFI_SSID_LIST {
-            char ssid_list[MAX_SSIDLIST_BUF];
-            bool more_data;
-        } wifiSSIDList;
-        struct _WIFI_LNF_STATE {
-            WiFiLNFState_t state;
-            float backOffTime;
-        }wifilnfState;
-    } data;
-} IARM_BUS_WiFiSrvMgr_EventData_t;
-
-typedef struct _wifiSsidData_t {
-    char jdata[MAX_SSIDLIST_BUF];    /**< Buffer containing the serialized data. */
-    size_t jdataLen;                 /**< Length of the data buffer. */
-} wifiSsidData_t;
-
-typedef struct _IARM_Bus_WiFiSrvMgr_SsidList_Param_t {
-    wifiSsidData_t curSsids;
-    bool status;
-} IARM_Bus_WiFiSrvMgr_SsidList_Param_t;
-
-
-#define IARM_BUS_NETSRVMGR_API_getInterfaceList             "getInterfaceList"
-#define IARM_BUS_NETSRVMGR_API_getDefaultInterface          "getDefaultInterface"
-#define IARM_BUS_NETSRVMGR_API_setDefaultInterface          "setDefaultInterface"
-#define IARM_BUS_NETSRVMGR_API_isInterfaceEnabled           "isInterfaceEnabled"
-#define IARM_BUS_NETSRVMGR_API_setInterfaceEnabled          "setInterfaceEnabled"
-#define IARM_BUS_NETSRVMGR_API_setIPSettings                "setIPSettings"
-#define IARM_BUS_NETSRVMGR_API_getIPSettings                "getIPSettings"
-#define IARM_BUS_NETSRVMGR_API_isAvailable                  "isAvailable"
-#define IARM_BUS_WIFI_MGR_API_getAvailableSSIDsAsync        "getAvailableSSIDsAsync"        /**< Retrieve array of strings representing SSIDs */
-#define IARM_BUS_WIFI_MGR_API_getAvailableSSIDsAsyncIncr    "getAvailableSSIDsAsyncIncr"    /**< Retrieve array of strings representing SSIDs in an incremental way */
-#define IARM_BUS_WIFI_MGR_API_stopProgressiveWifiScanning   "stopProgressiveWifiScanning"   /**< Stop any in-progress wifi progressive scanning thread */
-#define IARM_BUS_WIFI_MGR_API_initiateWPSPairing2           "initiateWPSPairing2"           /**< Initiate connection via WPS via either Push Button or PIN */
-#define IARM_BUS_WIFI_MGR_API_cancelWPSPairing              "cancelWPSPairing"              /**< Cancel in-progress WPS */
-#define IARM_BUS_WIFI_MGR_API_getConnectedSSID              "getConnectedSSID"              /**< Return properties of the currently connected SSID */
-#define IARM_BUS_WIFI_MGR_API_saveSSID                      "saveSSID"                      /**< Save SSID and passphrase */
-#define IARM_BUS_WIFI_MGR_API_clearSSID                     "clearSSID"                     /**< Clear given SSID */
-#define IARM_BUS_WIFI_MGR_API_connect                       "connect"                       /**< Connect with given or saved SSID and passphrase */
-#define IARM_BUS_WIFI_MGR_API_disconnectSSID                "disconnectSSID"                /**< Disconnect from current SSID */
-#define IARM_BUS_WIFI_MGR_API_getCurrentState               "getCurrentState"               /**< Retrieve current state */
 
 namespace WPEFramework
 {
@@ -467,6 +126,35 @@ namespace WPEFramework
             return 0; /* WIFI_SECURITY_NONE */
         }
 
+        static bool alreadySentRecently(std::string &interface)
+        {
+            // Use std::chrono::steady_clock for measuring elapsed time.
+            // steady_clock is monotonic and not affected by system time changes (e.g., NTP synchronization),
+            // ensuring timing is reliable even if the system clock is adjusted.
+            static std::chrono::steady_clock::time_point eth_last_time = std::chrono::steady_clock::time_point{};
+            static std::chrono::steady_clock::time_point wlan_last_time = std::chrono::steady_clock::time_point{};
+            auto now = std::chrono::steady_clock::now();
+
+            if (interface == "eth0")
+            {
+                if (eth_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - eth_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                eth_last_time = now;
+            }
+            else if (interface == "wlan0")
+            {
+                if (wlan_last_time != std::chrono::steady_clock::time_point{} &&
+                    std::chrono::duration_cast<std::chrono::milliseconds>(now - wlan_last_time).count() < 500) { // 500 milliseconds threshold
+                    return true;
+                }
+                wlan_last_time = now;
+            }
+
+            return false;
+        }
+
         void NetworkManagerInternalEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
         {
             LOG_ENTRY_FUNCTION();
@@ -523,6 +211,11 @@ namespace WPEFramework
                         if(interface == "eth0" || interface == "wlan0") {
                             string ipversion("IPv4");
                             Exchange::INetworkManager::IPStatus status = Exchange::INetworkManager::IP_LOST;
+                            if(!e->is_ipv6 && alreadySentRecently(interface))
+                            {
+                                NMLOG_INFO("Already sent recently, skipping IP address change event for %s", interface.c_str());
+                                break;
+                            }
 
                             if (e->is_ipv6)
                                 ipversion = "IPv6";
@@ -674,25 +367,22 @@ namespace WPEFramework
         {
             // check the connection state and post event
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
-            Exchange::INetworkManager::IInterfaceDetailsIterator* _tmpInterfaces{};
             uint32_t rc = GetAvailableInterfaces(_interfaces);
-            _tmpInterfaces = _interfaces;
             size_t interfaceCount = 0;
-            Exchange::INetworkManager::InterfaceDetails tmpIface{};
-
-            while (_tmpInterfaces->Next(tmpIface))
-            {
-                if(tmpIface.enabled && tmpIface.connected)
-                {
-                    interfaceCount++;
-                }
-            }
+            Exchange::INetworkManager::InterfaceDetails iface{};
 
             if (Core::ERROR_NONE == rc)
             {
                 if (_interfaces != nullptr)
                 {
-                    Exchange::INetworkManager::InterfaceDetails iface{};
+                    while (_interfaces->Next(iface))
+                    {
+                        if(iface.enabled && iface.connected)
+                        {
+                            interfaceCount++;
+                        }
+                    }
+                    _interfaces->Reset(0);
                     while (_interfaces->Next(iface) == true)
                     {
                         if((interfaceCount == 2 && "eth0" == iface.name) || interfaceCount == 1)
@@ -741,6 +431,13 @@ namespace WPEFramework
         {
             // TODO set the netsrvmgr logLevel
             return;
+        }
+
+                /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            // TODO: Implement setting the DHCP hostname for netsrvmgr
+            return Core::ERROR_NONE;
         }
 
         void NetworkManagerImplementation::platform_init()
@@ -885,38 +582,6 @@ namespace WPEFramework
             else
             {
                 NMLOG_ERROR ("Call to %s for %s failed", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface);
-            }
-            return rc;
-        }
-
-        /* @brief Set the active Interface used for external world communication */
-        uint32_t NetworkManagerImplementation::SetPrimaryInterface (const string& interface/* @in */)
-        {
-            LOG_ENTRY_FUNCTION();
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_BUS_NetSrvMgr_Iface_EventData_t iarmData = { 0 };
-            iarmData.persist = true;
-
-            /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
-            //TODO: Fix netsrvmgr to accept eth0 & wlan0
-            if ("wlan0" == interface)
-                strncpy(iarmData.setInterface, "WIFI", INTERFACE_SIZE);
-            else if ("eth0" == interface)
-                strncpy(iarmData.setInterface, "ETHERNET", INTERFACE_SIZE);
-            else
-            {
-                rc = Core::ERROR_BAD_REQUEST;
-                return rc;
-            }
-
-            if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface, (void *)&iarmData, sizeof(iarmData)))
-            {
-                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface);
-                rc = Core::ERROR_NONE;
-            }
-            else
-            {
-                NMLOG_ERROR ("Call to %s for %s failed", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setDefaultInterface);
             }
             return rc;
         }
@@ -1385,6 +1050,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     ssid.client_cert.copy(param.data.connect.clientcert, sizeof(param.data.connect.clientcert) - 1);
                 if(!ssid.private_key.empty())
                     ssid.private_key.copy(param.data.connect.privatekey, sizeof(param.data.connect.privatekey) - 1);
+                if(!ssid.private_key_passwd.empty())
+                {
+                    ssid.private_key_passwd.copy(param.data.connect.privatekeypasswd, sizeof(param.data.connect.privatekeypasswd) - 1);
+                }
                 param.data.connect.persistSSIDInfo = ssid.persist;
             }
 
@@ -1444,10 +1113,19 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
                 ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
                 ssidInfo.rate             = to_string((int)connectedSsid.rate);
-                if(connectedSsid.noise <= 0 && connectedSsid.noise >= DEFAULT_NOISE)
-                    ssidInfo.noise        = to_string((int)connectedSsid.noise);
+
+                if(((int) connectedSsid.noise >= 0) || ((int) connectedSsid.noise < DEFAULT_NOISE))
+                {
+                    NMLOG_DEBUG ("Received Noise (%f) from wifi driver is not valid; so clamping it", connectedSsid.noise);
+                    if (connectedSsid.noise >= 0) {
+                        ssidInfo.noise = std::to_string(0);
+                    }
+                    else if (connectedSsid.noise < DEFAULT_NOISE) {
+                        ssidInfo.noise = std::to_string(DEFAULT_NOISE);
+                    }
+                }
                 else
-                    ssidInfo.noise        = to_string(0);
+                    ssidInfo.noise = std::to_string((int)connectedSsid.noise);
 
                 std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
                 ssidInfo.frequency        = freqStr.substr(0, 5);
@@ -1584,7 +1262,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            IARM_Result_t retVal = IARM_RESULT_SUCCESS;
             IARM_Bus_WiFiSrvMgr_Param_t param;
             memset(&param, 0, sizeof(param));
 

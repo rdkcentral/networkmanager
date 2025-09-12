@@ -32,6 +32,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        extern NetworkManagerImplementation* _instance;
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
@@ -59,6 +60,8 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+            connectivityMonitor.stopConnectivityMonitor();
+            _instance = nullptr;
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
@@ -116,29 +119,19 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::Configure(PluginHost::IShell* service)
+        uint32_t NetworkManagerImplementation::Configure(const string configLine)
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
-            if (service)
+            if(configLine.empty())
             {
-                string configLine = service->ConfigLine();
-                if(configLine.empty())
-                {
-                    NMLOG_FATAL("config line : is empty !");
-                    return Core::ERROR_GENERAL;
-                }
-                else
-                {
-                    NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
-                    config.FromString(configLine);
-                }
+                NMLOG_FATAL("config line : is empty !");
+                return Core::ERROR_GENERAL;
             }
             else
             {
-                NMLOG_FATAL("Service is NULL!");
-                return Core::ERROR_GENERAL;
-
+                NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                config.FromString(configLine);
             }
 
             NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
@@ -213,6 +206,19 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
         {
             LOG_ENTRY_FUNCTION();
+
+            // If no parameters are provided, return error
+            if (endpoint.empty() && port == 0 && bindTimeout == 0 && cacheTimeout == 0) {
+                NMLOG_WARNING("No parameters provided to update STUN Endpoint");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            // If port is provided but is 0, reject as invalid
+            if (port == 0 && !endpoint.empty()) {
+                NMLOG_WARNING("Invalid STUN port: 0");
+                return Core::ERROR_BAD_REQUEST;
+            }
+
             if (!endpoint.empty())
                 m_stunEndpoint = endpoint;
 
@@ -260,7 +266,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Get Internet Connectivty Status */ 
+        /* @brief Get Internet Connectivty Status */
         uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
         {
             LOG_ENTRY_FUNCTION();
@@ -300,7 +306,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Get Authentication URL if the device is behind Captive Portal */ 
+        /* @brief Get Authentication URL if the device is behind Captive Portal */
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
@@ -338,6 +344,7 @@ namespace WPEFramework
             }
             else
             {
+                NMLOG_ERROR("stun bind failed for endpoint %s:%d", m_stunEndpoint.c_str(), m_stunPort);
                 return Core::ERROR_GENERAL;
             }
         }
@@ -363,18 +370,23 @@ namespace WPEFramework
 
         /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
-        {   
+        {
             char cmd[100] = "";
             string tempResult = "";
+            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
+            {
+                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
-            {   
+            {
                 snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
             else
-            {   
+            {
                 snprintf(cmd, sizeof(cmd), "ping  -c %d -W %d -i 0.2 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
             }
-            
+
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_PING, commandToExecute, tempResult);
@@ -392,6 +404,11 @@ namespace WPEFramework
         {
             char cmd[256] = "";
             string tempResult = "";
+            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
+            {
+                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
+                return Core::ERROR_BAD_REQUEST;
+            }
             if(0 == strcasecmp("IPv6", ipversion.c_str()))
             {
                 snprintf(cmd, 256, "traceroute6 -w 3 -m 6 -q %d %s 64 2>&1", noOfRequest, endpoint.c_str());
@@ -423,7 +440,7 @@ namespace WPEFramework
 
             pipe = popen(commandToExecute.c_str(), "r");
             if (pipe == NULL)
-            {   
+            {
                 NMLOG_INFO ("%s: failed to open file '%s' for read mode with result: %s", __FUNCTION__, commandToExecute.c_str(), strerror(errno));
                 return;
             }
@@ -605,9 +622,11 @@ namespace WPEFramework
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
             {
-                connectivityMonitor.switchToInitialCheck();
                 if(interface == "eth0")
                     m_ethConnected.store(true);
+                else if(interface == "wlan0")
+                    m_wlanConnected = true;
+                connectivityMonitor.switchToInitialCheck();
             }
 
             _notificationLock.Lock();
@@ -772,10 +791,12 @@ namespace WPEFramework
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
                     if (key == "bssid") {
                         bssid = value;
                         break;
                     }
+                }
             }
             pclose(fp);
 
@@ -791,6 +812,7 @@ namespace WPEFramework
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
                     if (key == "level") {
                         strength = value;
                     }
@@ -805,6 +827,7 @@ namespace WPEFramework
                     }
                     if (!strength.empty() && !noise.empty() && !ssid.empty() && !snr.empty())
                         break;
+                }
             }
             pclose(fp);
 
@@ -819,11 +842,16 @@ namespace WPEFramework
             readNoise = std::stoi(noise);
             readSnr = std::stoi(snr);
 
-            /* Check the Noise is within range */
-            if(!(readNoise < 0 && readNoise >= DEFAULT_NOISE))
+            /* Check the Noise is within range between 0 and -96 dbm*/
+            if((readNoise >= 0) || (readNoise < DEFAULT_NOISE))
             {
-                NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
-                noise = "0";
+                NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
+                if (readNoise >= 0) {
+                    noise = std::to_string(0);
+                }
+                else if (readNoise < DEFAULT_NOISE) {
+                    noise = std::to_string(DEFAULT_NOISE);
+                }
             }
 
             /* mapping rssi value when the SNR value is not proper */

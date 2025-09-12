@@ -198,8 +198,6 @@ namespace WPEFramework
 
             /* @brief Get the Primary Interface used for external world communication */
             virtual uint32_t GetPrimaryInterface (string& interface /* @out */) = 0;
-            /* @brief Set the Primary Interface used for external world communication */
-            virtual uint32_t SetPrimaryInterface (const string& interface/* @in */) = 0;
 
             /* @brief Enable/Disable the given interface */
             virtual uint32_t SetInterfaceState (const string& interface /* @in */, const bool enabled /* @in */) = 0;
@@ -235,6 +233,8 @@ namespace WPEFramework
             /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
             virtual uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t nqueries /* @in */, const string guid /* @in */, string& response /* @out */) = 0;
 
+            /* @brief Set the dhcp hostname */
+            virtual uint32_t SetHostname(const string& hostname /* @in */) = 0;
 
             // WiFi Specific Methods
             /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
@@ -260,7 +260,7 @@ namespace WPEFramework
             virtual uint32_t GetLogLevel(Logging& level /* @out */) = 0;
 
             /* @brief Configure the Network Manager plugin */
-            virtual uint32_t Configure(PluginHost::IShell* service /* @in */) = 0;
+            virtual uint32_t Configure(const string configLine/* @in */) = 0;
 
             /* @event */
             struct EXTERNAL INotification : virtual public Core::IUnknown
