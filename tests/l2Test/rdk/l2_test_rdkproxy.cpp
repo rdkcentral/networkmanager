@@ -83,7 +83,7 @@ protected:
                 " \"autostart\":false," 
                 " \"configuration\":{"
                 "  \"root\":{"
-                "   \"outofprocess\":true,"
+                "   \"outofprocess\":false,"
                 "   \"locator\":\"libWPEFrameworkNetworkManagerImpl.so\""
                 "  },"
                 "  \"connectivity\":{"
