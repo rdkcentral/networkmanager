@@ -635,6 +635,21 @@ namespace WPEFramework
                 callback->onInterfaceStateChange(state, interface);
             }
             _notificationLock.Unlock();
+
+            std::string ipVersion = "IPv4";
+            string interfaceStr = interface;
+            if(interface == "eth0")
+            {
+                ethIPv4Address = {};
+                NMLOG_INFO("------- calling GetIPSettings eth0----------------\n");
+                GetIPSettings(interfaceStr, ipVersion, ethIPv4Address);
+            }
+            else if(interface == "wlan0")
+            {
+                wlanIPv4Address = {};
+                NMLOG_INFO("------- calling GetIPSettings wlan0----------------\n");
+                GetIPSettings(interfaceStr, ipVersion, wlanIPv4Address);
+            }
         }
 
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
@@ -682,6 +697,20 @@ namespace WPEFramework
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
             _notificationLock.Unlock();
+            std::string ipVersion = "IPv4";
+            string interfaceStr = interface;
+            if(interface == "eth0")
+            {
+                ethIPv4Address = {};
+                NMLOG_INFO("------- calling GetIPSettings eth0----------------\n");
+                GetIPSettings(interfaceStr, ipVersion, ethIPv4Address);
+            }
+            else if(interface == "wlan0")
+            {
+                wlanIPv4Address = {};
+                NMLOG_INFO("------- calling GetIPSettings wlan0----------------\n");
+                GetIPSettings(interfaceStr, ipVersion, wlanIPv4Address);
+            }
         }
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)

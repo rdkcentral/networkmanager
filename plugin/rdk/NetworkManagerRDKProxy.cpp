@@ -684,6 +684,38 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = { 0 };
+            string ipversionStr;
+
+            if("IPv6" != ipversion)
+            {
+                if(interface.empty())
+                {
+                    interface = m_defaultInterface;
+                }
+                if(ipversion.empty())
+                {
+                    ipversionStr = "IPv4"; 
+                }
+                else
+                {
+                    ipversionStr = ipversion;
+                }
+                if ("wlan0" == interface && "IPv4" == ipversionStr && !wlanIPv4Address.ipaddress.empty())
+                {
+                    address = wlanIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if ("eth0" == interface && "IPv4" == ipversionStr && !ethIPv4Address.ipaddress.empty())
+                {
+                    address = ethIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else
+                {
+                    NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
+                    return Core::ERROR_NOT_SUPPORTED;
+                }
+            }
             /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
             //TODO: Fix netsrvmgr to accept eth0 & wlan0
             if ("wlan0" == interface)
@@ -738,6 +770,10 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
             }
+            if("eth0" == interface)
+                ethIPv4Address = address;
+            else if("wlan0" == interface)
+                wlanIPv4Address = address;
 
             return rc;
         }

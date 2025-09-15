@@ -307,6 +307,8 @@ namespace WPEFramework
                 std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
+                IPAddress ethIPv4Address;
+                IPAddress wlanIPv4Address;
 
             public:
                 std::atomic<bool> m_ethConnected;
