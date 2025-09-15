@@ -612,11 +612,18 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
             {
-                if(interface == "eth0")
+                if(interface == "eth0") {
                     m_ethConnected.store(false);
-                else if(interface == "wlan0")
+                    if(m_wlanConnected.load()) // If WiFi is connected, make it default interface
+                        m_defaultInterface = "wlan0";
+                }
+                else if(interface == "wlan0") {
                     m_wlanConnected.store(false);
-                connectivityMonitor.switchToInitialCheck();
+                    if(m_ethConnected.load()) // If Ethernet is connected, make it default interface
+                        m_defaultInterface = "eth0";
+                }
+
+                connectivityMonitor.switchToInitialCheck(interface);
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
@@ -625,8 +632,9 @@ namespace WPEFramework
                 if(interface == "eth0")
                     m_ethConnected.store(true);
                 else if(interface == "wlan0")
-                    m_wlanConnected = true;
-                connectivityMonitor.switchToInitialCheck();
+                    m_wlanConnected.store(true);
+                // connectivityMonitor.switchToInitialCheck();
+                // FIXME : Availability of interface does not mean that it has internet connection, so not triggering connectivity monitor check here.
             }
 
             _notificationLock.Lock();
@@ -673,7 +681,7 @@ namespace WPEFramework
                 else
                     m_defaultInterface = interface;
 
-                connectivityMonitor.switchToInitialCheck();
+                connectivityMonitor.switchToInitialCheck(interface);
             }
 
             _notificationLock.Lock();

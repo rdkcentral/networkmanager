@@ -286,7 +286,6 @@ namespace WPEFramework
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
                 Core::CriticalSection _notificationLock;
-                string m_defaultInterface;
                 string m_publicIP;
                 stun::client stunClient;
                 string m_stunEndpoint;
@@ -311,6 +310,7 @@ namespace WPEFramework
             public:
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
+                string m_defaultInterface;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
