@@ -3,7 +3,7 @@ startuporder = "@PLUGIN_NETWORKMANAGER_STARTUPORDER@"
 autostart = "true"
 
 process= JSON()
-process.add("outofprocess", "false")
+process.add("outofprocess", "true")
 process.add("locator", "lib@MODULE_IMPL_NAME@.so")
 
 connectivity = JSON()
