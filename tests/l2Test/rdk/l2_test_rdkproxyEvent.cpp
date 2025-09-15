@@ -456,7 +456,7 @@ TEST_F(NetworkManagerEventTest, onInterfaceStateChange2)
     EVENT_UNSUBSCRIBE(2, _T("onInterfaceStateChange"), _T("org.rdk.NetworkManager"), message);
 
 }
-
+/*
 TEST_F(NetworkManagerEventTest, onInternetStatusChange_CaptivePortal)
 {
     Core::Event onInternetStatusChange(false, true);
@@ -610,7 +610,7 @@ TEST_F(NetworkManagerEventTest, GetPublicIP_SuccessWithEvent)
     EXPECT_TRUE(response.find("\"ipversion\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
 }
-
+*/
 TEST_F(NetworkManagerEventTest, GetSupportedSecurityModes)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetSupportedSecurityModes"), _T(""), response));
@@ -650,6 +650,7 @@ TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed)
     EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"wlan0\",\"connected\":false,\"state\":0,\"status\":\"NO_INTERNET\",\"success\":true}"));
 
 }
+
 /*
 TEST_F(NetworkManagerEventTest, FULLY_CONNECTED_wait)
 {

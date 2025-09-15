@@ -150,7 +150,7 @@ namespace WPEFramework
         const std::lock_guard<std::mutex> lock(m_endpointMutex);
         return m_Endpoints;
     }
-
+#if 0
     bool DnsResolver::resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion)
     {
         struct addrinfo sockAddrProps, *resultAddr= NULL;
@@ -236,7 +236,7 @@ namespace WPEFramework
                 break;
         }
     }
-
+#endif
     static void getDeviceModel(std::string& modelNum, std::string& buildVersion)
     {
         const std::string filePath = "/etc/device.properties";

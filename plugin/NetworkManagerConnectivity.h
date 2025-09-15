@@ -56,7 +56,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-
+#if 0
         class DnsResolver
         {
             public:
@@ -71,7 +71,7 @@ namespace WPEFramework
                 std::string convertUrIToDomainName(std::string& url);
                 bool resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion);
         };
-
+#endif
         /*
          * Save user specific endpoint into a cache file and load from the file 
          * if endpoints are empty in case plugin is restarted.
