@@ -684,62 +684,96 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = { 0 };
-            /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
-            //TODO: Fix netsrvmgr to accept eth0 & wlan0
-            if ("wlan0" == interface)
-                strncpy(iarmData.interface, "WIFI", INTERFACE_SIZE);
-            else if ("eth0" == interface)
-                strncpy(iarmData.interface, "ETHERNET", INTERFACE_SIZE);
-            else if (!interface.empty())
+            string ipversionStr;
+
+            if("IPv6" != ipversion && (!ethIPv4Address.ipaddress.empty() || !wlanIPv4Address.ipaddress.empty()))
             {
-                NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
-                return Core::ERROR_NOT_SUPPORTED;
-            }
-
-            if (("IPv4" == ipversion) || ("IPv6" == ipversion))
-                sprintf(iarmData.ipversion,"%s", ipversion.c_str());
-
-            iarmData.isSupported = true;
-
-            if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
-            {
-                address.autoconfig     = iarmData.autoconfig;
-                address.dhcpserver     = string(iarmData.dhcpserver);
-                address.ula            = string("");
-                address.ipaddress      = string(iarmData.ipaddress);
-                address.gateway        = string(iarmData.gateway);
-                address.primarydns     = string(iarmData.primarydns);
-                address.secondarydns   = string(iarmData.secondarydns);
-                if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                if(interface.empty())
                 {
-                    address.ipversion = string ("IPv4");
-                    address.prefix = NetmaskToPrefix(iarmData.netmask);
+                    interface = m_defaultInterface;
                 }
-                else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                if(ipversion.empty())
                 {
-                    address.ipversion = string ("IPv6");
-                    address.prefix = std::atoi(iarmData.netmask);
+                    ipversionStr = "IPv4"; 
                 }
-
-                rc = Core::ERROR_NONE;
-                /* Return the default interface information */
-                if (interface.empty())
+                else
                 {
-                    string tmpInterface = string(iarmData.interface);
-                    if ("ETHERNET" == tmpInterface)
-                        interface = "eth0";
-                    else if ("WIFI" == tmpInterface)
-                        interface = "wlan0";
-                    else
-                        rc = Core::ERROR_BAD_REQUEST;
+                    ipversionStr = ipversion;
                 }
+                if ("wlan0" == interface && "IPv4" == ipversionStr)
+                    address = wlanIPv4Address;
+                else if ("eth0" == interface && "IPv4" == ipversionStr)
+                    address = ethIPv4Address;
+                else
+                {
+                    NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
+                    return Core::ERROR_NOT_SUPPORTED;
+                }
+                return Core::ERROR_NONE;
             }
             else
-            {
-                NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
-            }
+            { 
+                /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
+                //TODO: Fix netsrvmgr to accept eth0 & wlan0
+                if ("wlan0" == interface)
+                    strncpy(iarmData.interface, "WIFI", INTERFACE_SIZE);
+                else if ("eth0" == interface)
+                    strncpy(iarmData.interface, "ETHERNET", INTERFACE_SIZE);
+                else if (!interface.empty())
+                {
+                    NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
+                    return Core::ERROR_NOT_SUPPORTED;
+                }
 
-            return rc;
+                if (("IPv4" == ipversion) || ("IPv6" == ipversion))
+                    sprintf(iarmData.ipversion,"%s", ipversion.c_str());
+
+                iarmData.isSupported = true;
+
+                if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
+                {
+                    address.autoconfig     = iarmData.autoconfig;
+                    address.dhcpserver     = string(iarmData.dhcpserver);
+                    address.ula            = string("");
+                    address.ipaddress      = string(iarmData.ipaddress);
+                    address.gateway        = string(iarmData.gateway);
+                    address.primarydns     = string(iarmData.primarydns);
+                    address.secondarydns   = string(iarmData.secondarydns);
+                    if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv4");
+                        address.prefix = NetmaskToPrefix(iarmData.netmask);
+                    }
+                    else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv6");
+                        address.prefix = std::atoi(iarmData.netmask);
+                    }
+
+                    rc = Core::ERROR_NONE;
+                    /* Return the default interface information */
+                    if (interface.empty())
+                    {
+                        string tmpInterface = string(iarmData.interface);
+                        if ("ETHERNET" == tmpInterface)
+                            interface = "eth0";
+                        else if ("WIFI" == tmpInterface)
+                            interface = "wlan0";
+                        else
+                            rc = Core::ERROR_BAD_REQUEST;
+                    }
+                }
+                else
+                {
+                    NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
+                }
+                if("eth0" == interface)
+                    ethIPv4Address = address;
+                else if("wlan0" == interface)
+                    wlanIPv4Address = address;
+
+                return rc;
+            }
         }
 
 const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
