@@ -426,19 +426,24 @@ namespace WPEFramework
                         {
                             char *ip = NULL;
                             curl_easy_getinfo(msg->easy_handle, CURLINFO_PRIMARY_IP, &ip);
-                            if(ip && strchr(ip, ':'))
-                                ipversion = IP_ADDRESS_V6;
+                            if(ip != NULL) {
+                                if(strchr(ip, ':'))
+                                    ipversion = IP_ADDRESS_V6;
+                                else
+                                    ipversion = IP_ADDRESS_V4; //Fix Me: Error case handling if ip is NULL
+                                NMLOG_DEBUG("ipversion not specified, determined ipversion = %s", (ipversion == IP_ADDRESS_V6) ? "IPv6" : "IPv4");
+                            }
                             else
-                                ipversion = IP_ADDRESS_V4;
-                            NMLOG_INFO("curl resolved ip addr %s", ip ? ip : "unknown");
+                            {
+                                NMLOG_WARNING("could not determine it as curl primary ip is NULL");
+                            }
                         }
                     }
                 }
                 else
                 {
-                    NMLOG_ERROR("INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : For endpoint = <%s>, IpVer= (%s), interface = <%s> got curl error = %d (%s)",
+                    NMLOG_ERROR("INTERNET_CONNECTIVITY_MONITORING_CURL_ERROR : For endpoint = <%s>, interface = <%s> got curl error = %d (%s)",
                                                 endpntConf,
-                                                (IP_ADDRESS_V4 == ipversion) ?  "IPv4" : ((IP_ADDRESS_V6 == ipversion) ? "IPv6" : "unknown"),
                                                 interface.empty() ? "any" : interface.c_str(),
                                                 msg->data.result,
                                                 curl_easy_strerror(msg->data.result));

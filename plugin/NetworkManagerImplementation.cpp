@@ -612,18 +612,18 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
             {
-                if(interface == "eth0") {
+                if(interface == "eth0")
                     m_ethConnected.store(false);
-                    if(m_wlanConnected.load()) // If WiFi is connected, make it default interface
-                        m_defaultInterface = "wlan0";
-                }
-                else if(interface == "wlan0") {
+                else if(interface == "wlan0")
                     m_wlanConnected.store(false);
-                    if(m_ethConnected.load()) // If Ethernet is connected, make it default interface
-                        m_defaultInterface = "eth0";
-                }
 
                 connectivityMonitor.switchToInitialCheck(interface);
+
+                // If the default interface is going down, switch to the other one if its up
+                if(interface == "eth0" && m_wlanConnected.load())
+                        m_defaultInterface = "wlan0";
+                else if(interface == "wlan0" && m_ethConnected.load())
+                        m_defaultInterface = "eth0";
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
