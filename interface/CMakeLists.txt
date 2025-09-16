@@ -23,6 +23,7 @@ find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 find_package(ProxyStubGenerator REQUIRED)
 
+set(PROXYLIB ${NAMESPACE}${PROJECT_NAME}Proxy)
 set(ProxyStubGenerator_DIR ${CMAKE_SYSROOT}${CMAKE_INSTALL_PREFIX}/tools/cmake ${ProxyStubGenerator_DIR})
 
 if(NOT GENERATOR_SEARCH_PATH)
@@ -32,5 +33,27 @@ endif()
 file(GLOB INTERFACE_HEADER ${CMAKE_CURRENT_SOURCE_DIR})
 
 ProxyStubGenerator(INPUT "${INTERFACE_HEADER}" OUTDIR "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH})
+
+file(GLOB PROXY_STUB_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/generated/ProxyStubs*.cpp")
+
+add_library(${PROXYLIB} SHARED ${PROXY_STUB_SOURCES}
+                                ../plugin/Module.cpp)
+
+target_include_directories(${PROXYLIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../plugin/)
+
+target_link_libraries(${PROXYLIB} PRIVATE
+                                  ${NAMESPACE}Core::${NAMESPACE}Core
+                                  ${NAMESPACE}COM::${NAMESPACE}COM
+                                  CompileSettingsDebug::CompileSettingsDebug)
+
+set_target_properties(${PROXYLIB} PROPERTIES
+                                  CXX_STANDARD 11
+                                  CXX_STANDARD_REQUIRED YES
+                                  FRAMEWORK FALSE)
+
+string(TOLOWER ${NAMESPACE} NAMESPACE_LIB)
+
+install(TARGETS ${PROXYLIB} EXPORT ${PROXYLIB}Targets
+        LIBRARY DESTINATION lib/${NAMESPACE_LIB}/proxystubs COMPONENT libs)
 
 install(FILES INetworkManager.h  DESTINATION include/${NAMESPACE}/interfaces)

@@ -52,16 +52,12 @@ add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
-#Setting up source files
-file(GLOB PROXY_STUB_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/../interface/generated/ProxyStubs*.cpp")
-
 # Build the main plugin that runs inside the WPEFramework daemon
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
                             NetworkManagerLogger.cpp
-                            Module.cpp
-                            ${PROXY_STUB_SOURCES})
+                            Module.cpp)
 
 target_link_libraries(${MODULE_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
@@ -78,8 +74,7 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
-                            Module.cpp
-                            ${PROXY_STUB_SOURCES})
+                            Module.cpp)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
