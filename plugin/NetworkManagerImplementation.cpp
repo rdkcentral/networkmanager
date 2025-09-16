@@ -692,12 +692,12 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
             for (const auto callback : _notificationCallbacks) {
-                callback->onInternetStatusChange(prevState, currState);
+                callback->onInternetStatusChange(prevState, currState, interface);
             }
             _notificationLock.Unlock();
         }

@@ -652,7 +652,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("notifying internet state %s", getInternetStateString(newInternetState));
             Exchange::INetworkManager::InternetStatus newState = newInternetState;
-            _instance->ReportInternetStatusChange(oldState , newState);
+            _instance->ReportInternetStatusChange(oldState , newState, _instance->m_defaultInterface);
             m_InternetState = newInternetState;
             oldState = newState; // 'm_InternetState' not exactly previous state, it may change to unknow when interface changed
         }
