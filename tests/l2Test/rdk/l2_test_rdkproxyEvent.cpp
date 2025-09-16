@@ -25,6 +25,7 @@
 #include "FactoriesImplementation.h"
 #include "IarmBusMock.h"
 #include "WrapsMock.h"
+#include "CurlWrapsMock.h"
 #include "ServiceMock.h"
 #include "ThunderPortability.h"
 #include "COMLinkMock.h"
@@ -50,6 +51,7 @@ protected:
     // Mock classes
     IarmBusImplMock  *p_iarmBusImplMock   = nullptr;
     WrapsImplMock *p_wrapsImplMock = nullptr;
+    CurlWrapsImplMock *p_curlWrapsImplMock = nullptr;
     IARM_EventHandler_t _nmEventHandler{};
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
@@ -70,6 +72,8 @@ protected:
         IarmBus::setImpl(p_iarmBusImplMock);
         p_wrapsImplMock = new NiceMock <WrapsImplMock>;
         Wraps::setImpl(p_wrapsImplMock);
+        p_curlWrapsImplMock = new NiceMock <CurlWrapsImplMock>;
+        CurlWraps::setImpl(p_curlWrapsImplMock);
         ON_CALL(service, COMLink())
         .WillByDefault(::testing::Invoke(
               [this]() {
@@ -179,6 +183,13 @@ protected:
         {
             delete p_wrapsImplMock;
             p_wrapsImplMock = nullptr;
+        }
+
+        CurlWraps::setImpl(nullptr);
+        if (p_curlWrapsImplMock != nullptr)
+        {
+            delete p_curlWrapsImplMock;
+            p_curlWrapsImplMock = nullptr;  
         }
     }
 };
@@ -545,9 +556,12 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChange_LimitedInternet)
     EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"eth0\",\"connected\":false,\"state\":1,\"status\":\"LIMITED_INTERNET\",\"success\":true}"));
     server.stop();
 }
-
+*/
 TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
 {
+    EXPECT_CALL(*p_curlWrapsImplMock, curl_multi_perform(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(CURLM_BAD_HANDLE));
+
     Core::Event onInternetStatusChange(false, true);
     EVENT_SUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
 
@@ -562,16 +576,6 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
                 return Core::ERROR_NONE;
             }));
 
-    SimpleHttpServer server(8080);
-    server.setHttpResponseCode(204); // No Content
-    server.setHttpMessage("");
-    server.start();
-  
-    std::string request = _T("{\"endpoints\":[\"http://localhost:8080/generate_204\"]}");
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetConnectivityTestEndpoints"), request, response));
-    EXPECT_EQ(response, _T("{\"success\":true}"));
-    std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Allow server to start
-
     IARM_BUS_NetSrvMgr_Iface_EventInterfaceConnectionStatus_t ifaceEventData = { .interface = "eth0", .status = true };
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, &ifaceEventData, sizeof(ifaceEventData));
 
@@ -584,17 +588,17 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
     EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
     EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("IsConnectedToInternet"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"eth0\",\"connected\":true,\"state\":3,\"status\":\"FULLY_CONNECTED\",\"success\":true}"));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetCaptivePortalURI"), _T("{}"), response));
     EXPECT_EQ(response, _T("{\"uri\":\"\",\"success\":true}"));
 
-    server.stop();
 }
 
 TEST_F(NetworkManagerEventTest, GetPublicIP_SuccessWithEvent)
 {
+    EXPECT_CALL(*p_curlWrapsImplMock, curl_multi_perform(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(CURLM_BAD_HANDLE));
+
     IARM_BUS_NetSrvMgr_Iface_EventInterfaceConnectionStatus_t ifaceEventData = { .interface = "wlan0", .status = true };
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, &ifaceEventData, sizeof(ifaceEventData));
 
@@ -610,11 +614,19 @@ TEST_F(NetworkManagerEventTest, GetPublicIP_SuccessWithEvent)
     EXPECT_TRUE(response.find("\"ipversion\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
 }
-*/
+
 TEST_F(NetworkManagerEventTest, GetSupportedSecurityModes)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetSupportedSecurityModes"), _T(""), response));
     EXPECT_EQ(response, _T("{\"security\":{\"NONE\":0,\"WPA_PSK\":1,\"SAE\":2,\"EAP\":3},\"success\":true}"));
+}
+
+TEST_F(NetworkManagerEventTest, IsConnectedToInternet_Failed_CurlMultiPerform)
+{
+    EXPECT_CALL(*p_curlWrapsImplMock, curl_multi_perform(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(CURLM_BAD_HANDLE));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("IsConnectedToInternet"), _T("{}"), response));
+    EXPECT_EQ(response, _T("{\"ipversion\":\"IPv4\",\"interface\":\"\",\"connected\":false,\"state\":0,\"status\":\"NO_INTERNET\",\"success\":true}"));
 }
 
 

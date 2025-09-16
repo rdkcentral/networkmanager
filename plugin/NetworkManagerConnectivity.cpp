@@ -568,12 +568,14 @@ namespace WPEFramework
 
     Exchange::INetworkManager::InternetStatus ConnectivityMonitor::getInternetState(std::string& interface, Exchange::INetworkManager::IPVersion& ipversion, bool ipVersionNotSpecified)
     {
-        NMLOG_DEBUG("getInternetState specified interface %s", interface.c_str());
         uint8_t ipversionLocal = static_cast<uint8_t>(ipVersionNotSpecified ? 2 : ipversion); // 2 = both, 0 = IPv4, 1 = IPv6
 
         // if ipversion not specified, check both IP versions and determine it based on the resolved IP address
         TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
                 NMCONNECTIVITY_CURL_HEAD_REQUEST, ipversionLocal, interface);
+
+        if (interface.empty())
+            interface = _instance->m_defaultInterface;
 
         return testInternet.getInternetState();
     }
