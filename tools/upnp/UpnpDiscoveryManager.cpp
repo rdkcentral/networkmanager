@@ -172,28 +172,28 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
         m_gatewayDetails << m_apModelName << "," << m_apModelNumber;
     }
     logTelemetry(m_gatewayDetails.str()); 
-	// If router make/modelName/modelNumber is not available, log all other available router details
+    // If router make/modelName/modelNumber is not available, log all other available router details
     if ((m_apMake == "Unknown") || (m_apModelName == "Unknown") || (m_apModelNumber == "Unknown"))
     {
         const char* location = gupnp_device_info_get_location(GUPNP_DEVICE_INFO(proxy));
         if (location != NULL)
             LOG_INFO("Location URL: %s", location);
-        const char* name = gupnp_device_info_get_friendly_name(GUPNP_DEVICE_INFO(proxy));
+        char* name = gupnp_device_info_get_friendly_name(GUPNP_DEVICE_INFO(proxy));
         if (name != NULL)
             LOG_INFO("Friendly name: %s", name);
-        const char* manuUrl = gupnp_device_info_get_manufacturer_url(GUPNP_DEVICE_INFO(proxy));
+        char* manuUrl = gupnp_device_info_get_manufacturer_url(GUPNP_DEVICE_INFO(proxy));
         if (manuUrl != NULL)
             LOG_INFO("Manufacturer URL: %s", manuUrl);
-        const char* modelDes = gupnp_device_info_get_model_description(GUPNP_DEVICE_INFO(proxy));
+        char* modelDes = gupnp_device_info_get_model_description(GUPNP_DEVICE_INFO(proxy));
         if (modelDes != NULL)
             LOG_INFO("Model Description: %s", modelDes);
-        const char* modelUrl = gupnp_device_info_get_model_url(GUPNP_DEVICE_INFO(proxy));
+        char* modelUrl = gupnp_device_info_get_model_url(GUPNP_DEVICE_INFO(proxy));
         if (modelUrl != NULL)
             LOG_INFO("Model URL: %s", modelUrl);
-        const char* serialNum = gupnp_device_info_get_serial_number(GUPNP_DEVICE_INFO(proxy));
+        char* serialNum = gupnp_device_info_get_serial_number(GUPNP_DEVICE_INFO(proxy));
         if (serialNum != NULL)
             LOG_INFO("Serial Number: %s", serialNum);
-        const char* upc = gupnp_device_info_get_upc(GUPNP_DEVICE_INFO(proxy));
+        char* upc = gupnp_device_info_get_upc(GUPNP_DEVICE_INFO(proxy));
         if (upc != NULL)
             LOG_INFO("Universal Product Code: %s", upc);
     }
