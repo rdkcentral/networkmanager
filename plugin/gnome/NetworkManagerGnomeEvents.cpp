@@ -351,11 +351,19 @@ namespace WPEFramework
                 if (ipv6Config) {
                     g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                 }
+
+                if (NM_IS_DEVICE_WIFI(device))
+                {
+                    // Register signal handler for WiFi scanning events to detect when scan operations complete
+                    nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
+                    NMLOG_INFO("WIFI device added, adding signal handler for last-scan");
+                    g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
+                }
             }
         }
         else
             NMLOG_DEBUG("device error null");
-    } 
+    }
 
     static void deviceRemovedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
@@ -378,7 +386,6 @@ namespace WPEFramework
         //                                                                     (gpointer)onActiveConnectionStateChanged,
         //                                                                     NULL );
         //     NMLOG_ERROR("Disconnected %u signal handlers\n", disconnected_count);
-
     }
 
     static void clientStateChangedCb (NMClient *client, GParamSpec *pspec, gpointer user_data)
