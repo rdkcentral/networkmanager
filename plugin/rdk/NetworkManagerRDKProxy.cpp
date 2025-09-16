@@ -710,11 +710,6 @@ namespace WPEFramework
                     address = ethIPv4Address;
                     return Core::ERROR_NONE;
                 }
-                else
-                {
-                    NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
-                    return Core::ERROR_NOT_SUPPORTED;
-                }
             }
             /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
             //TODO: Fix netsrvmgr to accept eth0 & wlan0
@@ -727,7 +722,6 @@ namespace WPEFramework
                 NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
                 return Core::ERROR_NOT_SUPPORTED;
             }
-
             if (("IPv4" == ipversion) || ("IPv6" == ipversion))
                 sprintf(iarmData.ipversion,"%s", ipversion.c_str());
 
