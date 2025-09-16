@@ -727,7 +727,6 @@ namespace WPEFramework
                 NMLOG_ERROR("Given interface (%s) is NOT supported", interface.c_str());
                 return Core::ERROR_NOT_SUPPORTED;
             }
-
             if (("IPv4" == ipversion) || ("IPv6" == ipversion))
                 sprintf(iarmData.ipversion,"%s", ipversion.c_str());
 
