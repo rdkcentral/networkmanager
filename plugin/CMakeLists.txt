@@ -108,7 +108,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
 else()
     message("networkmanager building with RDK netsrvmgr")
     target_sources(${MODULE_IMPL_NAME} PRIVATE rdk/NetworkManagerRDKProxy.cpp)
-    target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${IARMBUS_INCLUDE_DIRS})
+    #target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${IARMBUS_INCLUDE_DIRS})
     #target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${IARMBUS_LIBRARIES})
 endif()
 
