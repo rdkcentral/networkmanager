@@ -32,6 +32,7 @@ public:
     MOCK_METHOD(bool, IsValid, (), (const));
     MOCK_METHOD(uint32_t, Count, (), (const));
     MOCK_METHOD(ELEMENT, Current, (), (const));
+    MOCK_METHOD(uint32_t, AddRef, (), (const));
     MOCK_METHOD(uint32_t, Release, (), (const));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
 };
