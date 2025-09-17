@@ -56,6 +56,6 @@ public:
     MOCK_METHOD(uint32_t, Register, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
     MOCK_METHOD(uint32_t, Unregister, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
-   // MOCK_METHOD(uint32_t, Release, (), (const, override));
+    MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
 };
