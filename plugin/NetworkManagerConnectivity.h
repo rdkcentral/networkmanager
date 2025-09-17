@@ -56,7 +56,7 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-
+#if 0
         class DnsResolver
         {
             public:
@@ -71,7 +71,7 @@ namespace WPEFramework
                 std::string convertUrIToDomainName(std::string& url);
                 bool resolveIP(std::string& uri, Exchange::INetworkManager::IPVersion& ipversion);
         };
-
+#endif
         /*
          * Save user specific endpoint into a cache file and load from the file 
          * if endpoints are empty in case plugin is restarted.
@@ -99,14 +99,14 @@ namespace WPEFramework
 
         public:
             TestConnectivity(const std::vector<std::string>& endpoints, long timeout_ms, bool headReq,
-                        Exchange::INetworkManager::IPVersion ipversion, std::string interface = "");
+                        uint8_t ipversion, std::string interface = "");
             ~TestConnectivity(){}
             std::string getCaptivePortal() {return captivePortalURI;}
             Exchange::INetworkManager::InternetStatus getInternetState(){return internetSate;}
             int getCurlError(){return curlErrorCode;}
         private:
             Exchange::INetworkManager::InternetStatus checkCurlResponse(const std::vector<std::string>& endpoints, 
-                            long timeout_ms, bool headReq, Exchange::INetworkManager::IPVersion ipversion, std::string interface);
+                            long timeout_ms, bool headReq, uint8_t ipversion, std::string interface);
             Exchange::INetworkManager::InternetStatus checkInternetStateFromResponseCode(const std::vector<int>& responses);
             std::string captivePortalURI;
             std::string m_deviceModel{};
@@ -151,10 +151,7 @@ namespace WPEFramework
             std::atomic<bool> m_switchToInitial;
             std::atomic<bool> m_wakeupMonitoring;
             std::string m_captiveURI;
-            std::atomic<Exchange::INetworkManager::InternetStatus> m_InternetState; // IPv4 or IPv6
-            std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv4InternetState; //  IPv4
-            std::atomic<Exchange::INetworkManager::InternetStatus> m_Ipv6InternetState; //  IPv6
-            std::atomic<Exchange::INetworkManager::IPVersion> m_ipversion; //  IPv6
+            std::atomic<Exchange::INetworkManager::InternetStatus> m_InternetState;
             /* manages endpoints */
             EndpointManager m_endpoint;
         };
