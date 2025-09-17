@@ -51,7 +51,7 @@ public:
         return(string());
     }
 
-    MOCK_METHOD(uint32_t, AddRef, (), (const, override));
+  //  MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
     MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
