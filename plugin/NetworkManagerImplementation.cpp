@@ -613,17 +613,25 @@ namespace WPEFramework
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
             {
                 if(interface == "eth0")
+                {
                     m_ethConnected.store(false);
+                    if(m_wlanConnected.load())
+                        m_defaultInterface = "wlan0"; // If WiFi is connected, make it the default interface
+                }
                 else if(interface == "wlan0")
+                {
                     m_wlanConnected.store(false);
+                    if(m_ethConnected.load())
+                        m_defaultInterface = "eth0"; // If Ethernet is connected, make it the default interface
+                }
 
-                connectivityMonitor.switchToInitialCheck(interface);
-
-                // If the default interface is going down, switch to the other one if its up
-                if(interface == "eth0" && m_wlanConnected.load())
-                        m_defaultInterface = "wlan0";
-                else if(interface == "wlan0" && m_ethConnected.load())
-                        m_defaultInterface = "eth0";
+                if(m_defaultInterface == interface) {
+                    // eth disconnect while wlan connected
+                    // wlan disconnect while eth connected not as wlan not default interface
+                    // wlan only device disconnect case should trigger only wlan is default interface
+                    // both disconnected case should trigger as we need to post no internet event
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
 
             /* Only the Ethernet connection status is changing here. The WiFi status is updated in the WiFi state callback. */
@@ -633,6 +641,7 @@ namespace WPEFramework
                     m_ethConnected.store(true);
                 else if(interface == "wlan0")
                     m_wlanConnected.store(true);
+                // not triggering connectivity monitor to initial check here, becuse waiting for IP aquired event to trigger connectivity monitor check
                 // connectivityMonitor.switchToInitialCheck();
                 // FIXME : Availability of interface does not mean that it has internet connection, so not triggering connectivity monitor check here.
             }
@@ -681,7 +690,10 @@ namespace WPEFramework
                 else
                     m_defaultInterface = interface;
 
-                connectivityMonitor.switchToInitialCheck(interface);
+                if(m_defaultInterface == interface) {
+                    // As default interface is connected, switch connectivity monitor to initial check any way
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
 
             _notificationLock.Lock();

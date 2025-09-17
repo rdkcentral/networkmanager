@@ -626,8 +626,9 @@ namespace WPEFramework
         return true;
     }
 
-    bool ConnectivityMonitor::switchToInitialCheck(std::string triggerIface)
+    bool ConnectivityMonitor::switchToInitialCheck()
     {
+
         if(_instance == nullptr) {
             NMLOG_WARNING("networkmanagerimplementation instance is null");
             return false;
@@ -639,15 +640,13 @@ namespace WPEFramework
             return false;
         }
 
-        if(_instance->m_defaultInterface == triggerIface) // notify only if default interface have any change
-        {
-            m_switchToInitial = true;
-            m_wakeupMonitoring = true;
-            m_cmCv.notify_one();
-        }
+        m_notify = true;
+        m_switchToInitial = true;
+        m_wakeupMonitoring = true;
+        m_cmCv.notify_one();
 
-        NMLOG_INFO("switching to initial check - eth %s - wlan %s - default interface %s - trigger interface %s",
-        _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", _instance->m_defaultInterface.c_str(), triggerIface.c_str());
+        NMLOG_INFO("switching to initial check - eth %s - wlan %s default interface %s",
+                    _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", _instance->m_defaultInterface.c_str());
 
         return true;
     }
