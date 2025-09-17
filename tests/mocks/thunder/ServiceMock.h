@@ -27,7 +27,7 @@ class ServiceMock : public WPEFramework::PluginHost::IShell {
 public:
     virtual ~ServiceMock() = default;
 
-    MOCK_METHOD(uint32_t, AddRef, (), (const, override));
+   // MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(string, Versions, (), (const, override));
     MOCK_METHOD(string, Locator, (), (const, override));
