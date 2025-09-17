@@ -640,15 +640,13 @@ namespace WPEFramework
             string interfaceStr = interface;
             if(interface == "eth0")
             {
-                ethIPv4Address = {};
-                NMLOG_INFO("------- calling GetIPSettings eth0----------------\n");
-                GetIPSettings(interfaceStr, ipVersion, ethIPv4Address);
+                m_ethIPv4Address = {};
+                GetIPSettings(interfaceStr, ipVersion, m_ethIPv4Address);
             }
             else if(interface == "wlan0")
             {
-                wlanIPv4Address = {};
-                NMLOG_INFO("------- calling GetIPSettings wlan0----------------\n");
-                GetIPSettings(interfaceStr, ipVersion, wlanIPv4Address);
+                m_wlanIPv4Address = {};
+                GetIPSettings(interfaceStr, ipVersion, m_wlanIPv4Address);
             }
         }
 
@@ -701,15 +699,13 @@ namespace WPEFramework
             string interfaceStr = interface;
             if(interface == "eth0")
             {
-                ethIPv4Address = {};
-                NMLOG_INFO("------- calling GetIPSettings eth0----------------\n");
-                GetIPSettings(interfaceStr, ipVersion, ethIPv4Address);
+                m_ethIPv4Address = {};
+                GetIPSettings(interfaceStr, ipVersion, m_ethIPv4Address);
             }
             else if(interface == "wlan0")
             {
-                wlanIPv4Address = {};
-                NMLOG_INFO("------- calling GetIPSettings wlan0----------------\n");
-                GetIPSettings(interfaceStr, ipVersion, wlanIPv4Address);
+                m_wlanIPv4Address = {};
+                GetIPSettings(interfaceStr, ipVersion, m_wlanIPv4Address);
             }
         }
 

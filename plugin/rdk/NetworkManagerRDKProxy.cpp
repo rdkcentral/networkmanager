@@ -700,16 +700,14 @@ namespace WPEFramework
                 {
                     ipversionStr = ipversion;
                 }
-                if ("wlan0" == interface && "IPv4" == ipversionStr && !wlanIPv4Address.ipaddress.empty())
+                if ("wlan0" == interface && "IPv4" == ipversionStr && !m_wlanIPv4Address.ipaddress.empty())
                 {
-                    address = wlanIPv4Address;
-                    NMLOG_INFO("---------- Fetching from cached value wifi --------------");
+                    address = m_wlanIPv4Address;
                     return Core::ERROR_NONE;
                 }
-                else if ("eth0" == interface && "IPv4" == ipversionStr && !ethIPv4Address.ipaddress.empty())
+                else if ("eth0" == interface && "IPv4" == ipversionStr && !m_ethIPv4Address.ipaddress.empty())
                 {
-                    address = ethIPv4Address;
-                    NMLOG_INFO("---------- Fetching from cached value ethernet --------------");
+                    address = m_ethIPv4Address;
                     return Core::ERROR_NONE;
                 }
             }
@@ -743,9 +741,9 @@ namespace WPEFramework
                     address.ipversion = string ("IPv4");
                     address.prefix = NetmaskToPrefix(iarmData.netmask);
                     if("eth0" == interface)
-                        ethIPv4Address = address;
+                        m_ethIPv4Address = address;
                     else if("wlan0" == interface)
-                        wlanIPv4Address = address;
+                        m_wlanIPv4Address = address;
                 }
                 else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                 {
@@ -770,7 +768,6 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
             }
-            NMLOG_INFO("---------- Fetching from Netsrvmgr value --------------");
             return rc;
         }
 
