@@ -613,9 +613,15 @@ namespace WPEFramework
             if(Exchange::INetworkManager::INTERFACE_LINK_DOWN == state || Exchange::INetworkManager::INTERFACE_REMOVED == state)
             {
                 if(interface == "eth0")
+                {
+                    m_ethIPv4Address = {};
                     m_ethConnected.store(false);
+                }
                 else if(interface == "wlan0")
+                {
+                    m_wlanIPv4Address = {};
                     m_wlanConnected.store(false);
+                }
                 connectivityMonitor.switchToInitialCheck();
             }
 
@@ -635,19 +641,6 @@ namespace WPEFramework
                 callback->onInterfaceStateChange(state, interface);
             }
             _notificationLock.Unlock();
-
-            std::string ipVersion = "IPv4";
-            string interfaceStr = interface;
-            if(interface == "eth0")
-            {
-                m_ethIPv4Address = {};
-                GetIPSettings(interfaceStr, ipVersion, m_ethIPv4Address);
-            }
-            else if(interface == "wlan0")
-            {
-                m_wlanIPv4Address = {};
-                GetIPSettings(interfaceStr, ipVersion, m_wlanIPv4Address);
-            }
         }
 
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
@@ -695,18 +688,6 @@ namespace WPEFramework
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
             _notificationLock.Unlock();
-            std::string ipVersion = "IPv4";
-            string interfaceStr = interface;
-            if(interface == "eth0")
-            {
-                m_ethIPv4Address = {};
-                GetIPSettings(interfaceStr, ipVersion, m_ethIPv4Address);
-            }
-            else if(interface == "wlan0")
-            {
-                m_wlanIPv4Address = {};
-                GetIPSettings(interfaceStr, ipVersion, m_wlanIPv4Address);
-            }
         }
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
