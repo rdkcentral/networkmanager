@@ -645,7 +645,7 @@ namespace WPEFramework
         m_wakeupMonitoring = true;
         m_cmCv.notify_one();
 
-        NMLOG_INFO("switching to initial check - eth %s - wlan %s default interface %s",
+        NMLOG_INFO("switching to initial check - eth %s - wlan %s - default interface %s",
                     _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", _instance->m_defaultInterface.c_str());
 
         return true;
