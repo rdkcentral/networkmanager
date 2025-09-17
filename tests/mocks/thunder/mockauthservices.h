@@ -30,7 +30,7 @@ public:
     MOCK_METHOD(uint32_t, CreateToken, (uint16_t, const uint8_t*, std::string&));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
-    //MOCK_METHOD(uint32_t, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(WPEFramework::PluginHost::ISecurity*, Officer, (const std::string& token), (override));
 };
 #endif
