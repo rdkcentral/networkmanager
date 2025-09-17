@@ -31,7 +31,7 @@ public:
     MOCK_METHOD(bool, IsValid, (), (const, override));
     MOCK_METHOD(uint32_t, Count, (), (const, override));
     MOCK_METHOD(WPEFramework::Exchange::INetworkManager::InterfaceDetails, Current, (), (const, override));
-    //MOCK_METHOD(uint32_t, AddRef, (), (const, override));
+    MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
 };
