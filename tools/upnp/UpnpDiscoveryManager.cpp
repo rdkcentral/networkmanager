@@ -139,9 +139,24 @@ bool UpnpDiscoveryManager::findGatewayDevice(const std::string& interface)
 /* @brief Callback getting invoked when SSDP reply is received from gateway */
 void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlPoint, GUPnPDeviceProxy *proxy)
 { 
-    m_apMake = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
-    m_apModelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
-    m_apModelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
+    char* make = gupnp_device_info_get_manufacturer(GUPNP_DEVICE_INFO(proxy)); 
+	if (make != NULL) {
+        m_apMake = make;
+    } else {
+        m_apMake = "Unknown";
+    }
+    char* modelName = gupnp_device_info_get_model_name(GUPNP_DEVICE_INFO(proxy));
+	if (modelName != NULL) {
+        m_apModelName = modelName;
+    } else {
+        m_apModelName = "Unknown";
+    }
+	char* modelNumber = gupnp_device_info_get_model_number(GUPNP_DEVICE_INFO(proxy));
+	if (modelNumber != NULL) {
+        m_apModelNumber = modelNumber;
+    } else {
+        m_apModelNumber = "Unknown";
+    }
     // Remove the string after symbol <,> For example: <manufacturer>NETGEAR,Inc.</manufacturer> 
     m_apMake = m_apMake.substr(0, m_apMake.find(','));
     m_apModelName = m_apModelName.substr(0, m_apModelName.find(','));
@@ -157,6 +172,31 @@ void UpnpDiscoveryManager::on_device_proxy_available(GUPnPControlPoint *controlP
         m_gatewayDetails << m_apModelName << "," << m_apModelNumber;
     }
     logTelemetry(m_gatewayDetails.str()); 
+    // If router make/modelName/modelNumber is not available, log all other available router details
+    if ((m_apMake == "Unknown") || (m_apModelName == "Unknown") || (m_apModelNumber == "Unknown"))
+    {
+        const char* location = gupnp_device_info_get_location(GUPNP_DEVICE_INFO(proxy));
+        if (location != NULL)
+            LOG_INFO("Location URL: %s", location);
+        char* name = gupnp_device_info_get_friendly_name(GUPNP_DEVICE_INFO(proxy));
+        if (name != NULL)
+            LOG_INFO("Friendly name: %s", name);
+        char* manuUrl = gupnp_device_info_get_manufacturer_url(GUPNP_DEVICE_INFO(proxy));
+        if (manuUrl != NULL)
+            LOG_INFO("Manufacturer URL: %s", manuUrl);
+        char* modelDes = gupnp_device_info_get_model_description(GUPNP_DEVICE_INFO(proxy));
+        if (modelDes != NULL)
+            LOG_INFO("Model Description: %s", modelDes);
+        char* modelUrl = gupnp_device_info_get_model_url(GUPNP_DEVICE_INFO(proxy));
+        if (modelUrl != NULL)
+            LOG_INFO("Model URL: %s", modelUrl);
+        char* serialNum = gupnp_device_info_get_serial_number(GUPNP_DEVICE_INFO(proxy));
+        if (serialNum != NULL)
+            LOG_INFO("Serial Number: %s", serialNum);
+        char* upc = gupnp_device_info_get_upc(GUPNP_DEVICE_INFO(proxy));
+        if (upc != NULL)
+            LOG_INFO("Universal Product Code: %s", upc);
+    }
     exitWait();
 }
 
