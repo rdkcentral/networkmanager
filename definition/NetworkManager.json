@@ -9,7 +9,7 @@
         "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "1.2.0"
+        "version": "1.3.0"
     },
     "definitions": {
         "success": {
@@ -1433,13 +1433,19 @@
                         "summary": "The internet connection status",
                         "type": "string",
                         "example": "FULLY_CONNECTED"
+                    },
+                    "interface":{
+                        "summary": "The internet status change on default interface",
+                        "type": "string",
+                        "example": "wlan0"
                     }
                 },
                 "required": [
                     "prevState",
                     "prevStatus",
                     "state",
-                    "status"
+                    "status",
+                    "interface"
                 ]
             }
         },
