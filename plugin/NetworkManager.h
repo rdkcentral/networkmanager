@@ -79,9 +79,9 @@ namespace WPEFramework
                     _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState) override
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState);
+                    _parent.onInternetStatusChange(prevState, currState, interface);
                 }
 
                 void onAvailableSSIDs(const string jsonOfScanResults) override
@@ -267,7 +267,7 @@ namespace WPEFramework
             void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
             void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
-            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
             void onAvailableSSIDs(const string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
             void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);

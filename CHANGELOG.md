@@ -14,6 +14,12 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.3.0] - 2025-09-17
+### Added
+- Implemented NetworkManagerProxy library which can help Thunder to Create COM-RPC connection to Out-Of-Process plugin
+- Implemented Internet Connectivity Monitoring for specific to Primary Interface.
+- Updated to not to post onInternetStatusChanged event when secondary interface is disturbed.
+
 ## [1.2.0] - 2025-09-15
 ### Changed
 - Reverted NetworkManager to continue to run as out-of-process-plugin

@@ -51,7 +51,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportIPAddressChange' cb");
         }
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             NMLOG_INFO("calling 'ReportInternetStatusChange' cb");
         }
