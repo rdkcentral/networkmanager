@@ -1000,7 +1000,7 @@ namespace WPEFramework
             Notify(_T("onIPAddressChange"), parameters);
         }
 
-        void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             JsonObject parameters;
             Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> prevStatus(prevState);
@@ -1009,6 +1009,7 @@ namespace WPEFramework
             parameters["prevStatus"] = prevStatus.Data();
             parameters["state"] = JsonValue(currState);
             parameters["status"] = currStatus.Data();
+            parameters["interface"] = interface;
 
             LOG_INPARAM();
             Notify(_T("onInternetStatusChange"), parameters);

@@ -631,8 +631,9 @@ namespace WPEFramework
                 if(interface == "eth0")
                     m_ethConnected.store(true);
                 else if(interface == "wlan0")
-                    m_wlanConnected = true;
-                connectivityMonitor.switchToInitialCheck();
+                    m_wlanConnected.store(true);
+                // connectivityMonitor.switchToInitialCheck();
+                // FIXME : Availability of interface does not mean that it has internet connection, so not triggering connectivity monitor check here.
             }
 
             _notificationLock.Lock();
@@ -679,7 +680,12 @@ namespace WPEFramework
                 else
                     m_defaultInterface = interface;
 
-                connectivityMonitor.switchToInitialCheck();
+                if(m_defaultInterface == interface) {
+                    // As default interface is connected, switch connectivity monitor to initial check any way
+                    connectivityMonitor.switchToInitialCheck();
+                }
+                else
+                    NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());
             }
 
             _notificationLock.Lock();
@@ -690,12 +696,12 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
             for (const auto callback : _notificationCallbacks) {
-                callback->onInternetStatusChange(prevState, currState);
+                callback->onInternetStatusChange(prevState, currState, interface);
             }
             _notificationLock.Unlock();
         }
