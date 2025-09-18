@@ -615,6 +615,7 @@ namespace WPEFramework
                 if(interface == "eth0")
                 {
                     m_ethIPv4Address = {};
+                    m_ethIPv6Address = {};
                     m_ethConnected.store(false);
                     m_defaultInterface = "wlan0"; // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
@@ -623,6 +624,7 @@ namespace WPEFramework
                 else if(interface == "wlan0")
                 {
                     m_wlanIPv4Address = {};
+                    m_wlanIPv6Address = {};
                     m_wlanConnected.store(false);
                     if(m_ethConnected.load())
                         m_defaultInterface = "eth0"; // If Ethernet is connected, make it the default interface
