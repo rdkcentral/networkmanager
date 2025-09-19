@@ -462,6 +462,40 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
+        static void wifiConnectTempCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMRemoteConnection *remoteConnection = NULL;
+
+            remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+
+            if (error) {
+                NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                g_error_free(error);
+                g_main_loop_quit(_wifiManager->m_loop);
+                return;
+            }
+
+            if (remoteConnection) {
+                NMLOG_DEBUG("Temporary connection added, now activating...");
+                // Now activate the temporary connection
+                nm_client_activate_connection_async(_wifiManager->m_client,
+                                                  NM_CONNECTION(remoteConnection),
+                                                  _wifiManager->m_wifidevice,
+                                                  _wifiManager->m_objectPath,
+                                                  NULL,
+                                                  wifiConnectCb,
+                                                  _wifiManager);
+                g_object_unref(remoteConnection);
+            } else {
+                NMLOG_ERROR("Failed to add temporary connection - no connection returned");
+                _wifiManager->m_isSuccess = false;
+                g_main_loop_quit(_wifiManager->m_loop);
+            }
+        }
+
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
         {
             NMRemoteConnection *remote_con = NM_REMOTE_CONNECTION(rmObject);
@@ -882,18 +916,30 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
-                GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
-                nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
-                                            connSettings,
-                                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // block auto connect becuse manualy activate 
-                                            NULL,
-                                            NULL,
-                                            wifiConnectionUpdate,
-                                            this);
+                if (ssidInfo.persist)
+                {
+                    // Save to persistent storage and activate
+                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                    nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
+                            connSettings,
+                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // block auto connect becuse manualy activate
+                            NULL,
+                            NULL,
+                            wifiConnectionUpdate,
+                            this);
+                }
+                else
+                {
+                    // Don't persist changes, just activate existing connection
+                    // Note: Any changes made by connectionBuilder will be temporary for this session only
+                    NMLOG_DEBUG("activating existing connection without persisting changes '%s'", ssidInfo.ssid.c_str());
+                    m_createNewConnection = false;
+                    nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                }
             }
             else
             {
-                NMLOG_DEBUG("creating new connection '%s' ", ssidInfo.ssid.c_str());
+                NMLOG_DEBUG("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
                 m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
                 if(!connectionBuilder(ssidInfo, m_connection))
@@ -904,8 +950,27 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
-                m_createNewConnection = true;
-                nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                if (ssidInfo.persist)
+                {
+                    m_createNewConnection = true;
+                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                }
+                else
+                {
+                    // Create temporary connection - add to memory only, do not save to disk
+                    m_createNewConnection = false;
+                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                    // Use nm_client_add_connection2 without NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK
+                    // This creates an in-memory only connection that won't persist
+                    nm_client_add_connection2(m_client,
+                                            connSettings,
+                                            (NMSettingsAddConnection2Flags)0, // No flags - don't save to disk
+                                            NULL, // no additional args
+                                            TRUE, // ignore result
+                                            NULL, // cancellable
+                                            wifiConnectTempCb,
+                                            this);
+                }
                 if(m_connection)
                     g_object_unref(m_connection);
             }
