@@ -423,10 +423,8 @@ namespace WPEFramework
                     rc = Core::ERROR_NONE;
             }
 
-            if(ifaceState(client, nmUtils::wlanIface()) <= NM_DEVICE_STATE_UNMANAGED)
+            if(interface == wifiname && ifaceState(client, nmUtils::wlanIface()) <= NM_DEVICE_STATE_UNMANAGED)
                 interface.empty(); // if wifi is disabled then return empty
-            else
-                interface = wifiname;
 
             m_defaultInterface = interface;
             return rc;
