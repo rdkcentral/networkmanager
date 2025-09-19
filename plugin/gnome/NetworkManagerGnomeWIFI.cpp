@@ -799,26 +799,36 @@ namespace WPEFramework
             }
 
             AccessPoint = findMatchingSSID(ApList, ssidInfo.ssid);
-            if(AccessPoint == NULL) {
+            if(AccessPoint == NULL)
+            {
                 NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
                 // if(_instance != nullptr)
                 //     _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
                 /* ssid not found in scan list so add to known ssid it will do a scanning and connect */
-                if(addToKnownSSIDs(ssidInfo))
+                if(ssidInfo.persist)
                 {
-                    NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
-                    deleteClientConnection();
-                    return activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
+                    if(addToKnownSSIDs(ssidInfo))
+                    {
+                        NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
+                        deleteClientConnection();
+                        return activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
+                    }
+                    else
+                    {
+                        deleteClientConnection();
+                        return false;
+                    }
                 }
-                deleteClientConnection();
-                return false;
+                else
+                {
+                    bool result = activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
+                    deleteClientConnection();
+                    return result;
+                }
             }
-
-            getApInfo(AccessPoint, apinfo);
-
-            if(ssidInfo.security != apinfo.security)
+            else
             {
-                NMLOG_WARNING("user requested wifi security '%d' != AP supported security %d ", ssidInfo.security, apinfo.security);
+                getApInfo(AccessPoint, apinfo);
                 ssidInfo.security = apinfo.security;
             }
 
