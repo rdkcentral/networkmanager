@@ -361,6 +361,7 @@ namespace WPEFramework
             if(client == nullptr)
             {
                 NMLOG_WARNING("client connection null:");
+                interface.clear();
                 return Core::ERROR_GENERAL;
             }
 
@@ -372,7 +373,12 @@ namespace WPEFramework
                 if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                     m_defaultInterface = interface = ethname;
                 else
-                    m_defaultInterface = interface = wifiname; // default is wifi
+                {
+                    if(ifaceState(client, nmUtils::wlanIface()) <= NM_DEVICE_STATE_UNMANAGED)
+                        interface.empty(); // if wifi is disabled then return empty
+                    else
+                        m_defaultInterface = interface = wifiname; // default is wifi
+                }
                 return Core::ERROR_NONE;
             }
 
@@ -385,7 +391,12 @@ namespace WPEFramework
                 if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                     m_defaultInterface = interface = ethname;
                 else
-                    m_defaultInterface = interface = wifiname; // default is wifi
+                {
+                    if(ifaceState(client, nmUtils::wlanIface()) <= NM_DEVICE_STATE_UNMANAGED)
+                        interface.empty(); // if wifi is disabled then return empty
+                    else
+                        m_defaultInterface = interface = wifiname; // default is wifi
+                }
                 return Core::ERROR_NONE;
             }
 
@@ -410,7 +421,13 @@ namespace WPEFramework
                 }
                 else
                     rc = Core::ERROR_NONE;
-            } 
+            }
+
+            if(ifaceState(client, nmUtils::wlanIface()) <= NM_DEVICE_STATE_UNMANAGED)
+                interface.empty(); // if wifi is disabled then return empty
+            else
+                interface = wifiname;
+
             m_defaultInterface = interface;
             return rc;
         }
@@ -560,13 +577,13 @@ namespace WPEFramework
                 }
                 if(interface.empty())
                 {
-                    NMLOG_DEBUG("default interface return empty default is wlan0");
-                    interface = wifiname;
+                    NMLOG_WARNING("default interface empty, no active interface found");
+                    return Core::ERROR_GENERAL;
                 }
             }
             else if(wifiname != interface && ethname != interface)
             {
-                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                NMLOG_ERROR("interface: %s; not valid", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
 
