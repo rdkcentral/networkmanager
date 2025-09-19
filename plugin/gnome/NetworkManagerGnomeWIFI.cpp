@@ -964,7 +964,7 @@ namespace WPEFramework
                     // This creates an in-memory only connection that won't persist
                     nm_client_add_connection2(m_client,
                                             connSettings,
-                                            (NMSettingsAddConnection2Flags)0, // No flags - don't save to disk
+                                            NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
                                             NULL, // no additional args
                                             TRUE, // ignore result
                                             NULL, // cancellable
