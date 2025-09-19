@@ -853,12 +853,6 @@ namespace WPEFramework
                         return false;
                     }
                 }
-                else
-                {
-                    bool result = activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
-                    deleteClientConnection();
-                    return result;
-                }
             }
             else
             {
