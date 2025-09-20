@@ -1280,10 +1280,8 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_no_access_point)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+        .Times(3)
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_last_scan(::testing::_))
         .WillOnce(::testing::Return(nm_utils_get_timestamp_msec() - 10));
