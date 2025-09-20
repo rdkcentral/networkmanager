@@ -44,7 +44,7 @@ option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 
 #add_subdirectory(interface)
 #add_subdirectory(definition)
-#add_subdirectory(plugin)
+add_subdirectory(plugin)
 
 #if (ENABLE_LEGACY_PLUGINS)
     add_subdirectory(legacy)
