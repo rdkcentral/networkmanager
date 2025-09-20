@@ -42,18 +42,18 @@ option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 
 
-add_subdirectory(interface)
-add_subdirectory(definition)
-add_subdirectory(plugin)
+//add_subdirectory(interface)
+//add_subdirectory(definition)
+//add_subdirectory(plugin)
 
-if (ENABLE_LEGACY_PLUGINS)
+//if (ENABLE_LEGACY_PLUGINS)
     add_subdirectory(legacy)
-endif (ENABLE_LEGACY_PLUGINS)
+//endif (ENABLE_LEGACY_PLUGINS)
 
-add_subdirectory(tools)
+//add_subdirectory(tools)
 
-if(ENABLE_UNIT_TESTING)
-    add_subdirectory(tests/l1Test)
-    add_subdirectory(tests/l2Test)
-endif(ENABLE_UNIT_TESTING)
+//if(ENABLE_UNIT_TESTING)
+//    add_subdirectory(tests/l1Test)
+//    add_subdirectory(tests/l2Test)
+//endif(ENABLE_UNIT_TESTING)
 
