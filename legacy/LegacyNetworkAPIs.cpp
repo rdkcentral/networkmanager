@@ -132,6 +132,7 @@ namespace WPEFramework
                     }
                     usleep(500*1000);
                 } while(retry++ < 5);
+                return message;
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
