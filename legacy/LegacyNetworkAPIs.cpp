@@ -562,7 +562,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     response["ipversion"] = ipversion;
                     response["connectedToInternet"] = true;
                     response["success"] = "true";
-                    rc = ERROR_NONE;
+                    rc = Core::ERROR_NONE;
                 }
             }
 
