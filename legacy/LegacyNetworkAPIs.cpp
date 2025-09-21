@@ -553,7 +553,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             response["ipversion"] = ipversion;
-            response["connectedToInternet"] = true;
+            response["connectedToInternet"] = "true";
             response["success"] = "true";
             rc = Core::ERROR_NONE;
             returnJson(rc);
