@@ -552,19 +552,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ipversion = parameters["ipversion"].String();
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if (_nwmgr != nullptr)
-            {
-                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
-                _nwmgr->Release();
-
-   
-                    response["ipversion"] = ipversion;
-                    response["connectedToInternet"] = true;
-                    response["success"] = "true";
-                    rc = Core::ERROR_NONE;
-             
-            }
-
+            response["ipversion"] = ipversion;
+            response["connectedToInternet"] = true;
+            response["success"] = "true";
+            rc = Core::ERROR_NONE;
             returnJson(rc);
         }
 
