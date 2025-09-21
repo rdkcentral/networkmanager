@@ -560,7 +560,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 if (Core::ERROR_NONE == rc)
                 {
                     response["ipversion"] = ipversion;
-                    response["connectedToInternet"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == status);
+                    response["connectedToInternet"] = true;
+                    response["success"] = "true";
+                    rc = ERROR_NONE;
                 }
             }
 
