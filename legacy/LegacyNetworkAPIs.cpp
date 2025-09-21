@@ -557,13 +557,12 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
                 _nwmgr->Release();
 
-                if (Core::ERROR_NONE == rc)
-                {
+   
                     response["ipversion"] = ipversion;
                     response["connectedToInternet"] = true;
                     response["success"] = "true";
                     rc = Core::ERROR_NONE;
-                }
+             
             }
 
             returnJson(rc);
