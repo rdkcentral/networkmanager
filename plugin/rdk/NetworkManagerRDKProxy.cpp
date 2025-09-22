@@ -684,6 +684,46 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_Iface_Settings_t iarmData = { 0 };
+            string ipversionStr;
+
+            if(interface.empty())
+            {
+                interface = m_defaultInterface;
+            }
+            if(ipversion.empty())
+            {
+                ipversionStr = "IPv4";
+            }
+            else
+            {
+                ipversionStr = ipversion;
+            }
+            if ("wlan0" == interface)
+            {
+                if("IPv4" == ipversionStr && !m_wlanIPv4Address.ipaddress.empty())
+                {
+                    address = m_wlanIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if("IPv6" == ipversionStr && !m_wlanIPv6Address.ipaddress.empty())
+                {
+                    address = m_wlanIPv6Address;
+                    return Core::ERROR_NONE;
+                }
+            }
+            else if ("eth0" == interface)
+            {
+                if("IPv4" == ipversionStr && !m_ethIPv4Address.ipaddress.empty())
+                {
+                    address = m_ethIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if("IPv6" == ipversionStr && !m_ethIPv6Address.ipaddress.empty())
+                {
+                    address = m_ethIPv6Address;
+                    return Core::ERROR_NONE;
+                }
+            }
             /* Netsrvmgr returns eth0 & wlan0 as primary interface but when we want to set., we must set ETHERNET or WIFI*/
             //TODO: Fix netsrvmgr to accept eth0 & wlan0
             if ("wlan0" == interface)
@@ -714,11 +754,19 @@ namespace WPEFramework
                 {
                     address.ipversion = string ("IPv4");
                     address.prefix = NetmaskToPrefix(iarmData.netmask);
+                    if("eth0" == interface)
+                        m_ethIPv4Address = address;
+                    else if("wlan0" == interface)
+                        m_wlanIPv4Address = address;
                 }
                 else if (0 == strcasecmp("ipv6", iarmData.ipversion))
                 {
                     address.ipversion = string ("IPv6");
                     address.prefix = std::atoi(iarmData.netmask);
+                    if("eth0" == interface)
+                        m_ethIPv6Address = address;
+                    else if("wlan0" == interface)
+                        m_wlanIPv6Address = address;
                 }
 
                 rc = Core::ERROR_NONE;
