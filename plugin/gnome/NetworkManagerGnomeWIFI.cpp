@@ -959,9 +959,9 @@ namespace WPEFramework
                     nm_client_add_connection2(m_client,
                                             connSettings,
                                             NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
-                                            NULL, // no additional args
-                                            TRUE, // ignore result
-                                            NULL, // cancellable
+                                            NULL,
+                                            TRUE,
+                                            NULL,
                                             wifiConnectTempCb,
                                             this);
                 }
