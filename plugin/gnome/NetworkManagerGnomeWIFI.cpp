@@ -462,6 +462,40 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
+        static void wifiConnectTempCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMRemoteConnection *remoteConnection = NULL;
+
+            remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+
+            if (error) {
+                NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                g_error_free(error);
+                g_main_loop_quit(_wifiManager->m_loop);
+                return;
+            }
+
+            if (remoteConnection) {
+                NMLOG_DEBUG("Temporary connection added, now activating...");
+                // Now activate the temporary connection
+                nm_client_activate_connection_async(_wifiManager->m_client,
+                                                  NM_CONNECTION(remoteConnection),
+                                                  _wifiManager->m_wifidevice,
+                                                  _wifiManager->m_objectPath,
+                                                  NULL,
+                                                  wifiConnectCb,
+                                                  _wifiManager);
+                g_object_unref(remoteConnection);
+            } else {
+                NMLOG_ERROR("Failed to add temporary connection - no connection returned");
+                _wifiManager->m_isSuccess = false;
+                g_main_loop_quit(_wifiManager->m_loop);
+            }
+        }
+
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
         {
             NMRemoteConnection *remote_con = NM_REMOTE_CONNECTION(rmObject);
@@ -799,26 +833,30 @@ namespace WPEFramework
             }
 
             AccessPoint = findMatchingSSID(ApList, ssidInfo.ssid);
-            if(AccessPoint == NULL) {
+            if(AccessPoint == NULL)
+            {
                 NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
                 // if(_instance != nullptr)
                 //     _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
                 /* ssid not found in scan list so add to known ssid it will do a scanning and connect */
-                if(addToKnownSSIDs(ssidInfo))
+                if(ssidInfo.persist)
                 {
-                    NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
-                    deleteClientConnection();
-                    return activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
+                    if(addToKnownSSIDs(ssidInfo))
+                    {
+                        NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
+                        deleteClientConnection();
+                        return activateKnownConnection(nmUtils::wlanIface(), ssidInfo.ssid);
+                    }
+                    else
+                    {
+                        deleteClientConnection();
+                        return false;
+                    }
                 }
-                deleteClientConnection();
-                return false;
             }
-
-            getApInfo(AccessPoint, apinfo);
-
-            if(ssidInfo.security != apinfo.security)
+            else
             {
-                NMLOG_WARNING("user requested wifi security '%d' != AP supported security %d ", ssidInfo.security, apinfo.security);
+                getApInfo(AccessPoint, apinfo);
                 ssidInfo.security = apinfo.security;
             }
 
@@ -872,18 +910,30 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
-                GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
-                nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
-                                            connSettings,
-                                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // block auto connect becuse manualy activate 
-                                            NULL,
-                                            NULL,
-                                            wifiConnectionUpdate,
-                                            this);
+                if (ssidInfo.persist)
+                {
+                    // Save to persistent storage and activate
+                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                    nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
+                            connSettings,
+                            NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT, // block auto connect becuse manualy activate
+                            NULL,
+                            NULL,
+                            wifiConnectionUpdate,
+                            this);
+                }
+                else
+                {
+                    // Don't persist changes, just activate existing connection
+                    // Note: Any changes made by connectionBuilder will be temporary for this session only
+                    NMLOG_DEBUG("activating existing connection without persisting changes '%s'", ssidInfo.ssid.c_str());
+                    m_createNewConnection = false;
+                    nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                }
             }
             else
             {
-                NMLOG_DEBUG("creating new connection '%s' ", ssidInfo.ssid.c_str());
+                NMLOG_DEBUG("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
                 m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
                 if(!connectionBuilder(ssidInfo, m_connection))
@@ -894,8 +944,27 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
-                m_createNewConnection = true;
-                nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                if (ssidInfo.persist)
+                {
+                    m_createNewConnection = true;
+                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                }
+                else
+                {
+                    // Create temporary connection - add to memory only, do not save to disk
+                    m_createNewConnection = false;
+                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
+                    // Use nm_client_add_connection2 without NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK
+                    // This creates an in-memory only connection that won't persist
+                    nm_client_add_connection2(m_client,
+                                            connSettings,
+                                            NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
+                                            NULL,
+                                            TRUE,
+                                            NULL,
+                                            wifiConnectTempCb,
+                                            this);
+                }
                 if(m_connection)
                     g_object_unref(m_connection);
             }
