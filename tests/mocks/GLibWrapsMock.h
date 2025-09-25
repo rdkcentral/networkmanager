@@ -6,8 +6,6 @@
 extern "C" gboolean __real_g_main_loop_is_running(GMainLoop* loop);
 extern "C" gulong __real_g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GCallback c_handler,
                                          gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags);
-extern "C" guint __real_g_signal_handlers_disconnect_by_data(gpointer instance, gpointer data);
-extern "C" guint __real_g_signal_handlers_disconnect_by_func(gpointer instance, gpointer func, gpointer data);
 
 class GLibWrapsImplMock : public GLibWrapsImpl {
 public:
@@ -28,13 +26,15 @@ public:
         ON_CALL(*this, signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](gpointer instance, gpointer data) -> guint {
-                return __real_g_signal_handlers_disconnect_by_data(instance, data);
+                // Call the actual GLib macro
+                return g_signal_handlers_disconnect_by_data(instance, data);
             }));
 
         ON_CALL(*this, signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](gpointer instance, gpointer func, gpointer data) -> guint {
-                return __real_g_signal_handlers_disconnect_by_func(instance, func, data);
+                // Call the actual GLib macro
+                return g_signal_handlers_disconnect_by_func(instance, func, data);
             }));
     }
 
