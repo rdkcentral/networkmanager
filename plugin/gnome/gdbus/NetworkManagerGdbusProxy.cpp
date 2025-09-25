@@ -102,7 +102,16 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             if(_nmGdbusClient->getAvailableInterfaces(interfaceList))
+            {
+                for (const auto& iface : interfaceList)
+                {
+                    if (iface.name == "eth0")
+                        m_ethEnabled.store(iface.enabled);
+                    else if (iface.name == "wlan0")
+                        m_wlanEnabled.store(iface.enabled);
+                }
                 rc = Core::ERROR_NONE;
+            }
             else
                 NMLOG_ERROR("GetAvailableInterfaces failed");
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;

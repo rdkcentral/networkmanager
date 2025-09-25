@@ -47,6 +47,8 @@ namespace WPEFramework
             m_publicIP = "";
             m_ethConnected.store(false);
             m_wlanConnected.store(false);
+            m_ethEnabled.store(false);
+            m_wlanEnabled.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
@@ -683,9 +685,15 @@ namespace WPEFramework
                 // Switch the connectivity monitor to initial check
                 // if ipaddress is aquired means there should be interface connected
                 if(interface == "eth0")
+                {
                     m_ethConnected.store(true);
+                    m_ethEnabled.store(true);
+                }
                 else if(interface == "wlan0")
+                {
                     m_wlanConnected.store(true);
+                    m_wlanEnabled.store(true);
+                }
 
                 // FIXME : Availability of ip address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
                 if (m_ethConnected.load() && m_wlanConnected.load())
