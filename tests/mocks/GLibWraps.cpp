@@ -44,11 +44,17 @@ gulong GLibWraps::g_signal_connect_data(gpointer instance, const gchar *detailed
 }
 
 guint GLibWraps::signal_handlers_disconnect_by_data(gpointer instance, gpointer data) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the actual GLib macro directly
+        return g_signal_handlers_disconnect_by_data(instance, data);
+    }
     return impl->signal_handlers_disconnect_by_data(instance, data);
 }
 
 guint GLibWraps::signal_handlers_disconnect_by_func(gpointer instance, gpointer func, gpointer data) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the actual GLib macro directly
+        return g_signal_handlers_disconnect_by_func(instance, func, data);
+    }
     return impl->signal_handlers_disconnect_by_func(instance, func, data);
 }

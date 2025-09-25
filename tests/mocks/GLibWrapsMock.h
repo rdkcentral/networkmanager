@@ -22,20 +22,6 @@ public:
                 gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags) -> gulong {
                 return __real_g_signal_connect_data(instance, detailed_signal, c_handler, data, destroy_data, connect_flags);
             }));
-
-        ON_CALL(*this, signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
-            .WillByDefault(::testing::Invoke(
-            [&](gpointer instance, gpointer data) -> guint {
-                // Call the actual GLib macro
-                return g_signal_handlers_disconnect_by_data(instance, data);
-            }));
-
-        ON_CALL(*this, signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
-            .WillByDefault(::testing::Invoke(
-            [&](gpointer instance, gpointer func, gpointer data) -> guint {
-                // Call the actual GLib macro
-                return g_signal_handlers_disconnect_by_func(instance, func, data);
-            }));
     }
 
     virtual ~GLibWrapsImplMock() = default;
