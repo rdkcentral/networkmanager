@@ -113,10 +113,10 @@ protected:
             return 0;
         }));
 
-    EXPECT_CALL(*p_gLibWrapsImplMock, g_signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
+    EXPECT_CALL(*p_gLibWrapsImplMock, signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
         .WillRepeatedly(::testing::Return(0));
 
-    EXPECT_CALL(*p_gLibWrapsImplMock, g_signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*p_gLibWrapsImplMock, signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
         .WillRepeatedly(::testing::Return(0));
 
         ON_CALL(comLinkMock, Instantiate(::testing::_, ::testing::_, ::testing::_))

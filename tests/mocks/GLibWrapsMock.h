@@ -24,13 +24,14 @@ public:
                 gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags) -> gulong {
                 return __real_g_signal_connect_data(instance, detailed_signal, c_handler, data, destroy_data, connect_flags);
             }));
-        ON_CALL(*this, g_signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
+
+        ON_CALL(*this, signal_handlers_disconnect_by_data(::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](gpointer instance, gpointer data) -> guint {
                 return __real_g_signal_handlers_disconnect_by_data(instance, data);
             }));
 
-        ON_CALL(*this, g_signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
+        ON_CALL(*this, signal_handlers_disconnect_by_func(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](gpointer instance, gpointer func, gpointer data) -> guint {
                 return __real_g_signal_handlers_disconnect_by_func(instance, func, data);
@@ -43,6 +44,6 @@ public:
     MOCK_METHOD(gboolean, g_main_loop_is_running, (GMainLoop* loop), (override));
     MOCK_METHOD(gulong, g_signal_connect_data, (gpointer instance, const gchar *detailed_signal, GCallback c_handler,
                                          gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags), (override));
-    MOCK_METHOD(guint, g_signal_handlers_disconnect_by_data, (gpointer instance, gpointer data), (override));
-    MOCK_METHOD(guint, g_signal_handlers_disconnect_by_func, (gpointer instance, gpointer func, gpointer data), (override));
+    MOCK_METHOD(guint, signal_handlers_disconnect_by_data, (gpointer instance, gpointer data), (override));
+    MOCK_METHOD(guint, signal_handlers_disconnect_by_func, (gpointer instance, gpointer func, gpointer data), (override));
 };
