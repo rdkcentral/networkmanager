@@ -33,7 +33,10 @@ GLibWraps& GLibWraps::getInstance() {
 }
 
 gboolean GLibWraps::g_main_loop_is_running(GMainLoop* loop) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the actual GLib macro directly
+        return g_main_loop_is_running(loop);
+    }
     return impl->g_main_loop_is_running(loop);
 }
 
