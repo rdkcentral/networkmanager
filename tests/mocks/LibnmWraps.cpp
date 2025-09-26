@@ -2,6 +2,8 @@
 #include <gmock/gmock.h>
 #include <glib.h>
 
+extern "C" const GPtrArray* __real_nm_client_get_devices(NMClient* client);
+
 extern "C" gint64 __wrap_nm_device_wifi_get_last_scan(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_last_scan(device);
 }
