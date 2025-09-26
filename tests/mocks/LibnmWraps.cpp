@@ -367,7 +367,10 @@ gboolean LibnmWraps::nm_device_disconnect_finish(NMDevice *device, GAsyncResult 
 }
 
 const GPtrArray* LibnmWraps::nm_client_get_devices(NMClient* client) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the real function directly
+        return __real_nm_client_get_devices(client);
+    }
     return impl->nm_client_get_devices(client);
 }
 
