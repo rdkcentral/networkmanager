@@ -351,7 +351,9 @@ const char* LibnmWraps::nm_connection_get_interface_name(NMRemoteConnection *con
 }
 
 NMDevice* LibnmWraps::nm_client_get_device_by_iface(NMClient *client, const char *iface) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        nm_client_get_device_by_iface(client, iface);
+    }
     return impl->nm_client_get_device_by_iface(client, iface);
 }
 
