@@ -91,6 +91,13 @@ extern "C" NMActiveConnection* __real_nm_client_add_and_activate_connection_fini
 extern "C" GVariant* __real_nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                                GAsyncResult *result,
                                                                GError **error);
+extern "C" void __real_nm_remote_connection_update2(NMRemoteConnection *connection,
+                                                  GVariant *settings,
+                                                  NMSettingsUpdate2Flags flags,
+                                                  GVariant *args,
+                                                  GCancellable *cancellable,
+                                                  GAsyncReadyCallback callback,
+                                                  gpointer user_data);
 extern "C" void __real_nm_client_add_connection2(NMClient *client,
                                                GVariant *settings,
                                                NMSettingsAddConnection2Flags flags,
@@ -128,6 +135,7 @@ extern "C" NMSettingWireless *__real_nm_connection_get_setting_wireless(NMConnec
 extern "C" GBytes *__real_nm_setting_wireless_get_ssid(NMSettingWireless *setting);
 extern "C" NMState __real_nm_client_get_state(NMClient *client);
 extern "C" gboolean __real_nm_client_get_nm_running(NMClient *client);
+extern "C" GVariant* __real_nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags);
 
 
 class LibnmWrapsImplMock : public LibnmWrapsImpl {
@@ -156,6 +164,12 @@ public:
             .WillByDefault(::testing::Invoke(
             [&](NMIPAddress* address) -> int {
                 return __real_nm_ip_address_get_family(address);
+            }));
+            
+        ON_CALL(*this, nm_connection_to_dbus(::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMConnection* connection, NMConnectionSerializationFlags flags) -> GVariant* {
+                return __real_nm_connection_to_dbus(connection, flags);
             }));
         ON_CALL(*this, nm_device_wifi_get_last_scan(::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -206,6 +220,12 @@ public:
             .WillByDefault(::testing::Invoke(
             [&](NMRemoteConnection* connection, GAsyncResult* result, GError** error) -> GVariant* {
                 return __real_nm_remote_connection_update2_finish(connection, result, error);
+            }));
+            
+        ON_CALL(*this, nm_remote_connection_update2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMRemoteConnection* connection, GVariant* settings, NMSettingsUpdate2Flags flags, GVariant* args, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                __real_nm_remote_connection_update2(connection, settings, flags, args, cancellable, callback, user_data);
             }));
         ON_CALL(*this, nm_client_add_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -550,6 +570,7 @@ public:
     MOCK_METHOD(GBytes*, nm_setting_wireless_get_ssid, (NMSettingWireless *setting), (override));
     MOCK_METHOD(NMActiveConnection*, nm_client_add_and_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
     MOCK_METHOD(GVariant*, nm_remote_connection_update2_finish, (NMRemoteConnection *connection, GAsyncResult *result, GError **error), (override));
+    MOCK_METHOD(void, nm_remote_connection_update2, (NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(void, nm_client_add_connection2, (NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(NMRemoteConnection*, nm_client_add_connection2_finish, (NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error), (override));
     MOCK_METHOD(gboolean, nm_remote_connection_delete, (NMRemoteConnection *connection, GCancellable *cancellable, GError **error), (override));
@@ -559,4 +580,5 @@ public:
     MOCK_METHOD(const char*, nm_active_connection_get_connection_type, (NMActiveConnection *connection), (override));
     MOCK_METHOD(NMDeviceStateReason, nm_device_get_state_reason, (NMDevice *device), (override));
     MOCK_METHOD(int, nm_ip_address_get_family, (NMIPAddress *address), (override));
+    MOCK_METHOD(GVariant*, nm_connection_to_dbus, (NMConnection *connection, NMConnectionSerializationFlags flags), (override));
 };

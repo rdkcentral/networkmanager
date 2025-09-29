@@ -46,6 +46,10 @@ extern "C" GVariant* __wrap_nm_remote_connection_update2_finish(NMRemoteConnecti
     return LibnmWraps::getInstance().nm_remote_connection_update2_finish(connection, result, error);
 }
 
+extern "C" void __wrap_nm_remote_connection_update2(NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    LibnmWraps::getInstance().nm_remote_connection_update2(connection, settings, flags, args, cancellable, callback, user_data);
+}
+
 extern "C" void __wrap_nm_client_add_connection2(NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
     LibnmWraps::getInstance().nm_client_add_connection2(client, settings, flags, args, ignore_out_result, cancellable, callback, user_data);
 }
@@ -306,6 +310,10 @@ extern "C" NMDeviceStateReason __wrap_nm_device_get_state_reason(NMDevice *devic
 
 extern "C" int __wrap_nm_ip_address_get_family(NMIPAddress *address) {
     return LibnmWraps::getInstance().nm_ip_address_get_family(address);
+}
+
+extern "C" GVariant* __wrap_nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags) {
+    return LibnmWraps::getInstance().nm_connection_to_dbus(connection, flags);
 }
 
 LibnmWrapsImpl* LibnmWraps::impl = nullptr;
@@ -618,6 +626,11 @@ GVariant* LibnmWraps::nm_remote_connection_update2_finish(NMRemoteConnection *co
     return impl->nm_remote_connection_update2_finish(connection, result, error);
 }
 
+void LibnmWraps::nm_remote_connection_update2(NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    EXPECT_NE(impl, nullptr);
+    impl->nm_remote_connection_update2(connection, settings, flags, args, cancellable, callback, user_data);
+}
+
 void LibnmWraps::nm_client_add_connection2(NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
     EXPECT_NE(impl, nullptr);
     impl->nm_client_add_connection2(client, settings, flags, args, ignore_out_result, cancellable, callback, user_data);
@@ -692,4 +705,9 @@ NMDeviceStateReason LibnmWraps::nm_device_get_state_reason(NMDevice* device) {
 int LibnmWraps::nm_ip_address_get_family(NMIPAddress* address) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_ip_address_get_family(address);
+}
+
+GVariant* LibnmWraps::nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_connection_to_dbus(connection, flags);
 }
