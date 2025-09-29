@@ -48,6 +48,7 @@ extern "C" guint32 __real_nm_access_point_get_frequency(NMAccessPoint *ap);
 extern "C" NM80211Mode __real_nm_access_point_get_mode(NMAccessPoint *ap);
 extern "C" guint32 __real_nm_access_point_get_max_bitrate(NMAccessPoint *ap);
 extern "C" guint8 __real_nm_access_point_get_strength(NMAccessPoint *ap);
+extern "C" gboolean __real_nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection);
 extern "C" NMAccessPoint* __real_nm_device_wifi_get_active_access_point(NMDeviceWifi *device);
 
 extern "C" void __real_nm_device_wifi_request_scan_async(NMDeviceWifi *device,
@@ -435,6 +436,12 @@ public:
                 return __real_nm_access_point_get_strength(ap);
             }));
             
+        ON_CALL(*this, nm_access_point_connection_valid(::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMAccessPoint* ap, NMConnection* connection) -> gboolean {
+                return __real_nm_access_point_connection_valid(ap, connection);
+            }));
+            
         ON_CALL(*this, nm_device_wifi_get_active_access_point(::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](NMDeviceWifi* device) -> NMAccessPoint* {
@@ -542,6 +549,7 @@ public:
     MOCK_METHOD(NM80211Mode, nm_access_point_get_mode, (NMAccessPoint *ap), (override));
     MOCK_METHOD(guint32, nm_access_point_get_max_bitrate, (NMAccessPoint *ap), (override));
     MOCK_METHOD(guint8, nm_access_point_get_strength, (NMAccessPoint *ap), (override));
+    MOCK_METHOD(gboolean, nm_access_point_connection_valid, (NMAccessPoint *ap, NMConnection *connection), (override));
     MOCK_METHOD(NMAccessPoint*, nm_device_wifi_get_active_access_point, (NMDeviceWifi *device), (override));
     MOCK_METHOD(const GPtrArray*, nm_device_wifi_get_access_points, (NMDeviceWifi *device), (override));
     MOCK_METHOD(const GPtrArray*, nm_device_get_available_connections, (NMDevice *device), (override));

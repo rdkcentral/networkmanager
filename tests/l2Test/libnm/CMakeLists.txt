@@ -160,6 +160,8 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,nm_setting_wireless_get_ssid
     -Wl,-wrap,nm_connection_get_setting_wireless
     -Wl,-wrap,nm_remote_connection_delete
+    -Wl,-wrap,nm_remote_connection_delete_finish
+    -Wl,-wrap,nm_access_point_connection_valid
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")

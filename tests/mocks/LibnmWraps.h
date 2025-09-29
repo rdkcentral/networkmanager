@@ -54,6 +54,7 @@ public:
     virtual NM80211Mode nm_access_point_get_mode(NMAccessPoint *ap) = 0;
     virtual guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap) = 0;
     virtual guint8 nm_access_point_get_strength(NMAccessPoint *ap) = 0;
+    virtual gboolean nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) = 0;
     virtual NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device) = 0;
     virtual const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device) = 0;
     virtual const GPtrArray* nm_device_get_available_connections(NMDevice* device) = 0;
@@ -240,6 +241,7 @@ public:
     static NM80211Mode nm_access_point_get_mode(NMAccessPoint *ap);
     static guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap);
     static guint8 nm_access_point_get_strength(NMAccessPoint *ap);
+    static gboolean nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection);
     static NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device);
     static const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device);
     static const GPtrArray* nm_device_get_available_connections(NMDevice* device);

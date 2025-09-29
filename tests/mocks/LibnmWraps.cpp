@@ -207,6 +207,10 @@ extern "C" guint8 __wrap_nm_access_point_get_strength(NMAccessPoint *ap) {
     return LibnmWraps::getInstance().nm_access_point_get_strength(ap);
 }
 
+extern "C" gboolean __wrap_nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) {
+    return LibnmWraps::getInstance().nm_access_point_connection_valid(ap, connection);
+}
+
 extern "C" NMAccessPoint* __wrap_nm_device_wifi_get_active_access_point(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_active_access_point(device);
 }
@@ -513,6 +517,11 @@ guint32 LibnmWraps::nm_access_point_get_max_bitrate(NMAccessPoint *ap) {
 guint8 LibnmWraps::nm_access_point_get_strength(NMAccessPoint *ap) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_access_point_get_strength(ap);
+}
+
+gboolean LibnmWraps::nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_access_point_connection_valid(ap, connection);
 }
 
 NMAccessPoint* LibnmWraps::nm_device_wifi_get_active_access_point(NMDeviceWifi *device) {
