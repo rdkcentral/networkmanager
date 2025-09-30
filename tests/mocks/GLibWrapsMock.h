@@ -30,6 +30,4 @@ public:
     MOCK_METHOD(gboolean, g_main_loop_is_running, (GMainLoop* loop), (override));
     MOCK_METHOD(gulong, g_signal_connect_data, (gpointer instance, const gchar *detailed_signal, GCallback c_handler,
                                          gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags), (override));
-    MOCK_METHOD(guint, signal_handlers_disconnect_by_data, (gpointer instance, gpointer data), (override));
-    MOCK_METHOD(guint, signal_handlers_disconnect_by_func, (gpointer instance, gpointer func, gpointer data), (override));
 };

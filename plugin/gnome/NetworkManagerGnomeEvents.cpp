@@ -500,7 +500,7 @@ namespace WPEFramework
         if (!isEventThrdActive) {
             return;
         }
-        if (nmEvents.loop != NULL && g_main_loop_is_running(nmEvents.loop)) {
+        if (nmEvents.loop != NULL) {
             g_main_loop_quit(nmEvents.loop);
         }
 
