@@ -122,6 +122,15 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
+
+            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            {
+                NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                interface.clear();
+                m_defaultInterface = interface;
+                return Core::ERROR_NONE;
+            }
+
             if(_nmGdbusClient->getPrimaryInterface(interface))
                 return Core::ERROR_NONE;
             else
@@ -140,7 +149,13 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             if(_nmGdbusClient->setInterfaceState(interface, enabled))
+            {
+                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                    _instance->m_wlanEnabled.store(enabled);
+                else if(interface == nmUtils::ethIface() && _instance != NULL)
+                    _instance->m_ethEnabled.store(enabled);
                 rc = Core::ERROR_NONE;
+            }
             else
                 NMLOG_ERROR("SetInterfaceState failed");
             return rc;

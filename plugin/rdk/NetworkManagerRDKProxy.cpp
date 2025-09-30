@@ -575,6 +575,15 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_DefaultRoute_t defaultRoute = {0};
+
+            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            {
+                NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                interface.clear();
+                m_defaultInterface = interface;
+                return Core::ERROR_NONE;
+            }
+
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&defaultRoute, sizeof(defaultRoute)))
             {
                 NMLOG_INFO ("Call to %s for %s returned interface = %s, gateway = %s", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, defaultRoute.interface, defaultRoute.gateway);

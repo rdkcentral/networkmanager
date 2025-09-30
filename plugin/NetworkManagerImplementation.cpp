@@ -644,9 +644,15 @@ namespace WPEFramework
             if(Exchange::INetworkManager::INTERFACE_LINK_UP == state)
             {
                 if(interface == "eth0")
+                {
                     m_ethConnected.store(true);
+                    m_ethEnabled.store(true);
+                }
                 else if(interface == "wlan0")
+                {
                     m_wlanConnected.store(true);
+                    m_wlanEnabled.store(true);
+                }
                 // connectivityMonitor.switchToInitialCheck();
                 // FIXME : Availability of interface does not mean that it has internet connection, so not triggering connectivity monitor check here.
             }
@@ -665,9 +671,15 @@ namespace WPEFramework
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
+            {
                 m_ethConnected.store(true);
+                m_ethEnabled.store(true);
+            }
             else if (currentActiveinterface == "wlan0")
+            {
                 m_wlanConnected.store(true);
+                m_wlanEnabled.store(true);
+            }
 
             // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
             // m_defaultInterface = currentActiveinterface;
