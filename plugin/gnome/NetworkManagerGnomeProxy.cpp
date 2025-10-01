@@ -568,10 +568,11 @@ namespace WPEFramework
                     NMLOG_WARNING("default interface get failed");
                     return Core::ERROR_NONE;
                 }
+
                 if(interface.empty())
                 {
-                    NMLOG_DEBUG("default interface return empty default is wlan0");
-                    interface = wifiname;
+                    NMLOG_WARNING("default interface is empty, no active interface");
+                    return Core::ERROR_GENERAL;
                 }
             }
             else if(wifiname != interface && ethname != interface)
