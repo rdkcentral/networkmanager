@@ -542,6 +542,7 @@ namespace WPEFramework
             const char* dhcpserver;
             NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
+            string ipversionStr;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
@@ -566,8 +567,49 @@ namespace WPEFramework
             }
             else if(wifiname != interface && ethname != interface)
             {
-                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                NMLOG_ERROR("interface: %s; not valid", interface.c_str());
                 return Core::ERROR_GENERAL;
+            }
+
+            if(ipversion.empty())
+            {
+                ipversionStr = "IPV4";
+            }
+            else
+            {
+                ipversionStr = ipversion;
+            }
+
+            // Add caching optimization similar to RDK proxy
+            if ("wlan0" == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_wlanIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("wlan0 IPv4 address from cache");
+                    result = m_wlanIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_wlanIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("wlan0 IPv6 address from cache");
+                    result = m_wlanIPv6Address;
+                    return Core::ERROR_NONE;
+                }
+            }
+            else if ("eth0" == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_ethIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("eth0 IPv4 address from cache");
+                    result = m_ethIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_ethIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("eth0 IPv6 address from cache");
+                    result = m_ethIPv6Address;
+                    return Core::ERROR_NONE;
+                }
             }
 
             device = nm_client_get_device_by_iface(client, interface.c_str());
@@ -673,6 +715,12 @@ namespace WPEFramework
                             result.dhcpserver = dhcpserver;
                     }
                     result.ula = "";
+
+                    // Cache the IPv4 address
+                    if("eth0" == interface)
+                        m_ethIPv4Address = result;
+                    else if("wlan0" == interface)
+                        m_wlanIPv4Address = result;
                 }
             }
             if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
@@ -728,6 +776,11 @@ namespace WPEFramework
                         if(dhcpserver)
                             result.dhcpserver = dhcpserver;
                     }
+                    // Cache the IPv6 address
+                    if("eth0" == interface)
+                        m_ethIPv6Address = result;
+                    else if("wlan0" == interface)
+                        m_wlanIPv6Address = result;
                 }
             }
             if(result.ipaddress.empty())
