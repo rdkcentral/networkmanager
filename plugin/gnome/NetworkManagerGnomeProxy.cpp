@@ -413,6 +413,8 @@ namespace WPEFramework
                     interface = nmUtils::ethIface();
                 else
                     interface = nmUtils::wlanIface(); // default is wifi
+                rc = Core::ERROR_NONE;
+                // TODO: if no proimary connection, should we return empty string? RDK V return empty string
             }
 
             m_defaultInterface = interface;
