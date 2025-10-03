@@ -54,6 +54,7 @@ public:
     virtual NM80211Mode nm_access_point_get_mode(NMAccessPoint *ap) = 0;
     virtual guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap) = 0;
     virtual guint8 nm_access_point_get_strength(NMAccessPoint *ap) = 0;
+    virtual gboolean nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) = 0;
     virtual NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device) = 0;
     virtual const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device) = 0;
     virtual const GPtrArray* nm_device_get_available_connections(NMDevice* device) = 0;
@@ -88,6 +89,13 @@ public:
     virtual GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                         GAsyncResult *result,
                                                         GError **error) = 0;
+    virtual void nm_remote_connection_update2(NMRemoteConnection *connection,
+                                            GVariant *settings,
+                                            NMSettingsUpdate2Flags flags,
+                                            GVariant *args,
+                                            GCancellable *cancellable,
+                                            GAsyncReadyCallback callback,
+                                            gpointer user_data) = 0;
     virtual void nm_client_add_connection2(NMClient *client,
                                         GVariant *settings,
                                         NMSettingsAddConnection2Flags flags,
@@ -131,6 +139,7 @@ public:
     virtual const char* nm_active_connection_get_connection_type(NMActiveConnection *connection) = 0;
     virtual NMDeviceStateReason nm_device_get_state_reason(NMDevice *device) = 0;
     virtual int nm_ip_address_get_family(NMIPAddress *address) = 0;
+    virtual GVariant* nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags) = 0;
   
 
 };
@@ -149,6 +158,7 @@ public:
     static const char* nm_active_connection_get_connection_type(NMActiveConnection *connection);
     static NMDeviceStateReason nm_device_get_state_reason(NMDevice *device);
     static int nm_ip_address_get_family(NMIPAddress *address);
+    static GVariant* nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags);
     static NMState nm_client_get_state(NMClient *client);
     static gboolean nm_client_get_nm_running(NMClient *client);
     static gint64 nm_device_wifi_get_last_scan(NMDeviceWifi *device);
@@ -171,6 +181,13 @@ public:
     static GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                        GAsyncResult *result,
                                                        GError **error);
+    static void nm_remote_connection_update2(NMRemoteConnection *connection,
+                                           GVariant *settings,
+                                           NMSettingsUpdate2Flags flags,
+                                           GVariant *args,
+                                           GCancellable *cancellable,
+                                           GAsyncReadyCallback callback,
+                                           gpointer user_data);
     static void nm_client_add_connection2(NMClient *client,
                                         GVariant *settings,
                                         NMSettingsAddConnection2Flags flags,
@@ -224,6 +241,7 @@ public:
     static NM80211Mode nm_access_point_get_mode(NMAccessPoint *ap);
     static guint32 nm_access_point_get_max_bitrate(NMAccessPoint *ap);
     static guint8 nm_access_point_get_strength(NMAccessPoint *ap);
+    static gboolean nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection);
     static NMAccessPoint* nm_device_wifi_get_active_access_point(NMDeviceWifi *device);
     static const GPtrArray* nm_device_wifi_get_access_points(NMDeviceWifi *device);
     static const GPtrArray* nm_device_get_available_connections(NMDevice* device);
