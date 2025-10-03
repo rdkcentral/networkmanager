@@ -136,12 +136,14 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,nm_client_activate_connection_async
     -Wl,-wrap,nm_connection_get_connection_type
     -Wl,-wrap,nm_connection_get_id
+    -Wl,-wrap,nm_connection_to_dbus
     -Wl,-wrap,nm_client_get_connections
     -Wl,-wrap,nm_device_set_autoconnect
     -Wl,-wrap,nm_device_wifi_get_last_scan
     -Wl,-wrap,nm_client_activate_connection_finish
     -Wl,-wrap,nm_client_add_and_activate_connection_async
     -Wl,-wrap,nm_remote_connection_update2_finish
+    -Wl,-wrap,nm_remote_connection_update2
     -Wl,-wrap,nm_client_add_connection2
     -Wl,-wrap,nm_client_add_connection2_finish
     -Wl,-wrap,nm_client_add_and_activate_connection_finish
@@ -158,6 +160,8 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,nm_setting_wireless_get_ssid
     -Wl,-wrap,nm_connection_get_setting_wireless
     -Wl,-wrap,nm_remote_connection_delete
+    -Wl,-wrap,nm_remote_connection_delete_finish
+    -Wl,-wrap,nm_access_point_connection_valid
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
