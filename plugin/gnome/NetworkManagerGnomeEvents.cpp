@@ -476,7 +476,10 @@ namespace WPEFramework
         NMLOG_INFO("registered all networkmnager dbus events");
         g_main_loop_run(nmEvents->loop);
         // Clean up all signal handlers after thread has stopped
-        cleanupSignalHandlers();
+        if(_nmEventInstance != nullptr)
+        {
+            _nmEventInstance->cleanupSignalHandlers();
+        }
         //g_main_loop_unref(nmEvents->loop);
         return nullptr;
     }
