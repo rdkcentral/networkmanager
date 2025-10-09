@@ -39,7 +39,6 @@ if(ENABLE_GNOME_NETWORKMANAGER)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBNM REQUIRED libnm)
 pkg_check_modules(GLIB REQUIRED gio-2.0)
-else()
 find_package(IARMBus REQUIRED)
 endif ()
 
@@ -96,9 +95,10 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/NetworkManagerGnomeWIFI.cpp
             gnome/NetworkManagerGnomeEvents.cpp
             gnome/NetworkManagerGnomeUtils.cpp
+            gnome/NetworkManagerGnomeMfrMgr.cpp
             NetworkManagerSecretAgent.cpp )
-        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS})
-        target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${LIBNM_LIBRARIES})
+        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${GLIB_INCLUDE_DIRS} ${LIBNM_INCLUDE_DIRS} ${IARMBUS_INCLUDE_DIRS})
+        target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${LIBNM_LIBRARIES} ${IARMBUS_LIBRARIES})
     endif()
 else()
     message("networkmanager building with RDK netsrvmgr")
