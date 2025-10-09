@@ -106,6 +106,7 @@ namespace WPEFramework
 
         bool NetworkManagerMfrManager::saveWiFiSettingsToMfrSync(const std::string& ssid, const std::string& passphrase, int security)
         {
+            int securityMode;
             if (!ensureIARMConnection()) {
                 NMLOG_ERROR("IARM connection not available for saving WiFi settings");
                 return false;
@@ -114,6 +115,32 @@ namespace WPEFramework
             NMLOG_INFO("Saving WiFi settings to MfrMgr via IARM - SSID: %s, Security: %d", ssid.c_str(), security);
             
             IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t param{0};
+            param.requestType = WIFI_GET_CREDENTIALS;
+            IARM_Result_t ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
+                                              (void*)&param, sizeof(param));
+            if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE)
+                securityMode = NET_WIFI_SECURITY_NONE;
+            else if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE)
+                securityMode = NET_WIFI_SECURITY_WPA3_SAE;
+            else
+                securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+
+            if (ret == IARM_RESULT_SUCCESS)
+            {
+                if ((strcmp (param.wifiCredentials.cSSID, ssid.c_str()) == 0) &&
+                (strcmp (param.wifiCredentials.cPassword, passphrase.c_str()) == 0) &&
+                (param.wifiCredentials.iSecurityMode == securityMode))
+                {
+                    NMLOG_INFO("Same ssid info not storing it stored ssid %s new ssid %s", param.wifiCredentials.cSSID, ssid.c_str());
+                    return true;
+                }
+                else
+                {
+                    NMLOG_INFO("ssid info is different continue to store ssid %s new ssid %s", param.wifiCredentials.cSSID, ssid.c_str());
+                }
+            }
+
+            memset(&param,0,sizeof(param));
             param.requestType = WIFI_SET_CREDENTIALS;
 
             // Copy SSID
@@ -127,20 +154,41 @@ namespace WPEFramework
                 param.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
                 NMLOG_DEBUG("Empty passphrase - setting empty string in MfrMgr");
             }
-            
-            // Set security mode
-            if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE)
-                param.wifiCredentials.iSecurityMode = NET_WIFI_SECURITY_NONE;
-            else if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE)
-                param.wifiCredentials.iSecurityMode = NET_WIFI_SECURITY_WPA3_SAE;
-            else
-                param.wifiCredentials.iSecurityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+
+            param.wifiCredentials.iSecurityMode = securityMode;
             
             // Make IARM Bus call to save credentials
-            IARM_Result_t ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials, 
+            ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&param, sizeof(param));
-            
-            if (ret != IARM_RESULT_SUCCESS) {
+            if(ret == IARM_RESULT_SUCCESS)
+            {
+                memset(&param,0,sizeof(param));
+                param.requestType = WIFI_GET_CREDENTIALS;
+                ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials, (void*)&param, sizeof(param));
+                if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE)
+                    securityMode = NET_WIFI_SECURITY_NONE;
+                else if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE)
+                    securityMode = NET_WIFI_SECURITY_WPA3_SAE;
+                else
+                    securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
+
+                if (ret == IARM_RESULT_SUCCESS)
+                {
+                    if ((strcmp (param.wifiCredentials.cSSID, ssid.c_str()) == 0) &&
+                            (strcmp (param.wifiCredentials.cPassword, passphrase.c_str()) == 0) &&
+                            (param.wifiCredentials.iSecurityMode == securityMode))
+                    {
+                        NMLOG_INFO("Successfully stored the credentails and verified stored ssid %s current ssid %s and security_mode %d", param.wifiCredentials.cSSID, ssid.c_str(), param.wifiCredentials.iSecurityMode);
+                        return true;
+                    }
+                    else
+                    {
+                        NMLOG_INFO("failure in storing wifi credentials ssid %s", ssid.c_str());
+                    }
+                }
+            }
+            else
+            {
                 NMLOG_ERROR("IARM Bus call failed for WiFi credentials save: %d", ret);
                 return false;
             }
