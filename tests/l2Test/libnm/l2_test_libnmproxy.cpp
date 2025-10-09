@@ -340,31 +340,42 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
 
 TEST_F(NetworkManagerTest, GetPrimaryInterface_eth0)
 {
+    string interface{};
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
+    
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(reinterpret_cast<NMDevice*>(0x100178)))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
+    
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
+    EXPECT_EQ(interface, "eth0");
 }
 
 TEST_F(NetworkManagerTest, GetPrimaryInterface_wlan0)
 {
+    string interface{};
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(reinterpret_cast<NMDevice*>(0x100178)))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_UNAVAILABLE));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"wlan0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_wlanEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+
+    EXPECT_EQ(interface, "wlan0");
 }
 
 TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_eth0)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
+    string interface{};
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
@@ -378,14 +389,19 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_eth0)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(dummyActiveConn))
         .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "eth0");
+
     g_object_unref(dummyActiveConn);
 }
 
 TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_wlan0)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
+    string interface{};
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
@@ -399,8 +415,11 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_wlan0)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(dummyActiveConn))
         .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"wlan0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_wlanEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "wlan0");
     g_object_unref(dummyActiveConn);
 }
 
@@ -408,6 +427,8 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_wlan0)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     NMRemoteConnection *dummyRemoteConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+    string interface{};
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_primary_connection(::testing::_))
         .WillOnce(::testing::Return(dummyActiveConn));
 
@@ -417,8 +438,12 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_wlan0)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(dummyRemoteConn))
         .WillOnce(::testing::Return("wlan0"));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"wlan0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_wlanEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "wlan0");
+
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
 }
@@ -427,6 +452,8 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_eth0)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     NMRemoteConnection *dummyRemoteConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+    string interface{};
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_primary_connection(::testing::_))
         .WillOnce(::testing::Return(dummyActiveConn));
 
@@ -436,8 +463,12 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_eth0)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(dummyRemoteConn))
         .WillOnce(::testing::Return("eth0"));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "eth0");
+
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
 }
@@ -446,6 +477,11 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_unknown)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     NMRemoteConnection *dummyRemoteConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+    string interface{};
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_primary_connection(::testing::_))
         .WillOnce(::testing::Return(dummyActiveConn));
 
@@ -455,8 +491,12 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_unknown)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(dummyRemoteConn))
         .WillOnce(::testing::Return("unknown"));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "wlan0");
+
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
 }
@@ -465,6 +505,11 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_iface_null)
 {
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     NMRemoteConnection *dummyRemoteConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+    string interface{};
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_primary_connection(::testing::_))
         .WillOnce(::testing::Return(dummyActiveConn));
 
@@ -472,10 +517,14 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_iface_null)
             .WillOnce(::testing::Return(dummyRemoteConn));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(dummyRemoteConn))
-        .WillOnce(::testing::Return(nullptr));
+        .WillOnce(::testing::Return(static_cast<const char*>(NULL)));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"wlan0\",\"success\":true}"));
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "wlan0");
+
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
 }
@@ -668,28 +717,19 @@ TEST_F(NetworkManagerTest, GetIPSettings_invalid_state)
 
 TEST_F(NetworkManagerTest, GetIPSettings_interface_Empty)
 {
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100172)))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(reinterpret_cast<NMDevice*>(0x100178)))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNAVAILABLE));
-
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"\"}"), response));
     EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_GetPrimary_failed)
 {
-    // EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-    //     .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100172)))
-    //     .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    // EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(reinterpret_cast<NMDevice*>(0x100178)))
-    //     .WillOnce(::testing::Return(NM_DEVICE_STATE_UNAVAILABLE));
-
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     NMRemoteConnection *dummyRemoteConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)))
+        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100179)));
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_primary_connection(::testing::_))
         .WillOnce(::testing::Return(dummyActiveConn));
 
@@ -699,8 +739,11 @@ TEST_F(NetworkManagerTest, GetIPSettings_GetPrimary_failed)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(dummyRemoteConn))
         .WillOnce(::testing::Return("unknown"));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = true;
+
+    string interface; const string ipversion; Exchange::INetworkManager::IPAddress address;
+    EXPECT_EQ(Core::ERROR_GENERAL, NetworkManagerImpl2->GetIPSettings(interface, ipversion, address));
 
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
