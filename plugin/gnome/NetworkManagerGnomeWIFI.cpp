@@ -29,6 +29,7 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGnomeMfrMgr.h"
 
 using namespace std;
 namespace WPEFramework
@@ -1175,6 +1176,15 @@ namespace WPEFramework
             }
 
             deleteClientConnection();
+
+            if (connectionFound)
+            {
+                NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+                if (mfrManager != nullptr)
+                {
+                    mfrManager->clearWiFiSettingsFromMfr();
+                }
+            }
             // ssid is specified and connection is not found return false
             // all other case return true, even if no wificonnection is found
             return((ssidSpecified && !connectionFound)? false : true);
