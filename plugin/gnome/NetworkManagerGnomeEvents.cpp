@@ -609,18 +609,11 @@ namespace WPEFramework
             _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
             // Handle WiFi state changes for MfrMgr integration
             NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
-            if (mfrManager != nullptr) {
-                switch (state) {
-                    case Exchange::INetworkManager::WIFI_STATE_CONNECTED:
-                        NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
-                        // Try cached credentials first
-                        mfrManager->handleWiFiConnectedWithCredentials();
-                        break;
-                    default:
-                        // For all non-connected states, clear both pending credentials
-                        NMLOG_DEBUG("WiFi not connected (state: %d) - clearing pending credentials", state);
-                        mfrManager->clearPendingCredentials();
-                        break;
+            if(mfrManager != nullptr) {
+                if(state == Exchange::INetworkManager::WIFI_STATE_CONNECTED)
+                {
+                    NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
+                    mfrManager->handleWiFiConnectedWithCredentials();
                 }
             }
         }
