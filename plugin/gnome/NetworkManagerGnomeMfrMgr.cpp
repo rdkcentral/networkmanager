@@ -21,6 +21,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
+#include "mfrMgr.h"
 #include <thread>
 #include <mutex>
 
@@ -156,7 +157,8 @@ namespace WPEFramework
             }
 
             param.wifiCredentials.iSecurityMode = securityMode;
-            
+           
+            NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.cPassword = %s, param.wifiCredentials.iSecurityMode = %d", param.requestType, param.wifiCredentials.cSSID, param.wifiCredentials.cPassword, param.wifiCredentials.iSecurityMode); 
             // Make IARM Bus call to save credentials
             ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&param, sizeof(param));

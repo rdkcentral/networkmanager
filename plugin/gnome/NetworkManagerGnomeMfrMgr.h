@@ -21,6 +21,7 @@
 
 #include <string>
 
+#if 0
 // IARM Bus definitions for MfrMgr WiFi credentials
 #define IARM_BUS_MFRLIB_NAME "MFRLib"
 #define IARM_BUS_MFRLIB_API_WIFI_Credentials "mfrWifiCredentials"
@@ -63,7 +64,7 @@ typedef struct _IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t {
     WifiRequestType_t requestType;
     WIFI_API_RESULT returnVal;
 } IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t;
-
+#endif
 typedef enum _SsidSecurity                                                                                                                                
 {                                                                                                                                                         
     NET_WIFI_SECURITY_NONE = 0,                                                                                                                           
