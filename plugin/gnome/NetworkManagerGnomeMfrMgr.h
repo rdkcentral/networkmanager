@@ -45,40 +45,11 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        /**
-         * @brief NetworkManagerMfrManager handles saving and loading WiFi settings using MfrMgr APIs via IARM Bus
-         * 
-         * This singleton class provides functionality to:
-         * - Save WiFi credentials (SSID, passphrase, security mode) to persistent storage via MfrMgr using IARM Bus calls
-         * - Load WiFi credentials from persistent storage via IARM Bus
-         * - Clear saved WiFi credentials via IARM Bus
-         * - Handle WiFi connection events for automatic credential saving
-         * - Manage IARM Bus connection lifecycle for MfrMgr communication
-         */
         class NetworkManagerMfrManager
         {
         public:
-            /**
-             * @brief Get singleton instance
-             * @return Reference to NetworkManagerMfrManager instance
-             */
             static NetworkManagerMfrManager* getInstance();
-
-            /**
-             * @brief Save WiFi settings to MfrMgr persistent storage (asynchronous)
-             * @param ssid WiFi network SSID
-             * @param passphrase WiFi network passphrase/password
-             * @param security Security mode (as integer enum value)
-             * @return true if operation queued successfully, false otherwise
-             * @note This method returns immediately and performs the save operation in a background thread
-             */
-            //bool saveWiFiSettingsToMfr(const std::string& ssid, const std::string& passphrase, int security);
             bool saveWiFiSettingsToMfr();
-
-            /**
-             * @brief Clear WiFi settings from MfrMgr persistent storage
-             * @return true if successful, false otherwise
-             */
             bool clearWiFiSettingsFromMfr();
 
         private:
@@ -89,23 +60,7 @@ namespace WPEFramework
             NetworkManagerMfrManager(const NetworkManagerMfrManager&) = delete;
             NetworkManagerMfrManager& operator=(const NetworkManagerMfrManager&) = delete;
 
-            /**
-             * @brief Synchronous version of saveWiFiSettingsToMfr for background thread execution
-             * @param ssid WiFi network SSID
-             * @param passphrase WiFi network passphrase/password
-             * @param security Security mode (as integer enum value)
-             * @return true if successful, false otherwise
-             */
             bool saveWiFiSettingsToMfrSync(const std::string& ssid, const std::string& passphrase, int security);
-
-            // Structure to hold pending WiFi credentials during connection process
-            struct PendingCredentials {
-                std::string ssid;
-                std::string passphrase;
-                int security = 0;
-                bool isValid = false;
-            } m_pendingCredentials;
         };
-
     } // namespace Plugin
 } // namespace WPEFramework

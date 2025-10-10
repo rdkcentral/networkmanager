@@ -70,43 +70,43 @@ namespace WPEFramework
             }
 
             char buffer[1024];
-            std::string nmcli_output;
+            std::string nmcliOutput;
             
             // Read nmcli output
             while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-                nmcli_output += buffer;
+                nmcliOutput += buffer;
             }
             
-            int exit_code = pclose(pipe);
-            if (exit_code != 0) {
-                NMLOG_ERROR("nmcli command failed with exit code: %d", exit_code);
+            int exitCode = pclose(pipe);
+            if (exitCode != 0) {
+                NMLOG_ERROR("nmcli command failed with exit code: %d", exitCode);
                 return false;
             }
 
             // Parse SSID from nmcli output
-            size_t ssid_pos = nmcli_output.find("SSID:");
-            if (ssid_pos == std::string::npos) {
+            size_t ssidPos = nmcliOutput.find("SSID:");
+            if (ssidPos == std::string::npos) {
                 NMLOG_ERROR("SSID not found in nmcli output");
                 return false;
             }
             
-            size_t ssid_start = nmcli_output.find_first_not_of(" \t", ssid_pos + 5);
-            size_t ssid_end = nmcli_output.find_first_of("\n\r", ssid_start);
-            if (ssid_start == std::string::npos || ssid_end == std::string::npos) {
+            size_t ssidStart = nmcliOutput.find_first_not_of(" \t", ssidPos + 5);
+            size_t ssidEnd = nmcliOutput.find_first_of("\n\r", ssidStart);
+            if (ssidStart == std::string::npos || ssidEnd == std::string::npos) {
                 NMLOG_ERROR("Failed to parse SSID from nmcli output");
                 return false;
             }
             
-            ssid = nmcli_output.substr(ssid_start, ssid_end - ssid_start);
+            ssid = nmcliOutput.substr(ssidStart, ssidEnd - ssidStart);
             NMLOG_DEBUG("Parsed SSID from nmcli: %s", ssid.c_str());
 
             // Construct connection file path
-            std::string connection_file = "/etc/NetworkManager/system-connections/" + ssid + ".nmconnection";
+            std::string connectionFile = "/etc/NetworkManager/system-connections/" + ssid + ".nmconnection";
 
             // Try to open the connection file
-            std::ifstream file(connection_file);
+            std::ifstream file(connectionFile);
             if (!file.is_open()) {
-                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connection_file.c_str());
+                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connectionFile.c_str());
                 return false;
             }
 
@@ -114,107 +114,63 @@ namespace WPEFramework
             std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 
             // Find [wifi-security] section using string search
-            size_t section_start = content.find("[wifi-security]");
-            if (section_start == std::string::npos) {
+            size_t sectionStart = content.find("[wifi-security]");
+            if (sectionStart == std::string::npos) {
                 NMLOG_DEBUG("No [wifi-security] section found in connection file");
                 file.close();
                 return false;
             }
             
             // Find the end of the wifi-security section (next section or end of file)
-            size_t section_end = content.find("\n[", section_start + 15); // 15 = length of "[wifi-security]"
-            if (section_end == std::string::npos) {
-                section_end = content.length();
+            size_t sectionEnd = content.find("\n[", sectionStart + 15); // 15 = length of "[wifi-security]"
+            if (sectionEnd == std::string::npos) {
+                sectionEnd = content.length();
             }
 
             // Extract just the wifi-security section
-            std::string wifi_section = content.substr(section_start, section_end - section_start);
+            std::string wifiSection = content.substr(sectionStart, sectionEnd - sectionStart);
 
-            std::string key_mgmt;
+            std::string keyMgmt;
 
             // Use regex or direct string search for key-mgmt
-            size_t key_mgmt_pos = wifi_section.find("key-mgmt=");
-            if (key_mgmt_pos != std::string::npos) {
-                size_t value_start = key_mgmt_pos + 9; // Skip "key-mgmt="
-                size_t value_end = wifi_section.find_first_of("\r\n", value_start);
-                if (value_end == std::string::npos) value_end = wifi_section.length();
-                key_mgmt = wifi_section.substr(value_start, value_end - value_start);
-                NMLOG_DEBUG("Found key-mgmt: %s", key_mgmt.c_str());
+            size_t keyMgmtPos = wifiSection.find("key-mgmt=");
+            if (keyMgmtPos != std::string::npos) {
+                size_t valueStart = keyMgmtPos + 9; // Skip "key-mgmt="
+                size_t valueEnd = wifiSection.find_first_of("\r\n", valueStart);
+                if (valueEnd == std::string::npos) valueEnd = wifiSection.length();
+                keyMgmt = wifiSection.substr(valueStart, valueEnd - valueStart);
+                NMLOG_DEBUG("Found key-mgmt: %s", keyMgmt.c_str());
             }
 
             // Use direct string search for psk
-            size_t psk_pos = wifi_section.find("psk=");
-            if (psk_pos != std::string::npos) {
-                size_t value_start = psk_pos + 4; // Skip "psk="
-                size_t value_end = wifi_section.find_first_of("\r\n", value_start);
-                if (value_end == std::string::npos) value_end = wifi_section.length();
-                passphrase = wifi_section.substr(value_start, value_end - value_start);
+            size_t pskPos = wifiSection.find("psk=");
+            if (pskPos != std::string::npos) {
+                size_t valueStart = pskPos + 4; // Skip "psk="
+                size_t valueEnd = wifiSection.find_first_of("\r\n", valueStart);
+                if (valueEnd == std::string::npos) valueEnd = wifiSection.length();
+                passphrase = wifiSection.substr(valueStart, valueEnd - valueStart);
                 NMLOG_DEBUG("Found psk in connection file");
             }
 
             file.close();
 
-#if 0
-            // Try to open the connection file
-            std::ifstream file(connection_file);
-            if (!file.is_open()) {
-                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connection_file.c_str());
-                return false;
-            }
-
-            std::string line;
-            std::string key_mgmt;
-            bool in_wifi_security_section = false;
-            
-            // Parse the connection file
-            while (std::getline(file, line)) {
-                // Remove leading/trailing whitespace
-                line.erase(0, line.find_first_not_of(" \t"));
-                line.erase(line.find_last_not_of(" \t\r\n") + 1);
-                
-                // Check for wifi-security section
-                if (line == "[wifi-security]") {
-                    in_wifi_security_section = true;
-                    continue;
-                } else if (line.empty() || line[0] == '[') {
-                    in_wifi_security_section = false;
-                    continue;
-                }
-                
-                if (in_wifi_security_section) {
-                    // Parse key-mgmt
-                    if (line.find("key-mgmt=") == 0) {
-                        key_mgmt = line.substr(9); // Remove "key-mgmt="
-                        NMLOG_DEBUG("Found key-mgmt: %s", key_mgmt.c_str());
-                    }
-                    // Parse psk
-                    else if (line.find("psk=") == 0) {
-                        passphrase = line.substr(4); // Remove "psk="
-                        NMLOG_DEBUG("Found psk in connection file");
-                    }
-                }
-            }
-            
-            file.close();
-#endif
 
             // Map key management to security type
-            if (key_mgmt.empty()) {
+            if (keyMgmt.empty()) {
                 security = NET_WIFI_SECURITY_NONE;
-            } else if (key_mgmt == "none") {
+            } else if (keyMgmt == "none") {
                 security = NET_WIFI_SECURITY_NONE;
-                passphrase.clear();
-            } else if (key_mgmt == "wpa-psk") {
+            } else if (keyMgmt == "wpa-psk") {
                 security = NET_WIFI_SECURITY_WPA2_PSK_AES;
-            } else if (key_mgmt == "sae") {
-                security = NET_WIFI_SECURITY_WPA3_SAE; // WPA3 SAE maps to WPA_PSK for our enum
+            } else if (keyMgmt == "sae") {
+                security = NET_WIFI_SECURITY_WPA3_SAE;
             } else {
                 // Default to WPA PSK for unknown key management
                 security = NET_WIFI_SECURITY_WPA2_PSK_AES;
             }
 
             NMLOG_DEBUG("Retrieved WiFi connection details - SSID: %s, Security: %d, Key-mgmt: %s", 
-                       ssid.c_str(), security, key_mgmt.c_str());
+                       ssid.c_str(), security, keyMgmt.c_str());
             return true;
         }
 
@@ -246,9 +202,8 @@ namespace WPEFramework
 
         bool NetworkManagerMfrManager::saveWiFiSettingsToMfr()
         {
-            // Launch asynchronous operation to retrieve and save current WiFi connection details
+            // Launch asynchronous operation to save current WiFi connection details
             std::thread saveThread([this]() {
-                // Retrieve current WiFi connection details from NetworkManager
                 std::string ssid, passphrase;
                 int security;
                 
@@ -259,7 +214,7 @@ namespace WPEFramework
                 
                 NMLOG_INFO("Retrieved current WiFi connection details for MfrMgr save - SSID: %s, Security: %d", ssid.c_str(), security);
                 
-                // Save the retrieved details synchronously (since we're already in a background thread)
+                // Save the retrieved details synchronously
                 bool result = this->saveWiFiSettingsToMfrSync(ssid, passphrase, security);
                 if (result) {
                     NMLOG_DEBUG("Background WiFi connection details retrieval and save completed successfully for SSID: %s", ssid.c_str());
@@ -274,25 +229,6 @@ namespace WPEFramework
             NMLOG_DEBUG("WiFi connection details retrieval and save operation queued for background execution");
             return true; // Return immediately, actual retrieval and save happens asynchronously
         }
-
-#if 0
-        bool NetworkManagerMfrManager::saveWiFiSettingsToMfr(const std::string& ssid, const std::string& passphrase, int security)
-        {
-            std::thread saveThread([this,ssid, passphrase, security]() {
-                bool result = this->saveWiFiSettingsToMfrSync(ssid, passphrase, security);
-                if (result) {
-                    NMLOG_DEBUG("Background MfrMgr save completed successfully for SSID: %s", ssid.c_str());
-                } else {
-                    NMLOG_ERROR("Background MfrMgr save failed for SSID: %s", ssid.c_str());
-                }
-            });
-            
-            saveThread.detach();
-            
-            NMLOG_DEBUG("WiFi settings save operation queued for background execution - SSID: %s, Security: %d", ssid.c_str(), security);
-            return true;
-        }
-#endif
 
         bool NetworkManagerMfrManager::saveWiFiSettingsToMfrSync(const std::string& ssid, const std::string& passphrase, int security)
         {
