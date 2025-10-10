@@ -102,7 +102,59 @@ namespace WPEFramework
 
             // Construct connection file path
             std::string connection_file = "/etc/NetworkManager/system-connections/" + ssid + ".nmconnection";
+
+            // Try to open the connection file
+            std::ifstream file(connection_file);
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connection_file.c_str());
+                return false;
+            }
+
+            // Read entire file into string buffer - more efficient than line-by-line
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+            // Find [wifi-security] section using string search
+            size_t section_start = content.find("[wifi-security]");
+            if (section_start == std::string::npos) {
+                NMLOG_DEBUG("No [wifi-security] section found in connection file");
+                file.close();
+                return false;
+            }
             
+            // Find the end of the wifi-security section (next section or end of file)
+            size_t section_end = content.find("\n[", section_start + 15); // 15 = length of "[wifi-security]"
+            if (section_end == std::string::npos) {
+                section_end = content.length();
+            }
+
+            // Extract just the wifi-security section
+            std::string wifi_section = content.substr(section_start, section_end - section_start);
+
+            std::string key_mgmt;
+
+            // Use regex or direct string search for key-mgmt
+            size_t key_mgmt_pos = wifi_section.find("key-mgmt=");
+            if (key_mgmt_pos != std::string::npos) {
+                size_t value_start = key_mgmt_pos + 9; // Skip "key-mgmt="
+                size_t value_end = wifi_section.find_first_of("\r\n", value_start);
+                if (value_end == std::string::npos) value_end = wifi_section.length();
+                key_mgmt = wifi_section.substr(value_start, value_end - value_start);
+                NMLOG_DEBUG("Found key-mgmt: %s", key_mgmt.c_str());
+            }
+
+            // Use direct string search for psk
+            size_t psk_pos = wifi_section.find("psk=");
+            if (psk_pos != std::string::npos) {
+                size_t value_start = psk_pos + 4; // Skip "psk="
+                size_t value_end = wifi_section.find_first_of("\r\n", value_start);
+                if (value_end == std::string::npos) value_end = wifi_section.length();
+                passphrase = wifi_section.substr(value_start, value_end - value_start);
+                NMLOG_DEBUG("Found psk in connection file");
+            }
+
+            file.close();
+
+#if 0
             // Try to open the connection file
             std::ifstream file(connection_file);
             if (!file.is_open()) {
@@ -144,6 +196,7 @@ namespace WPEFramework
             }
             
             file.close();
+#endif
 
             // Map key management to security type
             if (key_mgmt.empty()) {
