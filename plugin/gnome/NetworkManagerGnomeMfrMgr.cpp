@@ -117,16 +117,19 @@ namespace WPEFramework
             
             IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t param{0};
             IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t setParam{0};
+            IARM_Result_t ret;
+#if 0
             param.requestType = WIFI_GET_CREDENTIALS;
             IARM_Result_t ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&param, sizeof(param));
+#endif
             if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE)
                 securityMode = NET_WIFI_SECURITY_NONE;
             else if(security == Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE)
                 securityMode = NET_WIFI_SECURITY_WPA3_SAE;
             else
                 securityMode = NET_WIFI_SECURITY_WPA2_PSK_AES;
-
+#if 0
             if (ret == IARM_RESULT_SUCCESS)
             {
                 if ((strcmp (param.wifiCredentials.cSSID, ssid.c_str()) == 0) &&
@@ -141,16 +144,15 @@ namespace WPEFramework
                     NMLOG_INFO("ssid info is different continue to store ssid %s new ssid %s", param.wifiCredentials.cSSID, ssid.c_str());
                 }
             }
-
+#endif
             //memset(&param,0,sizeof(param));
-            setParam.requestType = WIFI_SET_CREDENTIALS;
 
             // Copy SSID
-            snprintf(setParam.wifiCredentials.cSSID, sizeof(setParam.wifiCredentials.cSSID), "%s", ssid.c_str());
+            strncpy(setParam.wifiCredentials.cSSID, ssid.c_str(), sizeof(setParam.wifiCredentials.cSSID));
 
             // Copy passphrase - only if not empty
             if (!passphrase.empty()) {
-                snprintf(setParam.wifiCredentials.cPassword, sizeof(setParam.wifiCredentials.cPassword), "%s", passphrase.c_str());
+                strncpy(setParam.wifiCredentials.cPassword, passphrase.c_str(), sizeof(setParam.wifiCredentials.cPassword));
                 NMLOG_DEBUG("WiFi passphrase set for MfrMgr save");
             } else {
                 param.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
@@ -159,12 +161,14 @@ namespace WPEFramework
 
             setParam.wifiCredentials.iSecurityMode = securityMode;
            
+            setParam.requestType = WIFI_SET_CREDENTIALS;
             NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.cPassword = %s, param.wifiCredentials.iSecurityMode = %d", setParam.requestType, setParam.wifiCredentials.cSSID, setParam.wifiCredentials.cPassword, setParam.wifiCredentials.iSecurityMode); 
             // Make IARM Bus call to save credentials
             ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&setParam, sizeof(setParam));
             if(ret == IARM_RESULT_SUCCESS)
             {
+#if 0
                 memset(&param,0,sizeof(param));
                 param.requestType = WIFI_GET_CREDENTIALS;
                 ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials, (void*)&param, sizeof(param));
@@ -189,6 +193,8 @@ namespace WPEFramework
                         NMLOG_INFO("failure in storing wifi credentials ssid %s", ssid.c_str());
                     }
                 }
+#endif 
+                NMLOG_INFO(" IARM SET SUCCESS ");
             }
             else
             {
