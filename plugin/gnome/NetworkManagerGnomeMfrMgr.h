@@ -23,7 +23,7 @@
 
 // IARM Bus definitions for MfrMgr WiFi credentials
 #define IARM_BUS_MFRLIB_NAME "MFRLib"
-#define IARM_BUS_MFRLIB_API_WIFI_Credentials "WiFiCredentials"
+#define IARM_BUS_MFRLIB_API_WIFI_Credentials "mfrWifiCredentials"
 #define IARM_BUS_MFRLIB_API_WIFI_EraseAllData "mfrWifiEraseAllData"
 
 #define SSID_SIZE                   32
