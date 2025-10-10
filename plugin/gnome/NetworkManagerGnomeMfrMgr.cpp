@@ -144,11 +144,11 @@ namespace WPEFramework
             param.requestType = WIFI_SET_CREDENTIALS;
 
             // Copy SSID
-            snprintf(param.wifiCredentials.cSSID, param.wifiCredentials.cSSID.size(), "%s", ssid.c_str());
+            snprintf(param.wifiCredentials.cSSID, sizeof(param.wifiCredentials.cSSID), "%s", ssid.c_str());
 
             // Copy passphrase - only if not empty
             if (!passphrase.empty()) {
-                snprintf(param.wifiCredentials.cPassword, param.wifiCredentials.cPassword.size(), "%s", passphrase.c_str());
+                snprintf(param.wifiCredentials.cPassword, sizeof(param.wifiCredentials.cPassword), "%s", passphrase.c_str());
                 NMLOG_DEBUG("WiFi passphrase set for MfrMgr save");
             } else {
                 param.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
