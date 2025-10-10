@@ -21,7 +21,7 @@
 
 #include <string>
 
-#if 1
+#if 0
 // IARM Bus definitions for MfrMgr WiFi credentials
 #define IARM_BUS_MFRLIB_NAME "MFRLib"
 #define IARM_BUS_MFRLIB_API_WIFI_Credentials "mfrWifiCredentials"
