@@ -21,7 +21,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
-#include "mfrMgr.h"
+//#include "mfrMgr.h"
 #include <thread>
 #include <mutex>
 
