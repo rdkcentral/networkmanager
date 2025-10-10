@@ -116,6 +116,7 @@ namespace WPEFramework
             NMLOG_INFO("Saving WiFi settings to MfrMgr via IARM - SSID: %s, Security: %d", ssid.c_str(), security);
             
             IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t param{0};
+            IARM_BUS_MFRLIB_API_WIFI_Credentials_Param_t setParam{0};
             param.requestType = WIFI_GET_CREDENTIALS;
             IARM_Result_t ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&param, sizeof(param));
@@ -141,27 +142,27 @@ namespace WPEFramework
                 }
             }
 
-            memset(&param,0,sizeof(param));
-            param.requestType = WIFI_SET_CREDENTIALS;
+            //memset(&param,0,sizeof(param));
+            setParam.requestType = WIFI_SET_CREDENTIALS;
 
             // Copy SSID
-            snprintf(param.wifiCredentials.cSSID, sizeof(param.wifiCredentials.cSSID), "%s", ssid.c_str());
+            snprintf(setParam.wifiCredentials.cSSID, sizeof(setParam.wifiCredentials.cSSID), "%s", ssid.c_str());
 
             // Copy passphrase - only if not empty
             if (!passphrase.empty()) {
-                snprintf(param.wifiCredentials.cPassword, sizeof(param.wifiCredentials.cPassword), "%s", passphrase.c_str());
+                snprintf(setParam.wifiCredentials.cPassword, sizeof(setParam.wifiCredentials.cPassword), "%s", passphrase.c_str());
                 NMLOG_DEBUG("WiFi passphrase set for MfrMgr save");
             } else {
                 param.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
                 NMLOG_DEBUG("Empty passphrase - setting empty string in MfrMgr");
             }
 
-            param.wifiCredentials.iSecurityMode = securityMode;
+            setParam.wifiCredentials.iSecurityMode = securityMode;
            
-            NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.cPassword = %s, param.wifiCredentials.iSecurityMode = %d", param.requestType, param.wifiCredentials.cSSID, param.wifiCredentials.cPassword, param.wifiCredentials.iSecurityMode); 
+            NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.cPassword = %s, param.wifiCredentials.iSecurityMode = %d", setParam.requestType, setParam.wifiCredentials.cSSID, setParam.wifiCredentials.cPassword, setParam.wifiCredentials.iSecurityMode); 
             // Make IARM Bus call to save credentials
             ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
-                                              (void*)&param, sizeof(param));
+                                              (void*)&setParam, sizeof(setParam));
             if(ret == IARM_RESULT_SUCCESS)
             {
                 memset(&param,0,sizeof(param));
