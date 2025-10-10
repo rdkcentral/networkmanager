@@ -59,6 +59,112 @@ namespace WPEFramework
             return true;
         }
 
+        // Helper function to retrieve current WiFi connection details using nmcli and connection files
+        static bool getCurrentWiFiConnectionDetails(std::string& ssid, std::string& passphrase, int& security)
+        {
+            // Use nmcli to get current WiFi connection info
+            FILE* pipe = popen("nmcli device wifi show-password 2>/dev/null", "r");
+            if (!pipe) {
+                NMLOG_ERROR("Failed to execute nmcli command");
+                return false;
+            }
+
+            char buffer[1024];
+            std::string nmcli_output;
+            
+            // Read nmcli output
+            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                nmcli_output += buffer;
+            }
+            
+            int exit_code = pclose(pipe);
+            if (exit_code != 0) {
+                NMLOG_ERROR("nmcli command failed with exit code: %d", exit_code);
+                return false;
+            }
+
+            // Parse SSID from nmcli output
+            size_t ssid_pos = nmcli_output.find("SSID:");
+            if (ssid_pos == std::string::npos) {
+                NMLOG_ERROR("SSID not found in nmcli output");
+                return false;
+            }
+            
+            size_t ssid_start = nmcli_output.find_first_not_of(" \t", ssid_pos + 5);
+            size_t ssid_end = nmcli_output.find_first_of("\n\r", ssid_start);
+            if (ssid_start == std::string::npos || ssid_end == std::string::npos) {
+                NMLOG_ERROR("Failed to parse SSID from nmcli output");
+                return false;
+            }
+            
+            ssid = nmcli_output.substr(ssid_start, ssid_end - ssid_start);
+            NMLOG_DEBUG("Parsed SSID from nmcli: %s", ssid.c_str());
+
+            // Construct connection file path
+            std::string connection_file = "/etc/NetworkManager/system-connections/" + ssid + ".nmconnection";
+            
+            // Try to open the connection file
+            std::ifstream file(connection_file);
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connection_file.c_str());
+                return false;
+            }
+
+            std::string line;
+            std::string key_mgmt;
+            bool in_wifi_security_section = false;
+            
+            // Parse the connection file
+            while (std::getline(file, line)) {
+                // Remove leading/trailing whitespace
+                line.erase(0, line.find_first_not_of(" \t"));
+                line.erase(line.find_last_not_of(" \t\r\n") + 1);
+                
+                // Check for wifi-security section
+                if (line == "[wifi-security]") {
+                    in_wifi_security_section = true;
+                    continue;
+                } else if (line.empty() || line[0] == '[') {
+                    in_wifi_security_section = false;
+                    continue;
+                }
+                
+                if (in_wifi_security_section) {
+                    // Parse key-mgmt
+                    if (line.find("key-mgmt=") == 0) {
+                        key_mgmt = line.substr(9); // Remove "key-mgmt="
+                        NMLOG_DEBUG("Found key-mgmt: %s", key_mgmt.c_str());
+                    }
+                    // Parse psk
+                    else if (line.find("psk=") == 0) {
+                        passphrase = line.substr(4); // Remove "psk="
+                        NMLOG_DEBUG("Found psk in connection file");
+                    }
+                }
+            }
+            
+            file.close();
+
+            // Map key management to security type
+            if (key_mgmt.empty()) {
+                security = NET_WIFI_SECURITY_NONE;
+            } else if (key_mgmt == "none") {
+                security = NET_WIFI_SECURITY_NONE;
+                passphrase.clear();
+            } else if (key_mgmt == "wpa-psk") {
+                security = NET_WIFI_SECURITY_WPA2_PSK_AES;
+            } else if (key_mgmt == "sae") {
+                security = NET_WIFI_SECURITY_WPA3_SAE; // WPA3 SAE maps to WPA_PSK for our enum
+            } else {
+                // Default to WPA PSK for unknown key management
+                security = NET_WIFI_SECURITY_WPA2_PSK_AES;
+            }
+
+            NMLOG_DEBUG("Retrieved WiFi connection details - SSID: %s, Security: %d, Key-mgmt: %s", 
+                       ssid.c_str(), security, key_mgmt.c_str());
+            return true;
+        }
+
         NetworkManagerMfrManager* NetworkManagerMfrManager::getInstance()
         {
             static NetworkManagerMfrManager instance;
@@ -67,9 +173,6 @@ namespace WPEFramework
 
         NetworkManagerMfrManager::NetworkManagerMfrManager()
         {
-            // Initialize pending credentials structure
-            clearPendingCredentials();
-            
             // Initialize IARM connection
             if (ensureIARMConnection()) {
                 NMLOG_DEBUG("NetworkManagerMfrManager initialized with IARM connection");
@@ -88,6 +191,38 @@ namespace WPEFramework
             NMLOG_DEBUG("NetworkManagerMfrManager destroyed");
         }
 
+        bool NetworkManagerMfrManager::saveWiFiSettingsToMfr()
+        {
+            // Launch asynchronous operation to retrieve and save current WiFi connection details
+            std::thread saveThread([this]() {
+                // Retrieve current WiFi connection details from NetworkManager
+                std::string ssid, passphrase;
+                int security;
+                
+                if (!getCurrentWiFiConnectionDetails(ssid, passphrase, security)) {
+                    NMLOG_ERROR("Failed to retrieve current WiFi connection details for MfrMgr save");
+                    return;
+                }
+                
+                NMLOG_INFO("Retrieved current WiFi connection details for MfrMgr save - SSID: %s, Security: %d", ssid.c_str(), security);
+                
+                // Save the retrieved details synchronously (since we're already in a background thread)
+                bool result = this->saveWiFiSettingsToMfrSync(ssid, passphrase, security);
+                if (result) {
+                    NMLOG_DEBUG("Background WiFi connection details retrieval and save completed successfully for SSID: %s", ssid.c_str());
+                } else {
+                    NMLOG_ERROR("Background WiFi connection details retrieval and save failed for SSID: %s", ssid.c_str());
+                }
+            });
+            
+            // Detach the thread to run independently
+            saveThread.detach();
+            
+            NMLOG_DEBUG("WiFi connection details retrieval and save operation queued for background execution");
+            return true; // Return immediately, actual retrieval and save happens asynchronously
+        }
+
+#if 0
         bool NetworkManagerMfrManager::saveWiFiSettingsToMfr(const std::string& ssid, const std::string& passphrase, int security)
         {
             std::thread saveThread([this,ssid, passphrase, security]() {
@@ -104,6 +239,7 @@ namespace WPEFramework
             NMLOG_DEBUG("WiFi settings save operation queued for background execution - SSID: %s, Security: %d", ssid.c_str(), security);
             return true;
         }
+#endif
 
         bool NetworkManagerMfrManager::saveWiFiSettingsToMfrSync(const std::string& ssid, const std::string& passphrase, int security)
         {
@@ -216,36 +352,6 @@ namespace WPEFramework
             
             NMLOG_INFO("Successfully cleared WiFi settings from MfrMgr via IARM");
             return true;
-        }
-
-        void NetworkManagerMfrManager::setWiFiCredentials(const std::string& ssid, const std::string& passphrase, int security)
-        {
-            // Cache credentials during connection process for later saving
-            m_pendingCredentials.ssid = ssid;
-            m_pendingCredentials.passphrase = passphrase;
-            m_pendingCredentials.security = security;
-            m_pendingCredentials.isValid = true;
-            
-            NMLOG_DEBUG("WiFi credentials cached for pending save - SSID: %s, Security: %d", ssid.c_str(), security);
-        }
-
-        void NetworkManagerMfrManager::handleWiFiConnectedWithCredentials()
-        {
-            if (m_pendingCredentials.isValid) {
-                NMLOG_INFO("WiFi connected with cached credentials, saving to MfrMgr");
-                saveWiFiSettingsToMfr(m_pendingCredentials.ssid, m_pendingCredentials.passphrase, m_pendingCredentials.security);
-                
-                // Clear cached credentials after saving
-                clearPendingCredentials();
-            }
-        }
-
-        void NetworkManagerMfrManager::clearPendingCredentials()
-        {
-            m_pendingCredentials.ssid.clear();
-            m_pendingCredentials.passphrase.clear();
-            m_pendingCredentials.security = 0;
-            m_pendingCredentials.isValid = false;
         }
 
     } // namespace Plugin

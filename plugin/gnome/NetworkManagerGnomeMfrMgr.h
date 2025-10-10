@@ -72,33 +72,14 @@ namespace WPEFramework
              * @return true if operation queued successfully, false otherwise
              * @note This method returns immediately and performs the save operation in a background thread
              */
-            bool saveWiFiSettingsToMfr(const std::string& ssid, const std::string& passphrase, int security);
+            //bool saveWiFiSettingsToMfr(const std::string& ssid, const std::string& passphrase, int security);
+            bool saveWiFiSettingsToMfr();
 
             /**
              * @brief Clear WiFi settings from MfrMgr persistent storage
              * @return true if successful, false otherwise
              */
             bool clearWiFiSettingsFromMfr();
-
-            /**
-             * @brief Set WiFi credentials during connection process for later saving
-             * @param ssid WiFi network SSID
-             * @param passphrase WiFi network passphrase/password
-             * @param security Security mode (as integer enum value)
-             * @note Call this during WiFi connection process to cache credentials for saving upon successful connection
-             */
-            void setWiFiCredentials(const std::string& ssid, const std::string& passphrase, int security);
-
-            /**
-             * @brief Clear cached pending credentials
-             */
-            void clearPendingCredentials();
-
-            /**
-             * @brief Handle WiFi connected event with cached credentials
-             * @note This should be called instead of handleWiFiConnected when credentials were cached via setWiFiCredentials
-             */
-            void handleWiFiConnectedWithCredentials();
 
         private:
             NetworkManagerMfrManager();

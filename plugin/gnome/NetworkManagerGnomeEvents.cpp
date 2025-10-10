@@ -613,7 +613,7 @@ namespace WPEFramework
                 if(state == Exchange::INetworkManager::WIFI_STATE_CONNECTED)
                 {
                     NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
-                    mfrManager->handleWiFiConnectedWithCredentials();
+                    mfrManager->saveWiFiSettingsToMfr();
                 }
             }
         }

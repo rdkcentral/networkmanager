@@ -851,25 +851,8 @@ namespace WPEFramework
             }
             else if(ssid.ssid.size() <= 32)
             {
-                // Cache WiFi credentials for potential MfrMgr save (only save on successful connection)
-                NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
-                if (mfrManager != nullptr)
-                {
-                    NMLOG_DEBUG("Caching WiFi credentials for potential save - SSID: %s, Security: %d", 
-                               ssid.ssid.c_str(), static_cast<int>(ssid.security));
-                    mfrManager->setWiFiCredentials(ssid.ssid, ssid.passphrase, static_cast<int>(ssid.security));
-                }
                 if(wifi->wifiConnect(ssid))
                     rc = Core::ERROR_NONE;
-                else
-                {
-                    // Clear cached credentials on connection failure
-                    NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
-                    if (mfrManager != nullptr) {
-                        NMLOG_DEBUG("Connection failed, clearing cached credentials");
-                        mfrManager->clearPendingCredentials();
-                    }
-                }
             }
             else
                 NMLOG_WARNING("SSID is invalid");
