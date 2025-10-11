@@ -116,6 +116,7 @@ jobs:
       - name: Generate IARM headers
         run: |
             touch install/usr/lib/libIARMBus.so
+            touch install/usr/lib/libmfrlib.so
             mkdir -p install/usr/include/rdk/iarmbus
             mkdir -p install/usr/include/rdk/iarmmgrs-hal
             touch install/usr/include/rdk/iarmbus/libIARM.h
