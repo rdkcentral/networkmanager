@@ -21,24 +21,24 @@
 
 #include <string>
 
-typedef enum _SsidSecurity                                                                                                                                
-{                                                                                                                                                         
-    NET_WIFI_SECURITY_NONE = 0,                                                                                                                           
-    NET_WIFI_SECURITY_WEP_64,                                                                                                                             
-    NET_WIFI_SECURITY_WEP_128,                                                                                                                            
-    NET_WIFI_SECURITY_WPA_PSK_TKIP,                                                                                                                       
-    NET_WIFI_SECURITY_WPA_PSK_AES,                                                                                                                        
-    NET_WIFI_SECURITY_WPA2_PSK_TKIP,                                                                                                                      
-    NET_WIFI_SECURITY_WPA2_PSK_AES,                                                                                                                       
-    NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP,                                                                                                                
-    NET_WIFI_SECURITY_WPA_ENTERPRISE_AES,                                                                                                                 
-    NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,                                                                                                               
-    NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES,                                                                                                                
-    NET_WIFI_SECURITY_WPA_WPA2_PSK,                                                                                                                       
-    NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE,                                                                                                                
-    NET_WIFI_SECURITY_WPA3_PSK_AES,                                                                                                                       
-    NET_WIFI_SECURITY_WPA3_SAE,                                                                                                                           
-    NET_WIFI_SECURITY_NOT_SUPPORTED = 99,                                                                                                                 
+typedef enum _SsidSecurity
+{
+    NET_WIFI_SECURITY_NONE = 0,
+    NET_WIFI_SECURITY_WEP_64,
+    NET_WIFI_SECURITY_WEP_128,
+    NET_WIFI_SECURITY_WPA_PSK_TKIP,
+    NET_WIFI_SECURITY_WPA_PSK_AES,
+    NET_WIFI_SECURITY_WPA2_PSK_TKIP,
+    NET_WIFI_SECURITY_WPA2_PSK_AES,
+    NET_WIFI_SECURITY_WPA_ENTERPRISE_TKIP,
+    NET_WIFI_SECURITY_WPA_ENTERPRISE_AES,
+    NET_WIFI_SECURITY_WPA2_ENTERPRISE_TKIP,
+    NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES,
+    NET_WIFI_SECURITY_WPA_WPA2_PSK,
+    NET_WIFI_SECURITY_WPA_WPA2_ENTERPRISE,
+    NET_WIFI_SECURITY_WPA3_PSK_AES,
+    NET_WIFI_SECURITY_WPA3_SAE,
+    NET_WIFI_SECURITY_NOT_SUPPORTED = 99,
 } SsidSecurity;
 
 namespace WPEFramework
