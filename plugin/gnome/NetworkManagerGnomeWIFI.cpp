@@ -29,6 +29,7 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGnomeMfrMgr.h"
 
 using namespace std;
 namespace WPEFramework
@@ -1054,6 +1055,15 @@ namespace WPEFramework
             }
 
             deleteClientConnection();
+
+            if (connectionFound)
+            {
+                NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+                if (mfrManager != nullptr)
+                {
+                    mfrManager->clearWiFiSettingsFromMfr();
+                }
+            }
             return true;
         }
 
@@ -1204,7 +1214,16 @@ namespace WPEFramework
             if (error)
                 NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
             else
+            {
                 NMLOG_INFO("WPS connection added/activated successfully");
+                // Save WPS credentials to MfrManager after successful connection
+                NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+                if (mfrManager)
+                {
+                    NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
+                    mfrManager->saveWiFiSettingsToMfr();
+                }
+            }
             g_main_loop_quit(loop);
         }
 
