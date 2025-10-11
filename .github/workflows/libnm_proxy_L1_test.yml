@@ -121,6 +121,7 @@ jobs:
             cd "${{github.workspace}}/networkmanager/tests/"
             mkdir -p headers/rdk/iarmbus
             cd headers
+            touch rdk/mfrMgr.h
             touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
 
       - name: Build networkmanager with Gnome libnm Proxy
