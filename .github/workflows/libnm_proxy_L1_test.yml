@@ -117,12 +117,14 @@ jobs:
         run: |
             touch install/usr/lib/libIARMBus.so
             mkdir -p install/usr/include/rdk/iarmbus
+            mkdir -p install/usr/include/rdk/iarmmgrs-hal
             touch install/usr/include/rdk/iarmbus/libIARM.h
-            touch install/usr/include/rdk/mfrMgr.h
+            touch install/usr/include/rdk/iarmmgrs-hal/mfrMgr.h
             cd "${{github.workspace}}/networkmanager/tests/"
             mkdir -p headers/rdk/iarmbus
+            mkdir -p headers/rdk/iarmmgrs-hal
             cd headers
-            touch rdk/mfrMgr.h
+            touch rdk/iarmmgrs-hal/mfrMgr.h
             touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
 
       - name: Build networkmanager with Gnome libnm Proxy
