@@ -118,6 +118,7 @@ jobs:
             touch install/usr/lib/libIARMBus.so
             mkdir -p install/usr/include/rdk/iarmbus
             touch install/usr/include/rdk/iarmbus/libIARM.h
+            touch install/usr/include/rdk/mfrMgr.h
             cd "${{github.workspace}}/networkmanager/tests/"
             mkdir -p headers/rdk/iarmbus
             cd headers
