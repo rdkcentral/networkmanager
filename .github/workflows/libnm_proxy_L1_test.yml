@@ -138,7 +138,9 @@ jobs:
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage
           -I ${{github.workspace}}/networkmanager/tests/headers
           -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmmgrs-hal
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
+          --include ${{github.workspace}}/networkmanager/tests/mocks/secure_wrappermock.h
           "
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_LEGACY_PLUGINS=OFF
