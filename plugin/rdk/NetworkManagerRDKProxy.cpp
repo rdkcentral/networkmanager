@@ -545,10 +545,12 @@ namespace WPEFramework
                         if ("eth0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
                             m_ethConnected.store(tmp.connected);
+                            m_ethEnabled.store(tmp.enabled);
                         }
                         else if ("wlan0" == interfaceName) {
                             tmp.type = Exchange::INetworkManager::INTERFACE_TYPE_WIFI;
                             m_wlanConnected.store(tmp.connected);
+                            m_wlanEnabled.store(tmp.enabled);
                         }
 
                         interfaceList.push_back(tmp);
@@ -573,6 +575,15 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_DefaultRoute_t defaultRoute = {0};
+
+            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            {
+                NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                interface.clear();
+                m_defaultInterface = interface;
+                return Core::ERROR_NONE;
+            }
+
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&defaultRoute, sizeof(defaultRoute)))
             {
                 NMLOG_INFO ("Call to %s for %s returned interface = %s, gateway = %s", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, defaultRoute.interface, defaultRoute.gateway);
@@ -608,7 +619,11 @@ namespace WPEFramework
             iarmData.persist = true;
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled);
+                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled);\
+                if(interface == "wlan0"  && _instance != NULL)
+                    _instance->m_wlanEnabled.store(enable);
+                else if(interface == "eth0" && _instance != NULL)
+                    _instance->m_ethEnabled.store(enable);
                 rc = Core::ERROR_NONE;
             }
             else

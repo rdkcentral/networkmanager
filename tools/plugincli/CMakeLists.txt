@@ -118,8 +118,8 @@ else()
     )
 
     target_compile_options(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_COMPILE_OPTIONS})
-    target_include_directories(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_INCLUDES} ${IARMBUS_INCLUDE_DIRS})
-    target_link_libraries(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_LIBS} ${LIBNM_LIBRARIES} ${IARMBUS_LIBRARIES})
+    target_include_directories(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_INCLUDES})
+    target_link_libraries(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_LIBS} ${LIBNM_LIBRARIES})
 
     install(TARGETS ${PLUGIN_LIBNM_CLI} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
