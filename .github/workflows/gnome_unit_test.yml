@@ -91,7 +91,6 @@ jobs:
           -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmmgrs-hal
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           --include ${{github.workspace}}/networkmanager/tests/mocks/mfrMgr.h
-          --include ${{github.workspace}}/networkmanager/tests/mocks/secure_wrappermock.h
           -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_PLUGIN_CLI=ON
