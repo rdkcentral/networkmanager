@@ -94,7 +94,7 @@ jobs:
           --include ${{github.workspace}}/networkmanager/tests/mocks/mfrMgr.h
           "
           -DENABLE_GNOME_NETWORKMANAGER=ON
-          -DENABLE_PLUGIN_CLI=ON
+          -DENABLE_PLUGIN_CLI=OFF
           &&
           cmake --build build/GnomeLibnmNetworkmanager --target install -j8
 
