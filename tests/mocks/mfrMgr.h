@@ -17,6 +17,8 @@
 * limitations under the License.
 **/
 
+#pragma once
+
 #define SSID_SIZE                   32
 #define WIFI_MAX_PASSWORD_LEN       64
 
