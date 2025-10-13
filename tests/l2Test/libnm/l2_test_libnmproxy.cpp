@@ -53,6 +53,7 @@ protected:
     WrapsImplMock *p_wrapsImplMock = nullptr;
     GLibWrapsImplMock *p_gLibWrapsImplMock = nullptr;
     LibnmWrapsImplMock *p_libnmWrapsImplMock = nullptr;
+    IarmBusImplMock *p_iarmBusImplMock = nullptr;
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
     NiceMock<COMLinkMock> comLinkMock;
@@ -73,6 +74,9 @@ protected:
 
         p_gLibWrapsImplMock = new NiceMock <GLibWrapsImplMock>;
         GLibWraps::setImpl(p_gLibWrapsImplMock);
+
+        p_iarmBusImplMock = new NiceMock <IarmBusImplMock>;
+        IarmBus::setImpl(p_iarmBusImplMock);
 
         p_wrapsImplMock = new NiceMock <WrapsImplMock>;
         Wraps::setImpl(p_wrapsImplMock);
