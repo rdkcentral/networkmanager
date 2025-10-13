@@ -28,6 +28,7 @@
 #include "WrapsMock.h"
 #include "LibnmWrapsMock.h"
 #include "GLibWrapsMock.h"
+#include "IarmBusMock.h"
 #include "ServiceMock.h"
 #include "ThunderPortability.h"
 #include "COMLinkMock.h"
