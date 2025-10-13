@@ -147,7 +147,7 @@ jobs:
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_LEGACY_PLUGINS=OFF
           -DENABLE_UNIT_TESTING=ON
-          -DENABLE_PLUGIN_CLI=ON
+          -DENABLE_PLUGIN_CLI=OFF
           &&
           cmake --build build/networkmanager_libnm --target install -j8
 
