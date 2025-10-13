@@ -57,6 +57,7 @@ protected:
     WrapsImplMock *p_wrapsImplMock = nullptr;
     GLibWrapsImplMock *p_gLibWrapsImplMock = nullptr;
     LibnmWrapsImplMock *p_libnmWrapsImplMock = nullptr;
+    IarmBusImplMock *p_iarmBusImplMock = nullptr;
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
     NiceMock<COMLinkMock> comLinkMock;
@@ -80,6 +81,9 @@ protected:
 
         p_wrapsImplMock = new NiceMock <WrapsImplMock>;
         Wraps::setImpl(p_wrapsImplMock);
+
+        p_iarmBusImplMock = new NiceMock <IarmBusImplMock>;
+        IarmBus::setImpl(p_iarmBusImplMock);
         ON_CALL(service, COMLink())
         .WillByDefault(::testing::Invoke(
               [this]() {
