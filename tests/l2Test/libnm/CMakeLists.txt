@@ -65,6 +65,7 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin/gnome)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
+include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
 
 target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
