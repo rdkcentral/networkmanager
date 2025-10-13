@@ -184,6 +184,13 @@ protected:
             delete p_gLibWrapsImplMock;
             p_gLibWrapsImplMock = nullptr;
         }
+
+        IarmBus::setImpl(nullptr);
+        if (p_iarmBusImplMock != nullptr)
+        {
+            delete p_iarmBusImplMock;
+            p_iarmBusImplMock = nullptr;
+        }
     }
 };
 
