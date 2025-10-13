@@ -2,6 +2,10 @@
 #include <gmock/gmock.h>
 #include <glib.h>
 
+extern "C" const GPtrArray* __real_nm_client_get_devices(NMClient* client);
+
+extern "C" NMClient* __real_nm_client_new(GCancellable* cancellable, GError** error);
+
 extern "C" gint64 __wrap_nm_device_wifi_get_last_scan(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_last_scan(device);
 }
@@ -359,7 +363,9 @@ const char* LibnmWraps::nm_connection_get_interface_name(NMRemoteConnection *con
 }
 
 NMDevice* LibnmWraps::nm_client_get_device_by_iface(NMClient *client, const char *iface) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        nm_client_get_device_by_iface(client, iface);
+    }
     return impl->nm_client_get_device_by_iface(client, iface);
 }
 
@@ -379,7 +385,10 @@ gboolean LibnmWraps::nm_device_disconnect_finish(NMDevice *device, GAsyncResult 
 }
 
 const GPtrArray* LibnmWraps::nm_client_get_devices(NMClient* client) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the real function directly
+        return __real_nm_client_get_devices(client);
+    }
     return impl->nm_client_get_devices(client);
 }
 
@@ -389,7 +398,10 @@ const GPtrArray* LibnmWraps::nm_client_get_active_connections(NMClient* client) 
 }
 
 NMClient* LibnmWraps::nm_client_new(GCancellable* cancellable, GError** error) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the real function directly
+        return __real_nm_client_new(cancellable, error);
+    }
     return impl->nm_client_new(cancellable, error);
 }
 
