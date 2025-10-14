@@ -375,12 +375,12 @@ namespace WPEFramework
                 }
                 else if(!m_ethEnabled.load())
                 {
-                    NMLOG_INFO("Ethernet iface disabled state, returning wifi as primary interface");
+                    NMLOG_DEBUG("Ethernet iface disabled state, returning wifi as primary interface");
                     interface = nmUtils::wlanIface();
                 }
                 else if(!m_wlanEnabled.load())
                 {
-                    NMLOG_INFO("WiFi iface disabled state, returning ethernet as primary interface");
+                    NMLOG_DEBUG("WiFi iface disabled state, returning ethernet as primary interface");
                     interface = nmUtils::ethIface();
                 }
 
