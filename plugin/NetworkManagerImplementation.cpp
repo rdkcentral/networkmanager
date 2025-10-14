@@ -657,6 +657,14 @@ namespace WPEFramework
                 // FIXME : Availability of interface does not mean that it has internet connection, so not triggering connectivity monitor check here.
             }
 
+            if(Exchange::INetworkManager::INTERFACE_ADDED == state)
+            {
+                if(interface == "eth0")
+                    m_ethEnabled.store(true);
+                else if(interface == "wlan0")
+                    m_wlanEnabled.store(true);
+            }
+
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
             for (const auto callback : _notificationCallbacks) {
