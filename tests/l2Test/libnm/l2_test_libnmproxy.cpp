@@ -338,6 +338,17 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
     g_ptr_array_free(dummyConns, TRUE);
 }
 
+TEST_F(NetworkManagerTest, GetPrimaryInterface_empty)
+{
+    string interface{};
+    Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_ethEnabled = false;
+    NetworkManagerImpl2->m_wlanEnabled = false;
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    EXPECT_EQ(result, Core::ERROR_NONE);
+    EXPECT_EQ(interface, "");
+}
+
 TEST_F(NetworkManagerTest, GetPrimaryInterface_eth0)
 {
     string interface{};
@@ -349,6 +360,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_eth0)
     
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = true;
+    NetworkManagerImpl2->m_wlanEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
 
@@ -366,6 +378,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_wlan0)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_wlanEnabled = true;
+    NetworkManagerImpl2->m_ethEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
 
@@ -391,6 +404,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_eth0)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = true;
+    NetworkManagerImpl2->m_wlanEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "eth0");
@@ -417,6 +431,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_null_wlan0)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_wlanEnabled = true;
+    NetworkManagerImpl2->m_ethEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "wlan0");
@@ -440,6 +455,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_wlan0)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_wlanEnabled = true;
+    NetworkManagerImpl2->m_ethEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "wlan0");
@@ -464,6 +480,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_eth0)
         .WillOnce(::testing::Return("eth0"));
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
+    NetworkManagerImpl2->m_wlanEnabled = true;
     NetworkManagerImpl2->m_ethEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
@@ -493,6 +510,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_unknown)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = true;
+    NetworkManagerImpl2->m_wlanEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "wlan0");
@@ -521,6 +539,7 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_ActiveConnection_iface_null)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = true;
+    NetworkManagerImpl2->m_wlanEnabled = true;
     uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "wlan0");
@@ -741,6 +760,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_GetPrimary_failed)
 
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = true;
+    NetworkManagerImpl2->m_wlanEnabled = true;
 
     string interface; const string ipversion; Exchange::INetworkManager::IPAddress address;
     EXPECT_EQ(Core::ERROR_GENERAL, NetworkManagerImpl2->GetIPSettings(interface, ipversion, address));

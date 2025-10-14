@@ -576,10 +576,24 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_DefaultRoute_t defaultRoute = {0};
 
-            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            if(!m_wlanEnabled.load() || !m_ethEnabled.load())
             {
-                NMLOG_INFO("Both iface disabled state, returning no primary interface");
-                interface.clear();
+                if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+                {
+                    NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                    interface.clear();
+                }
+                else if(!m_ethEnabled.load())
+                {
+                    NMLOG_INFO("Ethernet iface disabled state, returning wifi as primary interface");
+                    interface = "wlan0";
+                }
+                else if(!m_wlanEnabled.load())
+                {
+                    NMLOG_INFO("WiFi iface disabled state, returning ethernet as primary interface");
+                    interface = "eth0";
+                }
+
                 m_defaultInterface = interface;
                 return Core::ERROR_NONE;
             }

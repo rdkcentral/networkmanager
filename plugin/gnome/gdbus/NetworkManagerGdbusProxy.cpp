@@ -123,10 +123,24 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
 
-            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            if(!m_wlanEnabled.load() || !m_ethEnabled.load())
             {
-                NMLOG_INFO("Both iface disabled state, returning no primary interface");
-                interface.clear();
+                if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+                {
+                    NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                    interface.clear();
+                }
+                else if(!m_ethEnabled.load())
+                {
+                    NMLOG_INFO("Ethernet iface disabled state, returning wifi as primary interface");
+                    interface = nmUtils::wlanIface();
+                }
+                else if(!m_wlanEnabled.load())
+                {
+                    NMLOG_INFO("WiFi iface disabled state, returning ethernet as primary interface");
+                    interface = nmUtils::ethIface();
+                }
+
                 m_defaultInterface = interface;
                 return Core::ERROR_NONE;
             }
