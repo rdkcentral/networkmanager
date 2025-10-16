@@ -351,7 +351,7 @@ namespace WPEFramework
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
             return rc;
         }
-
+#if 0
         /* @brief Get the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
@@ -366,57 +366,29 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(!m_wlanEnabled.load() || !m_ethEnabled.load())
+            remoteConn = nm_active_connection_get_connection(activeConn);
+            if(remoteConn != NULL)
             {
-                if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+                const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
+                if(ifacePtr != NULL)
                 {
-                    NMLOG_INFO("Both iface disabled state, returning no primary interface");
-                    interface.clear();
-                }
-                else if(!m_ethEnabled.load())
-                {
-                    NMLOG_DEBUG("Ethernet iface disabled state, returning wifi as primary interface");
-                    interface = nmUtils::wlanIface();
-                }
-                else if(!m_wlanEnabled.load())
-                {
-                    NMLOG_DEBUG("WiFi iface disabled state, returning ethernet as primary interface");
-                    interface = nmUtils::ethIface();
-                }
-
-                m_defaultInterface = interface;
-                return Core::ERROR_NONE;
-            }
-
-            activeConn = nm_client_get_primary_connection(client);
-            if (activeConn != NULL)
-            {
-                remoteConn = nm_active_connection_get_connection(activeConn);
-                if(remoteConn != NULL)
-                {
-                    const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
-                    if(ifacePtr != NULL)
+                    interface = ifacePtr;
+                    if(interface != nmUtils::wlanIface() && interface != nmUtils::ethIface())
                     {
-                        interface = ifacePtr;
-                        if(interface != nmUtils::wlanIface() && interface != nmUtils::ethIface())
-                        {
-                            NMLOG_WARNING("primary interface is not Ethernet or WiFi");
-                            interface.clear();
-                        }
-                        else
-                        {
-                            NMLOG_DEBUG("primary interface is %s", interface.c_str());
-                            rc = Core::ERROR_NONE;
-                        }
+                        NMLOG_WARNING("primary interface is not Ethernet or WiFi");
+                        interface.clear();
                     }
                     else
-                        NMLOG_WARNING("interface name is missing form connection");
+                    {
+                        NMLOG_DEBUG("primary interface is %s", interface.c_str());
+                        rc = Core::ERROR_NONE;
+                    }
                 }
                 else
-                    NMLOG_WARNING("primary connection but remote connection error");
+                    NMLOG_WARNING("interface name is missing form connection");
             }
             else
-                NMLOG_WARNING("No primary connection");
+                NMLOG_WARNING("primary connection but remote connection error");
 
             if(rc != Core::ERROR_NONE)
             {
@@ -434,7 +406,7 @@ namespace WPEFramework
             m_defaultInterface = interface;
             return rc;
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 

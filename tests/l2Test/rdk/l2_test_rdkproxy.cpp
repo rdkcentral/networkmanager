@@ -296,51 +296,6 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces_Failed)
     EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
-TEST_F(NetworkManagerTest, GetPrimaryInterface)
-{
-    IARM_BUS_NetSrvMgr_DefaultRoute_t mockDefaultRoute = {};
-    strcpy(mockDefaultRoute.interface, "eth0");
-    strcpy(mockDefaultRoute.gateway, "192.168.1.1");
-
-    IARM_BUS_NetSrvMgr_Iface_EventInterfaceConnectionStatus_t eventData = { .interface = "wlan0", .status = true };
-    _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, &eventData, sizeof(eventData));
-
-     eventData = { .interface = "eth0", .status = true };
-    _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, &eventData, sizeof(eventData));
-
-    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_getDefaultInterface),
-                                                 ::testing::NotNull(), sizeof(mockDefaultRoute)))
-        .WillOnce(::testing::DoAll(
-            ::testing::Invoke([&mockDefaultRoute](const char*, const char*, void* arg, size_t) {
-                memcpy(arg, &mockDefaultRoute, sizeof(mockDefaultRoute));
-                return IARM_RESULT_SUCCESS;
-            })
-        ));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
-}
-
-TEST_F(NetworkManagerTest, GetPrimaryInterface_Failed)
-{
-
-    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_getDefaultInterface),
-                                                 ::testing::NotNull(), ::testing::_))
-        .WillOnce(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
-
-    IARM_BUS_NetSrvMgr_Iface_EventInterfaceConnectionStatus_t ifaceEventData = { .interface = "eth0", .status = true };
-    _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, &ifaceEventData, sizeof(ifaceEventData));
-
-    ifaceEventData = { .interface = "wlan0", .status = true };
-    _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS, &ifaceEventData, sizeof(ifaceEventData));
-
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
-}
-
 TEST_F(NetworkManagerTest, GetPrimaryInterface_BothInterfacesDown)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T("{}"), response));

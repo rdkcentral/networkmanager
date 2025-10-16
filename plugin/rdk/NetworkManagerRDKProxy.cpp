@@ -568,35 +568,13 @@ namespace WPEFramework
 
             return rc;
         }
-
+#if 0
         /* @brief Get the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_BUS_NetSrvMgr_DefaultRoute_t defaultRoute = {0};
-
-            if(!m_wlanEnabled.load() || !m_ethEnabled.load())
-            {
-                if(!m_wlanEnabled.load() && !m_ethEnabled.load())
-                {
-                    NMLOG_INFO("Both iface disabled state, returning no primary interface");
-                    interface.clear();
-                }
-                else if(!m_ethEnabled.load())
-                {
-                    NMLOG_DEBUG("Ethernet iface disabled state, returning wifi as primary interface");
-                    interface = "wlan0";
-                }
-                else if(!m_wlanEnabled.load())
-                {
-                    NMLOG_DEBUG("WiFi iface disabled state, returning ethernet as primary interface");
-                    interface = "eth0";
-                }
-
-                m_defaultInterface = interface;
-                return Core::ERROR_NONE;
-            }
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&defaultRoute, sizeof(defaultRoute)))
             {
@@ -610,7 +588,7 @@ namespace WPEFramework
             }
             return rc;
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enable /* @in */)
         {
             LOG_ENTRY_FUNCTION();
@@ -633,7 +611,7 @@ namespace WPEFramework
             iarmData.persist = true;
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled, (void *)&iarmData, sizeof(iarmData)))
             {
-                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled);\
+                NMLOG_INFO ("Call to %s for %s success", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_setInterfaceEnabled);
                 if(interface == "wlan0"  && _instance != NULL)
                     _instance->m_wlanEnabled.store(enable);
                 else if(interface == "eth0" && _instance != NULL)

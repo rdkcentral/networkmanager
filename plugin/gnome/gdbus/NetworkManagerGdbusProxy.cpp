@@ -119,32 +119,9 @@ namespace WPEFramework
 
             return rc;
         }
-
+#if 0
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
-
-            if(!m_wlanEnabled.load() || !m_ethEnabled.load())
-            {
-                if(!m_wlanEnabled.load() && !m_ethEnabled.load())
-                {
-                    NMLOG_INFO("Both iface disabled state, returning no primary interface");
-                    interface.clear();
-                }
-                else if(!m_ethEnabled.load())
-                {
-                    NMLOG_DEBUG("Ethernet iface disabled state, returning wifi as primary interface");
-                    interface = nmUtils::wlanIface();
-                }
-                else if(!m_wlanEnabled.load())
-                {
-                    NMLOG_DEBUG("WiFi iface disabled state, returning ethernet as primary interface");
-                    interface = nmUtils::ethIface();
-                }
-
-                m_defaultInterface = interface;
-                return Core::ERROR_NONE;
-            }
-
             if(_nmGdbusClient->getPrimaryInterface(interface))
                 return Core::ERROR_NONE;
             else
@@ -158,7 +135,7 @@ namespace WPEFramework
                     return Core::ERROR_GENERAL;
             }
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;

@@ -316,6 +316,23 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
+        /* @brief Get the active Interface used for external world communication */
+        uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
+        {
+            if(m_ethEnabled.load() && m_ethConnected.load())
+                interface = "eth0";
+            else if(m_wlanEnabled.load() && m_wlanConnected.load())
+                interface = "wlan0";
+            else
+                interface = ""; // no active interface
+
+            NMLOG_DEBUG("Primary interface: %s, eth0: [enabled=%d, connected=%d], wlan0: [enabled=%d, connected=%d]", 
+                        interface.c_str(), m_ethEnabled.load(), m_ethConnected.load(), m_wlanEnabled.load(), m_wlanConnected.load());
+
+            m_defaultInterface = interface;
+            return Core::ERROR_NONE;
+        }
+
         /* @brief Get the Public IP used for external world communication */
         uint32_t NetworkManagerImplementation::GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */)
         {

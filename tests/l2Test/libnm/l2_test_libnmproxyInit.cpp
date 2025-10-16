@@ -152,7 +152,7 @@ TEST_F(NetworkManagerInitTest, platformInit)
     EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"interface\":\"\",\"success\":true}"));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
