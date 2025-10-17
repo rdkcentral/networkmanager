@@ -95,6 +95,7 @@ namespace WPEFramework
             _nmGdbusClient = NetworkManagerClient::getInstance();
             _nmGdbusEvents = NetworkManagerEvents::getInstance();
             getInitialConnectionState();
+            _nmGdbusClient->modifyDefaultConnectionsConfig();
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -325,6 +326,30 @@ namespace WPEFramework
                 NMLOG_ERROR("stop WPS failed");
                 rc = Core::ERROR_GENERAL;
             }
+            return rc;
+        }
+
+        /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+
+            if(hostname.length() < 1 || hostname.length() > 32)
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            if(_nmGdbusClient->setHostname(hostname))
+            {
+                NMLOG_INFO("Successfully set hostname to: %s", hostname.c_str());
+                rc = Core::ERROR_NONE;
+            }
+            else
+            {
+                NMLOG_ERROR("SetHostname failed for hostname: %s", hostname.c_str());
+            }
+
             return rc;
         }
     }

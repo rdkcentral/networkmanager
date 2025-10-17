@@ -68,6 +68,8 @@ namespace WPEFramework
                 bool getWiFiSignalQuality(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
                 bool startWPS();
                 bool stopWPS();
+                bool setHostname(const std::string& hostname);
+                bool modifyDefaultConnectionsConfig();
 
             private:
                 NetworkManagerClient();

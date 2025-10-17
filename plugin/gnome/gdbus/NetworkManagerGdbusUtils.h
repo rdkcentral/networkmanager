@@ -90,6 +90,8 @@ namespace WPEFramework
                 static uint8_t wifiSecurityModeFromApFlags(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                 static const char* getWifiIfname();
                 static const char* getEthIfname();
+                static bool writePersistentHostname(const std::string& hostname);
+                static bool readPersistentHostname(std::string& hostname);
         };
 
     } // Plugin

@@ -280,9 +280,18 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_CONFIG:
                         wifiState = "WIFI_STATE_CONNECTING";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING, wifiState);
+                        break;
+                    case NM_DEVICE_STATE_IP_CONFIG:
+                        wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, GnomeUtils::getWifiIfname());
+                        NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, wifiState);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
+                        wifiState = "NM_DEVICE_STATE_IP_CHECK";
+                        //NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getWifiIfname());
+                        break;
+                    case NM_DEVICE_STATE_SECONDARIES:
+                        wifiState = "NM_DEVICE_STATE_SECONDARIES";
                         NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getWifiIfname());
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
@@ -312,6 +321,7 @@ namespace WPEFramework
                     }
                 }
             }
+            NMLOG_INFO("wifi state: %s; reason: %d", wifiState.c_str(), static_cast<int>(deviceStateReason));
         } 
         else if(ifname == GnomeUtils::getEthIfname())
         {
@@ -346,8 +356,9 @@ namespace WPEFramework
                     NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, GnomeUtils::getEthIfname());
                 }
             }
+
+            NMLOG_INFO("eth0 state: %d; reason: %d", static_cast<int>(deviceState), static_cast<int>(deviceStateReason));
         }
-        
     }
 
     static void onConnectionSignalReceivedCB (GDBusProxy *proxy, gchar *senderName, gchar *signalName,
