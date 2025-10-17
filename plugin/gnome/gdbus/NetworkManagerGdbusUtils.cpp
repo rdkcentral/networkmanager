@@ -21,6 +21,7 @@
 #include <gio/gio.h>
 #include <string>
 #include <cstring>
+#include <fstream>
 #include <nm-dbus-interface.h>
 
 #include "NetworkManagerLogger.h"
@@ -153,14 +154,16 @@ namespace WPEFramework
         uint8_t GnomeUtils::wifiSecurityModeFromApFlags(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags)
         {
             uint8_t security = Exchange::INetworkManager::WIFI_SECURITY_NONE;
-            if ((flags == NM_802_11_AP_FLAGS_NONE) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE))
+            if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE)) // Open network
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
-            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)
+            else if ((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) // WPA2/WPA3 Transition
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+            else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE) // Pure WPA3 (SAE only): WPA3-Personal
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
-            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X)
+            else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X) // WPA2/WPA3 Enterprise: EAP present in either WPA or RSN
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP;
             else
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK; // WPA2-PSK
 
             //NMLOG_INFO("ap [%s] security str %s", ssid.c_str(), nmUtils::getSecurityModeString(flags, wpaFlags, rsnFlags).c_str());
             return security;
@@ -707,6 +710,62 @@ namespace WPEFramework
                 }
                 g_variant_builder_add(builder, "{sv}", key, value);
             }
+        }
+
+        bool GnomeUtils::writePersistentHostname(const std::string& hostname)
+        {
+            constexpr const char* HostnameFile = "/opt/persistent/nm.plugin.hostname";
+
+            if (hostname.empty()) {
+                NMLOG_ERROR("Cannot write empty hostname to persistent storage");
+                return false;
+            }
+
+            std::ofstream file(HostnameFile);
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open %s for writing", HostnameFile);
+                return false;
+            }
+
+            file << hostname;
+            bool success = !file.fail();
+            file.close();
+
+            if (success)
+                NMLOG_DEBUG("Successfully wrote hostname '%s' to %s", hostname.c_str(), HostnameFile);
+            else
+                NMLOG_ERROR("Error writing hostname to %s", HostnameFile);
+
+            return success;
+        }
+
+        bool GnomeUtils::readPersistentHostname(std::string& hostname)
+        {
+            constexpr const char* HostnameFile = "/opt/persistent/nm.plugin.hostname";
+
+            std::ifstream file(HostnameFile);
+            if (!file.is_open()) {
+                NMLOG_DEBUG("Could not open %s - file may not exist yet", HostnameFile);
+                hostname = "";
+                return false;
+            }
+
+            std::string line;
+            if (std::getline(file, line)) {
+                // Remove any whitespace, newlines, etc.
+                line.erase(line.find_last_not_of("\r\n\t") + 1);
+                line.erase(0, line.find_first_not_of("\r\n\t"));
+                hostname = line;
+                file.close();
+
+                NMLOG_INFO("Read persistent hostname: '%s'", hostname.c_str());
+                return true;
+            }
+
+            NMLOG_WARNING("Persistent hostname file exists but is empty");
+            hostname = "";
+            file.close();
+            return false;
         }
     } // Plugin
 } // WPEFramework

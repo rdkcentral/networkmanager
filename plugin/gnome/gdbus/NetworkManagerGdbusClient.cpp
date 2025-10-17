@@ -35,6 +35,8 @@ namespace WPEFramework
         extern NetworkManagerImplementation* _instance;
         NetworkManagerClient::NetworkManagerClient() {
             NMLOG_INFO("NetworkManagerClient");
+            m_wpsProcessRun = false;
+            m_wpsActionTriggered = false;
         }
 
         NetworkManagerClient::~NetworkManagerClient() {
@@ -429,6 +431,158 @@ namespace WPEFramework
             return true;
         }
 
+        bool updateHostnameSettings(DbusMgr& m_dbus, const std::string& connectionPath, const std::string& hostname, const std::string& interface)
+        {
+            GError *error = nullptr;
+            deviceInfo devInfo{};
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
+                return false;
+
+            GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsConnectionProxy(connectionPath.c_str());
+            if (settingsProxy == nullptr) {
+                NMLOG_ERROR("Error creating connection settings proxy");
+                return false;
+            }
+
+            GVariant *connectionSettings = g_dbus_proxy_call_sync(
+                    settingsProxy,
+                    "GetSettings",
+                    nullptr,
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
+
+            if (connectionSettings == nullptr) {
+                NMLOG_ERROR("Error retrieving connection settings: %s", error->message);
+                g_error_free(error);
+                g_object_unref(settingsProxy);
+                return false;
+            }
+
+            GVariantIter *iterator;
+            GVariant *settingsDict;
+            const gchar *settingsKey;
+            const gchar *existingId = nullptr;
+            const gchar *existingType = nullptr;
+            const gchar *existingInterfaceName = nullptr;
+            const gchar *existingKeyMgmt = nullptr;
+            const gchar *existingSSID = nullptr;
+            GVariant *existingIPv4Settings = nullptr;
+            GVariant *existingIPv6Settings = nullptr;
+
+            g_variant_get(connectionSettings, "(a{sa{sv}})", &iterator);
+            while (g_variant_iter_loop(iterator, "{&s@a{sv}}", &settingsKey, &settingsDict)) {
+                GVariantIter settingsIter;
+                const gchar *key;
+                GVariant *value;
+
+                g_variant_iter_init(&settingsIter, settingsDict);
+                while (g_variant_iter_loop(&settingsIter, "{&sv}", &key, &value)) {
+                    if (g_strcmp0(key, "id") == 0) {
+                        existingId = g_variant_get_string(value, NULL);
+                    } else if (g_strcmp0(key, "type") == 0) {
+                        existingType = g_variant_get_string(value, NULL);
+                    } else if (g_strcmp0(key, "interface-name") == 0) {
+                        existingInterfaceName = g_variant_get_string(value, NULL);
+                    } else if (g_strcmp0(key, "ssid") == 0) {
+                        gsize size;
+                        const guint8 *ssid = (const guint8 *) g_variant_get_fixed_array(value, &size, sizeof(guint8));
+                        existingSSID = g_strndup((const gchar *)ssid, size);
+                    } else if (g_strcmp0(key, "key-mgmt") == 0) {
+                        existingKeyMgmt = g_variant_get_string(value, NULL);
+                    } else if (g_strcmp0(settingsKey, "ipv4") == 0) {
+                        existingIPv4Settings = g_variant_ref(settingsDict);
+                    } else if (g_strcmp0(settingsKey, "ipv6") == 0) {
+                        existingIPv6Settings = g_variant_ref(settingsDict);
+                    }
+                }
+            }
+            g_variant_iter_free(iterator);
+
+            GVariantBuilder connectionBuilder;
+            GVariantBuilder wifiBuilder;
+            GVariantBuilder settingsBuilder;
+            GVariantBuilder wifiSecurityBuilder;
+            g_variant_builder_init(&settingsBuilder, G_VARIANT_TYPE("a{sa{sv}}"));
+
+            // Define the 'connection' dictionary with connection details
+            g_variant_builder_init(&connectionBuilder, G_VARIANT_TYPE("a{sv}"));
+            g_variant_builder_add(&connectionBuilder, "{sv}", "id", g_variant_new_string(existingId));
+            g_variant_builder_add(&connectionBuilder, "{sv}", "type", g_variant_new_string(existingType));
+            g_variant_builder_add(&connectionBuilder, "{sv}", "interface-name", g_variant_new_string(existingInterfaceName));
+            g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "connection", &connectionBuilder);
+
+            if (g_strcmp0(interface.c_str(), GnomeUtils::getWifiIfname()) == 0) {
+                // Define the '802-11-wireless' dictionary with Wi-Fi specific details
+                g_variant_builder_init(&wifiBuilder, G_VARIANT_TYPE("a{sv}"));
+                GVariantBuilder ssidBuilder;
+                g_variant_builder_init(&ssidBuilder, G_VARIANT_TYPE("ay"));
+                while (*existingSSID) {
+                    g_variant_builder_add(&ssidBuilder, "y", *(existingSSID++));
+                }
+                g_variant_builder_add(&wifiBuilder, "{sv}", "ssid", g_variant_builder_end(&ssidBuilder));
+                g_variant_builder_add(&wifiBuilder, "{sv}", "mode", g_variant_new_string("infrastructure"));
+                g_variant_builder_add(&wifiBuilder, "{sv}", "security", g_variant_new_string("802-11-wireless-security"));
+                g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "802-11-wireless", &wifiBuilder);
+
+                // Define the '802-11-wireless-security' dictionary with security details
+                g_variant_builder_init(&wifiSecurityBuilder, G_VARIANT_TYPE("a{sv}"));
+                g_variant_builder_add(&wifiSecurityBuilder, "{sv}", "key-mgmt", g_variant_new_string(existingKeyMgmt));
+                g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "802-11-wireless-security", &wifiSecurityBuilder);
+            }
+
+            GVariantBuilder ipv4Builder;
+            g_variant_builder_init(&ipv4Builder, G_VARIANT_TYPE("a{sv}"));
+            GVariantBuilder ipv6Builder;
+            g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
+
+            // Add existing IPv4 settings and set hostname
+            GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, true);
+            g_variant_builder_add(&ipv4Builder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
+            g_variant_builder_add(&ipv4Builder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
+            g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
+
+            // Add existing IPv6 settings and set hostname
+            GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, true);
+            g_variant_builder_add(&ipv6Builder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
+            g_variant_builder_add(&ipv6Builder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
+            g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
+
+            g_dbus_proxy_call_sync(
+                    settingsProxy,
+                    "Update",
+                    g_variant_new("(a{sa{sv}})", &settingsBuilder),
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
+
+            if (error) {
+                NMLOG_ERROR("Error updating connection settings with hostname: %s", error->message);
+                g_error_free(error);
+                g_variant_unref(connectionSettings);
+                g_object_unref(settingsProxy);
+                return false;
+            }
+
+            NMLOG_DEBUG("Successfully updated hostname settings for %s interface to: %s", interface.c_str(), hostname.c_str());
+
+            // Activate connection to apply changes
+            if(!GnomeUtils::activateConnection(m_dbus, connectionPath, devInfo.path))
+            {
+                NMLOG_INFO("activateConnection not successful");
+            }
+            else
+                NMLOG_INFO("activateConnection successful");
+
+            if (existingIPv4Settings) g_variant_unref(existingIPv4Settings);
+            if (existingIPv6Settings) g_variant_unref(existingIPv6Settings);
+            g_variant_unref(connectionSettings);
+            g_object_unref(settingsProxy);
+            return true;
+        }
+
         bool NetworkManagerClient::getAvailableInterfaces(std::vector<Exchange::INetworkManager::InterfaceDetails>& interfacesList)
         {
             deviceInfo ethDevInfo{};
@@ -674,6 +828,12 @@ namespace WPEFramework
         {
             deviceInfo devInfo{};
             GError* error = nullptr;
+
+            if(interface.empty() || (interface != GnomeUtils::getEthIfname() && interface != GnomeUtils::getWifiIfname()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
                 return false;
 
@@ -748,6 +908,13 @@ namespace WPEFramework
         bool NetworkManagerClient::setIPSettings(const std::string& interface, const Exchange::INetworkManager::IPAddress& address)
         {
             std::string connectionPath;
+
+            if(interface.empty() || (interface != GnomeUtils::getEthIfname() && interface != GnomeUtils::getWifiIfname()))
+            {
+                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
+                return false;
+            }
+
             if (!GnomeUtils::getSettingsConnectionPath(m_dbus, connectionPath, interface))
             {
                 NMLOG_ERROR("Error: connection path not found for interface %s", interface.c_str());
@@ -1546,6 +1713,70 @@ namespace WPEFramework
             return true;
         }
 
+        bool NetworkManagerClient::isWifiScannedRecently(int timelimitInSec)
+        {
+            deviceInfo devInfo;
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devInfo))
+            {
+                NMLOG_ERROR("Failed to get WiFi device info");
+                return false;
+            }
+
+            if(devInfo.path.empty() || devInfo.state < NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_ERROR("WiFi device not available for scan check");
+                return false;
+            }
+
+            GDBusProxy* wProxy = m_dbus.getNetworkManagerWirelessProxy(devInfo.path.c_str());
+            if(wProxy == NULL)
+            {
+                NMLOG_ERROR("Failed to create wireless proxy for scan check");
+                return false;
+            }
+
+            // Get LastScan property
+            GVariant* timeVariant = g_dbus_proxy_get_cached_property(wProxy, "LastScan");
+            if (!timeVariant) {
+                NMLOG_ERROR("Failed to get LastScan property");
+                g_object_unref(wProxy);
+                return false;
+            }
+
+            if (!g_variant_is_of_type(timeVariant, G_VARIANT_TYPE_INT64)) {
+                NMLOG_ERROR("Unexpected LastScan variant type: %s", g_variant_get_type_string(timeVariant));
+                g_variant_unref(timeVariant);
+                g_object_unref(wProxy);
+                return false;
+            }
+
+            gint64 last_scan_time = g_variant_get_int64(timeVariant);
+            g_variant_unref(timeVariant);
+            g_object_unref(wProxy);
+
+            if (last_scan_time <= 0) {
+                NMLOG_INFO("No scan has been performed yet");
+                return false;
+            }
+
+            // Get current time in milliseconds
+            struct timespec ts;
+            clock_gettime(CLOCK_REALTIME, &ts);
+            gint64 current_time_in_msec = (gint64)ts.tv_sec * 1000 + (gint64)ts.tv_nsec / 1000000;
+
+            gint64 time_difference_in_seconds = (current_time_in_msec - last_scan_time) / 1000;
+
+            NMLOG_DEBUG("Last scan: %lld ms ago, limit: %d sec", (long long)time_difference_in_seconds, timelimitInSec);
+
+            if (time_difference_in_seconds <= timelimitInSec) {
+                NMLOG_DEBUG("WiFi was scanned recently (%lld seconds ago), skipping scan", (long long)time_difference_in_seconds);
+                return true;
+            }
+
+            NMLOG_DEBUG("WiFi scan is needed, last scan was %lld seconds ago", (long long)time_difference_in_seconds);
+            return false;
+        }
+
         bool updateConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder& connBuilder, const char* devicePath, const char* connPath)
         {
             GDBusProxy* proxy = nullptr;
@@ -1728,7 +1959,8 @@ namespace WPEFramework
             GVariant *ssidArray = g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *)ssidinfo.ssid.c_str(), ssidinfo.ssid.length(), 1);
             g_variant_builder_add (&settingsBuilder, "{sv}", "ssid", ssidArray);
             g_variant_builder_add (&settingsBuilder, "{sv}", "mode", g_variant_new_string("infrastructure"));
-            g_variant_builder_add (&settingsBuilder, "{sv}", "hidden", g_variant_new_boolean(true)); // set hidden: yes
+            if(!iswpsAP) // wps never be a hidden AP, it will be always visible
+                g_variant_builder_add (&settingsBuilder, "{sv}", "hidden", g_variant_new_boolean(true)); // set hidden: yes
             g_variant_builder_add (&connBuilder, "{sa{sv}}", "802-11-wireless", &settingsBuilder);
 
              /* Adding '802-11-wireless-security' settings */
@@ -1783,14 +2015,28 @@ namespace WPEFramework
             }
 
             g_variant_builder_add (&connBuilder, "{sa{sv}}", "802-11-wireless-security", &settingsBuilder);
+
+            // Get persistent hostname or fall back to device hostname
+            std::string hostname;
+            if (!GnomeUtils::readPersistentHostname(hostname)) {
+                const char* deviceHostname = "rdk-device"; // default hostname
+                hostname = deviceHostname;
+                NMLOG_DEBUG("No persistent hostname found, using device hostname: %s", hostname.c_str());
+            }
+            NMLOG_INFO("DHCP hostname: %s", hostname.c_str());
+
             /* Adding the 'ipv4' Setting */
             g_variant_builder_init (&settingsBuilder, G_VARIANT_TYPE ("a{sv}"));
             g_variant_builder_add (&settingsBuilder, "{sv}", "method", g_variant_new_string ("auto"));
+            g_variant_builder_add (&settingsBuilder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
+            g_variant_builder_add (&settingsBuilder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
             g_variant_builder_add (&connBuilder, "{sa{sv}}", "ipv4", &settingsBuilder);
 
             /* Adding the 'ipv6' Setting */
             g_variant_builder_init (&settingsBuilder, G_VARIANT_TYPE ("a{sv}"));
             g_variant_builder_add (&settingsBuilder, "{sv}", "method", g_variant_new_string ("auto"));
+            g_variant_builder_add (&settingsBuilder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
+            g_variant_builder_add (&settingsBuilder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
             g_variant_builder_add (&connBuilder, "{sa{sv}}", "ipv6", &settingsBuilder);
             NMLOG_DEBUG("connection builder success...");
             return true;
@@ -2037,6 +2283,21 @@ namespace WPEFramework
                 return false;
             }
 
+            // Check if already connected to the requested SSID
+            Exchange::INetworkManager::WiFiSSIDInfo currentSSID;
+            if(getConnectedSSID(currentSSID))
+            {
+                if(ssidinfo.ssid == currentSSID.ssid)
+                {
+                    NMLOG_INFO("'%s' already connected !", currentSSID.ssid.c_str());
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                    return true;
+                }
+                else
+                    NMLOG_DEBUG("wifi already connected with %s AP", currentSSID.ssid.c_str());
+            }
+
             std::list<std::string> paths;
             if(GnomeUtils::getWifiConnectionPaths(m_dbus, deviceProp.path.c_str(), paths))
             {
@@ -2052,7 +2313,7 @@ namespace WPEFramework
                 }
             }
 
-            /* if ap is avilable check the security is maching to user requested */
+            /* if ap is available check the security is matching to user requested */
             Exchange::INetworkManager::WiFiSSIDInfo apInfo{};
             apInfo.ssid = ssidinfo.ssid;
             std::string apPathStr = "/"; // default specific object path is "/"
@@ -2066,7 +2327,28 @@ namespace WPEFramework
                 }
             }
             else
+            {
                 NMLOG_WARNING("matching ssid (%s) not found in scanning result", ssidinfo.ssid.c_str());
+                /* ssid not found in scan list so add to known ssid it will do a scanning and connect */
+                if(ssidinfo.persist)
+                {
+                    if(addToKnownSSIDs(ssidinfo))
+                    {
+                        NMLOG_DEBUG("Adding to known ssid '%s' ", ssidinfo.ssid.c_str());
+                        return activateKnownConnection(GnomeUtils::getWifiIfname(), ssidinfo.ssid);
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Failed to add SSID '%s' to known SSIDs", ssidinfo.ssid.c_str());
+                        return false;
+                    }
+                }
+                else
+                {
+                    NMLOG_WARNING("SSID '%s' not found and persist is false, cannot connect", ssidinfo.ssid.c_str());
+                    return false;
+                }
+            }
 
             if(reuseConnection)
             {
@@ -2076,24 +2358,56 @@ namespace WPEFramework
                     return false;
                 }
 
-                if(updateConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), exsistingConn.c_str()))
-                    NMLOG_INFO("updated connection request success");
-                else {
-                    NMLOG_ERROR("wifi connect request failed");
-                    return false;
+                if (ssidinfo.persist)
+                {
+                    if(updateConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), exsistingConn.c_str()))
+                        NMLOG_INFO("updated connection request success");
+                    else
+                    {
+                        NMLOG_ERROR("wifi connect request failed");
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Don't persist changes, just activate existing connection
+                    // Note: Any changes made by connectionBuilder will be temporary for this session only
+                    NMLOG_DEBUG("activating existing connection without persisting changes '%s'", ssidinfo.ssid.c_str());
+                    if(GnomeUtils::activateConnection(m_dbus, exsistingConn, deviceProp.path))
+                        NMLOG_INFO("activated existing connection without persistence");
+                    else {
+                        NMLOG_ERROR("failed to activate existing connection");
+                        return false;
+                    }
                 }
             }
             else
             {
+                NMLOG_DEBUG("creating new connection '%s' persist=%d", ssidinfo.ssid.c_str(), ssidinfo.persist);
                 if(!connectionBuilder(ssidinfo, connBuilder, iswpsAP)) {
                     NMLOG_WARNING("connection builder failed");
                     return false;
                 }
-                if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist, apPathStr.c_str()))
-                    NMLOG_INFO("wifi connect request success");
-                else {
-                    NMLOG_ERROR("wifi connect request failed");
-                    return false;
+                if (ssidinfo.persist)
+                {
+                    if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist, apPathStr.c_str()))
+                        NMLOG_INFO("wifi connect request success");
+                    else
+                    {
+                        NMLOG_ERROR("wifi connect request failed");
+                        return false;
+                    }
+                }
+                else
+                {
+                    // Create temporary connection - add to memory only, do not save to disk
+                    NMLOG_DEBUG("creating temporary connection for '%s'", ssidinfo.ssid.c_str());
+                    if(addNewConnctionAndactivate(m_dbus, connBuilder, deviceProp.path.c_str(), ssidinfo.persist, apPathStr.c_str()))
+                        NMLOG_INFO("temporary wifi connect request success");
+                    else {
+                        NMLOG_ERROR("temporary wifi connect request failed");
+                        return false;
+                    }
                 }
             }
 
@@ -2109,7 +2423,8 @@ namespace WPEFramework
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devInfo) || devInfo.path.empty())
                 return false;
 
-            if(devInfo.state <= NM_DEVICE_STATE_DISCONNECTED)
+            NMLOG_DEBUG("wifi device current state is %d !", devInfo.state);
+            if(devInfo.state <= NM_DEVICE_STATE_DISCONNECTED || devInfo.state == NM_DEVICE_STATE_FAILED || devInfo.state == NM_DEVICE_STATE_DEACTIVATING)
             {
                 NMLOG_WARNING("wifi in disconnected state");
                 return true;
@@ -2132,6 +2447,107 @@ namespace WPEFramework
 
             g_object_unref(wProxy);
             return true;
+        }
+
+        bool NetworkManagerClient::activateKnownConnection(const std::string& interface, const std::string& knownConnectionID)
+        {
+            NMLOG_DEBUG("Activating known connection: interface=%s, connectionID=%s", interface.c_str(), knownConnectionID.c_str());
+
+            deviceInfo devInfo;
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
+            {
+                NMLOG_ERROR("Failed to get device info for interface: %s", interface.c_str());
+                return false;
+            }
+
+            if(devInfo.path.empty() || devInfo.state < NM_DEVICE_STATE_UNAVAILABLE)
+            {
+                NMLOG_ERROR("Interface %s not active or available", interface.c_str());
+                return false;
+            }
+
+            // Get all connections
+            GError *error = nullptr;
+            GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsProxy();
+            if (settingsProxy == nullptr) {
+                NMLOG_ERROR("Error creating NetworkManager settings proxy");
+                return false;
+            }
+
+            GVariant *connectionsResult = g_dbus_proxy_call_sync(
+                    settingsProxy,
+                    "ListConnections",
+                    nullptr,
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
+
+            if (error || connectionsResult == nullptr) {
+                NMLOG_ERROR("Error retrieving connections: %s", error ? error->message : "unknown error");
+                if (error) g_error_free(error);
+                g_object_unref(settingsProxy);
+                return false;
+            }
+
+            GVariantIter *connectionIter;
+            const gchar *connectionPath;
+            std::string foundConnectionPath;
+            std::string firstWiFiConnectionPath;
+
+            g_variant_get(connectionsResult, "(ao)", &connectionIter);
+
+            // Find the requested connection or first WiFi connection
+            while (g_variant_iter_loop(connectionIter, "o", &connectionPath)) {
+                std::string ssid;
+                if(getSSIDFromConnection(m_dbus, connectionPath, ssid))
+                {
+                    NMLOG_DEBUG("Found WiFi connection: %s (SSID: %s)", connectionPath, ssid.c_str());
+
+                    // If no specific connection requested, use first WiFi connection
+                    if(firstWiFiConnectionPath.empty())
+                        firstWiFiConnectionPath = connectionPath;
+
+                    // If specific connection requested, look for exact match
+                    if(!knownConnectionID.empty() && ssid == knownConnectionID)
+                    {
+                        foundConnectionPath = connectionPath;
+                        NMLOG_INFO("Found matching connection for SSID: %s", knownConnectionID.c_str());
+                        break;
+                    }
+                }
+            }
+
+            g_variant_iter_free(connectionIter);
+            g_variant_unref(connectionsResult);
+            g_object_unref(settingsProxy);
+
+            // Determine which connection to activate
+            std::string connectionToActivate;
+            if(!foundConnectionPath.empty())
+                connectionToActivate = foundConnectionPath;
+            else if(knownConnectionID.empty() && !firstWiFiConnectionPath.empty())
+            {
+                connectionToActivate = firstWiFiConnectionPath;
+                NMLOG_INFO("No specific connection requested, using first WiFi connection");
+            }
+            else
+            {
+                NMLOG_ERROR("No suitable connection found. Requested: '%s'", knownConnectionID.c_str());
+                return false;
+            }
+
+            // Activate the connection
+            if(GnomeUtils::activateConnection(m_dbus, connectionToActivate, devInfo.path))
+            {
+                NMLOG_INFO("Successfully activated known connection: %s", connectionToActivate.c_str());
+                return true;
+            }
+            else
+            {
+                NMLOG_ERROR("Failed to activate connection: %s", connectionToActivate.c_str());
+                return false;
+            }
         }
 
         static bool getWpsPbcSSIDDetails(DbusMgr& m_dbus, const char* apPath, std::string& wpsApSsid)
@@ -2239,11 +2655,73 @@ namespace WPEFramework
             return isfound;
         }
 
+        bool NetworkManagerClient::isActiveApSameAsWps(const std::string& wpsSSID)
+        {
+            deviceInfo devProperty{};
+            GDBusProxy* wProxy = nullptr;
+            GVariant* result = nullptr;
+            bool isSame = false;
+
+            // Get WiFi device info
+            if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devProperty))
+                return false;
+
+            if(devProperty.path.empty() || devProperty.state < NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_ERROR("no wifi device found");
+                return false;
+            }
+
+            // Get WiFi device proxy
+            wProxy = m_dbus.getNetworkManagerWirelessProxy(devProperty.path.c_str());
+            if (wProxy == NULL)
+                return false;
+
+            // Get active access point
+            result = g_dbus_proxy_get_cached_property(wProxy, "ActiveAccessPoint");
+            if (!result) {
+                NMLOG_DEBUG("No active access point found");
+                g_object_unref(wProxy);
+                return false;
+            }
+
+            const gchar* activeApPath = nullptr;
+            g_variant_get(result, "o", &activeApPath);
+
+            if (activeApPath && g_strcmp0(activeApPath, "/") != 0) {
+                // Get AP proxy and check SSID
+                GDBusProxy* apProxy = m_dbus.getNetworkManagerAccessPointProxy(activeApPath);
+                if (apProxy) {
+                    GVariant* ssidVariant = g_dbus_proxy_get_cached_property(apProxy, "Ssid");
+                    if (ssidVariant) {
+                        gsize ssid_length = 0;
+                        const guchar *ssid_data = static_cast<const guchar*>(g_variant_get_fixed_array(ssidVariant, &ssid_length, sizeof(guchar)));
+                        if (ssid_data && ssid_length > 0 && ssid_length <= 32) {
+                            std::string activeSSID(reinterpret_cast<const char*>(ssid_data), ssid_length);
+                            if (activeSSID == wpsSSID) {
+                                NMLOG_INFO("Active AP matches WPS SSID: %s", wpsSSID.c_str());
+                                isSame = true;
+                            }
+                        }
+                        g_variant_unref(ssidVariant);
+                    }
+                    g_object_unref(apProxy);
+                }
+            }
+
+            g_variant_unref(result);
+            g_object_unref(wProxy);
+            return isSame;
+        }
+
         void NetworkManagerClient::wpsProcess()
         {
             m_wpsProcessRun = true;
+            m_wpsActionTriggered = false;
             Exchange::INetworkManager::WiFiConnectTo ssidinfo{};
             Exchange::INetworkManager::WiFiState state;
+            deviceInfo devProperty{};
+            bool wpsComplete = false;
             NMLOG_INFO("WPS process started !");
 
             if(!getWifiState(state))
@@ -2253,18 +2731,72 @@ namespace WPEFramework
                 return;
             }
 
-            for(int retry =0; retry < GDBUS_WPS_RETRY_COUNT; retry++)
+            for(int retry = 0; retry < GDBUS_WPS_RETRY_COUNT; retry++)
             {
-                if(m_wpsProcessRun.load() == false) // stop wps process if reuested
+                if(m_wpsProcessRun.load() == false) // stop wps process if requested
                     break;
                 sleep(GDBUS_WPS_RETRY_WAIT_IN_MS);
                 if(m_wpsProcessRun.load() == false)
                     break;
+
+
+                // Get current device info for state monitoring
+                if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, GnomeUtils::getWifiIfname(), devProperty))
+                {
+                    NMLOG_ERROR("Failed to get device info during WPS process");
+                    break;
+                }
+
+                if(m_wpsActionTriggered)
+                {
+                    // If WPS action started, monitor device state for completion
+                    if(devProperty.state <= NM_DEVICE_STATE_DISCONNECTED)
+                    {
+                        NMLOG_WARNING("WPS process failed - device in disconnected state");
+                        if(_instance != nullptr)
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                        break;
+                    }
+                    else if(devProperty.state > NM_DEVICE_STATE_NEED_AUTH)
+                    {
+                        NMLOG_INFO("WPS process completed successfully");
+                        wpsComplete = true;
+                        if(_instance != nullptr)
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        break;
+                    }
+
+                    NMLOG_INFO("WPS process not completed yet, device state: %d", devProperty.state);
+                    if(retry >= GDBUS_WPS_RETRY_COUNT - 1) // Last retry attempt
+                    {
+                        NMLOG_ERROR("WPS process failed - timeout");
+                        if(_instance != nullptr)
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                        break;
+                    }
+                    continue;
+                }
+
+                // Look for WPS PBC SSID
                 if(!findWpsPbcSSID(m_dbus, ssidinfo.ssid))
                 {
-                    startWifiScan();
+                    if(!m_wpsActionTriggered)
+                    {
+                        // If WPS action not triggered, do a scanning request
+                        startWifiScan();
+                    }
                     NMLOG_DEBUG("WPS process retrying: %d ", retry+1);
                     continue;
+                }
+
+                // Check if already connected to the same WPS AP
+                if(isActiveApSameAsWps(ssidinfo.ssid))
+                {
+                    NMLOG_INFO("WPS process stopped - already connected to WPS AP '%s'", ssidinfo.ssid.c_str());
+                    wpsComplete = true;
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                    break;
                 }
 
                 if(!getWifiState(state))
@@ -2276,18 +2808,39 @@ namespace WPEFramework
 
                 if(Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED != state)
                 {
-                    /* we need a wifi disconnected state to proceed wifi PBC process */
+                    NMLOG_INFO("Disconnecting current connection for WPS process");
                     wifiDisconnect();
+                    sleep(3); // Wait for disconnect to complete
                 }
 
                 ssidinfo.security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
                 ssidinfo.persist = true;
+
+                NMLOG_INFO("Starting WPS connection to SSID: %s", ssidinfo.ssid.c_str());
+
+                // Mark WPS action as triggered and adjust retry count
+                m_wpsActionTriggered = true;
+                retry = GDBUS_WPS_RETRY_COUNT - 3; // Expecting WPS process will be completed in 30 sec (3 * 10sec retry)
+
                 /* security mode will be updated in wifi connect function, if not mathing to wpa-psk */
                 wifiConnect(ssidinfo, true); // isWps = true
-                break;
             }
 
-            NMLOG_INFO("wps process complete !!");
+            // Final status reporting
+            if(!wpsComplete && !m_wpsActionTriggered)
+            {
+                NMLOG_WARNING("WPS AP not found");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+            }
+            else if(!wpsComplete && m_wpsActionTriggered)
+            {
+                NMLOG_INFO("WPS process error");
+                if(_instance != nullptr)
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+            }
+
+            NMLOG_INFO("WPS process thread exit");
             m_wpsProcessRun = false;
         }
 
@@ -2308,8 +2861,281 @@ namespace WPEFramework
 
         bool NetworkManagerClient::stopWPS() {
             NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
-            m_wpsProcessRun = false; 
+            m_wpsProcessRun = false;
+            m_wpsActionTriggered = false;
             return m_secretAgent.UnregisterAgent();
+        }
+
+        bool NetworkManagerClient::modifyDefaultConnectionsConfig()
+        {
+            NMLOG_DEBUG("Initializing hostname settings for existing connections");
+
+            // Get persistent hostname or use default
+            std::string hostname;
+            if (!GnomeUtils::readPersistentHostname(hostname)) {
+                const char* deviceHostname = "rdk-device"; // default hostname
+                hostname = deviceHostname;
+                NMLOG_DEBUG("No persistent hostname found, using device hostname: %s", hostname.c_str());
+            }
+
+            GError *error = nullptr;
+            GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsProxy();
+            if (settingsProxy == nullptr) {
+                NMLOG_ERROR("Error creating NetworkManager settings proxy");
+                return false;
+            }
+
+            // Get all connections
+            GVariant *connectionsResult = g_dbus_proxy_call_sync(
+                    settingsProxy,
+                    "ListConnections",
+                    nullptr,
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
+
+            if (error || connectionsResult == nullptr) {
+                NMLOG_ERROR("Error retrieving connections for hostname init: %s", error ? error->message : "unknown error");
+                if (error) g_error_free(error);
+                g_object_unref(settingsProxy);
+                return false;
+            }
+
+            GVariantIter *connectionIter;
+            const gchar *connectionPath;
+            bool success = true;
+
+            g_variant_get(connectionsResult, "(ao)", &connectionIter);
+
+            while (g_variant_iter_loop(connectionIter, "o", &connectionPath)) {
+                // Get connection settings to check interface name
+                GDBusProxy *connectionProxy = m_dbus.getNetworkManagerSettingsConnectionProxy(connectionPath);
+                if (connectionProxy == nullptr) {
+                    NMLOG_WARNING("Failed to create proxy for connection during hostname init: %s", connectionPath);
+                    continue;
+                }
+
+                GVariant *settingsResult = g_dbus_proxy_call_sync(
+                        connectionProxy,
+                        "GetSettings",
+                        nullptr,
+                        G_DBUS_CALL_FLAGS_NONE,
+                        -1,
+                        nullptr,
+                        &error);
+
+                if (error || settingsResult == nullptr) {
+                    NMLOG_WARNING("Failed to get settings for connection %s during hostname init: %s",
+                                  connectionPath, error ? error->message : "unknown error");
+                    if (error) {
+                        g_error_free(error);
+                        error = nullptr;
+                    }
+                    g_object_unref(connectionProxy);
+                    continue;
+                }
+
+                // Parse connection settings to get interface name
+                GVariantIter *settingsIter;
+                const gchar *settingName;
+                GVariant *settingDict;
+                std::string interfaceName;
+                std::string connectionType;
+
+                g_variant_get(settingsResult, "(a{sa{sv}})", &settingsIter);
+                while (g_variant_iter_loop(settingsIter, "{&s@a{sv}}", &settingName, &settingDict)) {
+                    if (g_strcmp0(settingName, "connection") == 0) {
+                        GVariantIter dictIter;
+                        const gchar *key;
+                        GVariant *value;
+
+                        g_variant_iter_init(&dictIter, settingDict);
+                        while (g_variant_iter_loop(&dictIter, "{&sv}", &key, &value)) {
+                            if (g_strcmp0(key, "interface-name") == 0) {
+                                interfaceName = g_variant_get_string(value, nullptr);
+                            } else if (g_strcmp0(key, "type") == 0) {
+                                connectionType = g_variant_get_string(value, nullptr);
+                            }
+                        }
+                    }
+                }
+                g_variant_iter_free(settingsIter);
+
+                // Only process Ethernet and WiFi connections
+                bool isValidInterface = false;
+                if (!interfaceName.empty()) {
+                    if (interfaceName == GnomeUtils::getEthIfname() &&
+                        (connectionType == "802-3-ethernet")) {
+                        isValidInterface = true;
+                    } else if (interfaceName == GnomeUtils::getWifiIfname() &&
+                               (connectionType == "802-11-wireless")) {
+                        isValidInterface = true;
+                    }
+                }
+
+                if (isValidInterface) {
+                    NMLOG_DEBUG("Initializing hostname for existing connection: %s (interface: %s)",
+                                connectionPath, interfaceName.c_str());
+
+                    if (!updateHostnameSettings(m_dbus, std::string(connectionPath), hostname, interfaceName)) {
+                        NMLOG_WARNING("Failed to initialize hostname for existing connection: %s", interfaceName.c_str());
+                        // Don't fail the whole operation for one connection
+                    } else {
+                        NMLOG_INFO("Successfully initialized hostname for existing connection: %s", interfaceName.c_str());
+                    }
+                } else {
+                    NMLOG_DEBUG("Skipping hostname init for non-ethernet/wifi connection: %s (type: %s)",
+                                interfaceName.c_str(), connectionType.c_str());
+                }
+
+                g_variant_unref(settingsResult);
+                g_object_unref(connectionProxy);
+            }
+
+            g_variant_iter_free(connectionIter);
+            g_variant_unref(connectionsResult);
+            g_object_unref(settingsProxy);
+
+            NMLOG_INFO("Completed hostname initialization for existing connections");
+            return success;
+        }
+
+        bool NetworkManagerClient::setHostname(const std::string& hostname)
+        {
+            NMLOG_DEBUG("Setting DHCP hostname to: %s", hostname.c_str());
+
+            // Validate hostname length (1-32 characters as per NetworkManager specs)
+            if(hostname.length() < 1 || hostname.length() > 32)
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu (must be 1-32 characters)", hostname.length());
+                return false;
+            }
+
+            GError *error = nullptr;
+            GDBusProxy *settingsProxy = m_dbus.getNetworkManagerSettingsProxy();
+            if (settingsProxy == nullptr) {
+                NMLOG_ERROR("Error creating NetworkManager settings proxy");
+                return false;
+            }
+
+            // Get all connections
+            GVariant *connectionsResult = g_dbus_proxy_call_sync(
+                    settingsProxy,
+                    "ListConnections",
+                    nullptr,
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &error);
+
+            if (error || connectionsResult == nullptr) {
+                NMLOG_ERROR("Error retrieving connections: %s", error ? error->message : "unknown error");
+                if (error) g_error_free(error);
+                g_object_unref(settingsProxy);
+                return false;
+            }
+
+            GVariantIter *connectionIter;
+            const gchar *connectionPath;
+            bool success = true;
+
+            g_variant_get(connectionsResult, "(ao)", &connectionIter);
+
+            while (g_variant_iter_loop(connectionIter, "o", &connectionPath)) {
+                // Get connection settings to check interface name
+                GDBusProxy *connectionProxy = m_dbus.getNetworkManagerSettingsConnectionProxy(connectionPath);
+                if (connectionProxy == nullptr) {
+                    NMLOG_WARNING("Failed to create proxy for connection: %s", connectionPath);
+                    continue;
+                }
+
+                GVariant *settingsResult = g_dbus_proxy_call_sync(
+                        connectionProxy,
+                        "GetSettings",
+                        nullptr,
+                        G_DBUS_CALL_FLAGS_NONE,
+                        -1,
+                        nullptr,
+                        &error);
+
+                if (error || settingsResult == nullptr) {
+                    NMLOG_WARNING("Failed to get settings for connection %s: %s",
+                                  connectionPath, error ? error->message : "unknown error");
+                    if (error) {
+                        g_error_free(error);
+                        error = nullptr;
+                    }
+                    g_object_unref(connectionProxy);
+                    continue;
+                }
+
+                // Parse connection settings to get interface name
+                GVariantIter *settingsIter;
+                const gchar *settingName;
+                GVariant *settingDict;
+                std::string interfaceName;
+                std::string connectionType;
+
+                g_variant_get(settingsResult, "(a{sa{sv}})", &settingsIter);
+                while (g_variant_iter_loop(settingsIter, "{&s@a{sv}}", &settingName, &settingDict)) {
+                    if (g_strcmp0(settingName, "connection") == 0) {
+                        GVariantIter dictIter;
+                        const gchar *key;
+                        GVariant *value;
+
+                        g_variant_iter_init(&dictIter, settingDict);
+                        while (g_variant_iter_loop(&dictIter, "{&sv}", &key, &value)) {
+                            if (g_strcmp0(key, "interface-name") == 0) {
+                                interfaceName = g_variant_get_string(value, nullptr);
+                            } else if (g_strcmp0(key, "type") == 0) {
+                                connectionType = g_variant_get_string(value, nullptr);
+                            }
+                        }
+                    }
+                }
+                g_variant_iter_free(settingsIter);
+
+                // Only process Ethernet and WiFi connections
+                bool isValidInterface = false;
+                if (!interfaceName.empty()) {
+                    if (interfaceName == GnomeUtils::getEthIfname() &&
+                        (connectionType == "802-3-ethernet")) {
+                        isValidInterface = true;
+                    } else if (interfaceName == GnomeUtils::getWifiIfname() &&
+                               (connectionType == "802-11-wireless")) {
+                        isValidInterface = true;
+                    }
+                }
+
+                if (isValidInterface) {
+                    NMLOG_DEBUG("Updating hostname for interface: %s (connection: %s)",
+                                interfaceName.c_str(), connectionPath);
+
+                    if (!updateHostnameSettings(m_dbus, std::string(connectionPath), hostname, interfaceName)) {
+                        NMLOG_ERROR("Failed to update hostname for interface: %s", interfaceName.c_str());
+                        success = false;
+                    }
+                } else {
+                    NMLOG_DEBUG("Skipping non-ethernet/wifi connection: %s (type: %s)",
+                                interfaceName.c_str(), connectionType.c_str());
+                }
+
+                g_variant_unref(settingsResult);
+                g_object_unref(connectionProxy);
+            }
+
+            g_variant_iter_free(connectionIter);
+            g_variant_unref(connectionsResult);
+            g_object_unref(settingsProxy);
+
+            if (success) {
+                // Write hostname to persistent storage
+                GnomeUtils::writePersistentHostname(hostname);
+                NMLOG_INFO("Successfully set DHCP hostname to: %s", hostname.c_str());
+            }
+
+            return success;
         }
 
     } // WPEFramework

@@ -62,20 +62,26 @@ namespace WPEFramework
                 bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo);
                 bool removeKnownSSIDs(const std::string& ssid);
                 bool startWifiScan(const std::string ssid = "");
+                bool isWifiScannedRecently(int timelimitInSec = 5); // default 5 sec as shortest scanning interval
                 bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP = false);
                 bool wifiDisconnect();
+                bool activateKnownConnection(const std::string& interface, const std::string& knownConnectionID = "");
                 bool getWifiState(Exchange::INetworkManager::WiFiState &state);
                 bool getWiFiSignalQuality(std::string& ssid, std::string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality);
                 bool startWPS();
                 bool stopWPS();
+                bool setHostname(const std::string& hostname);
+                bool modifyDefaultConnectionsConfig();
 
             private:
                 NetworkManagerClient();
                 ~NetworkManagerClient();
                 void wpsProcess();
                 bool getMatchingSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo& ssidInfo, std::string& apPathStr);
+                bool isActiveApSameAsWps(const std::string& wpsSSID);
                 std::thread m_wpsthread;
                 std::atomic<bool> m_wpsProcessRun;
+                std::atomic<bool> m_wpsActionTriggered;
                 SecretAgent m_secretAgent;
                 DbusMgr m_dbus;
         };

@@ -95,6 +95,25 @@ namespace WPEFramework
             _nmGdbusClient = NetworkManagerClient::getInstance();
             _nmGdbusEvents = NetworkManagerEvents::getInstance();
             getInitialConnectionState();
+            nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
+            _nmGdbusClient->modifyDefaultConnectionsConfig();
+
+            // Set default interface based on device state
+            GnomeUtils::deviceInfo ethDevInfo, wifiDevInfo;
+            if(GnomeUtils::getDeviceInfoByIfname(_nmGdbusClient->m_dbus, nmUtils::ethIface().c_str(), ethDevInfo))
+            {
+                if(ethDevInfo.state > NM_DEVICE_STATE_DISCONNECTED && ethDevInfo.state < NM_DEVICE_STATE_DEACTIVATING)
+                    m_defaultInterface = nmUtils::ethIface();
+                else
+                    m_defaultInterface = nmUtils::wlanIface();
+            }
+            else
+                m_defaultInterface = nmUtils::wlanIface();
+
+            NMLOG_INFO("default interface is %s", m_defaultInterface.c_str());
+
+            // Start event monitoring
+            _nmGdbusEvents->startNetworkMangerEventMonitor();
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -230,22 +249,29 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(ssid.ssid.empty())
+            // Check the last scanning time and if it exceeds 5 sec do a rescanning
+            if(!_nmGdbusClient->isWifiScannedRecently())
             {
-                NMLOG_WARNING("ssid is not sepecified; so attampting to connect know ssids !");
                 _nmGdbusEvents->setwifiScanOptions(false); /* Enable event posting */
-                if(_nmGdbusClient->startWifiScan())
-                    rc = Core::ERROR_NONE;
-                else
-                    NMLOG_ERROR("StartWiFiScan failed");
+                if(!_nmGdbusClient->startWifiScan())
+                    NMLOG_WARNING("scanning failed but try to connect");
             }
-            else
+
+            if(ssid.ssid.empty() && _instance != NULL)
+            {
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                if(_nmGdbusClient->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
+                    rc = Core::ERROR_NONE;
+            }
+            else if(ssid.ssid.size() <= 32)
             {
                 if(_nmGdbusClient->wifiConnect(ssid))
                     rc = Core::ERROR_NONE;
                 else
                     NMLOG_ERROR("WiFiConnect failed");
             }
+            else
+                NMLOG_WARNING("SSID is invalid");
 
             return rc;
         }
@@ -325,6 +351,30 @@ namespace WPEFramework
                 NMLOG_ERROR("stop WPS failed");
                 rc = Core::ERROR_GENERAL;
             }
+            return rc;
+        }
+
+        /* @brief Set the dhcp hostname */
+        uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+
+            if(hostname.length() < 1 || hostname.length() > 32)
+            {
+                NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            if(_nmGdbusClient->setHostname(hostname))
+            {
+                NMLOG_INFO("Successfully set hostname to: %s", hostname.c_str());
+                rc = Core::ERROR_NONE;
+            }
+            else
+            {
+                NMLOG_ERROR("SetHostname failed for hostname: %s", hostname.c_str());
+            }
+
             return rc;
         }
     }
