@@ -27,6 +27,7 @@
 #include "NetworkManagerGdbusMgr.h"
 #include "NetworkManagerSecretAgent.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGdbusUtils.h"
 #include "INetworkManager.h"
 
 #define GDBUS_WPS_RETRY_WAIT_IN_MS        10 // 10 sec
@@ -63,6 +64,7 @@ namespace WPEFramework
                 bool removeKnownSSIDs(const std::string& ssid);
                 bool startWifiScan(const std::string ssid = "");
                 bool isWifiScannedRecently(int timelimitInSec = 5); // default 5 sec as shortest scanning interval
+                bool getDeviceInfo(const std::string& interface, deviceInfo& devInfo);
                 bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo& connectInfo, bool iswpsAP = false);
                 bool wifiDisconnect();
                 bool activateKnownConnection(const std::string& interface, const std::string& knownConnectionID = "");

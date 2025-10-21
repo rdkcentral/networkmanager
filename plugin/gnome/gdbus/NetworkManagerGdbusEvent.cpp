@@ -180,6 +180,20 @@ namespace WPEFramework
                 NMLOG_INFO("Device Added: %s", ifname.c_str());
                 if(ifname == GnomeUtils::getWifiIfname() || ifname == GnomeUtils::getEthIfname() )
                 {
+                    // Get device state to validate if it should be monitored
+                    deviceInfo devInfo{};
+                    NetworkManagerEvents* nmEventsInstance = NetworkManagerEvents::getInstance();
+                    if(nmEventsInstance && GnomeUtils::getDeviceInfoByIfname(nmEventsInstance->eventDbus, ifname.c_str(), devInfo))
+                    {
+                        NMDeviceState devState = devInfo.state;
+                        // NM_DEVICE_STATE_UNAVAILABLE can occur for an Ethernet interface when it is disconnected (e.g., no cable connected).
+                        bool isDeviceEnabled = devState >= NM_DEVICE_STATE_UNAVAILABLE && devState <= NM_DEVICE_STATE_ACTIVATED;
+                        if(!isDeviceEnabled)
+                        {
+                            NMLOG_WARNING("device %s is not enabled, So no event monitor", ifname.c_str());
+                            return;
+                        }
+                    }
                     NMLOG_INFO("monitoring device: %s", ifname.c_str());
                     NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, ifname.c_str());
                     // Only subscribe to LastScan if it's a WiFi device and not already monitored

@@ -27,6 +27,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGdbusClient.h"
 #include "NetworkManagerGdbusUtils.h"
+#include "../NetworkManagerGnomeUtils.h"
 
 namespace WPEFramework
 {
@@ -829,20 +830,93 @@ namespace WPEFramework
             deviceInfo devInfo{};
             GError* error = nullptr;
 
-            if(interface.empty() || (interface != GnomeUtils::getEthIfname() && interface != GnomeUtils::getWifiIfname()))
-            {
-                NMLOG_ERROR("Invalid interface name: %s", interface.c_str());
-                return false;
-            }
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
                 return false;
 
-            GDBusProxy* deviceProxy = m_dbus.getNetworkManagerPropertyProxy(devInfo.path.c_str());
-            if(deviceProxy == NULL)
+            NMLOG_INFO("interface %s state: %s", interface.c_str(), enable ? "enabled" : "disabled");
+
+            NMDeviceState deviceState = devInfo.state;
+
+            if (enable) {
+                NMLOG_DEBUG("Enabling interface...");
+                if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE) // already enabled
+                {
+                    return true;
+                }
+            } else {
+                NMLOG_DEBUG("Disabling interface...");
+                if (deviceState < NM_DEVICE_STATE_UNAVAILABLE) // already disabled
+                {
+                    return true;
+                }
+                else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
+                    NMLOG_DEBUG("Disconnecting device...");
+                    // Disconnect the device before setting it to unmanaged.
+                    // This ensures that NetworkManager cleanly removes any IP addresses, routes,
+                    // and DNS configuration associated with the interface. Setting an interface
+                    // to unmanaged without disconnecting first may leave residual configuration
+                    // that can cause networking issues.
+                    GDBusProxy* deviceProxy = m_dbus.getNetworkManagerDeviceProxy(devInfo.path.c_str());
+                    if(deviceProxy != NULL) {
+                        GVariant* disconnectResult = g_dbus_proxy_call_sync(
+                            deviceProxy,
+                            "Disconnect",
+                            nullptr,
+                            G_DBUS_CALL_FLAGS_NONE,
+                            -1,
+                            nullptr,
+                            &error
+                        );
+
+                        if (error) {
+                            NMLOG_WARNING("Error disconnecting device: %s", error->message);
+                            g_error_free(error);
+                            error = nullptr;
+                        } else if (disconnectResult) {
+                            g_variant_unref(disconnectResult);
+                        }
+                        g_object_unref(deviceProxy);
+                    }
+
+                    // Wait until device is truly disconnected
+                    int retry = 24; // 12 seconds
+                    NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                    while (retry-- > 0) {
+                        /* Force glib event processing to update state
+                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
+                         */
+                        // while (g_main_context_iteration(NULL, FALSE));
+
+                        if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo)) {
+                            break;
+                        }
+                        deviceState = devInfo.state;
+                        if(oldDevState != deviceState)
+                        {
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d", deviceState);
+                        }
+
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
+                            break;
+
+                        g_usleep(500 * 1000);  // 500ms (much faster response)
+                    }
+                }
+            }
+
+            if(deviceState > NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device not fully disconnected (state: %d), setting to unmanaged state", deviceState);
+            }
+
+            // Set the "Managed" property to enable/disable the device
+            GDBusProxy* propertyProxy = m_dbus.getNetworkManagerPropertyProxy(devInfo.path.c_str());
+            if(propertyProxy == NULL)
                 return false;
 
             GVariant* result = g_dbus_proxy_call_sync(
-                    deviceProxy,
+                    propertyProxy,
                     "Set",
                     g_variant_new("(ssv)", "org.freedesktop.NetworkManager.Device", "Managed", g_variant_new_boolean(enable)),
                     G_DBUS_CALL_FLAGS_NONE,
@@ -851,17 +925,44 @@ namespace WPEFramework
                     &error
                     );
 
+            bool success = (error == nullptr);
+
             if (error) {
                 NMLOG_ERROR("Error %s network interface: %s", (enable ? "enabling" : "disabling"), error->message);
                 g_error_free(error);
             } else {
-                NMLOG_DEBUG("Network interface %s successfully %s", (enable ? "enabled" : "disabled"), devInfo.path.c_str());
+                NMLOG_DEBUG("Network interface %s successfully %s", interface.c_str(), (enable ? "enabled" : "disabled"));
                 if (result != nullptr) {
                     g_variant_unref(result);
                 }
             }
-            g_object_unref(deviceProxy);
-            return true;
+            g_object_unref(propertyProxy);
+
+            if(success)
+            {
+                // Set persistent marker file for specific interface
+                if(interface == GnomeUtils::getEthIfname())
+                    nmUtils::setMarkerFile(EthernetDisableMarker, enable);
+                else if(interface == GnomeUtils::getWifiIfname())
+                    nmUtils::setMarkerFile(WiFiDisableMarker, enable);
+
+                // Auto-reconnection logic when interface is enabled
+                if(enable) {
+                    // Wait for 1 sec to change the device state
+                    sleep(1);
+                    if(interface == GnomeUtils::getWifiIfname() && _instance != nullptr) {
+                        NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
+                        activateKnownConnection(GnomeUtils::getWifiIfname(), _instance->m_lastConnectedSSID);
+                    }
+                    else if(interface == GnomeUtils::getEthIfname()) {
+                        NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+                        // default wired connection name is 'Wired connection 1'
+                        activateKnownConnection(GnomeUtils::getEthIfname(), "Wired connection 1");
+                    }
+                }
+            }
+
+            return success;
         }
 
         bool NetworkManagerClient::getInterfaceState(const std::string& interface, bool& isEnabled)
@@ -1777,6 +1878,11 @@ namespace WPEFramework
             return false;
         }
 
+        bool NetworkManagerClient::getDeviceInfo(const std::string& interface, deviceInfo& devInfo)
+        {
+            return GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo);
+        }
+
         bool updateConnctionAndactivate(DbusMgr& m_dbus, GVariantBuilder& connBuilder, const char* devicePath, const char* connPath)
         {
             GDBusProxy* proxy = nullptr;
@@ -2464,6 +2570,29 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("Interface %s not active or available", interface.c_str());
                 return false;
+            }
+
+            // Set autoconnect to true for the device
+            GDBusProxy *deviceProxy = m_dbus.getNetworkManagerDeviceProxy(devInfo.path.c_str());
+            if (deviceProxy != nullptr) {
+                GVariant *autoconnectValue = g_variant_new_boolean(TRUE);
+                GError *setError = nullptr;
+                g_dbus_proxy_call_sync(
+                    deviceProxy,
+                    "Set",
+                    g_variant_new("(ssv)", "org.freedesktop.NetworkManager.Device", "Autoconnect", autoconnectValue),
+                    G_DBUS_CALL_FLAGS_NONE,
+                    -1,
+                    nullptr,
+                    &setError);
+
+                if (setError) {
+                    NMLOG_WARNING("Failed to set autoconnect for device %s: %s", interface.c_str(), setError->message);
+                    g_error_free(setError);
+                } else {
+                    NMLOG_DEBUG("Set autoconnect=true for device %s", interface.c_str());
+                }
+                g_object_unref(deviceProxy);
             }
 
             // Get all connections

@@ -21,6 +21,7 @@
 #include "NetworkManagerGdbusClient.h"
 #include "NetworkManagerGdbusEvent.h"
 #include "../NetworkManagerGnomeUtils.h"
+#include "NetworkManagerGdbusUtils.h"
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -98,22 +99,24 @@ namespace WPEFramework
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
             _nmGdbusClient->modifyDefaultConnectionsConfig();
 
+#if 1
             // Set default interface based on device state
-            GnomeUtils::deviceInfo ethDevInfo, wifiDevInfo;
-            if(GnomeUtils::getDeviceInfoByIfname(_nmGdbusClient->m_dbus, nmUtils::ethIface().c_str(), ethDevInfo))
+            deviceInfo ethDevInfo, wifiDevInfo;
+            if(_nmGdbusClient->getDeviceInfo(GnomeUtils::getEthIfname(), ethDevInfo))
             {
                 if(ethDevInfo.state > NM_DEVICE_STATE_DISCONNECTED && ethDevInfo.state < NM_DEVICE_STATE_DEACTIVATING)
-                    m_defaultInterface = nmUtils::ethIface();
+                    m_defaultInterface = GnomeUtils::getEthIfname();
                 else
-                    m_defaultInterface = nmUtils::wlanIface();
+                    m_defaultInterface = GnomeUtils::getWifiIfname();
             }
             else
-                m_defaultInterface = nmUtils::wlanIface();
+                m_defaultInterface = GnomeUtils::getWifiIfname();
 
             NMLOG_INFO("default interface is %s", m_defaultInterface.c_str());
 
             // Start event monitoring
             _nmGdbusEvents->startNetworkMangerEventMonitor();
+#endif
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
@@ -260,7 +263,7 @@ namespace WPEFramework
             if(ssid.ssid.empty() && _instance != NULL)
             {
                 NMLOG_WARNING("ssid is empty activating last connected ssid !");
-                if(_nmGdbusClient->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
+                if(_nmGdbusClient->activateKnownConnection(GnomeUtils::getWifiIfname(), _instance->m_lastConnectedSSID))
                     rc = Core::ERROR_NONE;
             }
             else if(ssid.ssid.size() <= 32)
