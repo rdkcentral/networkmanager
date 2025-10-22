@@ -54,7 +54,19 @@ namespace WPEFramework
             if ((flags != NM_802_11_AP_FLAGS_PRIVACY) && (wpaFlags == NM_802_11_AP_SEC_NONE) && (rsnFlags == NM_802_11_AP_SEC_NONE)) // Open network
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_NONE;
             else if((rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_PSK) && (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) // WPA2/WPA3 Transition
-                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK;
+            {
+                /*
+                 * NOTE: In WPA2/WPA3 transition mode, we're explicitly setting key-mgmt=sae instead of 
+                 * using key-mgmt=wpa-psk which would be NetworkManager's recommended approach.
+                 * 
+                 * During testing with key-mgmt=wpa-psk, devices only connected using WPA2-PSK 
+                 * even when WPA3-SAE was available. Setting key-mgmt=sae forces the use of WPA3-SAE.
+                 * 
+                 * Drawback: If an AP reverts to WPA2-only mode, connections will fail until manually changed.
+                 *  https://github.com/NetworkManager/NetworkManager/blob/1.47.3-dev/src/core/supplicant/nm-supplicant-config.c#L904
+                 */
+                security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
+            }
             else if (rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_SAE)  // Pure WPA3 (SAE only): WPA3-Personal
                 security = Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE;
             else if (wpaFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X || rsnFlags & NM_802_11_AP_SEC_KEY_MGMT_802_1X) // WPA2/WPA3 Enterprise: EAP present in either WPA or RSN
