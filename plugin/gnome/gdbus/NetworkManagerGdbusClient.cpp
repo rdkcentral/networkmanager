@@ -858,6 +858,9 @@ namespace WPEFramework
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
                 return false;
 
+            GDBusProxy* deviceProxy = m_dbus.getNetworkManagerPropertyProxy(devInfo.path.c_str());
+            if(deviceProxy == NULL)
+                return false;
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enable ? "enabled" : "disabled");
 
             NMDeviceState deviceState = devInfo.state;
@@ -936,12 +939,12 @@ namespace WPEFramework
             }
 
             // Set the "Managed" property to enable/disable the device
-            GDBusProxy* propertyProxy = m_dbus.getNetworkManagerPropertyProxy(devInfo.path.c_str());
+            /*GDBusProxy* propertyProxy = m_dbus.getNetworkManagerPropertyProxy(devInfo.path.c_str());
             if(propertyProxy == NULL)
-                return false;
+                return false;*/
 
             GVariant* result = g_dbus_proxy_call_sync(
-                    propertyProxy,
+                    deviceProxy,
                     "Set",
                     g_variant_new("(ssv)", "org.freedesktop.NetworkManager.Device", "Managed", g_variant_new_boolean(enable)),
                     G_DBUS_CALL_FLAGS_NONE,
@@ -961,7 +964,7 @@ namespace WPEFramework
                     g_variant_unref(result);
                 }
             }
-            g_object_unref(propertyProxy);
+            g_object_unref(deviceProxy);
 
             if(success)
             {
@@ -1047,8 +1050,8 @@ namespace WPEFramework
                 return false;
             }
             if (connectionPath.empty()) {
-                NMLOG_ERROR("Error: Interface %s not found in active connections", interface.c_str());
-                return false;
+                NMLOG_WARNING("No active connections available to edit for interface %s", interface.c_str());
+                return true;
             }
             if(!updateIPSettings(m_dbus, connectionPath, address, interface))
             {
