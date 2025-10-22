@@ -99,7 +99,6 @@ namespace WPEFramework
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
             _nmGdbusClient->modifyDefaultConnectionsConfig();
 
-#if 1
             // Set default interface based on device state
             deviceInfo ethDevInfo, wifiDevInfo;
             if(_nmGdbusClient->getDeviceInfo(GnomeUtils::getEthIfname(), ethDevInfo))
@@ -116,7 +115,6 @@ namespace WPEFramework
 
             // Start event monitoring
             _nmGdbusEvents->startNetworkMangerEventMonitor();
-#endif
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)

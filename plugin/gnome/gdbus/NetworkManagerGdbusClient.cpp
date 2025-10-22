@@ -539,13 +539,38 @@ namespace WPEFramework
             g_variant_builder_init(&ipv6Builder, G_VARIANT_TYPE("a{sv}"));
 
             // Add existing IPv4 settings and set hostname
-            GnomeUtils::addGvariantToBuilder(existingIPv4Settings, &ipv4Builder, true);
+            if (existingIPv4Settings)
+            {
+                GVariantIter iter;
+                const gchar *key;
+                GVariant *value;
+                g_variant_iter_init(&iter, existingIPv4Settings);
+                while (g_variant_iter_loop(&iter, "{&sv}", &key, &value)) {
+                    // Skip existing hostname properties to avoid duplicates
+                    if (g_strcmp0(key, "dhcp-hostname") != 0 && g_strcmp0(key, "dhcp-send-hostname") != 0) {
+                        g_variant_builder_add(&ipv4Builder, "{sv}", key, value);
+                    }
+                }
+            }
+            // Now add the new hostname settings
             g_variant_builder_add(&ipv4Builder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
             g_variant_builder_add(&ipv4Builder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
             g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv4", &ipv4Builder);
 
-            // Add existing IPv6 settings and set hostname
-            GnomeUtils::addGvariantToBuilder(existingIPv6Settings, &ipv6Builder, true);
+            // Add existing IPv6 settings, excluding hostname-related properties
+            if (existingIPv6Settings) {
+                GVariantIter iter;
+                const gchar *key;
+                GVariant *value;
+                g_variant_iter_init(&iter, existingIPv6Settings);
+                while (g_variant_iter_loop(&iter, "{&sv}", &key, &value)) {
+                    // Skip existing hostname properties to avoid duplicates
+                    if (g_strcmp0(key, "dhcp-hostname") != 0 && g_strcmp0(key, "dhcp-send-hostname") != 0) {
+                        g_variant_builder_add(&ipv6Builder, "{sv}", key, value);
+                    }
+                }
+            }
+            // Now add the new hostname settings
             g_variant_builder_add(&ipv6Builder, "{sv}", "dhcp-hostname", g_variant_new_string(hostname.c_str()));
             g_variant_builder_add(&ipv6Builder, "{sv}", "dhcp-send-hostname", g_variant_new_boolean(TRUE));
             g_variant_builder_add(&settingsBuilder, "{sa{sv}}", "ipv6", &ipv6Builder);
@@ -839,13 +864,13 @@ namespace WPEFramework
 
             if (enable) {
                 NMLOG_DEBUG("Enabling interface...");
-                if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE) // already enabled
+                if (deviceState >= NM_DEVICE_STATE_UNAVAILABLE && devInfo.managed) // already enabled and managed
                 {
                     return true;
                 }
             } else {
                 NMLOG_DEBUG("Disabling interface...");
-                if (deviceState < NM_DEVICE_STATE_UNAVAILABLE) // already disabled
+                if (deviceState < NM_DEVICE_STATE_UNAVAILABLE && !devInfo.managed) // already disabled and unmanaged
                 {
                     return true;
                 }
@@ -2252,11 +2277,11 @@ namespace WPEFramework
         bool NetworkManagerClient::removeKnownSSIDs(const std::string& ssid)
         {
             bool ret = false;
-            if(ssid.empty())
-            {
-                NMLOG_ERROR("ssid name is empty");
-                return false;
-            }
+            bool ssidSpecified = !ssid.empty();
+            bool connectionFound = false;
+
+            if(!ssidSpecified)
+                NMLOG_WARNING("ssid is not specified, Deleting all available wifi connections!");
 
             std::list<std::string> paths;
             if(!GnomeUtils::getConnectionPaths(m_dbus, paths))
@@ -2268,13 +2293,26 @@ namespace WPEFramework
             for (const std::string& path : paths) {
                 // NMLOG_DEBUG("remove connection path %s", path.c_str());
                 std::string connSsid;
-                if(getSSIDFromConnection(m_dbus, path, connSsid) && connSsid == ssid) {
-                    ret = deleteConnection(m_dbus, path, connSsid);
+                if(getSSIDFromConnection(m_dbus, path, connSsid)) {
+                    // If SSID is specified, only delete matching connections
+                    // If SSID is empty, delete all wireless connections
+                    if (!ssidSpecified || connSsid == ssid) {
+                        if(deleteConnection(m_dbus, path, connSsid)) {
+                            NMLOG_INFO("delete '%s' connection ...", connSsid.c_str());
+                            connectionFound = true;
+                            ret = true;
+                        }
+                    }
                 }
             }
 
-            if(!ret)
-                NMLOG_ERROR("ssid '%s' Connection remove failed", ssid.c_str());
+            if(!connectionFound)
+            {
+                if(ssidSpecified)
+                    NMLOG_WARNING("'%s' no such connection profile", ssid.c_str());
+                else
+                    NMLOG_WARNING("No wifi connection profiles found!");
+            }
 
             return ret;
         }
