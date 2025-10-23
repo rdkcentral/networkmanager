@@ -1049,8 +1049,8 @@ namespace WPEFramework
                 NMLOG_ERROR("Error: connection path not found for interface %s", interface.c_str());
                 return false;
             }
-            if (connectionPath.empty()) {
-                NMLOG_WARNING("No active connections available to edit for interface %s", interface.c_str());
+            if (connectionPath.empty() || connectionPath == "/") {
+                NMLOG_WARNING("No valid connections available to edit for interface %s (path: %s)", interface.c_str(), connectionPath.c_str());
                 return true;
             }
             if(!updateIPSettings(m_dbus, connectionPath, address, interface))
