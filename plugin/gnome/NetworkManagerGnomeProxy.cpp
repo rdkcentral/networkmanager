@@ -351,7 +351,7 @@ namespace WPEFramework
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
             return rc;
         }
-
+#if 0
         /* @brief Get the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
@@ -420,7 +420,7 @@ namespace WPEFramework
             m_defaultInterface = interface;
             return rc;
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
