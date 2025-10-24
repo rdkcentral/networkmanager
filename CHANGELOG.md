@@ -14,6 +14,12 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.5.0] - 2025-09-23
+### Changed
+- Implemented L1/L2 and Part L3 for the plugin
+- Implemented IP Address caching for Gnome backend
+- Implemented a logic to return appropriate value for GetPrimaryInterface
+
 ## [1.4.0] - 2025-09-23
 ### Changed
 - Implemented logic to not to persist SSID when asked
