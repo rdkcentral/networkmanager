@@ -1049,8 +1049,8 @@ namespace WPEFramework
                 NMLOG_ERROR("Error: connection path not found for interface %s", interface.c_str());
                 return false;
             }
-            if (connectionPath.empty() || connectionPath == "/") {
-                NMLOG_WARNING("No valid connections available to edit for interface %s (path: %s)", interface.c_str(), connectionPath.c_str());
+            if (connectionPath.empty()) {
+                NMLOG_WARNING("No active connections available to edit for interface %s", interface.c_str());
                 return true;
             }
             if(!updateIPSettings(m_dbus, connectionPath, address, interface))
@@ -2300,21 +2300,10 @@ namespace WPEFramework
                     // If SSID is specified, only delete matching connections
                     // If SSID is empty, delete all wireless connections
                     if (!ssidSpecified || connSsid == ssid) {
-                        // Check if this is the currently connected SSID before deleting
-                        bool wasActiveConnection = false;
-                        Exchange::INetworkManager::WiFiSSIDInfo currentSSID;
-                        if (getConnectedSSID(currentSSID) && currentSSID.ssid == connSsid) {
-                            wasActiveConnection = true;
-                        }
                         if(deleteConnection(m_dbus, path, connSsid)) {
                             NMLOG_INFO("delete '%s' connection ...", connSsid.c_str());
                             connectionFound = true;
                             ret = true;
-                            // If we deleted the currently active connection, trigger disconnected state
-                            if (wasActiveConnection) {
-                                NMLOG_INFO("Deleted active WiFi connection '%s', triggering WIFI_STATE_DISCONNECTED", connSsid.c_str());
-                                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
-                            }
                         }
                     }
                 }
