@@ -31,6 +31,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/LibnmWraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/GLibWraps.cpp
+    ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
@@ -41,6 +42,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeUtils.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeMfrMgr.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerSecretAgent.cpp
     ${PROXY_STUB_SOURCES}
 )
@@ -63,6 +65,7 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin/gnome)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
+include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
 
 target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

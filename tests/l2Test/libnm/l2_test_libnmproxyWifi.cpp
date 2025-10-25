@@ -28,6 +28,7 @@
 #include "WrapsMock.h"
 #include "LibnmWrapsMock.h"
 #include "GLibWrapsMock.h"
+#include "IarmBusMock.h"
 #include "ServiceMock.h"
 #include "ThunderPortability.h"
 #include "COMLinkMock.h"
@@ -52,6 +53,7 @@ protected:
     WrapsImplMock *p_wrapsImplMock = nullptr;
     LibnmWrapsImplMock *p_libnmWrapsImplMock = nullptr;
     GLibWrapsImplMock *p_gLibWrapsImplMock = nullptr;
+    IarmBusImplMock *p_iarmBusImplMock = nullptr;
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
     NiceMock<COMLinkMock> comLinkMock;
@@ -75,6 +77,9 @@ protected:
 
         p_wrapsImplMock = new NiceMock <WrapsImplMock>;
         Wraps::setImpl(p_wrapsImplMock);
+
+        p_iarmBusImplMock = new NiceMock <IarmBusImplMock>;
+        IarmBus::setImpl(p_iarmBusImplMock);
         ON_CALL(service, COMLink())
         .WillByDefault(::testing::Invoke(
               [this]() {
@@ -179,6 +184,14 @@ protected:
             delete p_gLibWrapsImplMock;
             p_gLibWrapsImplMock = nullptr;
         }
+
+        IarmBus::setImpl(nullptr);
+        if (p_iarmBusImplMock != nullptr)
+        {
+            delete p_iarmBusImplMock;
+            p_iarmBusImplMock = nullptr;
+        }
+
     }
 };
 
