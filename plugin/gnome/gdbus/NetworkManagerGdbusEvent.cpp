@@ -289,6 +289,7 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, wifiState);
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, GnomeUtils::getWifiIfname());
                         NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, false);
                         NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, true);
                         break;
