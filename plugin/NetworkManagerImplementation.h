@@ -313,6 +313,8 @@ namespace WPEFramework
                 IPAddress m_wlanIPv6Address;
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
+                std::atomic<bool> m_ethEnabled;
+                std::atomic<bool> m_wlanEnabled;
                 string m_defaultInterface;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;

@@ -122,7 +122,16 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             if(_nmGdbusClient->getAvailableInterfaces(interfaceList))
+            {
+                for (const auto& iface : interfaceList)
+                {
+                    if (iface.name == "eth0")
+                        m_ethEnabled.store(iface.enabled);
+                    else if (iface.name == "wlan0")
+                        m_wlanEnabled.store(iface.enabled);
+                }
                 rc = Core::ERROR_NONE;
+            }
             else
                 NMLOG_ERROR("GetAvailableInterfaces failed");
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
@@ -130,7 +139,7 @@ namespace WPEFramework
 
             return rc;
         }
-
+#if 0
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
             if(_nmGdbusClient->getPrimaryInterface(interface))
@@ -146,12 +155,18 @@ namespace WPEFramework
                     return Core::ERROR_GENERAL;
             }
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
             if(_nmGdbusClient->setInterfaceState(interface, enabled))
+            {
+                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                    _instance->m_wlanEnabled.store(enabled);
+                else if(interface == nmUtils::ethIface() && _instance != NULL)
+                    _instance->m_ethEnabled.store(enabled);
                 rc = Core::ERROR_NONE;
+            }
             else
                 NMLOG_ERROR("SetInterfaceState failed");
             return rc;
