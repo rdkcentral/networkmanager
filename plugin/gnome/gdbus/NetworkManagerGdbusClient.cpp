@@ -1081,6 +1081,7 @@ namespace WPEFramework
             const gchar *IPv6Method = nullptr;
             deviceInfo devInfo{};
             GError *error = nullptr;
+            string ipversionStr;
 
             std::string wifiname = GnomeUtils::getWifiIfname(), ethname = GnomeUtils::getEthIfname();
 
@@ -1099,8 +1100,49 @@ namespace WPEFramework
             }
             else if(wifiname != interface && ethname != interface)
             {
-                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                NMLOG_ERROR("interface: %s; not valid", interface.c_str());
                 return false;
+            }
+
+            if(ipversion.empty())
+            {
+                ipversionStr = "IPV4";
+            }
+            else
+            {
+                ipversionStr = ipversion;
+            }
+
+            // Add caching optimization similar to RDK proxy
+            if (wifiname == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !_instance->m_wlanIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv4 address from cache", wifiname.c_str());
+                    result = _instance->m_wlanIPv4Address;
+                    return true;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV6") && !_instance->m_wlanIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv6 address from cache", wifiname.c_str());
+                    result = _instance->m_wlanIPv6Address;
+                    return true;
+                }
+            }
+            else if (ethname == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !_instance->m_ethIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv4 address from cache", ethname.c_str());
+                    result = _instance->m_ethIPv4Address;
+                    return true;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV6") && !_instance->m_ethIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv6 address from cache", ethname.c_str());
+                    result = _instance->m_ethIPv6Address;
+                    return true;
+                }
             }
 
             if(!GnomeUtils::getDeviceInfoByIfname(m_dbus, interface.c_str(), devInfo))
@@ -1508,6 +1550,26 @@ namespace WPEFramework
                 result.primarydns = "";
                 result.secondarydns = "";
             }
+
+            // Cache the IP address
+            if(!result.ipaddress.empty())
+            {
+                if(g_strcmp0(result.ipversion.c_str(), "IPv4") == 0)
+                {
+                    if(ethname == interface)
+                        _instance->m_ethIPv4Address = result;
+                    else if(wifiname == interface)
+                        _instance->m_wlanIPv4Address = result;
+                }
+                else if(g_strcmp0(result.ipversion.c_str(), "IPv6") == 0)
+                {
+                    if(ethname == interface)
+                        _instance->m_ethIPv6Address = result;
+                    else if(wifiname == interface)
+                        _instance->m_wlanIPv6Address = result;
+                }
+            }
+
             if(ipv4Proxy != NULL)
                 g_object_unref(ipv4Proxy);
             if(ipv6Proxy != NULL)
