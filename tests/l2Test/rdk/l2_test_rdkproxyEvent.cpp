@@ -585,6 +585,9 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
                                                                 .acquired = true};
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, &ipEventData, sizeof(ipEventData));
 
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
+
     EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
     EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Allow server to start
@@ -607,6 +610,9 @@ TEST_F(NetworkManagerEventTest, GetPublicIP_SuccessWithEvent)
                                                                 .is_ipv6 = true,
                                                                 .acquired = true};
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, &ipEventData, sizeof(ipEventData));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"interface\":\"wlan0\",\"success\":true}"));
 
         // Test with both IPv4 and IPv6
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPublicIP"), _T("{}"), response));

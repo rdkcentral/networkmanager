@@ -49,6 +49,7 @@ protected:
     // Mock classes
     IarmBusImplMock  *p_iarmBusImplMock   = nullptr;
     WrapsImplMock *p_wrapsImplMock = nullptr;
+    IARM_EventHandler_t _nmEventHandler{};
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl;
 
     NiceMock<COMLinkMock> comLinkMock;
@@ -106,7 +107,35 @@ protected:
                         NetworkManagerImpl = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
                         return &NetworkManagerImpl;
                 }));
+        ON_CALL(*p_iarmBusImplMock, IARM_Bus_Init(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME)))
+            .WillByDefault(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
 
+        ON_CALL(*p_iarmBusImplMock, IARM_Bus_RegisterEventHandler(::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+                [&](const char* ownerName, IARM_EventId_t eventId, IARM_EventHandler_t handler) {
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_ENABLED_STATUS)) {
+                        _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS)) {
+                         _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS)) {
+                         _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_NETWORK_MANAGER_EVENT_DEFAULT_INTERFACE)) {
+                         _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs)) {
+                         _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_WIFI_MGR_EVENT_onWIFIStateChanged)) {
+                         _nmEventHandler = handler;
+                    }
+                    if ((string(IARM_BUS_NM_SRV_MGR_NAME) == string(ownerName)) && (eventId == IARM_BUS_WIFI_MGR_EVENT_onError)) {
+                         _nmEventHandler = handler;
+                    }
+                    return IARM_RESULT_SUCCESS;
+                }));
         ON_CALL(*p_iarmBusImplMock, IARM_Bus_Init(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME)))
             .WillByDefault(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
 
@@ -267,35 +296,10 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces_Failed)
     EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
-TEST_F(NetworkManagerTest, GetPrimaryInterface)
+TEST_F(NetworkManagerTest, GetPrimaryInterface_BothInterfacesDown)
 {
-    IARM_BUS_NetSrvMgr_DefaultRoute_t mockDefaultRoute = {};
-    strcpy(mockDefaultRoute.interface, "eth0");
-    strcpy(mockDefaultRoute.gateway, "192.168.1.1");
-
-    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_getDefaultInterface),
-                                                 ::testing::NotNull(), sizeof(mockDefaultRoute)))
-        .WillOnce(::testing::DoAll(
-            ::testing::Invoke([&mockDefaultRoute](const char*, const char*, void* arg, size_t) {
-                memcpy(arg, &mockDefaultRoute, sizeof(mockDefaultRoute));
-                return IARM_RESULT_SUCCESS;
-            })
-        ));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"eth0\",\"success\":true}"));
-}
-
-TEST_F(NetworkManagerTest, GetPrimaryInterface_Failed)
-{
-    EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                 ::testing::StrEq(IARM_BUS_NETSRVMGR_API_getDefaultInterface),
-                                                 ::testing::NotNull(), ::testing::_))
-        .WillOnce(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
-
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"interface\":\"\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, SetInterfaceState)
