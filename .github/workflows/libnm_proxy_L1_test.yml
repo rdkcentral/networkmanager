@@ -150,7 +150,7 @@ jobs:
           -DENABLE_PLUGIN_CLI=OFF
           -DENABLE_MIGRATION_MFRMGR_SUPPORT=ON
           &&
-          cmake --build build/networkmanager_libnm
+          cmake --build build/networkmanager_libnm --target install -j8
 
       - name: Run l2 libnm proxy tests
         run: >
