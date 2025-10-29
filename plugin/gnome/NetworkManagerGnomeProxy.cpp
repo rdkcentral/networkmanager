@@ -20,9 +20,6 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
-/*#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
-#include "NetworkManagerGnomeMfrMgr.h"
-#endif*/
 #include <fstream>
 #include <sstream>
 

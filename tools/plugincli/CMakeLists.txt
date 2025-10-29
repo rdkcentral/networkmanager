@@ -21,7 +21,6 @@ message("Building plugin CLI tools")
 # Required packages
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
-find_package(IARMBus REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)
@@ -98,8 +97,6 @@ else()
     set(LIBNM_SOURCES
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
-        ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeMfrMgr.cpp
-        ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerLibnmTest.cpp
     )
 
@@ -119,8 +116,6 @@ else()
     )
 
     target_compile_options(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_COMPILE_OPTIONS})
-    target_include_directories(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_INCLUDES} ${IARMBUS_INCLUDE_DIRS})
-    target_link_libraries(${PLUGIN_LIBNM_CLI} PRIVATE ${COMMON_LIBS} ${LIBNM_LIBRARIES} ${IARMBUS_LIBRARIES})
 
     install(TARGETS ${PLUGIN_LIBNM_CLI} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
