@@ -113,6 +113,21 @@ jobs:
           WIFI_INTERFACE=wlan0
           DEVICE_NAME=rdk_test_device " > /etc/device.properties'
 
+      - name: Generate IARM headers
+        run: |
+            touch install/usr/lib/libIARMBus.so
+            touch install/usr/lib/libmfrlib.so
+            mkdir -p install/usr/include/rdk/iarmbus
+            mkdir -p install/usr/include/rdk/iarmmgrs-hal
+            touch install/usr/include/rdk/iarmbus/libIARM.h
+            touch install/usr/include/rdk/iarmmgrs-hal/mfrMgr.h
+            cd "${{github.workspace}}/networkmanager/tests/"
+            mkdir -p headers/rdk/iarmbus
+            mkdir -p headers/rdk/iarmmgrs-hal
+            cd headers
+            touch rdk/iarmmgrs-hal/mfrMgr.h
+            touch rdk/iarmbus/libIARM.h rdk/iarmbus/libIBus.h
+
       - name: Build networkmanager with Gnome libnm Proxy
         run: >
           cmake
@@ -121,11 +136,19 @@ jobs:
           -DCMAKE_TOOLCHAIN_FILE="${{ env.TOOLCHAIN_FILE }}"
           -DCMAKE_INSTALL_PREFIX="${{github.workspace}}/install/usr"
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
-          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage "
+          -DCMAKE_CXX_FLAGS=" -fprofile-arcs -ftest-coverage
+          -I ${{github.workspace}}/networkmanager/tests/headers
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
+          -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmmgrs-hal
+          --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
+          --include ${{github.workspace}}/networkmanager/tests/mocks/mfrMgr.h
+          "
+          -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_LEGACY_PLUGINS=OFF
           -DENABLE_UNIT_TESTING=ON
-          -DENABLE_PLUGIN_CLI=ON
+          -DENABLE_PLUGIN_CLI=OFF
+          -DENABLE_MIGRATION_MFRMGR_SUPPORT=ON
           &&
           cmake --build build/networkmanager_libnm --target install -j8
 
