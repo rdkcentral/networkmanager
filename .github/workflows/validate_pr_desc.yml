@@ -2,7 +2,7 @@ name: PR Description Validation
 
 on:
   pull_request:
-    branches: [develop]
+    branches: [develop, main, 'support/**', 'hotfix/**']
     types: [opened, edited, synchronize]
 
 jobs:
