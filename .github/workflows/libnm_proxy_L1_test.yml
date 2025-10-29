@@ -140,9 +140,12 @@ jobs:
           -I ${{github.workspace}}/networkmanager/tests/headers
           -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmbus
           -I ${{github.workspace}}/networkmanager/tests/headers/rdk/iarmmgrs-hal
+          -I ${{github.workspace}}/networkmanager/tests/mocks
           --include ${{github.workspace}}/networkmanager/tests/mocks/Iarm.h
           --include ${{github.workspace}}/networkmanager/tests/mocks/mfrMgr.h
           "
+          -DCMAKE_EXE_LINKER_FLAGS=" ${{github.workspace}}/networkmanager/tests/mocks/Iarm.cpp ${{github.workspace}}/networkmanager/tests/mocks/Wraps.cpp "
+          -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_GNOME_NETWORKMANAGER=ON
           -DENABLE_LEGACY_PLUGINS=OFF
           -DENABLE_UNIT_TESTING=ON
