@@ -99,6 +99,7 @@ else()
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeMfrMgr.cpp
+        ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerLibnmTest.cpp
     )
 
