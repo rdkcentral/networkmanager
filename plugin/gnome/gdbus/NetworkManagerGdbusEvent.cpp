@@ -131,9 +131,9 @@ namespace WPEFramework
                     {
                         const gchar *connectionType = g_variant_get_string(typeVariant, NULL);
                         if(connectionType != NULL) {
-                            if (0 == strncmp("802-3-ethernet", connectionType, sizeof("802-3-ethernet")))
+                            if (0 == strncmp("802-3-ethernet", connectionType, sizeof("802-3-ethernet")) && string("eth0_missing") != GnomeUtils::getEthIfname())
                                 NetworkManagerEvents::onActiveInterfaceChangeCb(std::string(GnomeUtils::getEthIfname()));
-                            else if(0 == strncmp("802-11-wireless", connectionType, sizeof("802-11-wireless")))
+                            else if(0 == strncmp("802-11-wireless", connectionType, sizeof("802-11-wireless")) && string("wlan0_missing") != GnomeUtils::getWifiIfname())
                                 NetworkManagerEvents::onActiveInterfaceChangeCb(std::string(GnomeUtils::getWifiIfname()));
                             else
                                 NMLOG_WARNING("active connection not an ethernet/wifi %s", connectionType);
@@ -180,8 +180,27 @@ namespace WPEFramework
                 NMLOG_INFO("Device Added: %s", ifname.c_str());
                 if(ifname == GnomeUtils::getWifiIfname() || ifname == GnomeUtils::getEthIfname() )
                 {
+                    // Get device state to validate if it should be monitored
+                    deviceInfo devInfo{};
+                    NetworkManagerEvents* nmEventsInstance = NetworkManagerEvents::getInstance();
+                    if(nmEventsInstance && GnomeUtils::getDeviceInfoByIfname(nmEventsInstance->eventDbus, ifname.c_str(), devInfo))
+                    {
+                        NMDeviceState devState = devInfo.state;
+                        // NM_DEVICE_STATE_UNAVAILABLE can occur for an Ethernet interface when it is disconnected (e.g., no cable connected).
+                        bool isDeviceEnabled = devState >= NM_DEVICE_STATE_UNAVAILABLE && devState <= NM_DEVICE_STATE_ACTIVATED;
+                        if(!isDeviceEnabled)
+                        {
+                            NMLOG_WARNING("device %s is not enabled, So no event monitor", ifname.c_str());
+                            return;
+                        }
+                    }
                     NMLOG_INFO("monitoring device: %s", ifname.c_str());
                     NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, ifname.c_str());
+                    // Only subscribe to LastScan if it's a WiFi device and not already monitored
+                    if(ifname == GnomeUtils::getWifiIfname() && _NetworkManagerEvents->nmEvents.wirelessProxy == nullptr)
+                    {
+                        subscribeForlastScanPropertyEvent(devicePath);
+                    }
                     // TODO monitor device 
                     // monitorDevice()
                 }
@@ -270,6 +289,7 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, wifiState);
+                        NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, GnomeUtils::getWifiIfname());
                         NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, false);
                         NetworkManagerEvents::onAddressChangeCb(GnomeUtils::getWifiIfname(), false, true);
                         break;
@@ -280,9 +300,18 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_CONFIG:
                         wifiState = "WIFI_STATE_CONNECTING";
                         NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING, wifiState);
+                        break;
+                    case NM_DEVICE_STATE_IP_CONFIG:
+                        wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, GnomeUtils::getWifiIfname());
+                        NetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, wifiState);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
+                        wifiState = "NM_DEVICE_STATE_IP_CHECK";
+                        //NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getWifiIfname());
+                        break;
+                    case NM_DEVICE_STATE_SECONDARIES:
+                        wifiState = "NM_DEVICE_STATE_SECONDARIES";
                         NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, GnomeUtils::getWifiIfname());
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
@@ -312,6 +341,7 @@ namespace WPEFramework
                     }
                 }
             }
+            NMLOG_INFO("wifi state: %s; reason: %d", wifiState.c_str(), static_cast<int>(deviceStateReason));
         } 
         else if(ifname == GnomeUtils::getEthIfname())
         {
@@ -346,8 +376,9 @@ namespace WPEFramework
                     NetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, GnomeUtils::getEthIfname());
                 }
             }
+
+            NMLOG_INFO("eth0 state: %d; reason: %d", static_cast<int>(deviceState), static_cast<int>(deviceStateReason));
         }
-        
     }
 
     static void onConnectionSignalReceivedCB (GDBusProxy *proxy, gchar *senderName, gchar *signalName,
