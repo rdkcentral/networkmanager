@@ -30,6 +30,9 @@
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+#include "NetworkManagerGnomeMfrMgr.h"
+#endif
 
 namespace WPEFramework
 {
@@ -651,7 +654,20 @@ namespace WPEFramework
     void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state)
     {
         if(_instance != nullptr)
+        {
             _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+            // Handle WiFi state changes for MfrMgr integration
+            NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+            if(mfrManager != nullptr) {
+                if(state == Exchange::INetworkManager::WIFI_STATE_CONNECTED)
+                {
+                    NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
+                    mfrManager->saveWiFiSettingsToMfr();
+                }
+            }
+#endif
+        }
     }
 
     void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)

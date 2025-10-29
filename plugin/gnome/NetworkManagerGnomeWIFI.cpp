@@ -29,6 +29,9 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+#include "NetworkManagerGnomeMfrMgr.h"
+#endif
 
 using namespace std;
 namespace WPEFramework
@@ -335,6 +338,13 @@ namespace WPEFramework
                 NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
 
             deleteClientConnection();
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+            NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+            if (mfrManager != nullptr)
+            {
+                mfrManager->clearWiFiSettingsFromMfr();
+            }
+#endif
             return true;
         }
 
