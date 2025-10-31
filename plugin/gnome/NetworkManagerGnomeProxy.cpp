@@ -22,6 +22,7 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
+#include <chrono>
 
 static NMClient *client = NULL;
 using namespace WPEFramework;
@@ -192,6 +193,8 @@ namespace WPEFramework
         /* @brief Set the dhcp hostname */
         uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
 
@@ -246,6 +249,11 @@ namespace WPEFramework
             // Write the hostname to persistent storage
             nmUtils::writePersistentHostname(hostname);
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] SetHostname (libnm) took %lld microseconds [hostname: %s]",
+                      perfDuration.count(), hostname.c_str());
+
             return Core::ERROR_NONE;
         }
 
@@ -289,6 +297,8 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
@@ -349,6 +359,12 @@ namespace WPEFramework
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetAvailableInterfaces (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 #if 0
@@ -423,6 +439,7 @@ namespace WPEFramework
 #endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
 
             if(client == nullptr)
             {
@@ -465,11 +482,18 @@ namespace WPEFramework
                 }
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] SetInterfaceState (libnm) took %lld microseconds [interface: %s, enabled: %s]",
+                      perfDuration.count(), interface.c_str(), enabled ? "true" : "false");
+
             return Core::ERROR_NONE;
         }
 
         uint32_t NetworkManagerImplementation::GetInterfaceState(const string& interface/* @in */, bool& isEnabled /* @out */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             isEnabled = false;
             bool isIfaceFound = false;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
@@ -515,6 +539,11 @@ namespace WPEFramework
                 }
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetInterfaceState (libnm) took %lld microseconds [interface: %s]",
+                      perfDuration.count(), interface.c_str());
+            
             if(isIfaceFound)
                 return Core::ERROR_NONE;
             else
@@ -544,6 +573,8 @@ namespace WPEFramework
         /* @brief Get IP Address Of the Interface */
         uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             NMActiveConnection *conn = NULL;
             NMIPConfig *ip4_config = NULL;
             NMIPConfig *ip6_config = NULL;
@@ -802,12 +833,20 @@ namespace WPEFramework
                 if(ipversion.empty())
                     result.ipversion = "IPv4";
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetIPSettings (libnm) took %lld microseconds [interface: %s, ipversion: %s]",
+                      perfDuration.count(), interface.c_str(), ipversion.c_str());
+            
             return Core::ERROR_NONE;
         }
 
         /* @brief Set IP Address Of the Interface */
         uint32_t NetworkManagerImplementation::SetIPSettings(const string& interface /* @in */, const IPAddress& address /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             if (("IPv4" != address.ipversion) && ("IPv6" != address.ipversion))
             {
@@ -815,11 +854,19 @@ namespace WPEFramework
             }
             if(wifi->setIpSettings(interface, address))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] SetIPSettings (libnm) took %lld microseconds [interface: %s, ipversion: %s]",
+                      perfDuration.count(), interface.c_str(), address.ipversion.c_str());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
             //Cleared the Existing Store filterred SSID list
@@ -845,20 +892,36 @@ namespace WPEFramework
             nmEvent->setwifiScanOptions(true);
             if(wifi->wifiScanRequest(m_filterSsidslist.size() == 1 ? m_filterSsidslist[0] : ""))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] StartWiFiScan (libnm) took %lld microseconds [frequency: %s]",
+                      perfDuration.count(), frequency.c_str());
+                      
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWiFiScan(void)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_NONE;
             // TODO explore wpa_supplicant stop
             nmEvent->setwifiScanOptions(false); // This will stop periodic posting of onAvailableSSID event
             NMLOG_INFO ("StopWiFiScan is success");
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] StopWiFiScan (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::GetKnownSSIDs(IStringIterator*& ssids /* @out */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
            // TODO Fix the RPC waring  [Process.cpp:78](Dispatch)<PID:16538><TID:16538><1>: We still have living object [1]
             std::list<string> ssidList;
@@ -876,28 +939,51 @@ namespace WPEFramework
                 }
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetKnownSSIDs (libnm) took %lld microseconds",
+                      perfDuration.count());
+
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             NMLOG_WARNING("ssid security %d", ssid.security);
             if(wifi->addToKnownSSIDs(ssid))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] AddToKnownSSIDs (libnm) took %lld microseconds [ssid: %s]",
+                      perfDuration.count(), ssid.ssid.c_str());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->removeKnownSSID(ssid))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] RemoveKnownSSID (libnm) took %lld microseconds [ssid: %s]",
+                      perfDuration.count(), ssid.c_str());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::WiFiConnect(const WiFiConnectTo& ssid /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
@@ -922,22 +1008,43 @@ namespace WPEFramework
             else
                 NMLOG_WARNING("SSID is invalid");
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] WiFiConnect (libnm) took %lld microseconds [ssid: %s]",
+                      perfDuration.count(), ssid.ssid.c_str());
+
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::WiFiDisconnect(void)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->wifiDisconnect())
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] WiFiDisconnect (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             if(wifi->wifiConnectedSSIDInfo(ssidInfo))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetConnectedSSID (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 
@@ -996,14 +1103,24 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->getWifiState(state))
                 rc = Core::ERROR_NONE;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] GetWifiState (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_NONE;
             if(method == WIFI_WPS_SERIALIZED_PIN || method == WIFI_WPS_PIN)
             {
@@ -1023,16 +1140,29 @@ namespace WPEFramework
                 NMLOG_ERROR("start WPS failed");
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] StartWPS (libnm) took %lld microseconds",
+                      perfDuration.count());
+
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::StopWPS(void)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_NONE;
             if(wifi->stopWPS())
                 NMLOG_INFO ("cancelWPS success");
             else
                 rc = Core::ERROR_RPC_CALL_FAILED;
+                
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] StopWPS (libnm) took %lld microseconds",
+                      perfDuration.count());
+            
             return rc;
         }
 
