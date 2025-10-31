@@ -19,6 +19,7 @@
 #include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include <chrono>
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -268,6 +269,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
         uint32_t Network::getInterfaces (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
 
@@ -302,11 +305,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 _nwmgr->Release();
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getInterfaces took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t Network::setStunEndpoint(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string endpoint = parameters["server"].String();
@@ -323,11 +332,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI setStunEndpoint took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t Network::setInterfaceEnabled (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             if (parameters.HasLabel("interface") && parameters.HasLabel("enabled"))
@@ -353,11 +368,18 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             else
                 rc = Core::ERROR_BAD_REQUEST;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string interface = parameters.HasLabel("interface") ? parameters["interface"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyAPI setInterfaceEnabled took %lld microseconds for interface: %s", perfDuration.count(), interface.c_str());
+
             returnJson(rc);
         }
 
         uint32_t Network::getDefaultInterface (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
@@ -376,6 +398,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 string mappedInterface = getInterfaceNameToType(interface);
                 response["interface"] = mappedInterface;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getDefaultInterface took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
@@ -389,6 +416,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
         uint32_t Network::setIPSettings(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IPAddress address{};
@@ -447,6 +476,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI setIPSettings took %lld microseconds for interface: %s", perfDuration.count(), givenInterface.c_str());
 
             returnJson(rc);
         }
@@ -513,6 +546,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
         uint32_t Network::getIPSettings (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
@@ -526,21 +561,36 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 NMLOG_INFO("IP Address not assigned to the given interface yet");
                 rc = Core::ERROR_GENERAL;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string interface = tmpResponse.HasLabel("interface") ? tmpResponse["interface"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyAPI getIPSettings took %lld microseconds for interface: %s", perfDuration.count(), interface.c_str());
+            
             returnJson(rc);
         }
 
         uint32_t Network::getIPSettings2 (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             rc = internalGetIPSettings(parameters, response);
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string interface = response.HasLabel("interface") ? response["interface"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyAPI getIPSettings2 took %lld microseconds for interface: %s", perfDuration.count(), interface.c_str());
+            
             returnJson(rc);
         }
 
         uint32_t Network::isConnectedToInternet(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             string ipversion{};
@@ -563,11 +613,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 }
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI isConnectedToInternet took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t Network::getInternetConnectionState(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             string ipversion{};
@@ -596,11 +652,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 _nwmgr->Release();
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getInternetConnectionState took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t Network::doPing(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             string result{};
             string endpoint{};
@@ -640,12 +702,19 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 response = reply;
                 response["target"] = endpoint;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI ping took %lld microseconds", perfDuration.count());
+            
             LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::doTrace(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             if (parameters.HasLabel("endpoint"))
@@ -676,12 +745,19 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     response["target"] = endpoint;
                 }
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI trace took %lld microseconds", perfDuration.count());
+            
             LOG_OUTPARAM();
             return rc;
         }
 
         uint32_t Network::getPublicIP(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ipAddress{};
@@ -709,11 +785,18 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             {
                 response["public_ip"] = ipAddress;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getPublicIP took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
         uint32_t Network::isInterfaceEnabled (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -740,6 +823,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
             else
                 rc = Core::ERROR_BAD_REQUEST;
+
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string interface = parameters.HasLabel("interface") ? parameters["interface"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyAPI isInterfaceEnabled took %lld microseconds for interface: %s", perfDuration.count(), interface.c_str());
 
             returnJson(rc);
         }
@@ -797,6 +885,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
         uint32_t Network::getCaptivePortalURI(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string uri;
@@ -813,6 +903,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             if (Core::ERROR_NONE == rc)
                 response["uri"] = uri;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getCaptivePortalURI took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
@@ -825,6 +919,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
         uint32_t Network::getStbIp(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             JsonObject tmpResponse;
@@ -838,11 +934,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getStbIp took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t Network::getSTBIPFamily(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             JsonObject tmpResponse;
@@ -858,6 +960,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyAPI getSTBIPFamily took %lld microseconds", perfDuration.count());
 
             returnJson(rc);
         }
@@ -1060,3 +1166,4 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         }
     }
 }
+
