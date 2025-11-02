@@ -17,6 +17,7 @@
 * limitations under the License.
 **/
 #include <fstream>
+#include <chrono>
 #include "LegacyWiFiManagerAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
@@ -306,6 +307,8 @@ namespace WPEFramework
 
         uint32_t WiFiManager::cancelWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -321,11 +324,17 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
                 response["result"] = string();
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI cancelWPSPairing took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::clearSSID (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
@@ -342,11 +351,17 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
                 response["result"] = 0;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI clearSSID took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
  
         uint32_t WiFiManager::connect(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
             JsonObject inParam = parameters;
@@ -378,11 +393,18 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string ssidName = parameters.HasLabel("ssid") ? parameters["ssid"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyWiFiAPI connect took %lld microseconds for SSID: %s", perfDuration.count(), ssidName.c_str());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::getConnectedSSID (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -406,11 +428,18 @@ namespace WPEFramework
                 response["signalStrength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI getConnectedSSID took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
         uint32_t WiFiManager::getCurrentState(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             Exchange::INetworkManager::WiFiState state;
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -435,11 +464,17 @@ namespace WPEFramework
                     response["state"] = JsonValue(state);
             }
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI getCurrentState took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::getPairedSSID(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -467,11 +502,18 @@ namespace WPEFramework
                     _ssids->Release();
                 }
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI getPairedSSID took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
         uint32_t WiFiManager::getPairedSSIDInfo(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -490,11 +532,18 @@ namespace WPEFramework
                 response["ssid"] = ssidInfo.ssid;
                 response["bssid"] = ssidInfo.bssid;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI getPairedSSIDInfo took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
         uint32_t WiFiManager::getSupportedSecurityModes(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_NONE;
             JsonObject security_modes;
@@ -517,11 +566,17 @@ namespace WPEFramework
 
             response["security_modes"] = security_modes;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI getSupportedSecurityModes took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::isPaired (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             LOG_INPARAM();
             JsonObject tmpResponse;
@@ -535,11 +590,18 @@ namespace WPEFramework
                 else
                     response["result"] = 0;
             }
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI isPaired took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
         uint32_t WiFiManager::saveSSID (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiConnectTo ssid{};
             JsonObject inParam = parameters;
@@ -570,11 +632,18 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
                 response["result"] = 0;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            string ssidName = parameters.HasLabel("ssid") ? parameters["ssid"].String() : "unknown";
+            NMLOG_INFO("[PERF] LegacyWiFiAPI saveSSID took %lld microseconds for SSID: %s", perfDuration.count(), ssidName.c_str());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::disconnect (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -590,11 +659,17 @@ namespace WPEFramework
             if (Core::ERROR_NONE == rc)
                 response["result"] = 0;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI disconnect took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::initiateWPSPairing (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string wps_pin{};
@@ -626,11 +701,18 @@ namespace WPEFramework
                 response["result"] = 0;
             else
                 response["result"] = 1;
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI initiateWPSPairing took %lld microseconds", perfDuration.count());
+            
             returnJson(rc);
         }
 
 	uint32_t WiFiManager::startScan(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string frequency{};
@@ -666,11 +748,17 @@ namespace WPEFramework
             if (ssids)
                 ssids->Release();
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI startScan took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::stopScan(const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
@@ -683,11 +771,17 @@ namespace WPEFramework
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI stopScan took %lld microseconds", perfDuration.count());
+
             returnJson(rc);
         }
 
         uint32_t WiFiManager::retrieveSSID (const JsonObject& parameters, JsonObject& response)
         {
+            auto perfStart = std::chrono::high_resolution_clock::now();
+            
             uint32_t rc = Core::ERROR_GENERAL;
             std::string line;
             std::string securityPattern = "key_mgmt=";
@@ -700,6 +794,11 @@ namespace WPEFramework
             {
                 NMLOG_ERROR("Not able to open the file %s", WPA_SUPPLICANT_CONF);
                 response["success"] = false;
+                
+                auto perfEnd = std::chrono::high_resolution_clock::now();
+                auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+                NMLOG_INFO("[PERF] LegacyWiFiAPI retrieveSSID took %lld microseconds", perfDuration.count());
+                
                 rc = Core::ERROR_NOT_EXIST;
                 return rc;
             }
@@ -774,6 +873,11 @@ namespace WPEFramework
             }
             else
                 response["success"] = false;
+            
+            auto perfEnd = std::chrono::high_resolution_clock::now();
+            auto perfDuration = std::chrono::duration_cast<std::chrono::microseconds>(perfEnd - perfStart);
+            NMLOG_INFO("[PERF] LegacyWiFiAPI retrieveSSID took %lld microseconds", perfDuration.count());
+            
             return rc;
         }
 
@@ -944,3 +1048,4 @@ namespace WPEFramework
         }
     }
 }
+
