@@ -445,15 +445,16 @@ namespace WPEFramework
                 if((ifname == nmUtils::ethIface()) || (ifname == nmUtils::wlanIface()))
                 {
                     NMDeviceState devState =  nm_device_get_state(device);
+                    GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr); //posting event if interface already connected
+                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                     // NM_DEVICE_STATE_UNAVAILABLE can occur for an Ethernet interface when it is disconnected (e.g., no cable connected).
                     bool isDeviceEnabled = devState >= NM_DEVICE_STATE_UNAVAILABLE && devState <= NM_DEVICE_STATE_ACTIVATED;
                     if(!isDeviceEnabled)
                     {
-                        NMLOG_WARNING("device %s is not enabled, So no event monitor", ifname.c_str());
+                        NMLOG_WARNING("device %s is not enabled, skipping ip change event", ifname.c_str());
                         continue;
                     }
-                    GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr); //posting event if interface already connected
-                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
+
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
