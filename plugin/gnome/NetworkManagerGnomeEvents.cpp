@@ -335,9 +335,11 @@ namespace WPEFramework
             std::string ifname = nm_device_get_iface(device);
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
+                NMLOG_INFO("WIFI device added: %s", ifname.c_str());
             }
             else if(ifname == nmUtils::ethIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
+                NMLOG_INFO("ETHERNET device added: %s", ifname.c_str());
             }
 
             /* ip events added only for eth0 and wlan0 */
@@ -376,10 +378,12 @@ namespace WPEFramework
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                 g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
+                NMLOG_INFO("WIFI device removed: %s", ifname.c_str());
             }
             else if(ifname == nmUtils::ethIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
                 g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
+                NMLOG_INFO("ETHERNET device removed: %s", ifname.c_str());
             }
         }
 
@@ -433,8 +437,8 @@ namespace WPEFramework
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
 
-        g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
-        g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
+        g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
+        g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
 
         for (u_int count = 0; count < devices->len; count++)
         {
