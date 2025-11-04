@@ -437,8 +437,8 @@ namespace WPEFramework
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
 
-        g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
-        g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
+        g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
+        g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
 
         for (u_int count = 0; count < devices->len; count++)
         {
@@ -449,14 +449,18 @@ namespace WPEFramework
                 if((ifname == nmUtils::ethIface()) || (ifname == nmUtils::wlanIface()))
                 {
                     NMDeviceState devState =  nm_device_get_state(device);
-                    GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr); //posting event if interface already connected
-                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
-                    // NM_DEVICE_STATE_UNAVAILABLE can occur for an Ethernet interface when it is disconnected (e.g., no cable connected).
-                    bool isDeviceEnabled = devState >= NM_DEVICE_STATE_UNAVAILABLE && devState <= NM_DEVICE_STATE_ACTIVATED;
-                    if(!isDeviceEnabled)
+
+                    if(devState > NM_DEVICE_STATE_DISCONNECTED && devState <= NM_DEVICE_STATE_ACTIVATED)
                     {
-                        NMLOG_WARNING("device %s is not enabled, skipping ip change event", ifname.c_str());
-                        continue;
+                        // posting device state change event if interface already connected
+                        GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr);
+                    }
+
+                    /* Register device state change event */
+                    g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
+                    if(NM_IS_DEVICE_WIFI(device)) {
+                        nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
+                        g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
                     }
 
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
@@ -465,20 +469,21 @@ namespace WPEFramework
                         ip4ChangedCb(ipv4Config, NULL, device); // posting event if interface already connected
                         g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
                     }
+                    else
+                        NMLOG_WARNING("IPv4 config is null for device: %s, No IPv4 monitor", ifname.c_str());
 
                     if (ipv6Config) {
                         ip6ChangedCb(ipv6Config, NULL, device);
                         g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                     }
-
-                    if(NM_IS_DEVICE_WIFI(device)) {
-                        nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
-                        g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
-                    }
+                    else
+                        NMLOG_WARNING("IPv6 config is null for device: %s, No IPv6 monitor", ifname.c_str());
                 }
                 else
                     NMLOG_DEBUG("device type not eth/wifi %s", ifname.c_str());
             }
+            else
+                NMLOG_WARNING("device error null");
         }
 
         NMLOG_INFO("registered all networkmnager dbus events");
