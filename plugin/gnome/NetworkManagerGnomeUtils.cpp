@@ -35,8 +35,8 @@ namespace WPEFramework
 {
     namespace Plugin
     {
-        static std::string m_ethifname = "eth0";
-        static std::string m_wlanifname = "wlan0";
+        static std::string m_ethifname = "enp0s3";
+        static std::string m_wlanifname = "wlp2s3";
         static std::string m_deviceHostname = "rdk-device"; // Device name can be empty if not set in /etc/device.properties
 
         const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}

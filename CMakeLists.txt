@@ -19,7 +19,7 @@
 cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
-find_package(WPEFramework)
+find_package(Thunder)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 1)
