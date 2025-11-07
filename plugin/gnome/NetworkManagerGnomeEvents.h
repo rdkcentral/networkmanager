@@ -59,6 +59,7 @@ namespace WPEFramework
     private:
         static void* networkMangerEventMonitor(void *arg);
         static bool apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj);
+        void cleanupSignalHandlers();
         GnomeNetworkManagerEvents();
         ~GnomeNetworkManagerEvents();
         std::atomic<bool>isEventThrdActive = {false};

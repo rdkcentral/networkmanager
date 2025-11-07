@@ -30,6 +30,9 @@
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+#include "NetworkManagerGnomeMfrMgr.h"
+#endif
 
 namespace WPEFramework
 {
@@ -475,6 +478,11 @@ namespace WPEFramework
 
         NMLOG_INFO("registered all networkmnager dbus events");
         g_main_loop_run(nmEvents->loop);
+        // Clean up all signal handlers after thread has stopped
+        if(_nmEventInstance != nullptr)
+        {
+            _nmEventInstance->cleanupSignalHandlers();
+        }
         //g_main_loop_unref(nmEvents->loop);
         return nullptr;
     }
@@ -497,23 +505,65 @@ namespace WPEFramework
     void GnomeNetworkManagerEvents::stopNetworkMangerEventMonitor()
     {
         // g_signal_handlers_disconnect_by_func(client, G_CALLBACK(primaryConnectionCb), NULL);
+        if (!isEventThrdActive) {
+            return;
+        }
         if (nmEvents.loop != NULL) {
             g_main_loop_quit(nmEvents.loop);
         }
+
         if (eventThrdID) {
             g_thread_join(eventThrdID);  // Wait for the thread to finish
             eventThrdID = NULL;  // Reset the thread ID
-            NMLOG_WARNING("gnome event monitor stoped");
+            NMLOG_WARNING("gnome event monitor stopped");
         }
         isEventThrdActive = false;
+
+    }
+
+    void GnomeNetworkManagerEvents::cleanupSignalHandlers()
+    {
+        if(nmEvents.client == nullptr) {
+            return; // Already cleaned up
+        }
+
+        NMLOG_DEBUG("Cleaning up signal handlers");
+
+        // Disconnect all client signals
+        g_signal_handlers_disconnect_by_data(nmEvents.client, &nmEvents);
+
+        // Clean up device signals
+        const GPtrArray *devices = nm_client_get_devices(nmEvents.client);
+        if (devices) {
+            for (guint i = 0; i < devices->len; i++) {
+                NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, i));
+                if (device && NM_IS_DEVICE(device)) {
+                    g_signal_handlers_disconnect_by_data(device, &nmEvents);
+
+                    // Clean up IP config signals
+                    NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
+                    NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
+                    if (ipv4Config) {
+                        g_signal_handlers_disconnect_by_func(ipv4Config, (gpointer)ip4ChangedCb, device);
+                    }
+                    if (ipv6Config) {
+                        g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
+                    }
+                }
+            }
+        }
+
+        NMLOG_DEBUG("Signal handlers cleanup complete");
     }
 
     GnomeNetworkManagerEvents::~GnomeNetworkManagerEvents()
     {
         NMLOG_INFO("~GnomeNetworkManagerEvents");
         stopNetworkMangerEventMonitor();
-        if(nmEvents.client != nullptr)
+        if(nmEvents.client != nullptr) {
             g_object_unref(nmEvents.client);
+            nmEvents.client = nullptr;
+        }
         if (nmEvents.loop != NULL) {
             g_main_loop_unref(nmEvents.loop);
             nmEvents.loop = NULL;
@@ -604,7 +654,20 @@ namespace WPEFramework
     void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state)
     {
         if(_instance != nullptr)
+        {
             _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
+#ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
+            // Handle WiFi state changes for MfrMgr integration
+            NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
+            if(mfrManager != nullptr) {
+                if(state == Exchange::INetworkManager::WIFI_STATE_CONNECTED)
+                {
+                    NMLOG_DEBUG("WiFi connected - triggering MfrMgr save");
+                    mfrManager->saveWiFiSettingsToMfr();
+                }
+            }
+#endif
+        }
     }
 
     void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)

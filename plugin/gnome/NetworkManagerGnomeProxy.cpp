@@ -281,6 +281,7 @@ namespace WPEFramework
                 m_defaultInterface = nmUtils::wlanIface();
 
             NMLOG_INFO("default interface is %s",  m_defaultInterface.c_str());
+            // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
@@ -331,11 +332,13 @@ namespace WPEFramework
                             interface.type = INTERFACE_TYPE_WIFI;
                             interface.name = wifiname;
                             m_wlanConnected.store(interface.connected);
+                            m_wlanEnabled.store(interface.enabled);
                         }
-                        if(ifaceStr == ethname) {
+                        else if(ifaceStr == ethname) {
                             interface.type = INTERFACE_TYPE_ETHERNET;
                             interface.name = ethname;
                             m_ethConnected.store(interface.connected);
+                            m_ethEnabled.store(interface.enabled);
                         }
 
                         interfaceList.push_back(interface);
@@ -348,7 +351,7 @@ namespace WPEFramework
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
             return rc;
         }
-
+#if 0
         /* @brief Get the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
@@ -356,7 +359,6 @@ namespace WPEFramework
             GError *error = NULL;
             NMActiveConnection *activeConn = NULL;
             NMRemoteConnection *remoteConn = NULL;
-            std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(client == nullptr)
             {
@@ -364,57 +366,61 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
+            if(!m_wlanEnabled.load() && !m_ethEnabled.load())
+            {
+                NMLOG_INFO("Both iface disabled state, returning no primary interface");
+                interface.clear();
+                m_defaultInterface = interface;
+                return Core::ERROR_NONE;
+            }
+
             activeConn = nm_client_get_primary_connection(client);
-            if (activeConn == NULL) {
-                NMLOG_WARNING("no active activeConn Interface found");
-                NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
-                /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
-                if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
-                    m_defaultInterface = interface = ethname;
-                else
-                    m_defaultInterface = interface = wifiname; // default is wifi
-                return Core::ERROR_NONE;
-            }
-
-            remoteConn = nm_active_connection_get_connection(activeConn);
-            if(remoteConn == NULL)
+            if (activeConn != NULL)
             {
-                NMLOG_WARNING("primary connection but remote connection error");
-                NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
-                /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
-                if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
-                    m_defaultInterface = interface = ethname;
-                else
-                    m_defaultInterface = interface = wifiname; // default is wifi
-                return Core::ERROR_NONE;
-            }
-
-            const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
-            if(ifacePtr == NULL)
-            {
-                NMLOG_ERROR("nm_connection_get_interface_name is failed");
-                /* Temporary mitigation for nm_connection_get_interface_name failure */
-                if(m_ethConnected.load())
-                    interface = ethname;
-                else // default always wifi
-                    interface = wifiname;
-                rc = Core::ERROR_NONE;
-            }
-            else
-            {
-                interface = ifacePtr;
-                if(interface != wifiname && interface != ethname)
+                remoteConn = nm_active_connection_get_connection(activeConn);
+                if(remoteConn != NULL)
                 {
-                    NMLOG_ERROR("primary interface is not Ethernet or WiFi");
-                    interface.clear();
+                    const char *ifacePtr = nm_connection_get_interface_name(NM_CONNECTION(remoteConn));
+                    if(ifacePtr != NULL)
+                    {
+                        interface = ifacePtr;
+                        if(interface != nmUtils::wlanIface() && interface != nmUtils::ethIface())
+                        {
+                            NMLOG_WARNING("primary interface is not Ethernet or WiFi");
+                            interface.clear();
+                        }
+                        else
+                        {
+                            NMLOG_DEBUG("primary interface is %s", interface.c_str());
+                            rc = Core::ERROR_NONE;
+                        }
+                    }
+                    else
+                        NMLOG_WARNING("interface name is missing form connection");
                 }
                 else
-                    rc = Core::ERROR_NONE;
-            } 
+                    NMLOG_WARNING("primary connection but remote connection error");
+            }
+            else
+                NMLOG_WARNING("No primary connection");
+
+            if(rc != Core::ERROR_NONE)
+            {
+                // if no active connection or libnm error, choose the default interface based on the connection state 
+                NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
+                /* if ethernet is connected but not completely activate then ethernet is taken as primary else wifi */
+                if((ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING) || m_ethConnected.load())
+                    interface = nmUtils::ethIface();
+                else
+                    interface = nmUtils::wlanIface(); // default is wifi
+                rc = Core::ERROR_NONE;
+                // TODO: if no proimary connection, should we return empty string? RDK V return empty string
+            }
+
             m_defaultInterface = interface;
             return rc;
         }
-
+#endif
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
@@ -437,6 +443,12 @@ namespace WPEFramework
             }
 
             NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+            // update the interface global cache state
+            if(interface == nmUtils::wlanIface() && _instance != NULL)
+                _instance->m_wlanEnabled.store(enabled);
+            else if(interface == nmUtils::ethIface() && _instance != NULL)
+                _instance->m_ethEnabled.store(enabled);
+
             if(enabled)
             {
                 sleep(1); // wait for 1 sec to change the device state
@@ -542,6 +554,7 @@ namespace WPEFramework
             const char* dhcpserver;
             NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
+            string ipversionStr;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
@@ -558,16 +571,58 @@ namespace WPEFramework
                     NMLOG_WARNING("default interface get failed");
                     return Core::ERROR_NONE;
                 }
+
                 if(interface.empty())
                 {
-                    NMLOG_DEBUG("default interface return empty default is wlan0");
-                    interface = wifiname;
+                    NMLOG_WARNING("default interface is empty, no active interface");
+                    return Core::ERROR_GENERAL;
                 }
             }
             else if(wifiname != interface && ethname != interface)
             {
-                NMLOG_ERROR("interface: %s; not valied", interface.c_str());
+                NMLOG_ERROR("interface: %s; not valid", interface.c_str());
                 return Core::ERROR_GENERAL;
+            }
+
+            if(ipversion.empty())
+            {
+                ipversionStr = "IPV4";
+            }
+            else
+            {
+                ipversionStr = ipversion;
+            }
+
+            // Add caching optimization similar to RDK proxy
+            if (wifiname == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_wlanIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv4 address from cache", wifiname.c_str());
+                    result = m_wlanIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_wlanIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv6 address from cache", wifiname.c_str());
+                    result = m_wlanIPv6Address;
+                    return Core::ERROR_NONE;
+                }
+            }
+            else if (ethname == interface)
+            {
+                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_ethIPv4Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv4 address from cache", ethname.c_str());
+                    result = m_ethIPv4Address;
+                    return Core::ERROR_NONE;
+                }
+                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_ethIPv6Address.ipaddress.empty())
+                {
+                    NMLOG_DEBUG("%s IPv6 address from cache", ethname.c_str());
+                    result = m_ethIPv6Address;
+                    return Core::ERROR_NONE;
+                }
             }
 
             device = nm_client_get_device_by_iface(client, interface.c_str());
@@ -673,6 +728,12 @@ namespace WPEFramework
                             result.dhcpserver = dhcpserver;
                     }
                     result.ula = "";
+
+                    // Cache the IPv4 address
+                    if(ethname == interface)
+                        m_ethIPv4Address = result;
+                    else if(wifiname == interface)
+                        m_wlanIPv4Address = result;
                 }
             }
             if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
@@ -728,6 +789,11 @@ namespace WPEFramework
                         if(dhcpserver)
                             result.dhcpserver = dhcpserver;
                     }
+                    // Cache the IPv6 address
+                    if(ethname == interface)
+                        m_ethIPv6Address = result;
+                    else if(wifiname == interface)
+                        m_wlanIPv6Address = result;
                 }
             }
             if(result.ipaddress.empty())

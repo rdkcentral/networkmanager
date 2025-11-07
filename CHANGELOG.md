@@ -14,6 +14,24 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.6.0] - 2025-10-31
+### Added
+- Integrated MfrMgr to persist WiFi Credential for DRI & Rollback to RDK-V Backend
+- Implemented proper shutdown sequence for NetworkManager Plugin.
+- Updated GDbus Support with all the latest fixes that went thro libnm backend
+
+## [1.5.0] - 2025-09-23
+### Changed
+- Implemented L1/L2 and Part L3 for the plugin
+- Implemented IP Address caching for Gnome backend
+- Implemented a logic to return appropriate value for GetPrimaryInterface
+
+## [1.4.0] - 2025-09-23
+### Changed
+- Implemented logic to not to persist SSID when asked
+- Implemented IP Address caching to avoid making RPC request to networkmanager when interface status not changed.
+- Fixed the Router Discovery app crash when AP does not support UPNP
+
 ## [1.3.0] - 2025-09-17
 ### Added
 - Implemented NetworkManagerProxy library which can help Thunder to Create COM-RPC connection to Out-Of-Process plugin

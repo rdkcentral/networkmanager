@@ -2,6 +2,10 @@
 #include <gmock/gmock.h>
 #include <glib.h>
 
+extern "C" const GPtrArray* __real_nm_client_get_devices(NMClient* client);
+
+extern "C" NMClient* __real_nm_client_new(GCancellable* cancellable, GError** error);
+
 extern "C" gint64 __wrap_nm_device_wifi_get_last_scan(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_last_scan(device);
 }
@@ -44,6 +48,10 @@ extern "C" NMActiveConnection* __wrap_nm_client_add_and_activate_connection_fini
 
 extern "C" GVariant* __wrap_nm_remote_connection_update2_finish(NMRemoteConnection *connection, GAsyncResult *result, GError **error) {
     return LibnmWraps::getInstance().nm_remote_connection_update2_finish(connection, result, error);
+}
+
+extern "C" void __wrap_nm_remote_connection_update2(NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    LibnmWraps::getInstance().nm_remote_connection_update2(connection, settings, flags, args, cancellable, callback, user_data);
 }
 
 extern "C" void __wrap_nm_client_add_connection2(NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
@@ -203,6 +211,10 @@ extern "C" guint8 __wrap_nm_access_point_get_strength(NMAccessPoint *ap) {
     return LibnmWraps::getInstance().nm_access_point_get_strength(ap);
 }
 
+extern "C" gboolean __wrap_nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) {
+    return LibnmWraps::getInstance().nm_access_point_connection_valid(ap, connection);
+}
+
 extern "C" NMAccessPoint* __wrap_nm_device_wifi_get_active_access_point(NMDeviceWifi *device) {
     return LibnmWraps::getInstance().nm_device_wifi_get_active_access_point(device);
 }
@@ -308,6 +320,10 @@ extern "C" int __wrap_nm_ip_address_get_family(NMIPAddress *address) {
     return LibnmWraps::getInstance().nm_ip_address_get_family(address);
 }
 
+extern "C" GVariant* __wrap_nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags) {
+    return LibnmWraps::getInstance().nm_connection_to_dbus(connection, flags);
+}
+
 LibnmWrapsImpl* LibnmWraps::impl = nullptr;
 LibnmWraps::LibnmWraps() {}
 
@@ -347,7 +363,9 @@ const char* LibnmWraps::nm_connection_get_interface_name(NMRemoteConnection *con
 }
 
 NMDevice* LibnmWraps::nm_client_get_device_by_iface(NMClient *client, const char *iface) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        nm_client_get_device_by_iface(client, iface);
+    }
     return impl->nm_client_get_device_by_iface(client, iface);
 }
 
@@ -367,7 +385,10 @@ gboolean LibnmWraps::nm_device_disconnect_finish(NMDevice *device, GAsyncResult 
 }
 
 const GPtrArray* LibnmWraps::nm_client_get_devices(NMClient* client) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the real function directly
+        return __real_nm_client_get_devices(client);
+    }
     return impl->nm_client_get_devices(client);
 }
 
@@ -377,7 +398,10 @@ const GPtrArray* LibnmWraps::nm_client_get_active_connections(NMClient* client) 
 }
 
 NMClient* LibnmWraps::nm_client_new(GCancellable* cancellable, GError** error) {
-    EXPECT_NE(impl, nullptr);
+    if (impl == nullptr) {
+        // During cleanup, impl may be nullptr, so call the real function directly
+        return __real_nm_client_new(cancellable, error);
+    }
     return impl->nm_client_new(cancellable, error);
 }
 
@@ -507,6 +531,11 @@ guint8 LibnmWraps::nm_access_point_get_strength(NMAccessPoint *ap) {
     return impl->nm_access_point_get_strength(ap);
 }
 
+gboolean LibnmWraps::nm_access_point_connection_valid(NMAccessPoint *ap, NMConnection *connection) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_access_point_connection_valid(ap, connection);
+}
+
 NMAccessPoint* LibnmWraps::nm_device_wifi_get_active_access_point(NMDeviceWifi *device) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_device_wifi_get_active_access_point(device);
@@ -618,6 +647,11 @@ GVariant* LibnmWraps::nm_remote_connection_update2_finish(NMRemoteConnection *co
     return impl->nm_remote_connection_update2_finish(connection, result, error);
 }
 
+void LibnmWraps::nm_remote_connection_update2(NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    EXPECT_NE(impl, nullptr);
+    impl->nm_remote_connection_update2(connection, settings, flags, args, cancellable, callback, user_data);
+}
+
 void LibnmWraps::nm_client_add_connection2(NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
     EXPECT_NE(impl, nullptr);
     impl->nm_client_add_connection2(client, settings, flags, args, ignore_out_result, cancellable, callback, user_data);
@@ -692,4 +726,9 @@ NMDeviceStateReason LibnmWraps::nm_device_get_state_reason(NMDevice* device) {
 int LibnmWraps::nm_ip_address_get_family(NMIPAddress* address) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_ip_address_get_family(address);
+}
+
+GVariant* LibnmWraps::nm_connection_to_dbus(NMConnection *connection, NMConnectionSerializationFlags flags) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_connection_to_dbus(connection, flags);
 }
