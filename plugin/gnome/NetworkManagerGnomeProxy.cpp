@@ -916,7 +916,7 @@ namespace WPEFramework
             }
             else if(ssid.ssid.size() <= 32)
             {
-                if(ssid.passphrase.empty() && (ssid.security == WIFI_SECURITY_NONE)) 
+                if(ssid.passphrase.empty() && (ssid.security == Exchange::INetworkManager::WIFI_SECURITY_NONE)) 
                 {
                     NMLOG_INFO("Trying to autoconnect to SSID: %s", ssid.ssid.c_str());
                     if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid.ssid))
