@@ -87,6 +87,12 @@ namespace WPEFramework
                 return false;
             }
 
+            // Clean up duplicated object path
+            if (m_objectPath) {
+                g_free(m_objectPath);
+                m_objectPath = nullptr;
+            }
+
             g_main_loop_quit(m_loop);
             return false;
         }
@@ -528,6 +534,20 @@ namespace WPEFramework
                 g_variant_unref(ret);
 
             _wifiManager->m_createNewConnection = false; // no need to create new connection
+
+            if (!_wifiManager->m_client) {
+                NMLOG_ERROR("m_client is NULL, cannot activate connection");
+                _wifiManager->m_isSuccess = false;
+                _wifiManager->quit(NULL);
+                return;
+            }
+
+            if (!remote_con) {
+                NMLOG_ERROR("remote_con is NULL, cannot activate connection");
+                _wifiManager->m_isSuccess = false;
+                _wifiManager->quit(NULL);
+                return;
+            }
             nm_client_activate_connection_async(
                 _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, NULL, wifiConnectCb, _wifiManager);
         }
@@ -945,7 +965,15 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
-                m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+
+                /* g_strdup the path because nm_object_get_path returns a pointer
+                owned by the AccessPoint object. If AccessPoint is freed, the pointer becomes invalid */
+                const char* ap_path = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if (m_objectPath) {
+                    g_free(m_objectPath);  // Free any previous path
+                }
+                m_objectPath = g_strdup(ap_path);  // Duplicate so we own it
+
                 if(!connectionBuilder(ssidInfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
