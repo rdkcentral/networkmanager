@@ -424,14 +424,14 @@ namespace WPEFramework
                 response["frequency"] = ssidInfo.frequency;
 #if USE_TELEMETRY
                 std::string band;
-				double freq_mhz = std::stod(ssidInfo.frequency);
-				double freq_mhz = freq_ghz * 1000;
+				double freq_ghz = std::stod(ssidInfo.frequency);
+    			double freq_mhz = freq_ghz * 1000.0;
 
-				if (freq_mhz > 2400 && freq_mhz < 2500)
+				if (freq_mhz >= 2400 && freq_mhz <= 2500)
     				band = "2.4GHz";
-				else if (freq_mhz > 4900 && freq_mhz < 5900)
+				else if (freq_mhz >= 4900 && freq_mhz <= 5900)
     				band = "5GHz";
-				else if (freq_mhz > 5900 && freq_mhz < 7100)
+				else if (freq_mhz >= 5900 && freq_mhz <= 7100)
     				band = "6GHz";
 				else
     				band = "Unknown";
