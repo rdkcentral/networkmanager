@@ -425,6 +425,7 @@ namespace WPEFramework
 #if USE_TELEMETRY
                 std::string band;
 				double freq_mhz = std::stod(ssidInfo.frequency);
+				double freq_mhz = freq_ghz * 1000;
 
 				if (freq_mhz > 2400 && freq_mhz < 2500)
     				band = "2.4GHz";
@@ -438,14 +439,14 @@ namespace WPEFramework
 				int phyRateMbps = std::stoi(ssidInfo.rate) / 1000;
 
                 std::ostringstream msg;
-                msg << ssidInfo.bssid
+                msg << "bssid=" << ssidInfo.bssid
                 << ",ssid=" << ssidInfo.ssid
                 << ",rssi=" << ssidInfo.strength
                 << ",phyrate=" << phyRateMbps
                 << ",noise=" << ssidInfo.noise
                 << ",Band=" << band;
 
-                NMLOG_INFO("bssid=%s", (char*)msg.str().c_str());
+                NMLOG_INFO("%s", (char*)msg.str().c_str());
                 logTelemetry((char*)msg.str().c_str());
 #endif
             }
