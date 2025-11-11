@@ -70,6 +70,10 @@ add_library(${PLUGIN_LEGACY_WIFI} SHARED
 
 target_link_libraries(${PLUGIN_LEGACY_WIFI}  PRIVATE ${NAMESPACE}Core::${NAMESPACE}Core ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
 
+if (USE_TELEMETRY)
+    target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${T2_LIBRARIES})
+endif (USE_TELEMETRY)
+
 if (USE_RDK_LOGGER)
     target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
