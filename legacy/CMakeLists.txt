@@ -30,6 +30,10 @@ set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup orde
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
+if (USE_TELEMETRY)
+    add_definitions(-DUSE_TELEMETRY)
+endif (USE_TELEMETRY) 
+
 if (USE_RDK_LOGGER)
     find_package(rdklogger REQUIRED)
     add_definitions(-DUSE_RDK_LOGGER)
