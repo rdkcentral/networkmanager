@@ -31,7 +31,9 @@ set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for 
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
 if (USE_TELEMETRY)
+        find_package(telemetry_msgsender REQUIRED)
     add_definitions(-DUSE_TELEMETRY)
+    include_directories(${T2_INCLUDE_DIRS})
 endif (USE_TELEMETRY) 
 
 if (USE_RDK_LOGGER)
