@@ -126,11 +126,28 @@ namespace WPEFramework
             _gWiFiInstance = nullptr;
         }
 
+        /* @brief Telemetry Logging */
+        void UpnpDiscoveryManager::logTelemetry(std::string message)
+        {
+            #if USE_TELEMETRY 
+            //T2 telemtery logging
+            T2ERROR t2error = t2_event_s("ap_info_split", (char*)message.c_str());
+            if (t2error != T2ERROR_SUCCESS)
+            {
+                NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") returned error code %d", "ap_info_split", message.c_str(), t2error);
+            }
+            #endif
+        }
+
         const string WiFiManager::Initialize(PluginHost::IShell*  service )
         {
             m_service = service;
             string message{};
 
+#if USE_TELEMETRY
+            // Initialize Telemtry  
+            t2_init("upnpdiscover");
+#endif
             m_service->AddRef();
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
@@ -405,6 +422,26 @@ namespace WPEFramework
                 response["security"] = JsonValue(mapToLegacySecurityMode(ssidInfo.security));
                 response["signalStrength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
+#if USE_TELEMETRY
+                const char* band = "Unknown";
+                double freq_val = atof(ssidInfo.frequency.c_str());  // converts "2.437" or "5180" etc
+
+                if ((int)(freq_val / 1000) == 2)
+                    band = "2.4GHz";
+                else if ((int)(freq_val / 1000) == 5)
+                    band = "5GHz";
+
+                std::ostringstream msg;
+                msg << "bssid=" << ssidInfo.bssid
+                << ",ssid=" << ssidInfo.ssid
+                << ",rssi=" << ssidInfo.strength
+                << ",phyrate=" << ssidInfo.rate
+                << ",noise=" << ssidInfo.noise
+                << ",Band=" << band;
+
+                NMLOG_INFO("ap_info_split: %s", (char*)msg.str().c_str());
+                logTelemetry((char*)msg.str().c_str());
+#endif
             }
             returnJson(rc);
         }
