@@ -21,11 +21,25 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
+#include "NetworkManagerGnomeUtils.h"
 #include "mfrMgr.h"
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
+#include <gio/gio.h>
 #include "libIBus.h"
+
+// NetworkManager D-Bus constants
+#define NM_DBUS_SERVICE                     "org.freedesktop.NetworkManager"
+#define NM_DBUS_PATH                        "/org/freedesktop/NetworkManager"
+#define NM_DBUS_INTERFACE                   "org.freedesktop.NetworkManager"
+#define NM_DBUS_INTERFACE_DEVICE            "org.freedesktop.NetworkManager.Device"
+#define NM_DBUS_INTERFACE_DEVICE_WIRELESS   "org.freedesktop.NetworkManager.Device.Wireless"
+#define NM_DBUS_INTERFACE_SETTINGS          "org.freedesktop.NetworkManager.Settings"
+#define NM_DBUS_INTERFACE_CONNECTION        "org.freedesktop.NetworkManager.Settings.Connection"
+#define NM_DBUS_INTERFACE_ACTIVE_CONNECTION "org.freedesktop.NetworkManager.Connection.Active"
+#define NM_DBUS_PATH_SETTINGS               "/org/freedesktop/NetworkManager/Settings"
 
 namespace WPEFramework
 {
@@ -59,119 +73,401 @@ namespace WPEFramework
             return true;
         }
 
-        // Helper function to retrieve current WiFi connection details using nmcli and connection files
+        // Structure to hold secrets retrieval context
+        struct SecretsContext {
+            std::string* passphrase;
+            bool* completed;
+            bool* success;
+            std::mutex* mutex;
+            std::condition_variable* cv;
+        };
+
+        // Callback for async secrets retrieval via GDBus
+        static void secrets_callback(GObject *source, GAsyncResult *result, gpointer user_data)
+        {
+            SecretsContext* context = static_cast<SecretsContext*>(user_data);
+            GError *error = NULL;
+            GDBusProxy *proxy = G_DBUS_PROXY(source);
+
+            // Call the GetSecrets method finish
+            GVariant *secrets = g_dbus_proxy_call_finish(proxy, result, &error);
+
+            if (error) {
+                NMLOG_WARNING("Failed to get secrets via GDBus: %s", error->message);
+                g_error_free(error);
+                *(context->success) = false;
+            } else if (secrets) {
+                // Parse the returned secrets
+                // GetSecrets returns (a{sa{sv}}) - dict of dicts
+                GVariantIter *iter;
+                g_variant_get(secrets, "(a{sa{sv}})", &iter);
+
+                gchar *setting_name;
+                GVariant *setting_dict;
+
+                // Iterate through settings
+                while (g_variant_iter_loop(iter, "{s@a{sv}}", &setting_name, &setting_dict)) {
+                    if (g_strcmp0(setting_name, "802-11-wireless-security") == 0) {
+                        // Found wireless security settings
+                        GVariantIter *setting_iter;
+                        g_variant_get(setting_dict, "a{sv}", &setting_iter);
+
+                        gchar *key;
+                        GVariant *value;
+
+                        // Look for psk key
+                        while (g_variant_iter_loop(setting_iter, "{sv}", &key, &value)) {
+                            if (g_strcmp0(key, "psk") == 0) {
+                                const gchar *psk = g_variant_get_string(value, NULL);
+                                if (psk && context->passphrase) {
+                                    *(context->passphrase) = psk;
+                                    NMLOG_DEBUG("Successfully retrieved PSK via GDBus");
+                                    *(context->success) = true;
+                                }
+                                break;
+                            }
+                        }
+                        g_variant_iter_free(setting_iter);
+                        break;
+                    }
+                }
+
+                g_variant_iter_free(iter);
+                g_variant_unref(secrets);
+            }
+
+            // Signal completion
+            {
+                std::lock_guard<std::mutex> lock(*(context->mutex));
+                *(context->completed) = true;
+            }
+            context->cv->notify_one();
+        }
+
+        // Helper function to retrieve current WiFi connection details using GDBus
         static bool getCurrentWiFiConnectionDetails(std::string& ssid, std::string& passphrase, int& security)
         {
-            // Use nmcli to get current WiFi connection info
-            FILE* pipe = popen("nmcli device wifi show-password 2>/dev/null", "r");
-            if (!pipe) {
-                NMLOG_ERROR("Failed to execute nmcli command");
-                return false;
-            }
+            GError *error = NULL;
+            GDBusConnection *bus = NULL;
+            GDBusProxy *nm_proxy = NULL;
+            GDBusProxy *device_proxy = NULL;
+            GDBusProxy *connection_proxy = NULL;
+            bool result = false;
 
-            char buffer[1024];
-            std::string nmcliOutput;
-            
-            // Read nmcli output
-            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-                nmcliOutput += buffer;
-            }
-            
-            int exitCode = pclose(pipe);
-            if (exitCode != 0) {
-                NMLOG_ERROR("nmcli command failed with exit code: %d", exitCode);
-                return false;
-            }
+            NMLOG_DEBUG("Retrieving WiFi connection details using GDBus API");
 
-            // Parse SSID from nmcli output
-            size_t ssidPos = nmcliOutput.find("SSID:");
-            if (ssidPos == std::string::npos) {
-                NMLOG_ERROR("SSID not found in nmcli output");
+            // Connect to system bus
+            bus = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
+            if (!bus) {
+                NMLOG_ERROR("Failed to connect to system bus: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
                 return false;
             }
             
-            size_t ssidStart = nmcliOutput.find_first_not_of(" \t", ssidPos + 5);
-            size_t ssidEnd = nmcliOutput.find_first_of("\n\r", ssidStart);
-            if (ssidStart == std::string::npos || ssidEnd == std::string::npos) {
-                NMLOG_ERROR("Failed to parse SSID from nmcli output");
+            // Create NetworkManager proxy
+            nm_proxy = g_dbus_proxy_new_sync(bus,
+                                             G_DBUS_PROXY_FLAGS_NONE,
+                                             NULL,
+                                             NM_DBUS_SERVICE,
+                                             NM_DBUS_PATH,
+                                             NM_DBUS_INTERFACE,
+                                             NULL,
+                                             &error);
+            if (!nm_proxy) {
+                NMLOG_ERROR("Failed to create NetworkManager proxy: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_object_unref(bus);
                 return false;
             }
             
-            ssid = nmcliOutput.substr(ssidStart, ssidEnd - ssidStart);
-            NMLOG_DEBUG("Parsed SSID from nmcli: %s", ssid.c_str());
-
-            // Construct connection file path
-            std::string connectionFile = "/etc/NetworkManager/system-connections/" + ssid + ".nmconnection";
-
-            // Try to open the connection file
-            std::ifstream file(connectionFile);
-            if (!file.is_open()) {
-                NMLOG_ERROR("Failed to open NetworkManager connection file: %s", connectionFile.c_str());
+            // Get all devices
+            GVariant *devices_variant = g_dbus_proxy_call_sync(nm_proxy,
+                                                               "GetDevices",
+                                                               NULL,
+                                                               G_DBUS_CALL_FLAGS_NONE,
+                                                               -1,
+                                                               NULL,
+                                                               &error);
+            if (!devices_variant) {
+                NMLOG_ERROR("Failed to get devices: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
                 return false;
             }
 
-            // Read entire file into string buffer - more efficient than line-by-line
-            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            // Find WiFi device
+            GVariantIter *devices_iter;
+            const gchar *device_path = NULL;
+            const gchar *wifi_device_path = NULL;
+            g_variant_get(devices_variant, "(ao)", &devices_iter);
 
-            // Find [wifi-security] section using string search
-            size_t sectionStart = content.find("[wifi-security]");
-            if (sectionStart == std::string::npos) {
-                NMLOG_DEBUG("No [wifi-security] section found in connection file");
-                file.close();
+            while (g_variant_iter_loop(devices_iter, "&o", &device_path)) {
+                // Create device proxy to check interface name
+                GDBusProxy *temp_device_proxy = g_dbus_proxy_new_sync(bus,
+                                                                       G_DBUS_PROXY_FLAGS_NONE,
+                                                                       NULL,
+                                                                       NM_DBUS_SERVICE,
+                                                                       device_path,
+                                                                       NM_DBUS_INTERFACE_DEVICE,
+                                                                       NULL,
+                                                                       NULL);
+                if (temp_device_proxy) {
+                    GVariant *iface_variant = g_dbus_proxy_get_cached_property(temp_device_proxy, "Interface");
+                    GVariant *device_type_variant = g_dbus_proxy_get_cached_property(temp_device_proxy, "DeviceType");
+
+                    if (iface_variant && device_type_variant) {
+                        const gchar *iface = g_variant_get_string(iface_variant, NULL);
+                        guint32 device_type = g_variant_get_uint32(device_type_variant);
+
+                        // DeviceType 2 = NM_DEVICE_TYPE_WIFI
+                        if (device_type == 2 && g_strcmp0(iface, nmUtils::wlanIface()) == 0) {
+                            wifi_device_path = g_strdup(device_path);
+                            g_variant_unref(iface_variant);
+                            g_variant_unref(device_type_variant);
+                            g_object_unref(temp_device_proxy);
+                            break;
+                        }
+
+                        g_variant_unref(iface_variant);
+                        g_variant_unref(device_type_variant);
+                    }
+                    g_object_unref(temp_device_proxy);
+                }
+            }
+
+            g_variant_iter_free(devices_iter);
+            g_variant_unref(devices_variant);
+
+            if (!wifi_device_path) {
+                NMLOG_ERROR("WiFi device '%s' not found", nmUtils::wlanIface());
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
                 return false;
             }
-            
-            // Find the end of the wifi-security section (next section or end of file)
-            size_t sectionEnd = content.find("\n[", sectionStart + 15); // 15 = length of "[wifi-security]"
-            if (sectionEnd == std::string::npos) {
-                sectionEnd = content.length();
+
+            NMLOG_DEBUG("Found WiFi device at path: %s", wifi_device_path);
+
+            // Create WiFi device proxy
+            device_proxy = g_dbus_proxy_new_sync(bus,
+                                                 G_DBUS_PROXY_FLAGS_NONE,
+                                                 NULL,
+                                                 NM_DBUS_SERVICE,
+                                                 wifi_device_path,
+                                                 NM_DBUS_INTERFACE_DEVICE,
+                                                 NULL,
+                                                 &error);
+            if (!device_proxy) {
+                NMLOG_ERROR("Failed to create device proxy: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
             }
 
-            // Extract just the wifi-security section
-            std::string wifiSection = content.substr(sectionStart, sectionEnd - sectionStart);
-
-            std::string keyMgmt;
-
-            // Use regex or direct string search for key-mgmt
-            size_t keyMgmtPos = wifiSection.find("key-mgmt=");
-            if (keyMgmtPos != std::string::npos) {
-                size_t valueStart = keyMgmtPos + 9; // Skip "key-mgmt="
-                size_t valueEnd = wifiSection.find_first_of("\r\n", valueStart);
-                if (valueEnd == std::string::npos) valueEnd = wifiSection.length();
-                keyMgmt = wifiSection.substr(valueStart, valueEnd - valueStart);
-                NMLOG_DEBUG("Found key-mgmt: %s", keyMgmt.c_str());
+            // Get active connection
+            GVariant *active_conn_variant = g_dbus_proxy_get_cached_property(device_proxy, "ActiveConnection");
+            if (!active_conn_variant) {
+                NMLOG_ERROR("No active WiFi connection");
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
             }
 
-            // Use direct string search for psk
-            size_t pskPos = wifiSection.find("psk=");
-            if (pskPos != std::string::npos) {
-                size_t valueStart = pskPos + 4; // Skip "psk="
-                size_t valueEnd = wifiSection.find_first_of("\r\n", valueStart);
-                if (valueEnd == std::string::npos) valueEnd = wifiSection.length();
-                passphrase = wifiSection.substr(valueStart, valueEnd - valueStart);
-                NMLOG_DEBUG("Found psk in connection file");
+            const gchar *active_conn_path = g_variant_get_string(active_conn_variant, NULL);
+            if (!active_conn_path || g_strcmp0(active_conn_path, "/") == 0) {
+                NMLOG_ERROR("No active connection on WiFi device");
+                g_variant_unref(active_conn_variant);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
             }
 
-            file.close();
+            NMLOG_DEBUG("Active connection path: %s", active_conn_path);
 
+            // Create active connection proxy
+            GDBusProxy *active_conn_proxy = g_dbus_proxy_new_sync(bus,
+                                                                   G_DBUS_PROXY_FLAGS_NONE,
+                                                                   NULL,
+                                                                   NM_DBUS_SERVICE,
+                                                                   active_conn_path,
+                                                                   NM_DBUS_INTERFACE_ACTIVE_CONNECTION,
+                                                                   NULL,
+                                                                   &error);
+            g_variant_unref(active_conn_variant);
 
-            // Map key management to security type
-            if (keyMgmt.empty()) {
-                security = NET_WIFI_SECURITY_NONE;
-            } else if (keyMgmt == "none") {
-                security = NET_WIFI_SECURITY_NONE;
-            } else if (keyMgmt == "wpa-psk") {
-                security = NET_WIFI_SECURITY_WPA2_PSK_AES;
-            } else if (keyMgmt == "sae") {
-                security = NET_WIFI_SECURITY_WPA3_SAE;
+            if (!active_conn_proxy) {
+                NMLOG_ERROR("Failed to create active connection proxy: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
+            }
+
+            // Get connection path
+            GVariant *conn_path_variant = g_dbus_proxy_get_cached_property(active_conn_proxy, "Connection");
+            if (!conn_path_variant) {
+                NMLOG_ERROR("Failed to get connection path from active connection");
+                g_object_unref(active_conn_proxy);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
+            }
+
+            const gchar *connection_path = g_variant_get_string(conn_path_variant, NULL);
+            NMLOG_DEBUG("Connection settings path: %s", connection_path);
+
+            // Create connection proxy
+            connection_proxy = g_dbus_proxy_new_sync(bus,
+                                                     G_DBUS_PROXY_FLAGS_NONE,
+                                                     NULL,
+                                                     NM_DBUS_SERVICE,
+                                                     connection_path,
+                                                     NM_DBUS_INTERFACE_CONNECTION,
+                                                     NULL,
+                                                     &error);
+            g_variant_unref(conn_path_variant);
+            g_object_unref(active_conn_proxy);
+
+            if (!connection_proxy) {
+                NMLOG_ERROR("Failed to create connection proxy: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
+            }
+
+            // Get connection settings (without secrets)
+            GVariant *settings_variant = g_dbus_proxy_call_sync(connection_proxy,
+                                                                "GetSettings",
+                                                                NULL,
+                                                                G_DBUS_CALL_FLAGS_NONE,
+                                                                -1,
+                                                                NULL,
+                                                                &error);
+            if (!settings_variant) {
+                NMLOG_ERROR("Failed to get connection settings: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_object_unref(connection_proxy);
+                g_free((gpointer)wifi_device_path);
+                g_object_unref(device_proxy);
+                g_object_unref(nm_proxy);
+                g_object_unref(bus);
+                return false;
+            }
+
+            // Parse settings to get SSID and security type
+            GVariantIter *settings_iter;
+            g_variant_get(settings_variant, "(a{sa{sv}})", &settings_iter);
+
+            gchar *setting_name;
+            GVariant *setting_dict;
+            security = NET_WIFI_SECURITY_NONE;
+            bool has_wireless_security = false;
+
+            while (g_variant_iter_loop(settings_iter, "{s@a{sv}}", &setting_name, &setting_dict)) {
+                if (g_strcmp0(setting_name, "802-11-wireless") == 0) {
+                    // Extract SSID
+                    GVariant *ssid_variant = g_variant_lookup_value(setting_dict, "ssid", G_VARIANT_TYPE_BYTESTRING);
+                    if (ssid_variant) {
+                        gsize ssid_len;
+                        const guint8 *ssid_data = static_cast<const guint8*>(g_variant_get_fixed_array(ssid_variant, &ssid_len, sizeof(guint8)));
+                        ssid = std::string(reinterpret_cast<const char*>(ssid_data), ssid_len);
+                        NMLOG_DEBUG("Retrieved SSID: %s", ssid.c_str());
+                        g_variant_unref(ssid_variant);
+                    }
+                } else if (g_strcmp0(setting_name, "802-11-wireless-security") == 0) {
+                    has_wireless_security = true;
+                    // Extract key-mgmt
+                    GVariant *key_mgmt_variant = g_variant_lookup_value(setting_dict, "key-mgmt", G_VARIANT_TYPE_STRING);
+                    if (key_mgmt_variant) {
+                        const gchar *key_mgmt = g_variant_get_string(key_mgmt_variant, NULL);
+                        NMLOG_DEBUG("Key management: %s", key_mgmt);
+
+                        if (g_strcmp0(key_mgmt, "sae") == 0) {
+                            security = NET_WIFI_SECURITY_WPA3_SAE;
+                        } else if (g_strcmp0(key_mgmt, "wpa-psk") == 0) {
+                            security = NET_WIFI_SECURITY_WPA2_PSK_AES;
+                        } else if (g_strcmp0(key_mgmt, "wpa-eap") == 0) {
+                            security = NET_WIFI_SECURITY_WPA2_ENTERPRISE_AES;
+                        } else if (g_strcmp0(key_mgmt, "none") == 0) {
+                            security = NET_WIFI_SECURITY_NONE;
+                        } else {
+                            security = NET_WIFI_SECURITY_WPA2_PSK_AES;
+                        }
+
+                        g_variant_unref(key_mgmt_variant);
+                    }
+                }
+            }
+
+            g_variant_iter_free(settings_iter);
+            g_variant_unref(settings_variant);
+
+            // Request secrets if PSK-based security
+            if (has_wireless_security && (security == NET_WIFI_SECURITY_WPA2_PSK_AES || security == NET_WIFI_SECURITY_WPA3_SAE)) {
+                NMLOG_DEBUG("Requesting secrets for PSK-based connection");
+
+                // Setup synchronization
+                bool completed = false;
+                bool secrets_success = false;
+                std::mutex mtx;
+                std::condition_variable cv;
+                SecretsContext context = { &passphrase, &completed, &secrets_success, &mtx, &cv };
+
+                // Call GetSecrets asynchronously
+                g_dbus_proxy_call(connection_proxy,
+                                 "GetSecrets",
+                                 g_variant_new("(s)", "802-11-wireless-security"),
+                                 G_DBUS_CALL_FLAGS_NONE,
+                                 -1,
+                                 NULL,
+                                 secrets_callback,
+                                 &context);
+
+                // Wait for callback with timeout (5 seconds)
+                {
+                    std::unique_lock<std::mutex> lock(mtx);
+                    if (cv.wait_for(lock, std::chrono::seconds(5), [&completed] { return completed; })) {
+                        if (secrets_success) {
+                            NMLOG_DEBUG("Secrets retrieval completed successfully");
+                            result = true;
+                        } else {
+                            NMLOG_WARNING("Secrets retrieval completed but failed to extract PSK");
+                            result = false;
+                        }
+                    } else {
+                        NMLOG_WARNING("Timeout waiting for secrets retrieval");
+                        result = false;
+                    }
+                }
             } else {
-                // Default to WPA PSK for unknown key management
-                security = NET_WIFI_SECURITY_WPA2_PSK_AES;
+                // No secrets needed for open networks
+                result = true;
             }
 
-            NMLOG_DEBUG("Retrieved WiFi connection details - SSID: %s, Security: %d, Key-mgmt: %s", 
-                       ssid.c_str(), security, keyMgmt.c_str());
-            return true;
+            // Cleanup
+            g_object_unref(connection_proxy);
+            g_free((gpointer)wifi_device_path);
+            g_object_unref(device_proxy);
+            g_object_unref(nm_proxy);
+            g_object_unref(bus);
+
+            NMLOG_INFO("Retrieved WiFi connection details - SSID: %s, Security: %d, Has Passphrase: %s",
+                       ssid.c_str(), security, passphrase.empty() ? "no" : "yes");
+
+            return result && !ssid.empty();
         }
 
         NetworkManagerMfrManager* NetworkManagerMfrManager::getInstance()
