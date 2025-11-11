@@ -127,7 +127,7 @@ namespace WPEFramework
         }
 
         /* @brief Telemetry Logging */
-        void UpnpDiscoveryManager::logTelemetry(std::string message)
+        void WiFiManager::logTelemetry(std::string message)
         {
             #if USE_TELEMETRY 
             //T2 telemtery logging
@@ -146,7 +146,7 @@ namespace WPEFramework
 
 #if USE_TELEMETRY
             // Initialize Telemtry  
-            t2_init("upnpdiscover");
+            t2_init((char *) "networkmanager");
 #endif
             m_service->AddRef();
 
