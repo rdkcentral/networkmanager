@@ -446,8 +446,8 @@ namespace WPEFramework
                 << ",noise=" << ssidInfo.noise
                 << ",Band=" << band;
 
-                NMLOG_INFO("%s", (char*)msg.str().c_str());
-                logTelemetry((char*)msg.str().c_str());
+                NMLOG_INFO("%s", msg.str().c_str());
+                logTelemetry(msg.str().c_str());
 #endif
             }
             returnJson(rc);
