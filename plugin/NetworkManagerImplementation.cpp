@@ -987,6 +987,10 @@ namespace WPEFramework
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
             }
+            else
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+            }
 
             return Core::ERROR_NONE;
         }
