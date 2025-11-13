@@ -838,10 +838,10 @@ namespace WPEFramework
             m_isRunning.store(false);
         }
 
-        /* Updated implementation using wpa_cli signal_poll for real-time signal data */
+        /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
         uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
-            std::string key{}, value{}, bssid{};
+            std::string key{}, value{}, bssid{}, band{};
             char buff[512] = {'\0'};
             FILE *fp = NULL;
 
@@ -864,6 +864,8 @@ namespace WPEFramework
                     else if (key == "bssid") {
                         bssid = value;
                     }
+                    if (!ssid.empty() && !bssid.empty())
+                        break;
                 }
             }
             pclose(fp);
@@ -902,27 +904,42 @@ namespace WPEFramework
                         if (strength.empty())
                             strength = value;
                     }
+                    else if (key == "FREQUENCY")
+                    {
+                        if (!value.empty())
+                        {
+                            int freq = std::stoi(value);
+                            if (freq >= 2400 && freq < 5000)
+                                band = "2.4GHz";
+                            else if (freq >= 5000 && freq < 6000)
+                                band = "5GHz";
+                            else if (freq >= 6000)
+                                band = "6GHz";
+                            else
+                                band = "not known";
+                        }
+                    }
                 }
             }
             pclose(fp);
 
-            /* Set defaults if empty */
-            if (strength.empty())
-                strength = "0";
             if (noise.empty())
                 noise = "0";
+            if (strength.empty())
+                strength = "0";
 
             int16_t readRssi = std::stoi(strength);
             int16_t readNoise = std::stoi(noise);
 
-            /* Validate RSSI is in valid range (-10 to -100 dBm) */
+            /* Check the RSSI is within range between -10 and -100 dbm*/
             if (readRssi >= 0 || readRssi < -100) {
-                NMLOG_WARNING("RSSI (%d dBm) is out of valid range (-10 to -100 dBm)", readRssi);
-                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                strength = "0";
-                noise = "0";
-                snr = "0";
-                return Core::ERROR_NONE;
+                NMLOG_WARNING("Received RSSI (%d dBm) is out of valid range (-10 to -100 dBm)", readRssi);
+                if (readRssi >= 0) {
+                    readRssi = -10;
+                }
+                else if (readRssi < -100) {
+                    readRssi = -100;
+                }
             }
 
             /* Check the Noise is within range between 0 and -96 dbm*/
@@ -930,9 +947,11 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
+                    readNoise = 0;
                     noise = std::to_string(0);
                 }
                 else if (readNoise < DEFAULT_NOISE) {
+                    readNoise = DEFAULT_NOISE;
                     noise = std::to_string(DEFAULT_NOISE);
                 }
             }
@@ -944,7 +963,7 @@ namespace WPEFramework
             /* mapping rssi value when the SNR value is not proper */
             if(!(calculatedSnr > 0 && calculatedSnr <= MAX_SNR_VALUE))
             {
-                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid; Lets map with RSSI (%s)", calculatedSnr, strength.c_str());
+                NMLOG_WARNING("calculated SNR (%d) is not valid; Lets map with RSSI (%s)", calculatedSnr, strength.c_str());
                 calculatedSnr = std::stoi(strength);
                 /* Take the absolute value */
                 calculatedSnr = (calculatedSnr < 0) ? -calculatedSnr : calculatedSnr;
@@ -952,23 +971,28 @@ namespace WPEFramework
                 snr = std::to_string(calculatedSnr);
             }
 
-            NMLOG_INFO("SSID: %s, RSSI: %s dBm, Noise: %s dBm, SNR: %s dBm", ssid.c_str(), strength.c_str(), noise.c_str(), snr.c_str());
+            NMLOG_INFO("bssid=%s, ssid=%s, rssi=%s, noise=%s, band=%s, snr=%s", bssid.c_str(), ssid.c_str(), strength.c_str(), noise.c_str(), band.c_str(), snr.c_str());
 
-            /* Calculate quality based on RSSI (signal strength) */
-            if (readRssi == 0) {
+            if (calculatedSnr == 0)
+            {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
+                strength = "0";
             }
-            else if (readRssi >= -50) {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
+            else if (calculatedSnr > 0 && calculatedSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
             }
-            else if (readRssi >= -60) {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
-            }
-            else if (readRssi >= -67) {
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_FAIR && calculatedSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
+            {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
             }
-            else {
-                quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_GOOD && calculatedSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
+            }
+            else
+            {
+                quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
             return Core::ERROR_NONE;
