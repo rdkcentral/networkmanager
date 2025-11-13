@@ -1358,11 +1358,11 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
-                    "RSSI=-52\n"
+                    "RSSI=-30\n"
                     "LINKSPEED=300\n"
                     "NOISE=-114\n"
                     "FREQUENCY=2417\n"
-                    "AVG_RSSI=-52\n", tempFile);
+                    "AVG_RSSI=-30\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
@@ -1400,7 +1400,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
                     "LINKSPEED=300\n"
                     "NOISE=-114\n"
                     "FREQUENCY=2417\n"
-                    "AVG_RSSI=-200\n", tempFile);
+                    "AVG_RSSI=-90\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
@@ -1430,14 +1430,14 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }))
         .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli signal_poll"));
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
                     "RSSI=\n"
                     "LINKSPEED=300\n"
                     "NOISE=9999\n"
-                    "FREQUENCY=2417\n"
+                    "FREQUENCY=5462\n"
                     "AVG_RSSI=-120\n", tempFile);
                 rewind(tempFile);
             }
@@ -1445,7 +1445,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Disconnected\",\"snr\":\"120\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, Trace_Success_ipv4)
