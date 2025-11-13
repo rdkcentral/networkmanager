@@ -26,7 +26,7 @@ using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
 #define SSID_COMMAND        "wpa_cli status"
-#define BSS_COMMAND         "wpa_cli bss"
+#define SIGNAL_POLL_COMMAND "wpa_cli signal_poll"
 
 namespace WPEFramework
 {
@@ -841,116 +841,152 @@ namespace WPEFramework
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
         uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            int16_t readSnr = 0;
-
-            std::string key, value;
-            int16_t readNoise = 0;
-            string bssid{};
+            std::string key{}, value{}, bssid{}, band{};
             char buff[512] = {'\0'};
-
             FILE *fp = NULL;
 
-            /* SSID */
+            /* Get BSSID and SSID from wpa_cli status */
             fp = popen(SSID_COMMAND, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);
-                return Core::ERROR_RPC_CALL_FAILED;
+                NMLOG_ERROR("Failed in getting output from command %s", SSID_COMMAND);
+                return Core::ERROR_GENERAL;
             }
-            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
-                std::istringstream mystream(buff);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                {
-                    if (key == "bssid") {
-                        bssid = value;
-                        break;
-                    }
-                }
-            }
-            pclose(fp);
 
-            /* Noise n RSSI */
-            std::string bssCommand = std::string(BSS_COMMAND) + " " + bssid;
-            fp = popen(bssCommand.c_str(), "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",BSS_COMMAND);
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
                 {
-                    if (key == "level") {
-                        strength = value;
-                    }
-                    else if (key == "noise") {
-                        noise = value;
-                    }
-                    else if (key == "ssid") {
+                    if (key == "ssid") {
                         ssid = value;
                     }
-                    else if (key == "snr") {
-                        snr = value;
+                    else if (key == "bssid") {
+                        bssid = value;
                     }
-                    if (!strength.empty() && !noise.empty() && !ssid.empty() && !snr.empty())
+                    if (!ssid.empty() && !bssid.empty())
                         break;
                 }
             }
             pclose(fp);
 
-            /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
-            if (noise.empty())
-                noise= "0";
-            if (snr.empty())
+            /* If BSSID is empty, WiFi is disconnected */
+            if (bssid.empty()) {
+                NMLOG_WARNING("WiFi is disconnected (BSSID is empty)");
+                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
+                ssid = "";
+                strength = "0";
+                noise = "0";
                 snr = "0";
+                return Core::ERROR_NONE;
+            }
+
+            /*Get real-time signal data from wpa_cli signal_poll */
+            fp = popen(SIGNAL_POLL_COMMAND, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s", SIGNAL_POLL_COMMAND);
+                return Core::ERROR_GENERAL;
+            }
+
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buff);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
+                    if (key == "RSSI") {
+                        strength = value;
+                    }
+                    else if (key == "NOISE") {
+                        noise = value;
+                    }
+                    else if (key == "AVG_RSSI") { // if RSSI is not available
+                        if (strength.empty())
+                            strength = value;
+                    }
+                    else if (key == "FREQUENCY")
+                    {
+                        if (!value.empty())
+                        {
+                            int freq = std::stoi(value);
+                            if (freq >= 2400 && freq < 5000)
+                                band = "2.4GHz";
+                            else if (freq >= 5000 && freq < 6000)
+                                band = "5GHz";
+                            else if (freq >= 6000)
+                                band = "6GHz";
+                            else
+                                band = "not known";
+                        }
+                    }
+                }
+            }
+            pclose(fp);
+
+            if (noise.empty())
+                noise = "0";
             if (strength.empty())
                 strength = "0";
 
-            readNoise = std::stoi(noise);
-            readSnr = std::stoi(snr);
+            int16_t readRssi = std::stoi(strength);
+            int16_t readNoise = std::stoi(noise);
+
+            /* Check the RSSI is within range between -10 and -100 dbm*/
+            if (readRssi >= 0 || readRssi < -100) {
+                NMLOG_WARNING("Received RSSI (%d dBm) is out of valid range (-10 to -100 dBm); Resetting to default", readRssi);
+                if (readRssi >= 0) {
+                    readRssi = -10;
+                }
+                else if (readRssi < -100) {
+                    readRssi = -100;
+                }
+            }
 
             /* Check the Noise is within range between 0 and -96 dbm*/
             if((readNoise >= 0) || (readNoise < DEFAULT_NOISE))
             {
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
+                    readNoise = 0;
                     noise = std::to_string(0);
                 }
                 else if (readNoise < DEFAULT_NOISE) {
+                    readNoise = DEFAULT_NOISE;
                     noise = std::to_string(DEFAULT_NOISE);
                 }
             }
 
-            /* mapping rssi value when the SNR value is not proper */
-            if(!(readSnr > 0 && readSnr <= MAX_SNR_VALUE))
-            {
-                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid; Lets map with RSSI (%s)", readSnr, strength.c_str());
-                readSnr = std::stoi(strength);
-                /* Take the absolute value */
-                readSnr = (readSnr < 0) ? -readSnr : readSnr;
+            /*Calculate SNR = RSSI - Noise */
+            int16_t calculatedSnr = readRssi - readNoise;
+            snr = std::to_string(calculatedSnr);
 
-                snr = std::to_string(readSnr);
+            /* mapping rssi value when the SNR value is not proper */
+            if(!(calculatedSnr > 0 && calculatedSnr <= MAX_SNR_VALUE))
+            {
+                NMLOG_WARNING("calculated SNR (%d) is not valid; Lets map with RSSI (%s)", calculatedSnr, strength.c_str());
+                calculatedSnr = std::stoi(strength);
+                /* Take the absolute value */
+                calculatedSnr = (calculatedSnr < 0) ? -calculatedSnr : calculatedSnr;
+
+                snr = std::to_string(calculatedSnr);
             }
 
-            NMLOG_INFO("RSSI: %s dBm; Noise: %s dBm; SNR: %s dBm", strength.c_str(), noise.c_str(), snr.c_str());
+            NMLOG_INFO("ssid=%s, bssid=%s, band=%s, rssi=%s, noise=%s, snr=%s", ssid.c_str(), bssid.c_str(), band.c_str(), strength.c_str(), noise.c_str(), snr.c_str());
 
-            if (readSnr == 0)
+            if (calculatedSnr == 0)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
                 strength = "0";
             }
-            else if (readSnr > 0 && readSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
+            else if (calculatedSnr > 0 && calculatedSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
             }
-            else if (readSnr > NM_WIFI_SNR_THRESHOLD_FAIR && readSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_FAIR && calculatedSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
             }
-            else if (readSnr > NM_WIFI_SNR_THRESHOLD_GOOD && readSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_GOOD && calculatedSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
             }
@@ -959,9 +995,7 @@ namespace WPEFramework
                 quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
-            rc = Core::ERROR_NONE;
-
-            return rc;
+            return Core::ERROR_NONE;
         }
 
         void NetworkManagerImplementation::processMonitor(uint16_t interval)
