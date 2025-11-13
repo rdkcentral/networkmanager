@@ -1407,7 +1407,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-90\",\"noise\":\"-30\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Fair\",\"snr\":\"24\",\"strength\":\"-90\",\"noise\":\"-96\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
@@ -1445,7 +1445,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Disconnected\",\"snr\":\"120\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"120\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, Trace_Success_ipv4)

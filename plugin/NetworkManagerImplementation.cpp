@@ -838,7 +838,7 @@ namespace WPEFramework
             m_isRunning.store(false);
         }
 
-        /* Updated implementation using wpa_cli signal_poll for real-time signal data */
+        /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
         uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             std::string key{}, value{}, bssid{}, band{};
@@ -864,6 +864,8 @@ namespace WPEFramework
                     else if (key == "bssid") {
                         bssid = value;
                     }
+                    if (!ssid.empty() && !bssid.empty())
+                        break;
                 }
             }
             pclose(fp);
@@ -921,11 +923,10 @@ namespace WPEFramework
             }
             pclose(fp);
 
-            /* Set defaults if empty */
-            if (strength.empty())
-                strength = "0";
             if (noise.empty())
                 noise = "0";
+            if (strength.empty())
+                strength = "0";
 
             int16_t readRssi = std::stoi(strength);
             int16_t readNoise = std::stoi(noise);
@@ -946,9 +947,11 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
+                    readNoise = 0;
                     noise = std::to_string(0);
                 }
                 else if (readNoise < DEFAULT_NOISE) {
+                    readNoise = DEFAULT_NOISE;
                     noise = std::to_string(DEFAULT_NOISE);
                 }
             }
