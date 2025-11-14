@@ -282,7 +282,7 @@ namespace WPEFramework
             setParam.wifiCredentials.iSecurityMode = securityMode;
            
             setParam.requestType = WIFI_SET_CREDENTIALS;
-            NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.cPassword = %s, param.wifiCredentials.iSecurityMode = %d", setParam.requestType, setParam.wifiCredentials.cSSID, setParam.wifiCredentials.cPassword, setParam.wifiCredentials.iSecurityMode); 
+            NMLOG_INFO(" Set Params param.requestType = %d, param.wifiCredentials.cSSID = %s, param.wifiCredentials.iSecurityMode = %d", setParam.requestType, setParam.wifiCredentials.cSSID, setParam.wifiCredentials.iSecurityMode);
             // Make IARM Bus call to save credentials
             ret = IARM_Bus_Call(IARM_BUS_MFRLIB_NAME, IARM_BUS_MFRLIB_API_WIFI_Credentials,
                                               (void*)&setParam, sizeof(setParam));
