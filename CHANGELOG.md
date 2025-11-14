@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.20.5] - 2025-11-14
+### Fixed
+- Removed printf of WiFi PII information
+
 ## [0.20.4] - 2025-11-09
 ### Fixed
 - Fixed the RouterDiscovery App Crash when discovery couldn't find the make & model of the Router.
