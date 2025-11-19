@@ -32,6 +32,17 @@
 #include <gio/gio.h>
 #include "libIBus.h"
 
+// NetworkManager D-Bus constants
+#define NM_DBUS_SERVICE                     "org.freedesktop.NetworkManager"
+#define NM_DBUS_PATH                        "/org/freedesktop/NetworkManager"
+#define NM_DBUS_INTERFACE                   "org.freedesktop.NetworkManager"
+#define NM_DBUS_INTERFACE_DEVICE            "org.freedesktop.NetworkManager.Device"
+#define NM_DBUS_INTERFACE_DEVICE_WIRELESS   "org.freedesktop.NetworkManager.Device.Wireless"
+#define NM_DBUS_INTERFACE_SETTINGS          "org.freedesktop.NetworkManager.Settings"
+#define NM_DBUS_INTERFACE_CONNECTION        "org.freedesktop.NetworkManager.Settings.Connection"
+#define NM_DBUS_INTERFACE_ACTIVE_CONNECTION "org.freedesktop.NetworkManager.Connection.Active"
+#define NM_DBUS_PATH_SETTINGS               "/org/freedesktop/NetworkManager/Settings"
+
 namespace WPEFramework
 {
     namespace Plugin
