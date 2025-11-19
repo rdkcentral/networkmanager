@@ -860,15 +860,8 @@ namespace WPEFramework
             /* Check the Noise is within range */
             if(!(readNoise < 0 && readNoise >= DEFAULT_NOISE))
             {
-                NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
-                if (readNoise >= 0) {
-                    readNoise = 0;
-                    noise = std::to_string(0);
-                }
-                else if (readNoise < DEFAULT_NOISE) {
-                    readNoise = DEFAULT_NOISE;
-                    noise = std::to_string(DEFAULT_NOISE);
-                }
+		NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
+                noise = "0";
             }
 
             /*Calculate SNR = RSSI - Noise */
