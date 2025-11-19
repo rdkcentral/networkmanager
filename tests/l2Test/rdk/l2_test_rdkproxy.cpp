@@ -1313,7 +1313,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityWpa_cliFailed)
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityDisconnected2)
 {
     EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-    .Times(2)
+    .Times(1)
     .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
             EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli status"));
@@ -1325,16 +1325,6 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityDisconnected2)
                       "p2p_device_address=d4:52:ee:d9:0a:39\n"
                       "address=d4:52:ee:d9:0a:39\n"
                       "uuid=feb4fcc9-04c3-5be3-a3f9-03fed1d0604c\n", tempFile);
-                rewind(tempFile);
-            }
-            return tempFile;
-        }))
-        .WillOnce(::testing::Invoke(
-            [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss "));
-            FILE* tempFile = tmpfile();
-            if (tempFile) {
-                fputs("driver error", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
@@ -1364,21 +1354,22 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
         }))
         .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli signal_poll"));
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
-                    "ssid=dummySSID\n"
-                    "noise=-117\n"
-                    "level=-49\n"
-                    "snr=65\n", tempFile);
+                    "RSSI=-30\n"
+                    "LINKSPEED=300\n"
+                    "NOISE=-114\n"
+                    "FREQUENCY=2417\n"
+                    "AVG_RSSI=-30\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"65\",\"strength\":\"-49\",\"noise\":\"-96\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"66\",\"strength\":\"-30\",\"noise\":\"-96\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
@@ -1401,21 +1392,22 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
         }))
         .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli signal_poll"));
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
-                    "ssid=dummySSID\n"
-                    "noise=-30\n"
-                    "level=-90\n"
-                    "snr=33\n", tempFile);
+                    "RSSI=\n"
+                    "LINKSPEED=300\n"
+                    "NOISE=-114\n"
+                    "FREQUENCY=2417\n"
+                    "AVG_RSSI=-90\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-90\",\"noise\":\"-30\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Weak\",\"snr\":\"6\",\"strength\":\"-90\",\"noise\":\"-96\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
@@ -1438,21 +1430,22 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }))
         .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli signal_poll"));
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
-                    "ssid=dummySSID\n"
-                    "noise=9999\n"
-                    "level=-120\n"
-                    "snr=33\n", tempFile);
+                    "RSSI=\n"
+                    "LINKSPEED=300\n"
+                    "NOISE=9999\n"
+                    "FREQUENCY=5462\n"
+                    "AVG_RSSI=-120\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Good\",\"snr\":\"33\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"120\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, Trace_Success_ipv4)
