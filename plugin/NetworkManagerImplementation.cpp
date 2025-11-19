@@ -777,6 +777,7 @@ namespace WPEFramework
                     }
                     if (!ssid.empty() && !bssid.empty())
                         break;
+                }
             }
             pclose(fp);
 
