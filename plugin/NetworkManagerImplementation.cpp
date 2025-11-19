@@ -976,6 +976,7 @@ namespace WPEFramework
                 snr = std::to_string(calculatedSnr);
             }
 
+			NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%s, Noise:%s, SNR:%s", ssid.c_str(), bssid.c_str(), band.c_str(), strength.c_str(), noise.c_str(), snr.c_str());
             NMLOG_INFO("bssid=%s,ssid=%s,rssi=%s,phyrate=%s,noise=%s,Band=%s", bssid.c_str(), ssid.c_str(), strength.c_str(), linkSpeed.c_str(), noise.c_str(), band.c_str());
 
             if (calculatedSnr == 0)
