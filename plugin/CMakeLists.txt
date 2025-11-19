@@ -105,6 +105,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
             gnome/NetworkManagerGnomeMfrMgr.cpp
             gnome/gdbus/NetworkManagerGdbusMgr.cpp
+            gnome/gdbus/NetworkManagerGdbusUtils.cpp
         )
         endif()
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
