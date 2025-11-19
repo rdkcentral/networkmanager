@@ -30,12 +30,6 @@ set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup orde
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
-if (USE_TELEMETRY)
-    find_package(T2 REQUIRED)
-    add_definitions(-DUSE_TELEMETRY)
-    include_directories(${T2_INCLUDE_DIRS})
-endif (USE_TELEMETRY) 
-
 if (USE_RDK_LOGGER)
     find_package(rdklogger REQUIRED)
     add_definitions(-DUSE_RDK_LOGGER)
@@ -71,10 +65,6 @@ add_library(${PLUGIN_LEGACY_WIFI} SHARED
 )
 
 target_link_libraries(${PLUGIN_LEGACY_WIFI}  PRIVATE ${NAMESPACE}Core::${NAMESPACE}Core ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
-
-if (USE_TELEMETRY)
-    target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${T2_LIBRARIES})
-endif (USE_TELEMETRY)
 
 if (USE_RDK_LOGGER)
     target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
