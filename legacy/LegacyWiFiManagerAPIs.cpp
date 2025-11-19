@@ -126,11 +126,28 @@ namespace WPEFramework
             _gWiFiInstance = nullptr;
         }
 
+        /* @brief Telemetry Logging */
+        void WiFiManager::logTelemetry(std::string message)
+        {
+            #if USE_TELEMETRY 
+            //T2 telemtery logging
+            T2ERROR t2error = t2_event_s("ap_info_split", (char*)message.c_str());
+            if (t2error != T2ERROR_SUCCESS)
+            {
+                NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") returned error code %d", "ap_info_split", message.c_str(), t2error);
+            }
+            #endif
+        }
+
         const string WiFiManager::Initialize(PluginHost::IShell*  service )
         {
             m_service = service;
             string message{};
 
+#if USE_TELEMETRY
+            // Initialize Telemtry  
+            t2_init((char *) "networkmanager");
+#endif
             m_service->AddRef();
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
@@ -405,6 +422,33 @@ namespace WPEFramework
                 response["security"] = JsonValue(mapToLegacySecurityMode(ssidInfo.security));
                 response["signalStrength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
+#if USE_TELEMETRY
+                std::string band;
+				double freq_ghz = std::stod(ssidInfo.frequency);
+    			double freq_mhz = freq_ghz * 1000.0;
+
+				if (freq_mhz >= 2400 && freq_mhz <= 2500)
+    				band = "2.4GHz";
+				else if (freq_mhz >= 4900 && freq_mhz <= 5900)
+    				band = "5GHz";
+				else if (freq_mhz >= 5900 && freq_mhz <= 7100)
+    				band = "6GHz";
+				else
+    				band = "Unknown";
+
+				int phyRateMbps = std::stoi(ssidInfo.rate) / 1000;
+
+                std::ostringstream msg;
+                msg << "bssid=" << ssidInfo.bssid
+                << ",ssid=" << ssidInfo.ssid
+                << ",rssi=" << ssidInfo.strength
+                << ",phyrate=" << phyRateMbps
+                << ",noise=" << ssidInfo.noise
+                << ",Band=" << band;
+
+                NMLOG_INFO("%s", msg.str().c_str());
+                logTelemetry(msg.str().c_str());
+#endif
             }
             returnJson(rc);
         }
