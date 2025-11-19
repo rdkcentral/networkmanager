@@ -860,7 +860,7 @@ namespace WPEFramework
             /* Check the Noise is within range */
             if(!(readNoise < 0 && readNoise >= DEFAULT_NOISE))
             {
-		NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
+                NMLOG_WARNING("Received Noise (%d) from wifi driver is not valid", readNoise);
                 noise = "0";
             }
 
