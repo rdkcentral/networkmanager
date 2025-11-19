@@ -38,7 +38,7 @@ if(ENABLE_ROUTER_DISCOVERY_TOOL)
     target_link_libraries(${NM_ROUTER_DISCOVERY_L1_TEST} PRIVATE
         gmock_main
         ${GLIB_LIBRARIES}
-        ${LIBSOUP_LIBRARIES} 
+        ${LIBSOUP_LIBRARIES}
         ${GUPNP_LIBRARIES} 
         ${GSSDP_LIBRARIES}
     )
