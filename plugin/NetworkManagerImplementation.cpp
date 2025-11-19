@@ -863,9 +863,11 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
+                    readNoise = 0;
                     noise = std::to_string(0);
                 }
                 else if (readNoise < DEFAULT_NOISE) {
+                    readNoise = DEFAULT_NOISE;
                     noise = std::to_string(DEFAULT_NOISE);
                 }
             }
