@@ -51,7 +51,7 @@ namespace WPEFramework
                     NMLOG_ERROR("IARM_Bus_Init failed: %d", ret);
                     return false;
                 }
-                
+
                 ret = IARM_Bus_Connect();
                 if (ret != IARM_RESULT_SUCCESS) {
                     NMLOG_ERROR("IARM_Bus_Connect failed: %d", ret);
@@ -140,6 +140,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             GDBusProxy *connection_proxy = NULL;
+            GDBusProxy *device_proxy = NULL;
             bool result = false;
 
             NMLOG_DEBUG("Retrieving WiFi connection details using GDBus utilities");
@@ -156,16 +157,67 @@ namespace WPEFramework
 
             NMLOG_DEBUG("Found WiFi device at path: %s", devInfo.path.c_str());
 
-            // Check if device has an active connection
-            if (devInfo.activeConnPath.empty() || devInfo.activeConnPath == "/") {
-                NMLOG_ERROR("No active connection on WiFi device");
+            // Create device proxy to check state and refresh ActiveConnection property
+            device_proxy = dbusMgr.getNetworkManagerDeviceProxy(devInfo.path.c_str());
+            if (!device_proxy) {
+                NMLOG_ERROR("Failed to create device proxy");
                 return false;
             }
 
-            NMLOG_DEBUG("Active connection path: %s", devInfo.activeConnPath.c_str());
+            // Check device state first
+            GVariant *state_variant = g_dbus_proxy_get_cached_property(device_proxy, "State");
+            if (state_variant) {
+                guint32 device_state = g_variant_get_uint32(state_variant);
+                NMLOG_DEBUG("WiFi device state: %u (100=activated, 30=disconnected)", device_state);
+                g_variant_unref(state_variant);
+
+                // NM_DEVICE_STATE_ACTIVATED = 100
+                if (device_state != 100) {
+                    NMLOG_WARNING("WiFi device not in activated state (state=%u)", device_state);
+                }
+            }
+
+            // Force refresh ActiveConnection property from D-Bus instead of using cached value
+            std::string active_conn_path;
+            error = NULL;
+            GVariant *props_variant = g_dbus_proxy_call_sync(device_proxy,
+                                                             "org.freedesktop.DBus.Properties.Get",
+                                                             g_variant_new("(ss)",
+                                                                          "org.freedesktop.NetworkManager.Device",
+                                                                          "ActiveConnection"),
+                                                             G_DBUS_CALL_FLAGS_NONE,
+                                                             -1,
+                                                             NULL,
+                                                             &error);
+            if (!props_variant) {
+                NMLOG_ERROR("Failed to get ActiveConnection property: %s", error ? error->message : "unknown");
+                if (error) g_error_free(error);
+                g_object_unref(device_proxy);
+                return false;
+            }
+
+            GVariant *active_conn_variant = NULL;
+            g_variant_get(props_variant, "(v)", &active_conn_variant);
+            const gchar *active_conn_path_str = g_variant_get_string(active_conn_variant, NULL);
+
+            if (active_conn_path_str) {
+                active_conn_path = active_conn_path_str;
+            }
+
+            g_variant_unref(active_conn_variant);
+            g_variant_unref(props_variant);
+            g_object_unref(device_proxy);
+
+            NMLOG_DEBUG("ActiveConnection path: %s", active_conn_path.c_str());
+
+            // Check if device has an active connection
+            if (active_conn_path.empty() || active_conn_path == "/") {
+                NMLOG_ERROR("No active connection on WiFi device (path: %s)", active_conn_path.c_str());
+                return false;
+            }
 
             // Create active connection proxy using DbusMgr
-            GDBusProxy *active_conn_proxy = dbusMgr.getNetworkManagerActiveConnProxy(devInfo.activeConnPath.c_str());
+            GDBusProxy *active_conn_proxy = dbusMgr.getNetworkManagerActiveConnProxy(active_conn_path.c_str());
             if (!active_conn_proxy) {
                 NMLOG_ERROR("Failed to create active connection proxy");
                 return false;
