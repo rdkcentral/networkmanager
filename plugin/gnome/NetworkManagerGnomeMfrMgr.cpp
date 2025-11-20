@@ -65,76 +65,6 @@ namespace WPEFramework
         }
 
         // Structure to hold secrets retrieval context
-        struct SecretsContext {
-            std::string* passphrase;
-            bool* completed;
-            bool* success;
-            std::mutex* mutex;
-            std::condition_variable* cv;
-        };
-
-        // Callback for async secrets retrieval via GDBus
-        static void secrets_callback(GObject *source, GAsyncResult *result, gpointer user_data)
-        {
-            SecretsContext* context = static_cast<SecretsContext*>(user_data);
-            GError *error = NULL;
-            GDBusProxy *proxy = G_DBUS_PROXY(source);
-
-            // Call the GetSecrets method finish
-            GVariant *secrets = g_dbus_proxy_call_finish(proxy, result, &error);
-
-            if (error) {
-                NMLOG_WARNING("Failed to get secrets via GDBus: %s", error->message);
-                g_error_free(error);
-                *(context->success) = false;
-            } else if (secrets) {
-                // Parse the returned secrets
-                // GetSecrets returns (a{sa{sv}}) - dict of dicts
-                GVariantIter *iter;
-                g_variant_get(secrets, "(a{sa{sv}})", &iter);
-
-                gchar *setting_name;
-                GVariant *setting_dict;
-
-                // Iterate through settings
-                while (g_variant_iter_loop(iter, "{s@a{sv}}", &setting_name, &setting_dict)) {
-                    if (g_strcmp0(setting_name, "802-11-wireless-security") == 0) {
-                        // Found wireless security settings
-                        GVariantIter *setting_iter;
-                        g_variant_get(setting_dict, "a{sv}", &setting_iter);
-
-                        gchar *key;
-                        GVariant *value;
-
-                        // Look for psk key
-                        while (g_variant_iter_loop(setting_iter, "{sv}", &key, &value)) {
-                            if (g_strcmp0(key, "psk") == 0) {
-                                const gchar *psk = g_variant_get_string(value, NULL);
-                                if (psk && context->passphrase) {
-                                    *(context->passphrase) = psk;
-                                    NMLOG_DEBUG("Successfully retrieved PSK via GDBus");
-                                    *(context->success) = true;
-                                }
-                                break;
-                            }
-                        }
-                        g_variant_iter_free(setting_iter);
-                        break;
-                    }
-                }
-
-                g_variant_iter_free(iter);
-                g_variant_unref(secrets);
-            }
-
-            // Signal completion
-            {
-                std::lock_guard<std::mutex> lock(*(context->mutex));
-                *(context->completed) = true;
-            }
-            context->cv->notify_one();
-        }
-
         // Helper function to retrieve current WiFi connection details using GDBus utilities
         static bool getCurrentWiFiConnectionDetails(std::string& ssid, std::string& passphrase, int& security)
         {
@@ -183,8 +113,8 @@ namespace WPEFramework
             GVariant *props_variant = g_dbus_proxy_call_sync(device_proxy,
                                                              "org.freedesktop.DBus.Properties.Get",
                                                              g_variant_new("(ss)",
-                                                                          "org.freedesktop.NetworkManager.Device",
-                                                                          "ActiveConnection"),
+                                                             "org.freedesktop.NetworkManager.Device",
+                                                             "ActiveConnection"),
                                                              G_DBUS_CALL_FLAGS_NONE,
                                                              -1,
                                                              NULL,
@@ -311,38 +241,63 @@ namespace WPEFramework
             if (has_wireless_security && (security == NET_WIFI_SECURITY_WPA2_PSK_AES || security == NET_WIFI_SECURITY_WPA3_SAE)) {
                 NMLOG_DEBUG("Requesting secrets for PSK-based connection");
 
-                // Setup synchronization
-                bool completed = false;
-                bool secrets_success = false;
-                std::mutex mtx;
-                std::condition_variable cv;
-                SecretsContext context = { &passphrase, &completed, &secrets_success, &mtx, &cv };
+                // Use synchronous call instead of async to avoid cancellation complexity
+                error = NULL;
+                GVariant *secrets = g_dbus_proxy_call_sync(connection_proxy,
+                                                           "GetSecrets",
+                                                           g_variant_new("(s)", "802-11-wireless-security"),
+                                                           G_DBUS_CALL_FLAGS_NONE,
+                                                           5000, // 5 second timeout
+                                                           NULL,
+                                                           &error);
 
-                // Call GetSecrets asynchronously
-                g_dbus_proxy_call(connection_proxy,
-                                 "GetSecrets",
-                                 g_variant_new("(s)", "802-11-wireless-security"),
-                                 G_DBUS_CALL_FLAGS_NONE,
-                                 -1,
-                                 NULL,
-                                 secrets_callback,
-                                 &context);
+                if (error) {
+                    NMLOG_WARNING("Failed to get secrets: %s", error->message);
+                    g_error_free(error);
+                    result = false;
+                } else if (secrets) {
+                    // Parse the returned secrets
+                    // GetSecrets returns (a{sa{sv}}) - dict of dicts
+                    GVariantIter *iter;
+                    g_variant_get(secrets, "(a{sa{sv}})", &iter);
 
-                // Wait for callback with timeout (5 seconds)
-                {
-                    std::unique_lock<std::mutex> lock(mtx);
-                    if (cv.wait_for(lock, std::chrono::seconds(5), [&completed] { return completed; })) {
-                        if (secrets_success) {
-                            NMLOG_DEBUG("Secrets retrieval completed successfully");
-                            result = true;
-                        } else {
-                            NMLOG_WARNING("Secrets retrieval completed but failed to extract PSK");
-                            result = false;
+                    gchar *setting_name_key;
+                    GVariant *setting_dict_value;
+                    bool found_psk = false;
+
+                    // Iterate through settings
+                    while (g_variant_iter_loop(iter, "{s@a{sv}}", &setting_name_key, &setting_dict_value)) {
+                        if (g_strcmp0(setting_name_key, "802-11-wireless-security") == 0) {
+                            // Found wireless security settings
+                            GVariantIter *setting_iter;
+                            g_variant_get(setting_dict_value, "a{sv}", &setting_iter);
+
+                            gchar *key;
+                            GVariant *value;
+
+                            // Look for psk key
+                            while (g_variant_iter_loop(setting_iter, "{sv}", &key, &value)) {
+                                if (g_strcmp0(key, "psk") == 0) {
+                                    const gchar *psk = g_variant_get_string(value, NULL);
+                                    if (psk) {
+                                        passphrase = psk;
+                                        NMLOG_DEBUG("Successfully retrieved PSK");
+                                        found_psk = true;
+                                    }
+                                    break;
+                                }
+                            }
+                            g_variant_iter_free(setting_iter);
+                            break;
                         }
-                    } else {
-                        NMLOG_WARNING("Timeout waiting for secrets retrieval");
-                        result = false;
                     }
+
+                    g_variant_iter_free(iter);
+                    g_variant_unref(secrets);
+                    result = found_psk;
+                } else {
+                    NMLOG_WARNING("GetSecrets returned NULL");
+                    result = false;
                 }
             } else {
                 // No secrets needed for open networks
@@ -488,7 +443,7 @@ namespace WPEFramework
                         (strcmp (param.wifiCredentials.cPassword, passphrase.c_str()) == 0) &&
                         (param.wifiCredentials.iSecurityMode == securityMode))
                     {
-                        NMLOG_INFO("Successfully stored the credentails and verified stored ssid %s current ssid %s and security_mode %d", param.wifiCredentials.cSSID, ssid.c_str(), param.wifiCredentials.iSecurityMode);
+                        NMLOG_INFO("Successfully stored the credentials and verified stored ssid %s current ssid %s and security_mode %d", param.wifiCredentials.cSSID, ssid.c_str(), param.wifiCredentials.iSecurityMode);
                         return true;
                     }
                     else
