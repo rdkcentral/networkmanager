@@ -9,7 +9,7 @@
         "status": "development",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "0.20.5"
+        "version": "0.20.6"
     },
     "definitions": {
         "success": {
@@ -135,7 +135,7 @@
         "noise":{
             "summary": "The WiFi Signal Noise detected in dBm",
             "type": "string",
-            "example": "-106"
+            "example": "-96"
         },
         "snr":{
             "summary": "Signal to Noise Ratio(SNR) in dBm",
