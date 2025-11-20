@@ -1444,10 +1444,19 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
                 ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
                 ssidInfo.rate             = to_string((int)connectedSsid.rate);
-                if(connectedSsid.noise <= 0 && connectedSsid.noise >= DEFAULT_NOISE)
-                    ssidInfo.noise        = to_string((int)connectedSsid.noise);
+
+                if(((int) connectedSsid.noise >= 0) || ((int) connectedSsid.noise < DEFAULT_NOISE))
+                {
+                    NMLOG_DEBUG ("Received Noise (%f) from wifi driver is not valid; so clamping it", connectedSsid.noise);
+                    if (connectedSsid.noise >= 0) {
+                        ssidInfo.noise = std::to_string(0);
+                    }
+                    else if (connectedSsid.noise < DEFAULT_NOISE) {
+                        ssidInfo.noise = std::to_string(DEFAULT_NOISE);
+                    }
+                }
                 else
-                    ssidInfo.noise        = to_string(0);
+                    ssidInfo.noise = std::to_string((int)connectedSsid.noise);
 
                 std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
                 ssidInfo.frequency        = freqStr.substr(0, 5);
