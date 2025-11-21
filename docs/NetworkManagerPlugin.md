@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 1.8.0**
+**Version: 1.9.0**
 
 **Status: :black_circle::black_circle::black_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 1.8.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 1.9.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -1398,7 +1398,7 @@ This method takes no parameters.
     "strength": "-32",
     "frequency": "2.4420",
     "rate": "144",
-    "noise": "-106",
+    "noise": "-96",
     "success": true
   }
 }
@@ -1552,7 +1552,7 @@ This method takes no parameters.
     "quality": "Excellent",
     "snr": "74",
     "strength": "-32",
-    "noise": "-106",
+    "noise": "-96",
     "success": true
   }
 }
@@ -1947,7 +1947,7 @@ Triggered when WIFI Signal quality changed which is decided based on SNR value w
     "quality": "Excellent",
     "snr": "74",
     "strength": "-32",
-    "noise": "-106"
+    "noise": "-96"
   }
 }
 ```

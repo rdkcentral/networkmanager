@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.9.0] - 2025-11-21
+### Added
+- Added shortterm solution to print the AP Info
+
 ## [1.8.0] - 2025-11-14
 ### Fixed
 - Removed logging of WiFi PII information
