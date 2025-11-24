@@ -209,23 +209,29 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
 
+	    //If either endpoint or port is empty return error
+	    if (port == 0 || endpoint.empty()) {
+		NMLOG_WARNING("Invalid STUN port: 0 or empty STUN endpoint");
+		return Core::ERROR_BAD_REQUEST;
+            }
             // If no parameters are provided, return error
             if (endpoint.empty() && port == 0 && bindTimeout == 0 && cacheTimeout == 0) {
                 NMLOG_WARNING("No parameters provided to update STUN Endpoint");
                 return Core::ERROR_BAD_REQUEST;
             }
 
-            // If port is provided but is 0, reject as invalid
-            if (port == 0 && !endpoint.empty()) {
-                NMLOG_WARNING("Invalid STUN port: 0");
-                return Core::ERROR_BAD_REQUEST;
+            if (!endpoint.empty()) {
+                //TO DO
+                m_stunEndpoint = endpoint;
             }
 
-            if (!endpoint.empty())
-                m_stunEndpoint = endpoint;
-
-            if (0 != port)
+            if (port >= 1 && port <= 65535) {
                 m_stunPort = port;
+            }
+	    else {
+                NMLOG_WARNING("Invalid STUN port");
+                return Core::ERROR_BAD_REQUEST;
+            }
 
             if (0 != bindTimeout)
                 m_stunBindTimeout = bindTimeout;
