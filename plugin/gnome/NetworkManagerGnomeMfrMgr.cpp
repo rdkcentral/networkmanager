@@ -27,7 +27,6 @@
 #include "mfrMgr.h"
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 
 #include <gio/gio.h>
 #include "libIBus.h"
@@ -64,7 +63,6 @@ namespace WPEFramework
             return true;
         }
 
-        // Structure to hold secrets retrieval context
         // Helper function to retrieve current WiFi connection details using GDBus utilities
         static bool getCurrentWiFiConnectionDetails(std::string& ssid, std::string& passphrase, int& security)
         {
@@ -128,6 +126,14 @@ namespace WPEFramework
 
             GVariant *active_conn_variant = NULL;
             g_variant_get(props_variant, "(v)", &active_conn_variant);
+
+            if (!active_conn_variant) {
+                NMLOG_ERROR("ActiveConnection property variant is NULL");
+                g_variant_unref(props_variant);
+                g_object_unref(device_proxy);
+                return false;
+            }
+
             const gchar *active_conn_path_str = g_variant_get_string(active_conn_variant, NULL);
 
             if (active_conn_path_str) {
@@ -162,6 +168,12 @@ namespace WPEFramework
             }
 
             const gchar *connection_path = g_variant_get_string(conn_path_variant, NULL);
+            if (connection_path == NULL) {
+                NMLOG_ERROR("Connection path variant did not contain a valid string");
+                g_variant_unref(conn_path_variant);
+                g_object_unref(active_conn_proxy);
+                return false;
+            }
             NMLOG_DEBUG("Connection settings path: %s", connection_path);
 
             // Create connection proxy using DbusMgr
