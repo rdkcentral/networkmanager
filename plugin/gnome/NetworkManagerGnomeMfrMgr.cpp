@@ -100,7 +100,7 @@ namespace WPEFramework
                 g_variant_unref(state_variant);
 
                 // NM_DEVICE_STATE_ACTIVATED = 100
-                if (device_state != 100) {
+                if (device_state != NM_DEVICE_STATE_ACTIVATED) {
                     NMLOG_WARNING("WiFi device not in activated state (state=%u)", device_state);
                 }
             }
