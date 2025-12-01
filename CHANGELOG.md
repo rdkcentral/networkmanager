@@ -14,6 +14,26 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.9.0] - 2025-11-21
+### Added
+- Added shortterm solution to print the AP Info
+
+## [1.8.0] - 2025-11-14
+### Fixed
+- Removed logging of WiFi PII information
+
+## [1.7.0] - 2025-11-13
+### Fixed
+- Fixed bug MfrMgr Integration
+- Subscribed to WiFi Events even when the device boots with wifi disabled
+- Fixed the WiFi signal monitoring as the reporred RSSI was stale data
+
+## [1.6.0] - 2025-10-31
+### Added
+- Integrated MfrMgr to persist WiFi Credential for DRI & Rollback to RDK-V Backend
+- Implemented proper shutdown sequence for NetworkManager Plugin.
+- Updated GDbus Support with all the latest fixes that went thro libnm backend
+
 ## [1.5.0] - 2025-09-23
 ### Changed
 - Implemented L1/L2 and Part L3 for the plugin
