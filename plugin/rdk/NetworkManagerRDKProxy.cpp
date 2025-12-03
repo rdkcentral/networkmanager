@@ -750,43 +750,50 @@ namespace WPEFramework
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                address.autoconfig     = iarmData.autoconfig;
-                address.dhcpserver     = string(iarmData.dhcpserver);
-                address.ula            = string("");
-                address.ipaddress      = string(iarmData.ipaddress);
-                address.gateway        = string(iarmData.gateway);
-                address.primarydns     = string(iarmData.primarydns);
-                address.secondarydns   = string(iarmData.secondarydns);
-                if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                if(iarmData.errCode == NETWORK_IPADDRESS_ACQUIRED)
                 {
-                    address.ipversion = string ("IPv4");
-                    address.prefix = NetmaskToPrefix(iarmData.netmask);
-                    if("eth0" == interface)
-                        m_ethIPv4Address = address;
-                    else if("wlan0" == interface)
-                        m_wlanIPv4Address = address;
-                }
-                else if (0 == strcasecmp("ipv6", iarmData.ipversion))
-                {
-                    address.ipversion = string ("IPv6");
-                    address.prefix = std::atoi(iarmData.netmask);
-                    if("eth0" == interface)
-                        m_ethIPv6Address = address;
-                    else if("wlan0" == interface)
-                        m_wlanIPv6Address = address;
-                }
+                    address.autoconfig     = iarmData.autoconfig;
+                    address.dhcpserver     = string(iarmData.dhcpserver);
+                    address.ula            = string("");
+                    address.ipaddress      = string(iarmData.ipaddress);
+                    address.gateway        = string(iarmData.gateway);
+                    address.primarydns     = string(iarmData.primarydns);
+                    address.secondarydns   = string(iarmData.secondarydns);
+                    if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv4");
+                        address.prefix = NetmaskToPrefix(iarmData.netmask);
+                        if("eth0" == interface)
+                            m_ethIPv4Address = address;
+                        else if("wlan0" == interface)
+                            m_wlanIPv4Address = address;
+                    }
+                    else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv6");
+                        address.prefix = std::atoi(iarmData.netmask);
+                        if("eth0" == interface)
+                            m_ethIPv6Address = address;
+                        else if("wlan0" == interface)
+                            m_wlanIPv6Address = address;
+                    }
 
-                rc = Core::ERROR_NONE;
-                /* Return the default interface information */
-                if (interface.empty())
+                    rc = Core::ERROR_NONE;
+                    /* Return the default interface information */
+                    if (interface.empty())
+                    {
+                        string tmpInterface = string(iarmData.interface);
+                        if ("ETHERNET" == tmpInterface)
+                            interface = "eth0";
+                        else if ("WIFI" == tmpInterface)
+                            interface = "wlan0";
+                        else
+                            rc = Core::ERROR_BAD_REQUEST;
+                    }
+                }
+                else
                 {
-                    string tmpInterface = string(iarmData.interface);
-                    if ("ETHERNET" == tmpInterface)
-                        interface = "eth0";
-                    else if ("WIFI" == tmpInterface)
-                        interface = "wlan0";
-                    else
-                        rc = Core::ERROR_BAD_REQUEST;
+                    NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - IARM returned errCode = %d, skipping data assignment", iarmData.errCode);
                 }
             }
             else
