@@ -793,12 +793,12 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - IARM returned errCode = %d, skipping data assignment", iarmData.errCode);
+                    NMLOG_WARNING("IP Address is not ready to use yet; err = %d", iarmData.errCode);
                 }
             }
             else
             {
-                NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
+                NMLOG_ERROR("GetIPSettings - Calling IARM Failed");
             }
 
             return rc;
