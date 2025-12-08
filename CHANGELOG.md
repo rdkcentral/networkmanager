@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [0.20.7] - 2025-12-08
+### Fixed
+- Fixed the Router Discovery app crash when AP does not support UPNP
+
 ## [0.20.6] - 2025-11-20
 ### Added
 - Added a Min & Max Noise clamping for the retrived value
