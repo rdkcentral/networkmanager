@@ -49,6 +49,9 @@ class NetworkConnectionStatsInterfaceData
     /* @brief Populate network interface data */
     void populateNetworkData();
 
+    /* @brief Get current active interface name */
+    std::string getInterface();
+
   private:
     NetworkConnectionStatsInterfaceData();
 

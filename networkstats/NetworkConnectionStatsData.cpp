@@ -88,5 +88,13 @@ void NetworkConnectionStatsInterfaceData::populateNetworkData()
     // TODO: Implement network data population logic
 }
 
+/* @brief Get current active interface name */
+std::string NetworkConnectionStatsInterfaceData::getInterface()
+{
+    LOG_INFO("Getting active interface name");
+    // TODO: Implement logic to get active interface name
+    return "wlan0"; // Default interface
+}
+
 } // namespace Plugin
 } // namespace WPEFramework

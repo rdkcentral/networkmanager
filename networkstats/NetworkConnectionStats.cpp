@@ -109,7 +109,7 @@ void NetworkConnectionStats::generateReport()
 #if ENABLE_NETWORK_STATS_MAIN
 
 /* @brief Thread function to invoke all member functions every 10 minutes */
-void networkStatsThread(WPEFramework::Plugin::NetworkConnectionStats* statsManager, const std::string& interface)
+void networkStatsThread(WPEFramework::Plugin::NetworkConnectionStats* statsManager)
 {
     while (true)
     {
@@ -117,6 +117,10 @@ void networkStatsThread(WPEFramework::Plugin::NetworkConnectionStats* statsManag
         
         // Populate network data
         statsManager->populateNetworkData();
+        
+        // Get current interface
+        std::string interface = statsManager->getInterface();
+        LOG_INFO("Active interface: %s", interface.c_str());
         
         // Run all diagnostic checks
         statsManager->connectionTypeCheck();
@@ -149,21 +153,10 @@ void networkStatsThread(WPEFramework::Plugin::NetworkConnectionStats* statsManag
     }
 }
 
-/* @brief Main function to parse command line arguments and initiate class objects */
+/* @brief Main function to initiate class objects */
 int main(int argc, char *argv[])
 {
-    std::string interface = "wlan0"; // Default interface
-    
-    if (argc >= 2) 
-    {
-        interface = argv[1];
-        LOG_INFO("Using interface: %s", interface.c_str());
-    }
-    else
-    {
-        LOG_INFO("Usage: %s <interface name>", argv[0]);
-        LOG_INFO("Using default interface: %s", interface.c_str());
-    }
+    LOG_INFO("Starting NetworkConnectionStats application...");
 
     // Get singleton instance
     WPEFramework::Plugin::NetworkConnectionStats* statsManager = 
@@ -179,12 +172,12 @@ int main(int argc, char *argv[])
     LOG_INFO("Starting network diagnostics thread (runs every 10 minutes)...");
     
     // Create and launch the thread
-    std::thread diagThread(networkStatsThread, statsManager, interface);
+    std::thread diagThread(networkStatsThread, statsManager);
     
     // Wait for the thread to complete (it runs indefinitely)
     diagThread.join();
     
-    LOG_INFO("Program completed");
+    LOG_INFO("Done");
     return 0;
 }
 #endifturn 0;
