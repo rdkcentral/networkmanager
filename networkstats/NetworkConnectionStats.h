@@ -21,68 +21,83 @@
 #define __NETWORKCONNECTIONSTATS_H__
 
 #include "INetworkData.h"
-#include "ThunderProvider.h"
+#include "ThunderJsonRPCProvider.h"
 #include <string>
-#include <glib.h>
-
-<<<<<<< HEAD
+// #include <plugins/plugins.h>  // Commented for standalone compilation
+#include <mutex>
+#if USE_TELEMETRY
+#include <telemetry_busmessage_sender.h>
+#endif
 
 namespace WPEFramework {
-namespace Plugin {
+    namespace Plugin {
+        class NetworkConnectionStats {
+        public:
+            NetworkConnectionStats(const NetworkConnectionStats&) = delete;
 
+            NetworkConnectionStats& operator=(const NetworkConnectionStats&) = delete;  
+            NetworkConnectionStats();
 
-class NetworkConnectionStats : public WPEFramework::Plugin::Service, public NetworkConnectionStatsInterfaceData {
-=======
-class NetworkConnectionStats {
->>>>>>> cf99e2a (Initial Skeleton.)
-public:
-    NetworkConnectionStats(const NetworkConnectionStats&) = delete;
+            virtual ~NetworkConnectionStats();
 
-    NetworkConnectionStats& operator=(const NetworkConnectionStats&) = delete;  
-    NetworkConnectionStats();
+            /* @brief Initialize network connection stats */
+            const std::string Initialize(/* PluginHost::IShell* service */);
+            
+            /* @brief Deinitialize and cleanup resources */
+            void Deinitialize(/* PluginHost::IShell* service */);
 
-    virtual ~NetworkConnectionStats();
+            /* @brief Generate network diagnostics report */
+            void generateReport();
+            
+            /* @brief Generate Periodic reporting diagnostics report */
+            void periodic_reporting();
 
-    /* @brief Generate network diagnostics report */
-    void generateReport();
-    
-<<<<<<< HEAD
-    /* @brief Generate network diagnostics report */
-=======
-    /* @brief Generate Periodic reporting diagnostics report */
->>>>>>> cf99e2a (Initial Skeleton.)
-    void periodic_reporting();
+            /* @brief Get singleton instance of NetworkConnectionStats */
+            static NetworkConnectionStats* getInstance();
 
-protected:
-    /* @brief Get singleton instance of NetworkConnectionStats */
-    static NetworkConnectionStats* getInstance();
+        protected:
 
-    /* @brief Check and validate current connection type */
-    void connectionTypeCheck();
+            /* @brief Check and validate current connection type */
+            void connectionTypeCheck();
 
-    /* @brief Verify IP address configuration */
-    void connectionIpCheck();
+            /* @brief Verify IP address configuration */
+            void connectionIpCheck();
 
-    /* @brief Check default IPv4 route availability */
-    void defaultIpv4RouteCheck();
+            /* @brief Check default IPv4 route availability */
+            void defaultIpv4RouteCheck();
 
-    /* @brief Check default IPv6 route availability */
-    void defaultIpv6RouteCheck();
+            /* @brief Check default IPv6 route availability */
+            void defaultIpv6RouteCheck();
 
-    /* @brief Monitor packet loss to gateway */
-    void gatewayPacketLossCheck();
+            /* @brief Monitor packet loss to gateway */
+            void gatewayPacketLossCheck();
 
-    /* @brief Validate DNS configuration and resolution */
-    void networkDnsCheck();
+            /* @brief Validate DNS configuration and resolution */
+            void networkDnsCheck();
 
-<<<<<<< HEAD
+            /* @brief Telemetry Logging */
+            void logTelemetry(const std::string& eventName, const std::string& message);
 
-=======
->>>>>>> cf99e2a (Initial Skeleton.)
-private:
-    /* @brief Singleton instance pointer */
-    static NetworkConnectionStats* m_instance;
-    INetworkData* iprovider;
-};
+    private:
+        /* @brief Singleton instance pointer */
+        static NetworkConnectionStats* m_instance;
+        /* @brief Mutex for thread-safe singleton initialization */
+        static std::mutex m_instance_mutex;
+        INetworkData* iprovider;
+        // PluginHost::IShell* m_service;  // Commented for standalone compilation
+        
+        /* @brief Cached network data */
+        std::string m_interface;
+        std::string m_ipv4Address;
+        std::string m_ipv6Address;
+
+        std::string m_ipv4Route;
+        std::string m_ipv6Route;
+        
+        std::string m_ipv4Dns;
+        std::string m_ipv6Dns;
+        };
+    } // namespace Plugin
+} // namespace WPEFramework
 
 #endif /* __NETWORKCONNECTIONSTATS_H__ */
