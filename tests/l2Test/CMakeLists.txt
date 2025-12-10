@@ -20,7 +20,6 @@ cmake_minimum_required(VERSION 3.3)
 message ("building Networkmanager plugin l2 tests")
 
 find_package(CURL)
-find_package(WPEFramework)
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)

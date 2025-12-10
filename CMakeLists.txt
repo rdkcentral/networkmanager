@@ -19,7 +19,21 @@
 cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
-find_package(WPEFramework)
+
+# Try WPEFramework first
+find_package(WPEFramework QUIET CONFIG)
+
+# If WPEFramework isn't found, try Thunder
+if (NOT WPEFramework_FOUND)
+    find_package(Thunder QUIET CONFIG)
+endif()
+
+# Error out if neither is found
+if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
+    message(FATAL_ERROR
+        "Neither WPEFramework nor Thunder could be found.\n"
+        "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 1)
