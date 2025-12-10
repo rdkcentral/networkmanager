@@ -20,17 +20,21 @@
 #ifndef __NETWORKCONNECTIONSTATS_H__
 #define __NETWORKCONNECTIONSTATS_H__
 
-#include <WPEFramework/core/core.h>
-#include <WPEFramework/plugins/Service.h>
-#include <string.h>
+#include "INetworkData.h"
+#include "ThunderProvider.h"
+#include <string>
 #include <glib.h>
 
+<<<<<<< HEAD
 
 namespace WPEFramework {
 namespace Plugin {
 
 
 class NetworkConnectionStats : public WPEFramework::Plugin::Service, public NetworkConnectionStatsInterfaceData {
+=======
+class NetworkConnectionStats {
+>>>>>>> cf99e2a (Initial Skeleton.)
 public:
     NetworkConnectionStats(const NetworkConnectionStats&) = delete;
 
@@ -42,7 +46,11 @@ public:
     /* @brief Generate network diagnostics report */
     void generateReport();
     
+<<<<<<< HEAD
     /* @brief Generate network diagnostics report */
+=======
+    /* @brief Generate Periodic reporting diagnostics report */
+>>>>>>> cf99e2a (Initial Skeleton.)
     void periodic_reporting();
 
 protected:
@@ -67,15 +75,14 @@ protected:
     /* @brief Validate DNS configuration and resolution */
     void networkDnsCheck();
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> cf99e2a (Initial Skeleton.)
 private:
     /* @brief Singleton instance pointer */
     static NetworkConnectionStats* m_instance;
     INetworkData* iprovider;
 };
-
-} // namespace Plugin
-} // namespace WPEFramework 
-
 
 #endif /* __NETWORKCONNECTIONSTATS_H__ */

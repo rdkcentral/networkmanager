@@ -17,18 +17,18 @@
 * limitations under the License.
 **/
 
-#ifndef __NETWORKCONNECTIONSTATS_H__
-#define __NETWORKCONNECTIONSTATS_H__
+#ifndef __THUNDERPROVIDER_H__
+#define __THUNDERPROVIDER_H__
 
-#include <string.h>
+#include "INetworkData.h"
+#include <string>
 
 
-class ThunderProvider: public INetworkData
+class NetworkThunderProvider : public INetworkData
 {
   public:
-    NetworkConnectionStatsInterfaceData();
-    ~NetworkConnectionStatsInterfaceData();
-
+    NetworkThunderProvider();
+    ~NetworkThunderProvider();
     /* @brief Retrieve IPv4 address for specified interface */
     std::string getIpv4Address(std::string interface_name);
 
@@ -49,5 +49,4 @@ class ThunderProvider: public INetworkData
 
 };
 
-
-#endif /* __NETWORKCONNECTIONSTATS_H__ */
+#endif /* __THUNDERPROVIDER_H__ */

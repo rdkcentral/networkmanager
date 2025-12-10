@@ -26,18 +26,16 @@
 #define LOG_ERR(msg, ...)    g_printerr("ERROR: " msg "\n", ##__VA_ARGS__)
 #define LOG_INFO(msg, ...)   g_print("INFO: " msg "\n", ##__VA_ARGS__)
 
-namespace WPEFramework {
-namespace Plugin {
 
 /* @brief Singleton instance pointer */
 NetworkConnectionStats* NetworkConnectionStats::m_instance = nullptr;
 
 /* @brief Constructor */
-NetworkConnectionStats::NetworkConnectionStats():iprovider(NULL)
+NetworkConnectionStats::NetworkConnectionStats() : iprovider(nullptr)
 {
     LOG_INFO("NetworkConnectionStats constructor");
     // TODO: Initialize member variables
-    iprovider = new ThunderDataProvider();
+    iprovider = new NetworkThunderProvider();
     
 }
 
@@ -106,54 +104,32 @@ void NetworkConnectionStats::generateReport()
     LOG_INFO("Generating network diagnostics report");
     // TODO: Implement report generation logic
 }
-} // namespace WPEFramework
 
-#if ENABLE_NETWORK_STATS_MAIN
-
-/* @brief Thread function to invoke all member functions every 10 minutes */
-void networkStatsThread(WPEFramework::Plugin::NetworkConnectionStats* statsManager)
+/* @brief Generate Periodic reporting diagnostics report */
+void NetworkConnectionStats::periodic_reporting()
 {
-    while (true)
-    {
-        LOG_INFO("Starting network diagnostics cycle...");
-        
-        // Populate network data
-        statsManager->populateNetworkData();
-        
-        // Get current interface
-        std::string interface = statsManager->getInterface();
-        LOG_INFO("Active interface: %s", interface.c_str());
-        
-        // Run all diagnostic checks
-        statsManager->connectionTypeCheck();
-        statsManager->connectionIpCheck();
-        statsManager->defaultIpv4RouteCheck();
-        statsManager->defaultIpv6RouteCheck();
-        statsManager->gatewayPacketLossCheck();
-        statsManager->networkDnsCheck();
-        
-        // Get interface information
-        std::string ipv4 = statsManager->getIpv4Address(interface);
-        LOG_INFO("IPv4 Address for %s: %s", interface.c_str(), ipv4.c_str());
-        
-        std::string ipv6 = statsManager->getIpv6Address(interface);
-        LOG_INFO("IPv6 Address for %s: %s", interface.c_str(), ipv6.c_str());
-        
-        std::string connType = statsManager->getConnectionType();
-        LOG_INFO("Connection Type: %s", connType.c_str());
-        
-        std::string dnsEntries = statsManager->getDnsEntries();
-        LOG_INFO("DNS Entries: %s", dnsEntries.c_str());
-        
-        // Generate report
-        statsManager->generateReport();
-        
-        LOG_INFO("Network diagnostics cycle completed. Sleeping for 10 minutes...");
-        
-        // Sleep for 10 minutes (600 seconds)
-        std::this_thread::sleep_for(std::chrono::minutes(10));
-    }
+    LOG_INFO("Starting periodic reporting thread...");
+    
+    // Create thread that runs every 10 minutes
+    std::thread reportingThread([this]() {
+        while (true)
+        {
+            LOG_INFO("Running periodic network diagnostics report...");
+            
+            // Generate report
+            this->generateReport();
+            
+            LOG_INFO("Periodic report completed. Sleeping for 10 minutes...");
+            
+            // Sleep for 10 minutes (600 seconds)
+            std::this_thread::sleep_for(std::chrono::minutes(10));
+        }
+    });
+    
+    // Detach thread to run independently
+    reportingThread.detach();
 }
+
 
 /* @brief Main function to initiate class objects */
 int main(int argc, char *argv[])
@@ -161,8 +137,7 @@ int main(int argc, char *argv[])
     LOG_INFO("Starting NetworkConnectionStats application...");
 
     // Get singleton instance
-    WPEFramework::Plugin::NetworkConnectionStats* statsManager = 
-        WPEFramework::Plugin::NetworkConnectionStats::getInstance();
+    NetworkConnectionStats* statsManager = NetworkConnectionStats::getInstance();
     
     if (statsManager == nullptr)
     {
@@ -171,17 +146,17 @@ int main(int argc, char *argv[])
     }
 
     LOG_INFO("NetworkConnectionStats instance created successfully");
-    LOG_INFO("Starting network diagnostics thread (runs every 10 minutes)...");
     
-    // Create and launch the thread
-    std::thread diagThread(networkStatsThread, statsManager);
+    // Start periodic reporting (runs every 10 minutes)
+    statsManager->periodic_reporting();
     
-    // Wait for the thread to complete (it runs indefinitely)
-    diagThread.join();
+    LOG_INFO("Periodic reporting thread started. Main thread will keep running...");
     
-    LOG_INFO("Done");
+    // Keep main thread alive
+    while (true)
+    {
+        std::this_thread::sleep_for(std::chrono::hours(1));
+    }
+    
     return 0;
 }
-#endifturn 0;
-}
-#endif

@@ -17,39 +17,63 @@
 * limitations under the License.
 **/
 
-#ifndef __NETWORKCONNECTIONSTATS_H__
-#define __NETWORKCONNECTIONSTATS_H__
-
 #include <jsonrpccpp/client.h>
 #include <jsonrpccpp/client/connectors/httpclient.h>
-#include <string.h>
+#include "ThunderProvider.h"
+#include <iostream>
 
-
-class ThunderProvider: public INetworkData
+/* @brief Constructor */
+NetworkThunderProvider::NetworkThunderProvider()
 {
-  public:
-    NetworkConnectionStatsInterfaceData();
-    ~NetworkConnectionStatsInterfaceData();
+    // TODO: Initialize Thunder connection
+}
 
-    /* @brief Retrieve IPv4 address for specified interface */
-    std::string getIpv4Address(std::string interface_name);
+/* @brief Destructor */
+NetworkThunderProvider::~NetworkThunderProvider()
+{
+    // TODO: Cleanup resources
+}
 
-    /* @brief Retrieve IPv6 address for specified interface */
-    std::string getIpv6Address(std::string interface_name);
+/* @brief Retrieve IPv4 address for specified interface */
+std::string NetworkThunderProvider::getIpv4Address(std::string interface_name)
+{
+    // TODO: Implement IPv4 address retrieval
+    return "";
+}
 
-    /* @brief Get current network connection type */
-    std::string getConnectionType();
+/* @brief Retrieve IPv6 address for specified interface */
+std::string NetworkThunderProvider::getIpv6Address(std::string interface_name)
+{
+    // TODO: Implement IPv6 address retrieval
+    return "";
+}
 
-    /* @brief Get DNS server entries */
-    std::string getDnsEntries();
+/* @brief Get current network connection type */
+std::string NetworkThunderProvider::getConnectionType()
+{
+    // TODO: Implement connection type retrieval
+    return "";
+}
 
-    /* @brief Populate network interface data */
-    void populateNetworkData();
+/* @brief Get DNS server entries */
+std::string NetworkThunderProvider::getDnsEntries()
+{
+    // TODO: Implement DNS entries retrieval
+    return "";
+}
 
-    /* @brief Get current active interface name */
-    std::string getInterface();
+/* @brief Populate network interface data */
+void NetworkThunderProvider::populateNetworkData()
+{
+    // TODO: Implement network data population
+}
 
-};
+/* @brief Get current active interface name */
+std::string NetworkThunderProvider::getInterface()
+{
+    // TODO: Implement interface name retrieval
+    return "";
+}
 
 
-#endif /* __NETWORKCONNECTIONSTATS_H__ */
+

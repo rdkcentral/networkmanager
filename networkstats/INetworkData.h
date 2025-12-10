@@ -17,39 +17,38 @@
 * limitations under the License.
 **/
 
-#ifndef __NETWORKCONNECTIONSTATS_H__
-#define __NETWORKCONNECTIONSTATS_H__
+#ifndef __INETWORKDATA_H__
+#define __INETWORKDATA_H__
 
-#include <string.h>
-
+#include <string>
 
 class INetworkData
 {
   public:
-    ~NetworkConnectionStatsInterfaceData();
+    virtual ~INetworkData() {}
 
     /* @brief Retrieve IPv4 address for specified interface */
-    std::string getIpv4Address(std::string interface_name) =0;
+    virtual std::string getIpv4Address(std::string interface_name) = 0;
 
     /* @brief Retrieve IPv6 address for specified interface */
-    std::string getIpv6Address(std::string interface_name) =0;
+    virtual std::string getIpv6Address(std::string interface_name) = 0;
 
     /* @brief Get current network connection type */
-    std::string getConnectionType() =0;
+    virtual std::string getConnectionType() = 0;
 
     /* @brief Get DNS server entries */
-    std::string getDnsEntries() =0;
+    virtual std::string getDnsEntries() = 0;
 
     /* @brief Populate network interface data */
-    void populateNetworkData() =0;
+    virtual void populateNetworkData() = 0;
 
     /* @brief Get current active interface name */
-    std::string getInterface() =0;
+    virtual std::string getInterface() = 0;
 
-  private:
-    NetworkConnectionStatsInterfaceData();
+  protected:
+    INetworkData() {}
 
 };
 
 
-#endif /* __NETWORKCONNECTIONSTATS_H__ */
+#endif /* __INETWORKDATA_H__ */
