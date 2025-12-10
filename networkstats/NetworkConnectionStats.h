@@ -17,72 +17,73 @@
 * limitations under the License.
 **/
 
-#ifndef __NETWORKCONNECTIONSTATS_H__
-#define __NETWORKCONNECTIONSTATS_H__
+#pragma once
 
-#include "INetworkData.h"
-#include "ThunderProvider.h"
-#include <string>
-#include <glib.h>
-
-<<<<<<< HEAD
+#include "Module.h"
+#include "INetworkConnectionStats.h"
+#include <interfaces/IConfiguration.h>
 
 namespace WPEFramework {
-namespace Plugin {
+    namespace Plugin {
+        // Internal-only plugin - no external APIs exposed
+        class NetworkConnectionStats : public PluginHost::IPlugin {
+        private:
+            class Notification : public RPC::IRemoteConnection::INotification {
+            private:
+                Notification() = delete;
+                Notification(const Notification&) = delete;
+                Notification& operator=(const Notification&) = delete;
 
+            public:
+                explicit Notification(NetworkConnectionStats* parent) 
+                    : _parent(*parent) {
+                    ASSERT(parent != nullptr);
+                }
 
-class NetworkConnectionStats : public WPEFramework::Plugin::Service, public NetworkConnectionStatsInterfaceData {
-=======
-class NetworkConnectionStats {
->>>>>>> cf99e2a (Initial Skeleton.)
-public:
-    NetworkConnectionStats(const NetworkConnectionStats&) = delete;
+                virtual ~Notification() {}
 
-    NetworkConnectionStats& operator=(const NetworkConnectionStats&) = delete;  
-    NetworkConnectionStats();
+                BEGIN_INTERFACE_MAP(Notification)
+                INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)
+                END_INTERFACE_MAP
 
-    virtual ~NetworkConnectionStats();
+                void Activated(RPC::IRemoteConnection*) override {
+                    TRACE(Trace::Information, (_T("NetworkConnectionStats Activated")));
+                }
 
-    /* @brief Generate network diagnostics report */
-    void generateReport();
-    
-<<<<<<< HEAD
-    /* @brief Generate network diagnostics report */
-=======
-    /* @brief Generate Periodic reporting diagnostics report */
->>>>>>> cf99e2a (Initial Skeleton.)
-    void periodic_reporting();
+                void Deactivated(RPC::IRemoteConnection* connection) override {
+                    TRACE(Trace::Information, (_T("NetworkConnectionStats Deactivated")));
+                    _parent.Deactivated(connection);
+                }
 
-protected:
-    /* @brief Get singleton instance of NetworkConnectionStats */
-    static NetworkConnectionStats* getInstance();
+            private:
+                NetworkConnectionStats& _parent;
+            };
 
-    /* @brief Check and validate current connection type */
-    void connectionTypeCheck();
+        public:
+            NetworkConnectionStats(const NetworkConnectionStats&) = delete;
+            NetworkConnectionStats& operator=(const NetworkConnectionStats&) = delete;  
+            NetworkConnectionStats();
+            virtual ~NetworkConnectionStats();
 
-    /* @brief Verify IP address configuration */
-    void connectionIpCheck();
+            BEGIN_INTERFACE_MAP(NetworkConnectionStats)
+            INTERFACE_ENTRY(PluginHost::IPlugin)
+            INTERFACE_AGGREGATE(Exchange::INetworkConnectionStats, _networkStats)
+            END_INTERFACE_MAP
 
-    /* @brief Check default IPv4 route availability */
-    void defaultIpv4RouteCheck();
+            // IPlugin methods
+            const string Initialize(PluginHost::IShell* service) override;
+            void Deinitialize(PluginHost::IShell* service) override;
+            string Information() const override;
 
-    /* @brief Check default IPv6 route availability */
-    void defaultIpv6RouteCheck();
+        private:
+            void Deactivated(RPC::IRemoteConnection* connection);
 
-    /* @brief Monitor packet loss to gateway */
-    void gatewayPacketLossCheck();
-
-    /* @brief Validate DNS configuration and resolution */
-    void networkDnsCheck();
-
-<<<<<<< HEAD
-
-=======
->>>>>>> cf99e2a (Initial Skeleton.)
-private:
-    /* @brief Singleton instance pointer */
-    static NetworkConnectionStats* m_instance;
-    INetworkData* iprovider;
-};
-
-#endif /* __NETWORKCONNECTIONSTATS_H__ */
+        private:
+            PluginHost::IShell* _service{};
+            uint32_t _connectionId{};
+            Exchange::INetworkConnectionStats* _networkStats{};
+            Core::Sink<Notification> _notification;
+            Exchange::IConfiguration* _configure{};
+        };
+    } // namespace Plugin
+} // namespace WPEFramework

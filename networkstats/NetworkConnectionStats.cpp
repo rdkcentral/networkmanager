@@ -18,145 +18,137 @@
 **/
 
 #include "NetworkConnectionStats.h"
-#include <iostream>
-#include <cstring>
-#include <thread>
-#include <chrono>
 
-#define LOG_ERR(msg, ...)    g_printerr("ERROR: " msg "\n", ##__VA_ARGS__)
-#define LOG_INFO(msg, ...)   g_print("INFO: " msg "\n", ##__VA_ARGS__)
+#define API_VERSION_NUMBER_MAJOR 1
+#define API_VERSION_NUMBER_MINOR 0
+#define API_VERSION_NUMBER_PATCH 0
 
+namespace WPEFramework {
 
-/* @brief Singleton instance pointer */
-NetworkConnectionStats* NetworkConnectionStats::m_instance = nullptr;
-
-/* @brief Constructor */
-NetworkConnectionStats::NetworkConnectionStats() : iprovider(nullptr)
-{
-    LOG_INFO("NetworkConnectionStats constructor");
-    // TODO: Initialize member variables
-    iprovider = new NetworkThunderProvider();
-    
-}
-
-/* @brief Destructor */
-NetworkConnectionStats::~NetworkConnectionStats()
-{
-    LOG_INFO("NetworkConnectionStats destructor");
-    // TODO: Cleanup resources
-}
-
-/* @brief Get singleton instance of NetworkConnectionStats */
-NetworkConnectionStats* NetworkConnectionStats::getInstance()
-{
-    if (m_instance == nullptr)
-    {
-        m_instance = new NetworkConnectionStats();
+    namespace {
+        static Plugin::Metadata<Plugin::NetworkConnectionStats> metadata(
+            // Version (Major, Minor, Patch)
+            API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
+            // Preconditions
+            { PluginHost::ISubSystem::PLATFORM },
+            // Terminations
+            {},
+            // Controls
+            {}
+        );
     }
-    return m_instance;
-}
 
-/* @brief Check and validate current connection type */
-void NetworkConnectionStats::connectionTypeCheck()
-{
-    LOG_INFO("Checking connection type");
-    // TODO: Implement connection type check logic
-}
+    namespace Plugin {
 
-/* @brief Verify IP address configuration */
-void NetworkConnectionStats::connectionIpCheck()
-{
-    LOG_INFO("Checking connection IP");
-    // TODO: Implement IP address verification logic
-}
+    /*
+     * Register NetworkConnectionStats module as WPEFramework plugin
+     * This plugin runs internally without exposing external APIs
+     */
+    SERVICE_REGISTRATION(NetworkConnectionStats, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);
 
-/* @brief Check default IPv4 route availability */
-void NetworkConnectionStats::defaultIpv4RouteCheck()
-{
-    LOG_INFO("Checking default IPv4 route");
-    // TODO: Implement IPv4 route check logic
-}
+    NetworkConnectionStats::NetworkConnectionStats() 
+        : _service(nullptr)
+        , _connectionId(0)
+        , _networkStats(nullptr)
+        , _notification(this)
+        , _configure(nullptr)
+    {
+        TRACE(Trace::Information, (_T("NetworkConnectionStats Constructor")));
+    }
 
-/* @brief Check default IPv6 route availability */
-void NetworkConnectionStats::defaultIpv6RouteCheck()
-{
-    LOG_INFO("Checking default IPv6 route");
-    // TODO: Implement IPv6 route check logic
-}
+    NetworkConnectionStats::~NetworkConnectionStats()
+    {
+        TRACE(Trace::Information, (_T("NetworkConnectionStats Destructor")));
+    }
 
-/* @brief Monitor packet loss to gateway */
-void NetworkConnectionStats::gatewayPacketLossCheck()
-{
-    LOG_INFO("Checking gateway packet loss");
-    // TODO: Implement packet loss monitoring logic
-}
+    const string NetworkConnectionStats::Initialize(PluginHost::IShell* service)
+    {
+        string message;
 
-/* @brief Validate DNS configuration and resolution */
-void NetworkConnectionStats::networkDnsCheck()
-{
-    LOG_INFO("Checking network DNS");
-    // TODO: Implement DNS validation logic
-}
+        ASSERT(nullptr != service);
+        ASSERT(nullptr == _service);
+        ASSERT(nullptr == _networkStats);
+        ASSERT(0 == _connectionId);
 
-/* @brief Generate network diagnostics report */
-void NetworkConnectionStats::generateReport()
-{
-    LOG_INFO("Generating network diagnostics report");
-    // TODO: Implement report generation logic
-}
+        TRACE(Trace::Information, (_T("NetworkConnectionStats::Initialize: PID=%u"), getpid()));
 
-/* @brief Generate Periodic reporting diagnostics report */
-void NetworkConnectionStats::periodic_reporting()
-{
-    LOG_INFO("Starting periodic reporting thread...");
-    
-    // Create thread that runs every 10 minutes
-    std::thread reportingThread([this]() {
-        while (true)
-        {
-            LOG_INFO("Running periodic network diagnostics report...");
-            
-            // Generate report
-            this->generateReport();
-            
-            LOG_INFO("Periodic report completed. Sleeping for 10 minutes...");
-            
-            // Sleep for 10 minutes (600 seconds)
-            std::this_thread::sleep_for(std::chrono::minutes(10));
+        _service = service;
+        _service->AddRef();
+        _service->Register(&_notification);
+        
+        // Spawn out-of-process implementation
+        _networkStats = _service->Root<Exchange::INetworkConnectionStats>(_connectionId, 5000, _T("NetworkConnectionStatsImplementation"));
+
+        if (nullptr != _networkStats) {
+            _configure = _networkStats->QueryInterface<Exchange::IConfiguration>();
+            if (_configure != nullptr) {
+                uint32_t result = _configure->Configure(_service);
+                if (result != Core::ERROR_NONE) {
+                    message = _T("NetworkConnectionStats could not be configured");
+                    TRACE(Trace::Error, (_T("Configuration failed")));
+                } else {
+                    TRACE(Trace::Information, (_T("NetworkConnectionStats configured successfully - running in background")));
+                }
+            } else {
+                message = _T("NetworkConnectionStats implementation did not provide a configuration interface");
+                TRACE(Trace::Error, (_T("No configuration interface")));
+            }
+        } else {
+            TRACE(Trace::Error, (_T("NetworkConnectionStats::Initialize: Failed to initialise plugin")));
+            message = _T("NetworkConnectionStats plugin could not be initialised");
         }
-    });
-    
-    // Detach thread to run independently
-    reportingThread.detach();
-}
-
-
-/* @brief Main function to initiate class objects */
-int main(int argc, char *argv[])
-{
-    LOG_INFO("Starting NetworkConnectionStats application...");
-
-    // Get singleton instance
-    NetworkConnectionStats* statsManager = NetworkConnectionStats::getInstance();
-    
-    if (statsManager == nullptr)
-    {
-        LOG_ERR("Failed to create NetworkConnectionStats instance");
-        return -1;
+        
+        return message;
     }
 
-    LOG_INFO("NetworkConnectionStats instance created successfully");
-    
-    // Start periodic reporting (runs every 10 minutes)
-    statsManager->periodic_reporting();
-    
-    LOG_INFO("Periodic reporting thread started. Main thread will keep running...");
-    
-    // Keep main thread alive
-    while (true)
+    void NetworkConnectionStats::Deinitialize(PluginHost::IShell* service)
     {
-        std::this_thread::sleep_for(std::chrono::hours(1));
+        ASSERT(_service == service);
+
+        TRACE(Trace::Information, (_T("NetworkConnectionStats::Deinitialize")));
+
+        // Unregister from notifications
+        _service->Unregister(&_notification);
+
+        if (nullptr != _networkStats) {
+            if (_configure != nullptr) {
+                _configure->Release();
+                _configure = nullptr;
+            }
+
+            // Stop out-of-process implementation
+            RPC::IRemoteConnection* connection = service->RemoteConnection(_connectionId);
+            VARIABLE_IS_NOT_USED uint32_t result = _networkStats->Release();
+
+            _networkStats = nullptr;
+
+            ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);
+
+            if (nullptr != connection) {
+                connection->Terminate();
+                connection->Release();
+            }
+        }
+
+        _connectionId = 0;
+        _service->Release();
+        _service = nullptr;
+        TRACE(Trace::Information, (_T("NetworkConnectionStats de-initialised")));
     }
-    
-    return 0;
-}
+
+    string NetworkConnectionStats::Information() const
+    {
+        return ("Internal network diagnostics and monitoring plugin - no external APIs");
+    }
+
+    void NetworkConnectionStats::Deactivated(RPC::IRemoteConnection* connection)
+    {
+        if (connection->Id() == _connectionId) {
+            ASSERT(nullptr != _service);
+            Core::IWorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, 
+                PluginHost::IShell::DEACTIVATED, PluginHost::IShell::FAILURE));
+        }
+    }
+
+} // namespace Plugin
+} // namespace WPEFramework

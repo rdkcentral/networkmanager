@@ -1,0 +1,12 @@
+callsign = "org.rdk.NetworkConnectionStats"
+startuporder = "@PLUGIN_NETWORKCONNECTIONSTATS_STARTUPORDER@"
+autostart = "true"
+precondition = ["Platform"]
+
+process = JSON()
+process.add("outofprocess", "true")
+process.add("locator", "libWPEFrameworkNetworkConnectionStatsImplementation.so")
+
+configuration = JSON()
+configuration.add("root", process)
+configuration.add("reportingInterval", "@PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL@")

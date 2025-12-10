@@ -1,0 +1,251 @@
+{
+  "$schema": "interface.schema.json",
+  "jsonrpc": "2.0",
+  "info": {
+    "title": "NetworkConnectionStats API",
+    "class": "NetworkConnectionStats",
+    "description": "NetworkConnectionStats plugin for network diagnostics and monitoring"
+  },
+  "definitions": {
+    "pingresult": {
+      "type": "object",
+      "properties": {
+        "packetLoss": {
+          "type": "string",
+          "description": "Packet loss percentage"
+        },
+        "avgRtt": {
+          "type": "string",
+          "description": "Average round-trip time in milliseconds"
+        }
+      },
+      "required": ["packetLoss", "avgRtt"]
+    }
+  },
+  "methods": {
+    "generateReport": {
+      "summary": "Generate network diagnostics report",
+      "description": "Triggers a full network diagnostic scan including connection type, IP configuration, routes, and DNS",
+      "result": {
+        "$ref": "#/definitions/result"
+      }
+    },
+    "getConnectionType": {
+      "summary": "Get current connection type",
+      "description": "Returns whether the device is using Ethernet or WiFi",
+      "result": {
+        "type": "object",
+        "properties": {
+          "connectionType": {
+            "type": "string",
+            "description": "Connection type (Ethernet/WiFi)",
+            "example": "Ethernet"
+          }
+        },
+        "required": ["connectionType"]
+      }
+    },
+    "getIpv4Address": {
+      "summary": "Get IPv4 address for interface",
+      "params": {
+        "type": "object",
+        "properties": {
+          "interface": {
+            "type": "string",
+            "description": "Network interface name",
+            "example": "eth0"
+          }
+        },
+        "required": ["interface"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ipv4Address": {
+            "type": "string",
+            "description": "IPv4 address",
+            "example": "192.168.1.100"
+          }
+        },
+        "required": ["ipv4Address"]
+      }
+    },
+    "getIpv6Address": {
+      "summary": "Get IPv6 address for interface",
+      "params": {
+        "type": "object",
+        "properties": {
+          "interface": {
+            "type": "string",
+            "description": "Network interface name",
+            "example": "eth0"
+          }
+        },
+        "required": ["interface"]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ipv6Address": {
+            "type": "string",
+            "description": "IPv6 address",
+            "example": "fe80::1"
+          }
+        },
+        "required": ["ipv6Address"]
+      }
+    },
+    "getIpv4Gateway": {
+      "summary": "Get IPv4 gateway address",
+      "result": {
+        "type": "object",
+        "properties": {
+          "gateway": {
+            "type": "string",
+            "description": "IPv4 gateway address",
+            "example": "192.168.1.1"
+          }
+        },
+        "required": ["gateway"]
+      }
+    },
+    "getIpv6Gateway": {
+      "summary": "Get IPv6 gateway address",
+      "result": {
+        "type": "object",
+        "properties": {
+          "gateway": {
+            "type": "string",
+            "description": "IPv6 gateway address",
+            "example": "fe80::1"
+          }
+        },
+        "required": ["gateway"]
+      }
+    },
+    "getIpv4Dns": {
+      "summary": "Get IPv4 DNS server",
+      "result": {
+        "type": "object",
+        "properties": {
+          "dns": {
+            "type": "string",
+            "description": "IPv4 DNS server address",
+            "example": "8.8.8.8"
+          }
+        },
+        "required": ["dns"]
+      }
+    },
+    "getIpv6Dns": {
+      "summary": "Get IPv6 DNS server",
+      "result": {
+        "type": "object",
+        "properties": {
+          "dns": {
+            "type": "string",
+            "description": "IPv6 DNS server address",
+            "example": "2001:4860:4860::8888"
+          }
+        },
+        "required": ["dns"]
+      }
+    },
+    "getInterface": {
+      "summary": "Get current active interface name",
+      "result": {
+        "type": "object",
+        "properties": {
+          "interface": {
+            "type": "string",
+            "description": "Active network interface name",
+            "example": "eth0"
+          }
+        },
+        "required": ["interface"]
+      }
+    },
+    "pingGateway": {
+      "summary": "Ping gateway to check connectivity",
+      "params": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "description": "Gateway IP address to ping",
+            "example": "192.168.1.1"
+          },
+          "ipversion": {
+            "type": "string",
+            "description": "IP version (IPv4 or IPv6)",
+            "example": "IPv4"
+          },
+          "count": {
+            "type": "number",
+            "description": "Number of ping packets to send",
+            "example": 5
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Timeout in seconds",
+            "example": 30
+          }
+        },
+        "required": ["endpoint", "ipversion", "count", "timeout"]
+      },
+      "result": {
+        "$ref": "#/definitions/pingresult"
+      }
+    },
+    "setPeriodicReporting": {
+      "summary": "Enable or disable periodic reporting",
+      "params": {
+        "type": "object",
+        "properties": {
+          "enable": {
+            "type": "boolean",
+            "description": "Enable (true) or disable (false) periodic reporting",
+            "example": true
+          }
+        },
+        "required": ["enable"]
+      },
+      "result": {
+        "$ref": "#/definitions/result"
+      }
+    },
+    "setReportingInterval": {
+      "summary": "Set periodic reporting interval",
+      "params": {
+        "type": "object",
+        "properties": {
+          "intervalMinutes": {
+            "type": "number",
+            "description": "Reporting interval in minutes",
+            "example": 10
+          }
+        },
+        "required": ["intervalMinutes"]
+      },
+      "result": {
+        "$ref": "#/definitions/result"
+      }
+    }
+  },
+  "events": {
+    "onReportGenerated": {
+      "summary": "Notification when a network report is generated",
+      "params": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Report generation status message",
+            "example": "Report generated successfully"
+          }
+        },
+        "required": ["status"]
+      }
+    }
+  }
+}
