@@ -29,39 +29,6 @@
 namespace WPEFramework {
 namespace Plugin {
 
-class NetworkConnectionStatsInterfaceData
-{
-  public:
-    ~NetworkConnectionStatsInterfaceData();
-
-    /* @brief Retrieve IPv4 address for specified interface */
-    std::string getIpv4Address(std::string interface_name);
-
-    /* @brief Retrieve IPv6 address for specified interface */
-    std::string getIpv6Address(std::string interface_name);
-
-    /* @brief Get current network connection type */
-    std::string getConnectionType();
-
-    /* @brief Get DNS server entries */
-    std::string getDnsEntries();
-
-    /* @brief Populate network interface data */
-    void populateNetworkData();
-
-    /* @brief Get current active interface name */
-    std::string getInterface();
-
-  private:
-    NetworkConnectionStatsInterfaceData();
-
-    /* @brief Handle for JSON-RPC communication */
-    WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>* controller = nullptr;
-
-    /* @brief Handle for NetworkManager events */
-    WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>* networkManager = nullptr;
-
-};
 
 class NetworkConnectionStats : public WPEFramework::Plugin::Service, public NetworkConnectionStatsInterfaceData {
 public:
@@ -71,7 +38,14 @@ public:
     NetworkConnectionStats();
 
     virtual ~NetworkConnectionStats();
+
+    /* @brief Generate network diagnostics report */
+    void generateReport();
     
+    /* @brief Generate network diagnostics report */
+    void periodic_reporting();
+
+protected:
     /* @brief Get singleton instance of NetworkConnectionStats */
     static NetworkConnectionStats* getInstance();
 
@@ -93,12 +67,11 @@ public:
     /* @brief Validate DNS configuration and resolution */
     void networkDnsCheck();
 
-    /* @brief Generate network diagnostics report */
-    void generateReport();
 
 private:
     /* @brief Singleton instance pointer */
     static NetworkConnectionStats* m_instance;
+    INetworkData* iprovider;
 };
 
 } // namespace Plugin

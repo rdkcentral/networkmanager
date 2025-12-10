@@ -33,10 +33,12 @@ namespace Plugin {
 NetworkConnectionStats* NetworkConnectionStats::m_instance = nullptr;
 
 /* @brief Constructor */
-NetworkConnectionStats::NetworkConnectionStats()
+NetworkConnectionStats::NetworkConnectionStats():iprovider(NULL)
 {
     LOG_INFO("NetworkConnectionStats constructor");
     // TODO: Initialize member variables
+    iprovider = new ThunderDataProvider();
+    
 }
 
 /* @brief Destructor */
