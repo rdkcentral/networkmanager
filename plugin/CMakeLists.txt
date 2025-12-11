@@ -56,7 +56,7 @@ add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
-# Build the main plugin that runs inside the WPEFramework daemon
+# Build the main plugin that runs inside the daemon
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
