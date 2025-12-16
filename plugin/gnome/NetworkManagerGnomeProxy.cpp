@@ -532,7 +532,7 @@ namespace WPEFramework
             if(ipConfig)
             {
                 const char* ipConfMethod = nm_setting_ip_config_get_method (ipConfig);
-                if(ipConfMethod != NULL && g_strcmp0(ipConfMethod, "auto") == 0)
+                if(ipConfMethod != NULL && (g_strcmp0(ipConfMethod, "auto") = 0 || g_strcmp0(ipConfMethod, "disabled") = 0))
                     return true;
                 else
                     NMLOG_WARNING("ip configuration: %s", ipConfMethod != NULL? ipConfMethod: "null");
