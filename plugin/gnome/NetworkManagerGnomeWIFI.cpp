@@ -715,9 +715,35 @@ namespace WPEFramework
             devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL || devConnections->len == 0)
             {
-                NMLOG_ERROR("No connections found !");
-                deleteClientConnection();
-                return false;
+                NMLOG_WARNING("No connections found");
+                // For ethernet, use nmcli command directly
+                if(iface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Using nmcli dev connect for ethernet");
+                    std::string cmd = "nmcli dev connect " + iface;
+                    FILE* pipe = popen(cmd.c_str(), "r");
+                    if(pipe)
+                    {
+                        char buffer[256];
+                        std::string result;
+                        while(fgets(buffer, sizeof(buffer), pipe) != NULL)
+                            result += buffer;
+                        int status = pclose(pipe);
+                        deleteClientConnection();
+                        if(status == 0) {
+                            NMLOG_INFO("nmcli dev connect succeeded");
+                            return true;
+                        }
+                        NMLOG_ERROR("nmcli dev connect failed: %s", result.c_str());
+                        return false;
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Failed to execute nmcli command");
+                        deleteClientConnection();
+                        return false;
+                    }
+                }
             }
 
             for (guint i = 0; i < devConnections->len; i++)
