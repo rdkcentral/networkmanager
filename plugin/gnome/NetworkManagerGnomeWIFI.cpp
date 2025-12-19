@@ -715,9 +715,14 @@ namespace WPEFramework
             devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL || devConnections->len == 0)
             {
-                NMLOG_ERROR("No connections found !");
+                NMLOG_WARNING("No connections found, attempting auto-connect like 'nmcli dev connect'");
+                // When no connections exist, pass NULL to auto-create one
+                m_isSuccess = false;
+                m_createNewConnection = false;
+                nm_client_activate_connection_async(m_client, NULL, nmDevice, NULL, NULL, NULL, NULL);
+                wait(m_loop);
                 deleteClientConnection();
-                return false;
+                return m_isSuccess;
             }
 
             for (guint i = 0; i < devConnections->len; i++)
