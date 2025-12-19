@@ -525,6 +525,56 @@ namespace WPEFramework
                 _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, NULL, wifiConnectCb, _wifiManager);
         }
 
+        static NMConnection* createMinimalEthernetConnection(const std::string& iface)
+        {
+            NMConnection *connection = nm_simple_connection_new();
+
+            // Connection settings with autoconnect enabled
+            NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
+            std::string connId = "Wired connection (" + iface + ")";
+            g_object_set(G_OBJECT(sConnection),
+                        NM_SETTING_CONNECTION_ID, connId.c_str(),
+                        NM_SETTING_CONNECTION_UUID, nm_utils_uuid_generate(),
+                        NM_SETTING_CONNECTION_TYPE, "802-3-ethernet",
+                        NM_SETTING_CONNECTION_INTERFACE_NAME, iface.c_str(),
+                        NM_SETTING_CONNECTION_AUTOCONNECT, TRUE,  // Enable autoconnect
+                        NULL);
+            nm_connection_add_setting(connection, NM_SETTING(sConnection));
+
+            // Wired ethernet settings
+            NMSettingWired *sWired = (NMSettingWired *)nm_setting_wired_new();
+            nm_connection_add_setting(connection, NM_SETTING(sWired));
+
+            // Get hostname for DHCP
+            std::string hostname;
+            if(!nmUtils::readPersistentHostname(hostname))
+            {
+                hostname = nmUtils::deviceHostname();
+                NMLOG_DEBUG("No persistent hostname found, using device hostname");
+            }
+
+            // IPv4 settings with DHCP
+            NMSettingIP4Config *sIpv4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
+            g_object_set(G_OBJECT(sIpv4),
+                        NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+            nm_connection_add_setting(connection, NM_SETTING(sIpv4));
+
+            // IPv6 settings with DHCP
+            NMSettingIP6Config *sIpv6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
+            g_object_set(G_OBJECT(sIpv6),
+                        NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO,
+                        NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                        NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                        NULL);
+            nm_connection_add_setting(connection, NM_SETTING(sIpv6));
+
+            NMLOG_DEBUG("Created minimal ethernet connection with autoconnect=true");
+            return connection;
+        }
+
         static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false)
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
@@ -715,9 +765,30 @@ namespace WPEFramework
             devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL || devConnections->len == 0)
             {
-                NMLOG_ERROR("No connections found !");
-                deleteClientConnection();
-                return false;
+                if(iface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
+                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
+                    if(ethConn == NULL)
+                    {
+                        NMLOG_ERROR("Failed to create ethernet connection");
+                        deleteClientConnection();
+                        return false;
+                    }
+                    m_isSuccess = false;
+                    m_createNewConnection = true;
+                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, NULL, wifiConnectCb, this);
+                    g_object_unref(ethConn);
+                    wait(m_loop);
+                    deleteClientConnection();
+                    return m_isSuccess;
+                }
+                else
+                {
+                    NMLOG_ERROR("No connections found !");
+                    deleteClientConnection();
+                    return false;
+                }
             }
 
             for (guint i = 0; i < devConnections->len; i++)
@@ -780,7 +851,27 @@ namespace WPEFramework
             }
             else
             {
-                NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
+                NMLOG_WARNING("'%s' connection not found", knowConnectionID.empty() ? iface.c_str() : knowConnectionID.c_str());
+                // For ethernet, create minimal connection and activate
+                if(iface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
+                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
+                    if(ethConn == NULL)
+                    {
+                        NMLOG_ERROR("Failed to create ethernet connection");
+                        m_isSuccess = false;
+                    }
+                    else
+                    {
+                        m_createNewConnection = true;
+                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, NULL, wifiConnectCb, this);
+                        g_object_unref(ethConn);
+                        wait(m_loop);
+                    }
+                }
+                else
+                    NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
             }
 
             if(knownConnection != NULL)
