@@ -531,7 +531,7 @@ namespace WPEFramework
 
             // Connection settings with autoconnect enabled
             NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
-            std::string connId = "Wired connection (" + iface + ")";
+            std::string connId = "Wired connection 1";
             g_object_set(G_OBJECT(sConnection),
                         NM_SETTING_CONNECTION_ID, connId.c_str(),
                         NM_SETTING_CONNECTION_UUID, nm_utils_uuid_generate(),
