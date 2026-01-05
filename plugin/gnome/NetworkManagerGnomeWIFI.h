@@ -101,6 +101,7 @@ namespace WPEFramework
             const char* m_objectPath;
             NMDevice *m_wifidevice;
             GSource *m_source;
+            GCancellable *m_cancellable;
             bool m_isSuccess = false;
             SecretAgent m_secretAgent;
         };

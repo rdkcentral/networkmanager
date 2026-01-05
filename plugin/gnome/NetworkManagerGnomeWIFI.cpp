@@ -42,7 +42,7 @@ namespace WPEFramework
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
 
-        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr) {
+        wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr), m_cancellable(nullptr){
             NMLOG_INFO("wifiManager");
             m_nmContext = g_main_context_new();
             g_main_context_push_thread_default(m_nmContext);
@@ -61,11 +61,22 @@ namespace WPEFramework
                 }
                 return false;
             }
+
+            // Create new cancellable for this client session
+            m_cancellable = g_cancellable_new();
             return true;
         }
 
         void wifiManager::deleteClientConnection()
         {
+            // Cancel all pending async operations before destroying client
+            if(m_cancellable != NULL) {
+                NMLOG_DEBUG("Cancelling pending async operations");
+                g_cancellable_cancel(m_cancellable);
+                g_clear_object(&m_cancellable);
+                m_cancellable = NULL;
+            }
+
             if(m_client != NULL) {
                 GMainContext *context = g_main_context_ref(nm_client_get_main_context(m_client));
                 GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(m_client);
@@ -356,7 +367,7 @@ namespace WPEFramework
                 {
                     if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
                     {
-                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                        NMLOG_ERROR("Disconnect operation was cancelled");
                     }
                     else
                     {
@@ -391,7 +402,7 @@ namespace WPEFramework
                 return true;
             }
 
-            nm_device_disconnect_async(wifiNMDevice, NULL, disconnectCb, this);
+            nm_device_disconnect_async(wifiNMDevice, m_cancellable, disconnectCb, this);
             wait(m_loop);
             deleteClientConnection();
             return m_isSuccess;
@@ -439,7 +450,11 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             NMActiveConnection *activeConnection = NULL;
 
-            if (_wifiManager->m_createNewConnection) {
+            // Check if operation was cancelled - this is expected during cleanup
+            if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                NMLOG_DEBUG("Connection operation was cancelled");
+            }
+            else if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
                 activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
                  _wifiManager->m_isSuccess = true;
@@ -474,7 +489,12 @@ namespace WPEFramework
             remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
 
             if (error) {
-                NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("Add temporary connection was cancelled");
+                }
+                else {
+                    NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
+                }
                 _wifiManager->m_isSuccess = false;
                 g_error_free(error);
                 g_main_loop_quit(_wifiManager->m_loop);
@@ -483,12 +503,13 @@ namespace WPEFramework
 
             if (remoteConnection) {
                 NMLOG_DEBUG("Temporary connection added, now activating...");
+
                 // Now activate the temporary connection
                 nm_client_activate_connection_async(_wifiManager->m_client,
                                                   NM_CONNECTION(remoteConnection),
                                                   _wifiManager->m_wifidevice,
                                                   _wifiManager->m_objectPath,
-                                                  NULL,
+                                                  _wifiManager->m_cancellable,
                                                   wifiConnectCb,
                                                   _wifiManager);
                 g_object_unref(remoteConnection);
@@ -520,9 +541,25 @@ namespace WPEFramework
             else
                 g_variant_unref(ret);
 
+            // Validate client before proceeding
+            if (!_wifiManager->m_client) {
+                NMLOG_ERROR("Invalid client in wifiConnectionUpdate");
+                _wifiManager->m_isSuccess = false;
+                _wifiManager->quit(NULL);
+                return;
+            }
+
+            NMDevice *wifiDevice = _wifiManager->getWifiDevice();
+            if (!wifiDevice) {
+                NMLOG_ERROR("Failed to get wifi device in wifiConnectionUpdate");
+                _wifiManager->m_isSuccess = false;
+                _wifiManager->quit(NULL);
+                return;
+            }
+
             _wifiManager->m_createNewConnection = false; // no need to create new connection
             nm_client_activate_connection_async(
-                _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, NULL, wifiConnectCb, _wifiManager);
+                _wifiManager->m_client, NM_CONNECTION(remote_con), wifiDevice, _wifiManager->m_objectPath, _wifiManager->m_cancellable, wifiConnectCb, _wifiManager);
         }
 
         static NMConnection* createMinimalEthernetConnection(const std::string& iface)
@@ -777,7 +814,7 @@ namespace WPEFramework
                     }
                     m_isSuccess = false;
                     m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, NULL, wifiConnectCb, this);
+                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
                     g_object_unref(ethConn);
                     wait(m_loop);
                     deleteClientConnection();
@@ -846,7 +883,7 @@ namespace WPEFramework
             {
                 NMLOG_INFO("activating known wifi '%s' connection", knowConnectionID.c_str());
                 m_createNewConnection = false; // no need to create new connection
-                nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), nmDevice, specificObjPath, NULL, wifiConnectCb, this);
+                nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), nmDevice, specificObjPath, m_cancellable, wifiConnectCb, this);
                 wait(m_loop);
             }
             else
@@ -865,7 +902,7 @@ namespace WPEFramework
                     else
                     {
                         m_createNewConnection = true;
-                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, NULL, wifiConnectCb, this);
+                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
                         g_object_unref(ethConn);
                         wait(m_loop);
                     }
@@ -1022,7 +1059,7 @@ namespace WPEFramework
                     // Note: Any changes made by connectionBuilder will be temporary for this session only
                     NMLOG_DEBUG("activating existing connection without persisting changes '%s'", ssidInfo.ssid.c_str());
                     m_createNewConnection = false;
-                    nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                    nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
                 }
             }
             else
@@ -1041,7 +1078,7 @@ namespace WPEFramework
                 if (ssidInfo.persist)
                 {
                     m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, NULL, wifiConnectCb, this);
+                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
                 }
                 else
                 {
@@ -1055,7 +1092,7 @@ namespace WPEFramework
                                             NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
                                             NULL,
                                             TRUE,
-                                            NULL,
+                                            m_cancellable,
                                             wifiConnectTempCb,
                                             this);
                 }
@@ -1112,7 +1149,11 @@ namespace WPEFramework
             }
 
             if(error) {
-                NMLOG_ERROR("AddToKnownSSIDs Failed: %s", error->message);
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("Add connection operation was cancelled");
+                } else {
+                    NMLOG_ERROR("AddToKnownSSIDs Failed: %s", error->message);
+                }
                 _wifiManager->m_isSuccess = false;
                 g_error_free(error);
             }
@@ -1183,7 +1224,7 @@ namespace WPEFramework
                 nm_client_add_connection2(m_client,
                                         connSettings,
                                         NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
-                                        NULL, TRUE, NULL,
+                                        NULL, TRUE, m_cancellable,
                                         addToKnownSSIDsCb, this);
             }
             wait(m_loop);
@@ -1349,9 +1390,11 @@ namespace WPEFramework
                 _wifiManager->m_isSuccess = false;
             }
             if (error) {
-                NMLOG_ERROR("Scanning Failed Error: %s.", error->message);
-                _wifiManager->m_isSuccess = false;
-                g_error_free(error);
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("Scan operation was cancelled");
+                } else {
+                    NMLOG_ERROR("Scanning Failed Error: %s.", error->message);
+                }
             }
 
             g_main_loop_quit(_wifiManager->m_loop);
@@ -1380,12 +1423,12 @@ namespace WPEFramework
                                     );
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
                 options = g_variant_builder_end(&builder);
-                nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
+                nm_device_wifi_request_scan_options_async(wifiDevice, options, m_cancellable, wifiScanCb, this);
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
                 NMLOG_INFO("staring normal wifi scanning ..");
-                nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
+                nm_device_wifi_request_scan_async(wifiDevice, m_cancellable, wifiScanCb, this);
             }
             wait(m_loop);
             deleteClientConnection();
