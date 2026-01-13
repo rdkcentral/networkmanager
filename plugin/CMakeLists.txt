@@ -141,6 +141,9 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
 
+# Link OpenTelemetry RDK wrapper library
+target_link_libraries(${MODULE_IMPL_NAME} PRIVATE rdk_otlp)
+
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 
