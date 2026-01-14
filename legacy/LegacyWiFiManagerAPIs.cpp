@@ -391,7 +391,7 @@ namespace WPEFramework
 
 			// Start distributed trace (creates parent span and stores context)
 			NMLOG_ERROR("BEFORE OTLP DIST TRACE START");
-            rdk_otlp_start_distributed_trace(WiFiManager.getConnectedSSID, "get");
+            rdk_otlp_start_distributed_trace("WiFiManager.getConnectedSSID", "get");
 			NMLOG_ERROR("AFTER OTLP DIST TRACE START");
 			
             uint32_t rc = Core::ERROR_GENERAL;
