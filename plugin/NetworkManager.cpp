@@ -18,6 +18,7 @@
 **/
 
 #include "NetworkManager.h"
+#include "rdk_otlp_instrumentation.h"
 #include <random>
 
 namespace WPEFramework
@@ -67,6 +68,8 @@ namespace WPEFramework
             // Syslog Startup messages are always printed by default
             SYSLOG(Logging::Startup, (_T("Initializing NetworkManager")));
             NetworkManagerLogger::Init();
+            // Initialize OpenTelemetry
+            rdk_otlp_init("NetworkManager", "1.0.0");
             // Register the Connection::Notification first. Do this before we start our actual plugin
             // in case something goes wrong or is disconnected - this way we know we're at least registered
             // for activate/deactivate events
