@@ -754,6 +754,7 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_TIMEOUT, 2147483647, NULL); // 2147483647 = infinite timeout
+            g_object_set(G_OBJECT(sIpv4Conf), "link-local", 3, NULL);
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
             /* Build up the 'IPv6' Setting */
