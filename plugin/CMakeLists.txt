@@ -66,6 +66,7 @@ add_library(${MODULE_NAME} SHARED
 target_link_libraries(${MODULE_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
+                                        rdk_otlp
                                         )
 
 set_target_properties(${MODULE_NAME} PROPERTIES
