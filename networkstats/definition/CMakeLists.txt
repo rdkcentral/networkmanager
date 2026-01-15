@@ -16,22 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #############################################################################
-cmake_minimum_required(VERSION 3.3)
+message("Generate JsonRPC Documentation for NetworkConnectionStats.json")
 
-project(NetworkConnectionStats)
+find_package(JsonGenerator REQUIRED)
 
-find_package(WPEFramework QUIET CONFIG)
+if(NOT GENERATOR_SEARCH_PATH)
+    set(GENERATOR_SEARCH_PATH ${CMAKE_SYSROOT}${CMAKE_INSTALL_PREFIX}/include/${NAMESPACE})
+endif()
 
-message("Building ${PROJECT_NAME} Thunder Plugin (Internal-only, no external APIs)")
-
-# Set project version
-set(PROJECT_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
-
-# Build interface (ProxyStub generation)
-add_subdirectory(interface)
-
-# Build definition (JSON-RPC documentation)
-#add_subdirectory(definition)
-
-# Build plugin
-add_subdirectory(plugin)
+set(JSON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/NetworkConnectionStats.json")
+JsonGenerator(CODE INPUT ${JSON_FILE} OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH} CPPIFDIR "${CMAKE_CURRENT_SOURCE_DIR}" DOCS)

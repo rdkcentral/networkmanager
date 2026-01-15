@@ -23,11 +23,29 @@
 
 namespace WPEFramework {
 namespace Exchange {
+    enum myIDs {
+        ID_NETWORKCONNECTIONSTATS = 0x800004F0,
+        ID_NETWORKCONNECTIONSTATS_NOTIFICATION = ID_NETWORKCONNECTIONSTATS + 1
+    };
 
-    // @stubgen:skip
-    // Internal interface - no external APIs exposed
+    // Interface for network connection statistics
     struct EXTERNAL INetworkConnectionStats : virtual public Core::IUnknown {
         enum { ID = ID_NETWORKCONNECTIONSTATS };
+
+        // Configuration method
+        virtual uint32_t Configure(const string configLine) = 0;
+
+        /* @event */
+        struct EXTERNAL INotification : virtual public Core::IUnknown {
+            enum { ID = ID_NETWORKCONNECTIONSTATS_NOTIFICATION };
+
+            // Placeholder for future notification events if needed
+            // Currently no events are exposed as this is an internal plugin
+        };
+
+        // Allow other processes to register/unregister for notifications
+        virtual uint32_t Register(INetworkConnectionStats::INotification* notification) = 0;
+        virtual uint32_t Unregister(INetworkConnectionStats::INotification* notification) = 0;
     };
 
 } // namespace Exchange

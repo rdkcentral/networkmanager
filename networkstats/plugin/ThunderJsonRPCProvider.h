@@ -21,50 +21,53 @@
 #define __THUNDERPROVIDER_H__
 
 #include "INetworkData.h"
+#include "Module.h"
 #include <string>
-//#include <json/json.h>
-
+#include <core/JSON.h>
 
 class NetworkJsonRPCProvider : public INetworkData
 {
   public:
     NetworkJsonRPCProvider();
     ~NetworkJsonRPCProvider();
+    
+    /* @brief Initialize the provider with Thunder connection */
+    bool Initialize();
     /* @brief Retrieve IPv4 address for specified interface
      * @param interface_name Interface name (e.g., eth0, wlan0)
      * @return IPv4 address string
      */
-    std::string getIpv4Address(std::string interface_name);
+    std::string getIpv4Address(std::string interface_name) override;
 
     /* @brief Retrieve IPv6 address for specified interface
      * @param interface_name Interface name (e.g., eth0, wlan0)
      * @return IPv6 address string
      */
-    std::string getIpv6Address(std::string interface_name);
+    std::string getIpv6Address(std::string interface_name) override;
 
     /* @brief Get IPv4 gateway/route address from last getIpv4Address call */
-    std::string getIpv4Gateway();
+    std::string getIpv4Gateway() override;
 
     /* @brief Get IPv6 gateway/route address from last getIpv6Address call */
-    std::string getIpv6Gateway();
+    std::string getIpv6Gateway() override;
 
     /* @brief Get IPv4 primary DNS from last getIpv4Address call */
-    std::string getIpv4PrimaryDns();
+    std::string getIpv4PrimaryDns() override;
 
     /* @brief Get IPv6 primary DNS from last getIpv6Address call */
-    std::string getIpv6PrimaryDns();
+    std::string getIpv6PrimaryDns() override;
 
     /* @brief Get current network connection type */
-    std::string getConnectionType();
+    std::string getConnectionType() override;
 
     /* @brief Get DNS server entries */
-    std::string getDnsEntries();
+    std::string getDnsEntries() override;
 
     /* @brief Populate network interface data */
-    void populateNetworkData();
+    void populateNetworkData() override;
 
     /* @brief Get current active interface name */
-    std::string getInterface();
+    std::string getInterface() override;
 
     /* @brief Ping to gateway to check packet loss
      * @param endpoint Gateway IP address to ping
@@ -73,13 +76,13 @@ class NetworkJsonRPCProvider : public INetworkData
      * @param timeout Timeout in seconds
      * @return true if ping successful, false otherwise
      */
-    bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout);
+    bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout) override;
 
     /* @brief Get packet loss from last ping call */
-    std::string getPacketLoss();
+    std::string getPacketLoss() override;
 
     /* @brief Get average RTT from last ping call */
-    std::string getAvgRtt();
+    std::string getAvgRtt() override;
 
 private:
     // Cached data from last API calls
@@ -89,6 +92,9 @@ private:
     std::string m_ipv6PrimaryDns;
     std::string m_packetLoss;
     std::string m_avgRtt;
+    
+    // Thunder JSON-RPC client for NetworkManager communication
+    std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkManagerClient;
 };
 
 #endif /* __THUNDERPROVIDER_H__ */

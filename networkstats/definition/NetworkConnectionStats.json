@@ -7,6 +7,11 @@
     "description": "NetworkConnectionStats plugin for network diagnostics and monitoring"
   },
   "definitions": {
+    "success": {
+      "summary": "Whether the request succeeded",
+      "type": "boolean",
+      "example": true
+    },
     "pingresult": {
       "type": "object",
       "properties": {
@@ -27,7 +32,7 @@
       "summary": "Generate network diagnostics report",
       "description": "Triggers a full network diagnostic scan including connection type, IP configuration, routes, and DNS",
       "result": {
-        "$ref": "#/definitions/result"
+        "$ref": "#/definitions/success"
       }
     },
     "getConnectionType": {
@@ -211,7 +216,7 @@
         "required": ["enable"]
       },
       "result": {
-        "$ref": "#/definitions/result"
+        "$ref": "#/definitions/success"
       }
     },
     "setReportingInterval": {
@@ -228,7 +233,7 @@
         "required": ["intervalMinutes"]
       },
       "result": {
-        "$ref": "#/definitions/result"
+        "$ref": "#/definitions/success"
       }
     }
   },

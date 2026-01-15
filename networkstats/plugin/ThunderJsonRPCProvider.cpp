@@ -18,140 +18,139 @@
 **/
 
 #include "ThunderJsonRPCProvider.h"
-#include <jsonrpccpp/client.h>
-#include <jsonrpccpp/client/connectors/httpclient.h>
-#include <json/json.h>
-#include <iostream>
+#include "NetworkConnectionStatsLogger.h"
 #include <cstring>
 
 using namespace std;
+using namespace NetworkConnectionStatsLogger;
+
+#define NETWORK_MANAGER_CALLSIGN "org.rdk.NetworkManager"
 
 /* @brief Constructor */
 NetworkJsonRPCProvider::NetworkJsonRPCProvider()
+    : m_networkManagerClient(nullptr)
 {
-    // TODO: Initialize Thunder connection
+    NSLOG_INFO("NetworkJsonRPCProvider constructed");
 }
 
 /* @brief Destructor */
 NetworkJsonRPCProvider::~NetworkJsonRPCProvider()
 {
-    // TODO: Cleanup resources
+    m_networkManagerClient.reset();
+}
+
+/* @brief Initialize the provider with Thunder connection */
+bool NetworkJsonRPCProvider::Initialize()
+{
+    try {
+        // Set Thunder access point
+        WPEFramework::Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("127.0.0.1:9998"));
+        
+        // Create JSON-RPC client connection to NetworkManager
+        m_networkManagerClient = std::make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>>(
+            _T(NETWORK_MANAGER_CALLSIGN), 
+            _T(""),  // No specific version
+            _T("")   // No token needed for inter-plugin communication
+        );
+        
+        if (m_networkManagerClient) {
+            NSLOG_INFO("NetworkManager JSON-RPC client initialized successfully");
+            return true;
+        } else {
+            NSLOG_ERROR("Failed to create NetworkManager JSON-RPC client");
+            return false;
+        }
+    }
+    catch (const std::exception& e) {
+        NSLOG_ERROR("Exception during initialization: %s", e.what());
+        return false;
+    }
 }
 
 /* @brief Retrieve IPv4 address for specified interface */
 std::string NetworkJsonRPCProvider::getIpv4Address(std::string interface_name)
 {
-    jsonrpc::HttpClient client("http://127.0.0.1:9998/jsonrpc");
-    client.AddHeader("content-type", "application/json");
-    
-    jsonrpc::Client c(client, jsonrpc::JSONRPC_CLIENT_V2);
-    Json::Value params;
-    Json::Value result;
-    std::string method("org.rdk.NetworkManager.1.GetIPSettings");
-    
-    // Set parameters
-    params["interface"] = interface_name;
-    params["ipversion"] = "IPv4";
+    std::string ipv4_address = "";
     
     // Initialize member variables
     m_ipv4Gateway = "";
     m_ipv4PrimaryDns = "";
     
-    try {
-        result = c.CallMethod(method, params);
-        
-        std::string ipv4_address = "";
-        
-        // Parse and extract all fields from JSON response
-        if (result.isMember("ipaddress") && result["ipaddress"].isString()) {
-            ipv4_address = result["ipaddress"].asString();
-            std::cout << "IPv4 address retrieved: " << ipv4_address << std::endl;
-        }
-        
-        // Extract gateway as IPv4 Route
-        if (result.isMember("gateway") && result["gateway"].isString()) {
-            m_ipv4Gateway = result["gateway"].asString();
-            std::cout << "IPv4 Route: " << m_ipv4Gateway << std::endl;
-        }
-        
-        // Extract primarydns as DNS entry
-        if (result.isMember("primarydns") && result["primarydns"].isString()) {
-            m_ipv4PrimaryDns = result["primarydns"].asString();
-            std::cout << "DNS entry: " << m_ipv4PrimaryDns << std::endl;
-        }
-        
-        if (ipv4_address.empty()) {
-            std::cerr << "Error: 'ipaddress' field not found or invalid in response" << std::endl;
-        }
-        
-        return ipv4_address;
-    }
-    catch (jsonrpc::JsonRpcException& e) {
-        std::cerr << "JSON-RPC Exception in getIpv4Address(): " << e.what() << std::endl;
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-    catch (std::exception& e) {
-        std::cerr << "Exception in getIpv4Address(): " << e.what() << std::endl;
-        return "";
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    params["interface"] = interface_name;
+    params["ipversion"] = "IPv4";
+    
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetIPSettings", params, result);
+    
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("ipaddress")) {
+            ipv4_address = result["ipaddress"].String();
+            NSLOG_INFO("IPv4 address retrieved: %s", ipv4_address.c_str());
+        }
+        if (result.HasLabel("gateway")) {
+            m_ipv4Gateway = result["gateway"].String();
+            NSLOG_INFO("IPv4 Route: %s", m_ipv4Gateway.c_str());
+        }
+        if (result.HasLabel("primarydns")) {
+            m_ipv4PrimaryDns = result["primarydns"].String();
+            NSLOG_INFO("DNS entry: %s", m_ipv4PrimaryDns.c_str());
+        }
+    } else {
+        NSLOG_ERROR("GetIPSettings JSON-RPC call failed with error code: %u", rc);
     }
+    
+    return ipv4_address;
 }
 
 /* @brief Retrieve IPv6 address for specified interface */
 std::string NetworkJsonRPCProvider::getIpv6Address(std::string interface_name)
 {
-    jsonrpc::HttpClient client("http://127.0.0.1:9998/jsonrpc");
-    client.AddHeader("content-type", "application/json");
-    
-    jsonrpc::Client c(client, jsonrpc::JSONRPC_CLIENT_V2);
-    Json::Value params;
-    Json::Value result;
-    std::string method("org.rdk.NetworkManager.1.GetIPSettings");
-    
-    // Set parameters
-    params["interface"] = interface_name;
-    params["ipversion"] = "IPv6";
+    std::string ipv6_address = "";
     
     // Initialize member variables
     m_ipv6Gateway = "";
     m_ipv6PrimaryDns = "";
     
-    try {
-        result = c.CallMethod(method, params);
-        
-        std::string ipv6_address = "";
-        
-        // Parse and extract all fields from JSON response
-        if (result.isMember("ipaddress") && result["ipaddress"].isString()) {
-            ipv6_address = result["ipaddress"].asString();
-            std::cout << "IPv6 address retrieved: " << ipv6_address << std::endl;
-        }
-        
-        // Extract gateway as IPv6 Route
-        if (result.isMember("gateway") && result["gateway"].isString()) {
-            m_ipv6Gateway = result["gateway"].asString();
-            std::cout << "IPv6 Route: " << m_ipv6Gateway << std::endl;
-        }
-        
-        // Extract primarydns as DNS entry
-        if (result.isMember("primarydns") && result["primarydns"].isString()) {
-            m_ipv6PrimaryDns = result["primarydns"].asString();
-            std::cout << "DNS entry: " << m_ipv6PrimaryDns << std::endl;
-        }
-        
-        if (ipv6_address.empty()) {
-            std::cerr << "Error: 'ipaddress' field not found or invalid in response" << std::endl;
-        }
-        
-        return ipv6_address;
-    }
-    catch (jsonrpc::JsonRpcException& e) {
-        std::cerr << "JSON-RPC Exception in getIpv6Address(): " << e.what() << std::endl;
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-    catch (std::exception& e) {
-        std::cerr << "Exception in getIpv6Address(): " << e.what() << std::endl;
-        return "";
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    params["interface"] = interface_name;
+    params["ipversion"] = "IPv6";
+    
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetIPSettings", params, result);
+    
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("ipaddress")) {
+            ipv6_address = result["ipaddress"].String();
+            NSLOG_INFO("IPv6 address retrieved: %s", ipv6_address.c_str());
+        }
+        if (result.HasLabel("gateway")) {
+            m_ipv6Gateway = result["gateway"].String();
+            NSLOG_INFO("IPv6 Route: %s", m_ipv6Gateway.c_str());
+        }
+        if (result.HasLabel("primarydns")) {
+            m_ipv6PrimaryDns = result["primarydns"].String();
+            NSLOG_INFO("DNS entry: %s", m_ipv6PrimaryDns.c_str());
+        }
+    } else {
+        NSLOG_ERROR("GetIPSettings JSON-RPC call failed with error code: %u", rc);
     }
+    
+    return ipv6_address;
 }
 
 /* @brief Get current network connection type */
@@ -160,27 +159,27 @@ std::string NetworkJsonRPCProvider::getConnectionType()
     std::string interface = getInterface();
     
     if (interface.empty()) {
-        std::cerr << "Error: Unable to retrieve interface" << std::endl;
+        NSLOG_ERROR("Error: Unable to retrieve interface");
         return "";
     }
     
     std::string connectionType;
     
-    // Check if interface starts with "eth"
-    if (interface.find("eth") == 0) {
+    // Check if interface starts with "eth" or "eno"
+    if (interface.find("eth") == 0 || interface.find("eno") == 0) {
         connectionType = "Ethernet";
-        std::cout << "Connection type: " << connectionType << " (interface: " << interface << ")" << std::endl;
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
     }
     // Check if interface starts with "wlan"
     else if (interface.find("wlan") == 0) {
         connectionType = "WiFi";
-        std::cout << "Connection type: " << connectionType << " (interface: " << interface << ")" << std::endl;
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
     }
     else {
         connectionType = "Unknown";
-        std::cout << "Connection type: " << connectionType << " (interface: " << interface << ")" << std::endl;
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
     }
-    connectionType = "Ethernet"; //For testing purpose hardcoding to Ethernet
+    
     return connectionType;
 }
 
@@ -200,102 +199,91 @@ void NetworkJsonRPCProvider::populateNetworkData()
 /* @brief Get current active interface name */
 std::string NetworkJsonRPCProvider::getInterface()
 {
-    jsonrpc::HttpClient client("http://127.0.0.1:9998/jsonrpc");
-    client.AddHeader("content-type", "application/json");
-    
-    jsonrpc::Client c(client, jsonrpc::JSONRPC_CLIENT_V2);
-    Json::Value result;
-    std::string method("org.rdk.NetworkManager.1.GetPrimaryInterface");
-    
-    try {
-        result = c.CallMethod(method, Json::Value());
-        
-        if (result.isMember("interface") && result["interface"].isString()) {
-            std::string interface = result["interface"].asString();
-            std::cout << "Primary interface retrieved: " << interface << std::endl;
-            return "eno1"; // Hardcoded for testing
-        }
-        else {
-            std::cerr << "Error: 'interface' field not found or invalid in response" << std::endl;
-            return "";
-        }
-    }
-    catch (jsonrpc::JsonRpcException& e) {
-        std::cerr << "JSON-RPC Exception in getInterface(): " << e.what() << std::endl;
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-    catch (std::exception& e) {
-        std::cerr << "Exception in getInterface(): " << e.what() << std::endl;
-        return "";
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetPrimaryInterface", params, result);
+    
+    std::string interface = "";
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("interface")) {
+            interface = result["interface"].String();
+            NSLOG_INFO("Primary interface retrieved: %s", interface.c_str());
+        }
+    } else {
+        NSLOG_ERROR("GetPrimaryInterface JSON-RPC call failed with error code: %u", rc);
     }
+    
+    return interface;
 }
 
 /* @brief Ping to gateway to check packet loss */
 bool NetworkJsonRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout)
 {
-    jsonrpc::HttpClient client("http://127.0.0.1:9998/jsonrpc");
-    client.AddHeader("content-type", "application/json");
+    // Initialize member variables
+    m_packetLoss = "";
+    m_avgRtt = "";
     
-    jsonrpc::Client c(client, jsonrpc::JSONRPC_CLIENT_V2);
-    Json::Value params;
-    Json::Value result;
-    std::string method("org.rdk.NetworkManager.1.Ping");
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return false;
+    }
     
-    // Set parameters according to NetworkManagerPlugin.md schema
+    WPEFramework::Core::JSON::VariantContainer params;
     params["endpoint"] = endpoint;
     params["ipversion"] = ipversion;
     params["count"] = count;
     params["timeout"] = timeout;
     params["guid"] = "network-stats-ping";
     
-    // Initialize member variables
-    m_packetLoss = "";
-    m_avgRtt = "";
+    WPEFramework::Core::JSON::VariantContainer result;
     
-    try {
-        result = c.CallMethod(method, params);
-        
-        std::cout << "Ping request sent to " << endpoint << " (" << ipversion << ")" << std::endl;
-        
-        // Check if ping was successful
-        if (result.isMember("success") && result["success"].isBool()) {
-            bool success = result["success"].asBool();
-            
-            // Extract ping statistics from JSON
-            if (result.isMember("packetsTransmitted") && result["packetsTransmitted"].isInt()) {
-                std::cout << "Packets transmitted: " << result["packetsTransmitted"].asInt() << std::endl;
-            }
-            if (result.isMember("packetsReceived") && result["packetsReceived"].isInt()) {
-                std::cout << "Packets received: " << result["packetsReceived"].asInt() << std::endl;
-            }
-            if (result.isMember("packetLoss") && result["packetLoss"].isString()) {
-                m_packetLoss = result["packetLoss"].asString();
-                std::cout << "Packet loss: " << m_packetLoss << std::endl;
-            }
-            if (result.isMember("tripMin") && result["tripMin"].isString()) {
-                std::cout << "RTT min: " << result["tripMin"].asString() << " ms" << std::endl;
-            }
-            if (result.isMember("tripAvg") && result["tripAvg"].isString()) {
-                m_avgRtt = result["tripAvg"].asString();
-                std::cout << "RTT avg: " << m_avgRtt << " ms" << std::endl;
-            }
-            if (result.isMember("tripMax") && result["tripMax"].isString()) {
-                std::cout << "RTT max: " << result["tripMax"].asString() << " ms" << std::endl;
-            }
-            
-            return success;
-        }
-        else {
-            std::cerr << "Error: 'success' field not found or invalid in response" << std::endl;
-            return false;
-        }
-    }
-    catch (jsonrpc::JsonRpcException& e) {
-        std::cerr << "JSON-RPC Exception in pingToGatewayCheck(): " << e.what() << std::endl;
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        30000, "Ping", params, result);
+    
+    if (rc != WPEFramework::Core::ERROR_NONE) {
+        NSLOG_ERROR("Ping JSON-RPC call failed with error code: %u", rc);
         return false;
     }
-    catch (std::exception& e) {
-        std::cerr << "Exception in pingToGatewayCheck(): " << e.what() << std::endl;
+    
+    NSLOG_INFO("Ping request sent to %s (%s)", endpoint.c_str(), ipversion.c_str());
+    
+    // Check if ping was successful
+    if (result.HasLabel("success")) {
+        bool success = result["success"].Boolean();
+        
+        // Extract ping statistics from JSON
+        if (result.HasLabel("packetsTransmitted")) {
+            NSLOG_INFO("Packets transmitted: %d", static_cast<int>(result["packetsTransmitted"].Number()));
+        }
+        if (result.HasLabel("packetsReceived")) {
+            NSLOG_INFO("Packets received: %d", static_cast<int>(result["packetsReceived"].Number()));
+        }
+        if (result.HasLabel("packetLoss")) {
+            m_packetLoss = result["packetLoss"].String();
+            NSLOG_INFO("Packet loss: %s", m_packetLoss.c_str());
+        }
+        if (result.HasLabel("tripMin")) {
+            NSLOG_INFO("RTT min: %s ms", result["tripMin"].String().c_str());
+        }
+        if (result.HasLabel("tripAvg")) {
+            m_avgRtt = result["tripAvg"].String();
+            NSLOG_INFO("RTT avg: %s ms", m_avgRtt.c_str());
+        }
+        if (result.HasLabel("tripMax")) {
+            NSLOG_INFO("RTT max: %s ms", result["tripMax"].String().c_str());
+        }
+        
+        return success;
+    }
+    else {
+        NSLOG_ERROR("Error: 'success' field not found in response");
         return false;
     }
 }

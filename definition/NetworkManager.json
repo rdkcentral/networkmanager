@@ -5,11 +5,10 @@
         "title": "NetworkManager Plugin",
         "class": "NetworkManager",
         "callsign": "org.rdk.NetworkManager",
-        "locator": "libWPEFrameworkNetworkManager.so",
         "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "1.10.0"
+        "version": "1.12.0"
     },
     "definitions": {
         "success": {

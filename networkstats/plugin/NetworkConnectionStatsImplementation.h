@@ -21,7 +21,6 @@
 
 #include "Module.h"
 #include "INetworkConnectionStats.h"
-#include <interfaces/IConfiguration.h>
 #include "INetworkData.h"
 #include "ThunderJsonRPCProvider.h"
 #include <thread>
@@ -37,10 +36,10 @@ namespace Plugin {
     // Internal implementation - runs network diagnostics automatically
     // No external APIs exposed
     class NetworkConnectionStatsImplementation 
-        : public Exchange::INetworkConnectionStats
-        , public Exchange::IConfiguration {
+        : public Exchange::INetworkConnectionStats {
     
     public:
+
         NetworkConnectionStatsImplementation(const NetworkConnectionStatsImplementation&) = delete;
         NetworkConnectionStatsImplementation& operator=(const NetworkConnectionStatsImplementation&) = delete;
         NetworkConnectionStatsImplementation();
@@ -48,11 +47,14 @@ namespace Plugin {
 
         BEGIN_INTERFACE_MAP(NetworkConnectionStatsImplementation)
         INTERFACE_ENTRY(Exchange::INetworkConnectionStats)
-        INTERFACE_ENTRY(Exchange::IConfiguration)
         END_INTERFACE_MAP
 
-        // IConfiguration interface
-        uint32_t Configure(PluginHost::IShell* service) override;
+        // Handle Notification registration/removal
+        uint32_t Register(INetworkConnectionStats::INotification* notification) override;
+        uint32_t Unregister(INetworkConnectionStats::INotification* notification) override;
+
+        // Configuration method
+        uint32_t Configure(const string configLine) override;
 
     private:
         // Internal diagnostic methods
@@ -68,7 +70,10 @@ namespace Plugin {
 
     private:
         mutable Core::CriticalSection _adminLock;
-        PluginHost::IShell* _service;
+        
+        // Notification callbacks
+        std::list<Exchange::INetworkConnectionStats::INotification*> _notificationCallbacks;
+        Core::CriticalSection _notificationLock;
         
         // Network data provider
         INetworkData* m_provider;

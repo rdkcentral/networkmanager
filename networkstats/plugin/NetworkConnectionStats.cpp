@@ -18,6 +18,9 @@
 **/
 
 #include "NetworkConnectionStats.h"
+#include "NetworkConnectionStatsLogger.h"
+
+using namespace NetworkConnectionStatsLogger;
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
@@ -30,7 +33,7 @@ namespace WPEFramework {
             // Version (Major, Minor, Patch)
             API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH,
             // Preconditions
-            { PluginHost::ISubSystem::PLATFORM },
+            { PluginHost::ISubSystem::subsystem::PLATFORM },
             // Terminations
             {},
             // Controls
@@ -51,14 +54,13 @@ namespace WPEFramework {
         , _connectionId(0)
         , _networkStats(nullptr)
         , _notification(this)
-        , _configure(nullptr)
     {
-        TRACE(Trace::Information, (_T("NetworkConnectionStats Constructor")));
+        NSLOG_INFO("NetworkConnectionStats Constructor");
     }
 
     NetworkConnectionStats::~NetworkConnectionStats()
     {
-        TRACE(Trace::Information, (_T("NetworkConnectionStats Destructor")));
+        NSLOG_INFO("NetworkConnectionStats Destructor");
     }
 
     const string NetworkConnectionStats::Initialize(PluginHost::IShell* service)
@@ -70,31 +72,35 @@ namespace WPEFramework {
         ASSERT(nullptr == _networkStats);
         ASSERT(0 == _connectionId);
 
-        TRACE(Trace::Information, (_T("NetworkConnectionStats::Initialize: PID=%u"), getpid()));
-
-        _service = service;
-        _service->AddRef();
-        _service->Register(&_notification);
+        SYSLOG(Logging::Startup, (_T("Initializing NetworkConnectionStats")));
+        NetworkConnectionStatsLogger::Init();
         
+        // Register the Connection::Notification first
+        _service = service;
+        _service->Register(&_notification);
+
         // Spawn out-of-process implementation
-        _networkStats = _service->Root<Exchange::INetworkConnectionStats>(_connectionId, 5000, _T("NetworkConnectionStatsImplementation"));
+        _networkStats = _service->Root<Exchange::INetworkConnectionStats>(_connectionId, 25000, _T("NetworkConnectionStatsImplementation"));
+        
+        NSLOG_INFO("NetworkConnectionStats::Initialize: PID=%u, ConnectionID=%u", getpid(), _connectionId);
 
         if (nullptr != _networkStats) {
-            _configure = _networkStats->QueryInterface<Exchange::IConfiguration>();
-            if (_configure != nullptr) {
-                uint32_t result = _configure->Configure(_service);
-                if (result != Core::ERROR_NONE) {
-                    message = _T("NetworkConnectionStats could not be configured");
-                    TRACE(Trace::Error, (_T("Configuration failed")));
-                } else {
-                    TRACE(Trace::Information, (_T("NetworkConnectionStats configured successfully - running in background")));
-                }
-            } else {
-                message = _T("NetworkConnectionStats implementation did not provide a configuration interface");
-                TRACE(Trace::Error, (_T("No configuration interface")));
+            SYSLOG(Logging::Startup, (_T("Configuring NetworkConnectionStats")));
+            if (_networkStats->Configure(_service->ConfigLine()) != Core::ERROR_NONE)
+            {
+                SYSLOG(Logging::Shutdown, (_T("NetworkConnectionStats failed to configure")));
+                message = _T("NetworkConnectionStats could not be configured");
+            }
+            else
+            {
+                SYSLOG(Logging::Startup, (_T("NetworkConnectionStats configured successfully")));
             }
         } else {
-            TRACE(Trace::Error, (_T("NetworkConnectionStats::Initialize: Failed to initialise plugin")));
+            // Something went wrong, clean up
+            SYSLOG(Logging::Shutdown, (_T("NetworkConnectionStats out-of-process creation failed")));
+            NSLOG_ERROR("Failed to initialize NetworkConnectionStats");
+            _service->Unregister(&_notification);
+            _service = nullptr;
             message = _T("NetworkConnectionStats plugin could not be initialised");
         }
         
@@ -104,36 +110,31 @@ namespace WPEFramework {
     void NetworkConnectionStats::Deinitialize(PluginHost::IShell* service)
     {
         ASSERT(_service == service);
+        ASSERT(_networkStats != nullptr);
 
-        TRACE(Trace::Information, (_T("NetworkConnectionStats::Deinitialize")));
+        SYSLOG(Logging::Shutdown, (_T("Deinitializing NetworkConnectionStats")));
+        
+        if (_networkStats != nullptr)
+        {
+            SYSLOG(Logging::Shutdown, (_T("Unregister Thunder Notifications for NetworkConnectionStats")));
+            _service->Unregister(&_notification);
 
-        // Unregister from notifications
-        _service->Unregister(&_notification);
-
-        if (nullptr != _networkStats) {
-            if (_configure != nullptr) {
-                _configure->Release();
-                _configure = nullptr;
-            }
-
-            // Stop out-of-process implementation
             RPC::IRemoteConnection* connection = service->RemoteConnection(_connectionId);
-            VARIABLE_IS_NOT_USED uint32_t result = _networkStats->Release();
 
-            _networkStats = nullptr;
-
-            ASSERT(result == Core::ERROR_DESTRUCTION_SUCCEEDED);
-
-            if (nullptr != connection) {
+            SYSLOG(Logging::Shutdown, (_T("Release of COMRPC Interface of NetworkConnectionStats")));
+            _networkStats->Release();
+            
+            if (connection != nullptr)
+            {
                 connection->Terminate();
                 connection->Release();
             }
         }
 
+        // Set everything back to default
         _connectionId = 0;
-        _service->Release();
         _service = nullptr;
-        TRACE(Trace::Information, (_T("NetworkConnectionStats de-initialised")));
+        _networkStats = nullptr;
     }
 
     string NetworkConnectionStats::Information() const

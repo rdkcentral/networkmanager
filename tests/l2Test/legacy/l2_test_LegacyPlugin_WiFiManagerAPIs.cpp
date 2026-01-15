@@ -68,7 +68,7 @@ protected:
                         }))
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockShell);
                     }));
         m_service = service;
@@ -114,7 +114,7 @@ TEST_F(WiFiManagerTest, cancelWPSPairing)
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
     EXPECT_CALL(*mockNetworkManager, StopWPS())
@@ -134,7 +134,7 @@ TEST_F(WiFiManagerTest, clearSSID) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, RemoveKnownSSID(::testing::_))
@@ -153,7 +153,7 @@ TEST_F(WiFiManagerTest, connect) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, WiFiConnect(::testing::_))
@@ -182,7 +182,7 @@ TEST_F(WiFiManagerTest, getConnectedSSID) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -215,7 +215,7 @@ TEST_F(WiFiManagerTest, getConnectedSSIDSAE) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -248,7 +248,7 @@ TEST_F(WiFiManagerTest, getConnectedSSIDEAP) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -281,7 +281,7 @@ TEST_F(WiFiManagerTest, getCurrentState) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
@@ -309,7 +309,7 @@ TEST_F(WiFiManagerTest, getCurrentStateFailed1) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WiFiState::WIFI_STATE_ERROR;
@@ -337,7 +337,7 @@ TEST_F(WiFiManagerTest, getCurrentStateFailed2) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTION_INTERRUPTED;
@@ -365,7 +365,7 @@ TEST_F(WiFiManagerTest, getCurrentStateDisconnected) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED;
@@ -393,7 +393,7 @@ TEST_F(WiFiManagerTest, getCurrentStateConnected) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiState state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
@@ -421,7 +421,7 @@ TEST_F(WiFiManagerTest, getPairedSSIDInfo) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
@@ -459,7 +459,7 @@ TEST_F(WiFiManagerTest, saveSSID) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     Exchange::INetworkManager::WiFiConnectTo ssid{};
@@ -496,7 +496,7 @@ TEST_F(WiFiManagerTest, disconnect) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, WiFiDisconnect())
@@ -519,7 +519,7 @@ TEST_F(WiFiManagerTest, initiateWPSPairing) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, StartWPS(::testing::_, ::testing::_))
@@ -549,7 +549,7 @@ TEST_F(WiFiManagerTest, startScan) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, StartWiFiScan(::testing::_, ::testing::_))
@@ -579,7 +579,7 @@ TEST_F(WiFiManagerTest, stopScan) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, StopWiFiScan())
@@ -603,7 +603,7 @@ TEST_F(WiFiManagerTest, stopScan_Error) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
     EXPECT_CALL(*mockNetworkManager, StopWiFiScan())
@@ -715,7 +715,7 @@ TEST_F(WiFiManagerTest, getPairedSSID) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -751,7 +751,7 @@ TEST_F(WiFiManagerTest, isPaired) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -787,7 +787,7 @@ TEST_F(WiFiManagerTest, isPairedNoSSID) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 

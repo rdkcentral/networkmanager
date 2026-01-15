@@ -18,9 +18,11 @@
 **/
 
 #include "ThunderComRPCProvider.h"
+#include "NetworkConnectionStatsLogger.h"
 #include <iostream>
 
 using namespace std;
+using namespace NetworkConnectionStatsLogger;
 
 /* @brief Constructor */
 NetworkComRPCProvider::NetworkComRPCProvider()

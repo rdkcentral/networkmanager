@@ -18,7 +18,10 @@
 **/
 
 #include "NetworkConnectionStatsImplementation.h"
+#include "NetworkConnectionStatsLogger.h"
 #include <chrono>
+
+using namespace NetworkConnectionStatsLogger;
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
@@ -31,7 +34,6 @@ namespace Plugin {
 
     NetworkConnectionStatsImplementation::NetworkConnectionStatsImplementation()
         : _adminLock()
-        , _service(nullptr)
         , m_provider(nullptr)
         , m_interface("")
         , m_ipv4Address("")
@@ -44,7 +46,10 @@ namespace Plugin {
         , _reportingIntervalMinutes(10)    // Default 10 minutes
         , _stopReporting(false)
     {
-        TRACE(Trace::Information, (_T("NetworkConnectionStatsImplementation Constructor")));
+        NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
+        /* Set NetworkManager Out-Process name to be NWMgrPlugin */
+        Core::ProcessInfo().Name("NetworkConnectionStats");
+        NSLOG_INFO((_T("NetworkConnectionStats Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
 #if USE_TELEMETRY
         t2_init("networkstats");
 #endif
@@ -52,7 +57,7 @@ namespace Plugin {
 
     NetworkConnectionStatsImplementation::~NetworkConnectionStatsImplementation()
     {
-        TRACE(Trace::Information, (_T("NetworkConnectionStatsImplementation Destructor")));
+        NSLOG_INFO("NetworkConnectionStatsImplementation Destructor");
         
         // Stop periodic reporting thread
         _stopReporting = true;
@@ -64,26 +69,64 @@ namespace Plugin {
             delete m_provider;
             m_provider = nullptr;
         }
-        
-        _service = nullptr;
     }
 
-    uint32_t NetworkConnectionStatsImplementation::Configure(PluginHost::IShell* service)
+    /**
+     * Register a notification callback
+     */
+    uint32_t NetworkConnectionStatsImplementation::Register(INetworkConnectionStats::INotification* notification)
     {
-        TRACE(Trace::Information, (_T("NetworkConnectionStatsImplementation::Configure")));
-        uint32_t result = Core::ERROR_NONE;
+        ASSERT(nullptr != notification);
         
-        ASSERT(service != nullptr);
-        _service = service;
-        _service->AddRef();
+        NSLOG_INFO("Register::Enter");
+        _notificationLock.Lock();
+
+        // Make sure we can't register the same notification callback multiple times
+        if (std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification) == _notificationCallbacks.end()) {
+            _notificationCallbacks.push_back(notification);
+            notification->AddRef();
+        }
+
+        _notificationLock.Unlock();
+        
+        return Core::ERROR_NONE;
+    }
+
+    /**
+     * Unregister a notification callback
+     */
+    uint32_t NetworkConnectionStatsImplementation::Unregister(INetworkConnectionStats::INotification* notification)
+    {
+        ASSERT(nullptr != notification);
+        
+        NSLOG_INFO("Unregister::Enter");
+        _notificationLock.Lock();
+
+        // Remove the notification callback if it exists
+        auto itr = std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification);
+        if (itr != _notificationCallbacks.end()) {
+            (*itr)->Release();
+            _notificationCallbacks.erase(itr);
+        }
+
+        _notificationLock.Unlock();
+
+        return Core::ERROR_NONE;
+    }
+
+
+    uint32_t NetworkConnectionStatsImplementation::Configure(const string configLine)
+    {
+        NSLOG_INFO("NetworkConnectionStatsImplementation::Configure");
+        uint32_t result = Core::ERROR_NONE;
         
         // Parse configuration
         JsonObject config;
-        config.FromString(_service->ConfigLine());
+        config.FromString(configLine);
         
         if (config.HasLabel("reportingInterval")) {
             _reportingIntervalMinutes = config["reportingInterval"].Number();
-            TRACE(Trace::Information, (_T("Reporting interval set to %u minutes"), _reportingIntervalMinutes.load()));
+            NSLOG_INFO("Reporting interval set to %u minutes", _reportingIntervalMinutes.load());
         }
         
         if (config.HasLabel("autoStart")) {
@@ -93,19 +136,28 @@ namespace Plugin {
         // Initialize network provider
         m_provider = new NetworkJsonRPCProvider();
         if (m_provider == nullptr) {
-            TRACE(Trace::Error, (_T("Failed to create NetworkJsonRPCProvider")));
+            NSLOG_ERROR("Failed to create NetworkJsonRPCProvider");
             result = Core::ERROR_GENERAL;
         } else {
-            TRACE(Trace::Information, (_T("NetworkJsonRPCProvider initialized successfully")));
+            NSLOG_INFO("NetworkJsonRPCProvider created");
             
-            // Generate initial report
-            generateReport();
-            
-            // Start periodic reporting if enabled
-            if (_periodicReportingEnabled) {
-                _stopReporting = false;
-                _reportingThread = std::thread(&NetworkConnectionStatsImplementation::periodicReportingThread, this);
-                TRACE(Trace::Information, (_T("Periodic reporting started with %u minute interval"), _reportingIntervalMinutes.load()));
+            // Initialize the provider with Thunder JSON-RPC connection
+            NetworkJsonRPCProvider* provider = static_cast<NetworkJsonRPCProvider*>(m_provider);
+            if (provider->Initialize()) {
+                NSLOG_INFO("NetworkJsonRPCProvider initialized successfully");
+                
+                // Generate initial report
+                generateReport();
+                
+                // Start periodic reporting if enabled
+                if (_periodicReportingEnabled) {
+                    _stopReporting = false;
+                    _reportingThread = std::thread(&NetworkConnectionStatsImplementation::periodicReportingThread, this);
+                    NSLOG_INFO("Periodic reporting started with %u minute interval", _reportingIntervalMinutes.load());
+                }
+            } else {
+                NSLOG_ERROR("Failed to initialize NetworkJsonRPCProvider");
+                result = Core::ERROR_GENERAL;
             }
         }
         
@@ -114,7 +166,7 @@ namespace Plugin {
 
     void NetworkConnectionStatsImplementation::periodicReportingThread()
     {
-        TRACE(Trace::Information, (_T("Periodic reporting thread started")));
+        NSLOG_INFO("Periodic reporting thread started");
         
         while (!_stopReporting && _periodicReportingEnabled) {
             // Sleep for configured interval
@@ -126,15 +178,15 @@ namespace Plugin {
             
             // Generate report
             generateReport();
-            TRACE(Trace::Information, (_T("Periodic report generated")));
+            NSLOG_INFO("Periodic report generated");
         }
         
-        TRACE(Trace::Information, (_T("Periodic reporting thread stopped")));
+        NSLOG_INFO("Periodic reporting thread stopped");
     }
 
     void NetworkConnectionStatsImplementation::generateReport()
     {
-        TRACE(Trace::Information, (_T("Generating network diagnostics report")));
+        NSLOG_INFO("Generating network diagnostics report");
         
         _adminLock.Lock();
         
@@ -148,7 +200,7 @@ namespace Plugin {
         
         _adminLock.Unlock();
         
-        TRACE(Trace::Information, (_T("Network diagnostics report completed")));
+        NSLOG_INFO("Network diagnostics report completed");
     }
 
     void NetworkConnectionStatsImplementation::logTelemetry(const std::string& eventName, const std::string& message)
@@ -156,8 +208,8 @@ namespace Plugin {
 #if USE_TELEMETRY
         T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
         if (t2error != T2ERROR_SUCCESS) {
-            TRACE(Trace::Error, (_T("t2_event_s(\"%s\", \"%s\") failed with error %d"), 
-                   eventName.c_str(), message.c_str(), t2error));
+            NSLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d", 
+                   eventName.c_str(), message.c_str(), t2error);
         }
 #endif
     }
@@ -166,7 +218,7 @@ namespace Plugin {
     {
         if (m_provider) {
             std::string connType = m_provider->getConnectionType();
-            TRACE(Trace::Information, (_T("Connection type: %s"), connType.c_str()));
+            NSLOG_INFO("Connection type: %s", connType.c_str());
             logTelemetry("Connection_Type", connType);
         }
     }
@@ -186,12 +238,12 @@ namespace Plugin {
             m_ipv6Route = m_provider->getIpv6Gateway();
             m_ipv6Dns = m_provider->getIpv6PrimaryDns();
             
-            TRACE(Trace::Information, (_T("Interface: %s, IPv4: %s, IPv6: %s"), 
-                   m_interface.c_str(), m_ipv4Address.c_str(), m_ipv6Address.c_str()));
-            TRACE(Trace::Information, (_T("IPv4 Gateway: %s, DNS: %s"), 
-                   m_ipv4Route.c_str(), m_ipv4Dns.c_str()));
-            TRACE(Trace::Information, (_T("IPv6 Gateway: %s, DNS: %s"), 
-                   m_ipv6Route.c_str(), m_ipv6Dns.c_str()));
+            NSLOG_INFO("Interface: %s, IPv4: %s, IPv6: %s", 
+                   m_interface.c_str(), m_ipv4Address.c_str(), m_ipv6Address.c_str());
+            NSLOG_INFO("IPv4 Gateway: %s, DNS: %s", 
+                   m_ipv4Route.c_str(), m_ipv4Dns.c_str());
+            NSLOG_INFO("IPv6 Gateway: %s, DNS: %s", 
+                   m_ipv6Route.c_str(), m_ipv6Dns.c_str());
             
             // Log telemetry events
             std::string interfaceInfo = m_interface + "," + m_ipv4Address + "," + m_ipv6Address;
@@ -209,10 +261,10 @@ namespace Plugin {
     {
         if (!m_ipv4Address.empty() && m_ipv4Address != "0.0.0.0") {
             if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
-                TRACE(Trace::Information, (_T("IPv4: Interface %s has gateway %s"),
-                       m_interface.c_str(), m_ipv4Route.c_str()));
+                NSLOG_INFO("IPv4: Interface %s has gateway %s",
+                       m_interface.c_str(), m_ipv4Route.c_str());
             } else {
-                TRACE(Trace::Warning, (_T("IPv4: No valid gateway for interface %s"), m_interface.c_str()));
+                NSLOG_WARNING("IPv4: No valid gateway for interface %s", m_interface.c_str());
             }
         }
     }
@@ -221,10 +273,10 @@ namespace Plugin {
     {
         if (!m_ipv6Address.empty() && m_ipv6Address != "::") {
             if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
-                TRACE(Trace::Information, (_T("IPv6: Interface %s has gateway %s"),
-                       m_interface.c_str(), m_ipv6Route.c_str()));
+                NSLOG_INFO("IPv6: Interface %s has gateway %s",
+                       m_interface.c_str(), m_ipv6Route.c_str());
             } else {
-                TRACE(Trace::Warning, (_T("IPv6: No valid gateway for interface %s"), m_interface.c_str()));
+                NSLOG_WARNING("IPv6: No valid gateway for interface %s", m_interface.c_str());
             }
         }
     }
@@ -237,36 +289,36 @@ namespace Plugin {
         
         // Check IPv4 gateway packet loss
         if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
-            TRACE(Trace::Information, (_T("Pinging IPv4 gateway: %s"), m_ipv4Route.c_str()));
+            NSLOG_INFO("Pinging IPv4 gateway: %s", m_ipv4Route.c_str());
             bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 5, 30);
             if (success) {
                 std::string packetLoss = m_provider->getPacketLoss();
                 std::string avgRtt = m_provider->getAvgRtt();
-                TRACE(Trace::Information, (_T("IPv4 gateway ping - Loss: %s%%, RTT: %sms"),
-                       packetLoss.c_str(), avgRtt.c_str()));
+                NSLOG_INFO("IPv4 gateway ping - Loss: %s%%, RTT: %sms",
+                       packetLoss.c_str(), avgRtt.c_str());
                 
                 std::string ipv4PingInfo = "IPv4," + m_ipv4Route + "," + packetLoss + "," + avgRtt;
                 logTelemetry("Gateway_Ping_Stats", ipv4PingInfo);
             } else {
-                TRACE(Trace::Error, (_T("IPv4 gateway ping failed")));
+                NSLOG_ERROR("IPv4 gateway ping failed");
                 logTelemetry("Gateway_Ping_Stats", "IPv4," + m_ipv4Route + ",failed,0");
             }
         }
         
         // Check IPv6 gateway packet loss
         if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
-            TRACE(Trace::Information, (_T("Pinging IPv6 gateway: %s"), m_ipv6Route.c_str()));
+            NSLOG_INFO("Pinging IPv6 gateway: %s", m_ipv6Route.c_str());
             bool success = m_provider->pingToGatewayCheck(m_ipv6Route, "IPv6", 5, 30);
             if (success) {
                 std::string packetLoss = m_provider->getPacketLoss();
                 std::string avgRtt = m_provider->getAvgRtt();
-                TRACE(Trace::Information, (_T("IPv6 gateway ping - Loss: %s%%, RTT: %sms"),
-                       packetLoss.c_str(), avgRtt.c_str()));
+                NSLOG_INFO("IPv6 gateway ping - Loss: %s%%, RTT: %sms",
+                       packetLoss.c_str(), avgRtt.c_str());
                 
                 std::string ipv6PingInfo = "IPv6," + m_ipv6Route + "," + packetLoss + "," + avgRtt;
                 logTelemetry("Gateway_Ping_Stats", ipv6PingInfo);
             } else {
-                TRACE(Trace::Error, (_T("IPv6 gateway ping failed")));
+                NSLOG_ERROR("IPv6 gateway ping failed");
                 logTelemetry("Gateway_Ping_Stats", "IPv6," + m_ipv6Route + ",failed,0");
             }
         }
@@ -277,19 +329,19 @@ namespace Plugin {
         bool hasDns = false;
         
         if (!m_ipv4Dns.empty()) {
-            TRACE(Trace::Information, (_T("IPv4 DNS: %s"), m_ipv4Dns.c_str()));
+            NSLOG_INFO("IPv4 DNS: %s", m_ipv4Dns.c_str());
             hasDns = true;
         }
         
         if (!m_ipv6Dns.empty()) {
-            TRACE(Trace::Information, (_T("IPv6 DNS: %s"), m_ipv6Dns.c_str()));
+            NSLOG_INFO("IPv6 DNS: %s", m_ipv6Dns.c_str());
             hasDns = true;
         }
         
         if (hasDns) {
-            TRACE(Trace::Information, (_T("DNS configuration present")));
+            NSLOG_INFO("DNS configuration present");
         } else {
-            TRACE(Trace::Warning, (_T("No DNS configuration found")));
+            NSLOG_WARNING("No DNS configuration found");
             logTelemetry("DNS_Status", "No DNS configured");
         }
     }

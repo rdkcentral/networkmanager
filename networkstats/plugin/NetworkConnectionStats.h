@@ -83,7 +83,6 @@ namespace WPEFramework {
             uint32_t _connectionId{};
             Exchange::INetworkConnectionStats* _networkStats{};
             Core::Sink<Notification> _notification;
-            Exchange::IConfiguration* _configure{};
         };
     } // namespace Plugin
 } // namespace WPEFramework

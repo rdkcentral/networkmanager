@@ -19,11 +19,25 @@
 cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
-find_package(WPEFramework)
+
+# Try WPEFramework first
+find_package(WPEFramework QUIET CONFIG)
+
+# If WPEFramework isn't found, try Thunder
+if (NOT WPEFramework_FOUND)
+    find_package(Thunder QUIET CONFIG)
+endif()
+
+# Error out if neither is found
+if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
+    message(FATAL_ERROR
+        "Neither WPEFramework nor Thunder could be found.\n"
+        "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 set(VERSION_MAJOR 1)
-set(VERSION_MINOR 10)
+set(VERSION_MINOR 12)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -40,6 +54,7 @@ get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
 option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
+option(USE_TELEMETRY "Enable Telemetry support for NetworkConnectionStats" ON)
 
 
 add_subdirectory(interface)
