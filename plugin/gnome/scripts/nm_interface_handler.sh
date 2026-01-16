@@ -41,6 +41,13 @@ NSM_WIFI_MARKER="/opt/persistent/wifi_disallowed"
 NM_WIFI_MARKER="/opt/persistent/wifi.interface.disable"
 WIFI_INTERFACE="$WIFI_INTERFACE"
 
+if [ "$BOOT_TYPE" == "BOOT_MIGRATION" ]; then
+    echo "`/bin/timestamp` :$0: migration boot removing ethernet and wifi disable marker file " >>  /opt/logs/NMMonitor.log
+    rm -rf "$NSM_ETH_MARKER"
+    rm -rf "$NSM_WIFI_MARKER"
+    exit 0
+fi
+
 # Rename legacy netsrvmger markers to networkmanager markers if they exist
 if [ -f "$NSM_ETH_MARKER" ]; then
     mv "$NSM_ETH_MARKER" "$NM_ETH_MARKER"
@@ -52,12 +59,14 @@ fi
 
 # If networkmanager Ethernet marker exists, make eth0 unmanaged
 if [ -f "$NM_ETH_MARKER" ]; then
+    echo "`/bin/timestamp` :$0: disabling eth0 interface " >>  /opt/logs/NMMonitor.log
     nmcli device disconnect "$ETH_INTERFACE"
     nmcli dev set "$ETH_INTERFACE" managed no
 fi
 
 # If networkmanager Wi-Fi marker exists, make wlan0 unmanaged
 if [ -f "$NM_WIFI_MARKER" ]; then
+    echo "`/bin/timestamp` :$0: disabling wlan0 interface " >>  /opt/logs/NMMonitor.log
     nmcli device disconnect "$WIFI_INTERFACE"
     nmcli dev set "$WIFI_INTERFACE" managed no
 fi
