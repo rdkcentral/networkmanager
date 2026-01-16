@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <atomic>
+#include <mutex>
 
 #define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
 #define WPS_RETRY_COUNT             10
@@ -102,6 +103,7 @@ namespace WPEFramework
             NMDevice *m_wifidevice;
             GSource *m_source;
             GCancellable *m_cancellable;
+            std::mutex m_cancellableMutex;
             bool m_isSuccess = false;
             SecretAgent m_secretAgent;
         };

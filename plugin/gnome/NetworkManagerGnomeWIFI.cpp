@@ -63,18 +63,24 @@ namespace WPEFramework
             }
 
             // Create new cancellable for this client session
-            m_cancellable = g_cancellable_new();
+            {
+                std::lock_guard<std::mutex> lock(m_cancellableMutex);
+                m_cancellable = g_cancellable_new();
+            }
             return true;
         }
 
         void wifiManager::deleteClientConnection()
         {
             // Cancel all pending async operations before destroying client
-            if(m_cancellable != NULL) {
-                NMLOG_DEBUG("Cancelling pending async operations");
-                g_cancellable_cancel(m_cancellable);
-                g_clear_object(&m_cancellable);
-                m_cancellable = NULL;
+            {
+                std::lock_guard<std::mutex> lock(m_cancellableMutex);
+                if(m_cancellable != NULL) {
+                    NMLOG_DEBUG("Cancelling pending async operations");
+                    g_cancellable_cancel(m_cancellable);
+                    g_clear_object(&m_cancellable);
+                    m_cancellable = NULL;
+                }
             }
 
             if(m_client != NULL) {
