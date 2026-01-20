@@ -32,7 +32,11 @@
 . /etc/device.properties
 
 # Get BOOT_TYPE
-BOOT_TYPE=$(grep "BOOT_TYPE" /tmp/bootType | cut -d '=' -f 2)
+if [ -f /tmp/bootType ]; then
+    BOOT_TYPE=$(grep "BOOT_TYPE" /tmp/bootType | cut -d '=' -f 2)
+else
+    BOOT_TYPE=""
+fi
 
 # Ethernet
 NSM_ETH_MARKER="/opt/persistent/ethernet_disallowed"
@@ -46,8 +50,8 @@ WIFI_INTERFACE="$WIFI_INTERFACE"
 
 if [ "$BOOT_TYPE" = "BOOT_MIGRATION" ]; then
     echo "`/bin/timestamp` :$0: migration boot removing ethernet and wifi disable marker file" >> /opt/logs/NMMonitor.log
-    rm -rf "$NSM_ETH_MARKER"
-    rm -rf "$NSM_WIFI_MARKER"
+    rm -f "$NSM_ETH_MARKER"
+    rm -f "$NSM_WIFI_MARKER"
     exit 0
 fi
 
