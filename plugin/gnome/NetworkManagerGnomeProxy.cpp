@@ -733,12 +733,12 @@ namespace WPEFramework
                     if(!result.ipaddress.empty() && result.ipaddress.compare(0, 8, "169.254.") == 0)
                     {
                         NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
-                        result.ipaddress.clear();
-                        result.prefix = 0;
-                        result.gateway.clear();
-                        result.primarydns.clear();
-                        result.secondarydns.clear();
-                        result.dhcpserver.clear();
+                        // Clear cache for link-local
+                        if(ethname == interface)
+                            m_ethIPv4Address = IPAddress();
+                        else if(wifiname == interface)
+                            m_wlanIPv4Address = IPAddress();
+                        return Core::ERROR_GENERAL;
                     }
 
                     // Cache the IPv4 address
