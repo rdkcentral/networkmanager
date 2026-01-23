@@ -373,7 +373,7 @@ namespace WPEFramework
                 {
                     if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
                     {
-                        NMLOG_ERROR("Disconnect operation was cancelled");
+                        NMLOG_DEBUG("Disconnect operation was cancelled");
                     }
                     else
                     {
@@ -456,29 +456,32 @@ namespace WPEFramework
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             NMActiveConnection *activeConnection = NULL;
 
-            // Check if operation was cancelled - this is expected during cleanup
-            if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-                NMLOG_DEBUG("Connection operation was cancelled");
-            }
-            else if (_wifiManager->m_createNewConnection) {
+            if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
                 activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
-                 _wifiManager->m_isSuccess = true;
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
                 activeConnection = nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
-                 _wifiManager->m_isSuccess = true;
             }
 
+            // Check if operation was cancelled - this is expected during cleanup
             if (error) {
-                 _wifiManager->m_isSuccess = false;
-                if (_wifiManager->m_createNewConnection) {
-                    NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
-                } else {
-                    NMLOG_ERROR("Failed to activate connection: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("Connection operation was cancelled");
+                }
+                else {
+                    if (_wifiManager->m_createNewConnection) {
+                        NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
+                    } else {
+                        NMLOG_ERROR("Failed to activate connection: %s", error->message);
+                    }
                 }
                 g_error_free(error);
+            }
+            else {
+                _wifiManager->m_isSuccess = true;
             }
 
             if(activeConnection)
@@ -509,6 +512,15 @@ namespace WPEFramework
 
             if (remoteConnection) {
                 NMLOG_DEBUG("Temporary connection added, now activating...");
+
+                // Check if client is still valid before activating
+                if (_wifiManager->m_client == NULL) {
+                    NMLOG_WARNING("Client was destroyed, cannot activate connection");
+                    _wifiManager->m_isSuccess = false;
+                    g_object_unref(remoteConnection);
+                    g_main_loop_quit(_wifiManager->m_loop);
+                    return;
+                }
 
                 // Now activate the temporary connection
                 nm_client_activate_connection_async(_wifiManager->m_client,
@@ -546,6 +558,14 @@ namespace WPEFramework
             }
             else
                 g_variant_unref(ret);
+
+            // Check if client is still valid before activating
+            if (_wifiManager->m_client == NULL) {
+                NMLOG_WARNING("Client was destroyed, cannot activate connection");
+                _wifiManager->m_isSuccess = false;
+                _wifiManager->quit(NULL);
+                return;
+            }
 
             _wifiManager->m_createNewConnection = false; // no need to create new connection
             nm_client_activate_connection_async(
@@ -1386,6 +1406,7 @@ namespace WPEFramework
                 } else {
                     NMLOG_ERROR("Scanning Failed Error: %s.", error->message);
                 }
+                g_error_free(error);
             }
 
             g_main_loop_quit(_wifiManager->m_loop);
@@ -1404,7 +1425,7 @@ namespace WPEFramework
             m_isSuccess = false;
             if(!ssidReq.empty())
             {
-                NMLOG_INFO("staring wifi scanning .. %s", ssidReq.c_str());
+                NMLOG_INFO("starting wifi scanning .. %s", ssidReq.c_str());
                 GVariantBuilder builder, array_builder;
                 GVariant *options;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
@@ -1796,7 +1817,7 @@ namespace WPEFramework
                 {
                     if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
                     {
-                        NMLOG_ERROR("something went wrong no matching gerror found !");
+                        NMLOG_DEBUG("Device Manage operation was cancelled !");
                     }
                     else
                     {
