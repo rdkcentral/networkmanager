@@ -75,7 +75,7 @@ namespace WPEFramework
             // Cancel all pending async operations before destroying client
             {
                 std::lock_guard<std::mutex> lock(m_cancellableMutex);
-                if(m_cancellable != NULL) {
+                if(m_cancellable) {
                     NMLOG_DEBUG("Cancelling pending async operations");
                     g_cancellable_cancel(m_cancellable);
                     g_clear_object(&m_cancellable);
@@ -83,7 +83,7 @@ namespace WPEFramework
                 }
             }
 
-            if(m_client != NULL) {
+            if(m_client) {
                 GMainContext *context = g_main_context_ref(nm_client_get_main_context(m_client));
                 GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(m_client);
                 g_object_add_weak_pointer(contextBusyWatcher,(gpointer *) &contextBusyWatcher);
@@ -779,7 +779,6 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
-            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_TIMEOUT, 2147483647, NULL); // 2147483647 = infinite timeout
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
             /* Build up the 'IPv6' Setting */
