@@ -729,6 +729,18 @@ namespace WPEFramework
                     }
                     result.ula = "";
 
+                    // Check if only link-local IPv4 is available (169.254.x.x)
+                    if(!result.ipaddress.empty() && result.ipaddress.compare(0, 8, "169.254.") == 0)
+                    {
+                        NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
+                        result.ipaddress.clear();
+                        result.prefix = 0;
+                        result.gateway.clear();
+                        result.primarydns.clear();
+                        result.secondarydns.clear();
+                        result.dhcpserver.clear();
+                    }
+
                     // Cache the IPv4 address
                     if(ethname == interface)
                         m_ethIPv4Address = result;
