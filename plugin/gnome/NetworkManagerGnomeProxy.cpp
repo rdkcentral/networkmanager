@@ -22,7 +22,9 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
+#include <arpa/inet.h>
 
+#define IN_IS_ADDR_LINKLOCAL(a)     (((a) & htonl(0xffff0000)) == htonl (0xa9fe0000))
 static NMClient *client = NULL;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -691,6 +693,7 @@ namespace WPEFramework
                 ip4_config = nm_active_connection_get_ip4_config(conn);
                 NMIPAddress *ipAddr = NULL;
                 std::string ipStr;
+                struct sockaddr_in sa;
                 if (ip4_config)
                     ipByte = nm_ip_config_get_addresses(ip4_config);
                 else
@@ -705,7 +708,8 @@ namespace WPEFramework
                         if(!ipStr.empty())
                         {
                             // Skip link-local IPv4 addresses (169.254.x.x)
-                            if(ipStr.compare(0, 8, "169.254.") == 0)
+                            inet_pton(AF_INET, ipStr.c_str(), &(sa.sin_addr));
+                            if(IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr))
                             {
                                 NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
                                 continue;
