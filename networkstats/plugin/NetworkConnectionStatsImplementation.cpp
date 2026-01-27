@@ -43,7 +43,7 @@ namespace Plugin {
         , m_ipv4Dns("")
         , m_ipv6Dns("")
         , _periodicReportingEnabled(true)  // Auto-enabled
-        , _reportingIntervalMinutes(10)    // Default 10 minutes
+        , _reportingIntervalSeconds(600)   // Default 10 minutes (600 seconds)
         , _stopReporting(false)
     {
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -125,12 +125,14 @@ namespace Plugin {
         config.FromString(configLine);
         
         if (config.HasLabel("reportingInterval")) {
-            _reportingIntervalMinutes = config["reportingInterval"].Number();
-            NSLOG_INFO("Reporting interval set to %u minutes", _reportingIntervalMinutes.load());
+            _reportingIntervalSeconds = config["reportingInterval"].Number();
+            NSLOG_INFO("Reporting interval set to %u seconds (%u minutes)", 
+                   _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
         }
         
         if (config.HasLabel("autoStart")) {
             _periodicReportingEnabled = config["autoStart"].Boolean();
+            NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
         }
         
         // Initialize network provider
@@ -153,7 +155,8 @@ namespace Plugin {
                 if (_periodicReportingEnabled) {
                     _stopReporting = false;
                     _reportingThread = std::thread(&NetworkConnectionStatsImplementation::periodicReportingThread, this);
-                    NSLOG_INFO("Periodic reporting started with %u minute interval", _reportingIntervalMinutes.load());
+                    NSLOG_INFO("Periodic reporting started with %u second interval (%u minutes)", 
+                           _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
                 }
             } else {
                 NSLOG_ERROR("Failed to initialize NetworkJsonRPCProvider");
@@ -170,7 +173,7 @@ namespace Plugin {
         
         while (!_stopReporting && _periodicReportingEnabled) {
             // Sleep for configured interval
-            std::this_thread::sleep_for(std::chrono::minutes(_reportingIntervalMinutes.load()));
+            std::this_thread::sleep_for(std::chrono::seconds(_reportingIntervalSeconds.load()));
             
             if (_stopReporting || !_periodicReportingEnabled) {
                 break;
@@ -263,8 +266,10 @@ namespace Plugin {
             if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
                 NSLOG_INFO("IPv4: Interface %s has gateway %s",
                        m_interface.c_str(), m_ipv4Route.c_str());
+                logTelemetry("IPv4_Route_Check", "Success," + m_interface + "," + m_ipv4Route);
             } else {
-                NSLOG_WARNING("IPv4: No valid gateway for interface %s", m_interface.c_str());
+                NSLOG_INFO("IPv4: No valid gateway for interface %s", m_interface.c_str());
+                logTelemetry("IPv4_Route_Check", "Failed,No valid gateway," + m_interface);
             }
         }
     }
@@ -275,8 +280,10 @@ namespace Plugin {
             if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
                 NSLOG_INFO("IPv6: Interface %s has gateway %s",
                        m_interface.c_str(), m_ipv6Route.c_str());
+                logTelemetry("IPv6_Route_Check", "Success," + m_interface + "," + m_ipv6Route);
             } else {
-                NSLOG_WARNING("IPv6: No valid gateway for interface %s", m_interface.c_str());
+                NSLOG_INFO("IPv6: No valid gateway for interface %s", m_interface.c_str());
+                logTelemetry("IPv6_Route_Check", "Failed,No valid gateway," + m_interface);
             }
         }
     }

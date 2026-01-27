@@ -89,7 +89,7 @@ namespace Plugin {
         
         // Periodic reporting
         std::atomic<bool> _periodicReportingEnabled;
-        std::atomic<uint32_t> _reportingIntervalMinutes;
+        std::atomic<uint32_t> _reportingIntervalSeconds;
         std::thread _reportingThread;
         std::atomic<bool> _stopReporting;
     };
