@@ -704,6 +704,12 @@ namespace WPEFramework
                             ipStr = nm_ip_address_get_address(ipAddr);
                         if(!ipStr.empty())
                         {
+                            // Skip link-local IPv4 addresses (169.254.x.x)
+                            if(ipStr.compare(0, 8, "169.254.") == 0)
+                            {
+                                NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
+                                continue;
+                            }
                             result.ipaddress = nm_ip_address_get_address(ipAddr);
                             result.prefix = nm_ip_address_get_prefix(ipAddr);
                             NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
@@ -729,11 +735,11 @@ namespace WPEFramework
                     }
                     result.ula = "";
 
-                    // Check if only link-local IPv4 is available (169.254.x.x)
-                    if(!result.ipaddress.empty() && result.ipaddress.compare(0, 8, "169.254.") == 0)
+                    // Check if only link-local IPv4 is available (no valid global address found)
+                    if(result.ipaddress.empty())
                     {
                         NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
-                        // Clear cache for link-local
+                        // Clear cache for link-local only
                         if(ethname == interface)
                             m_ethIPv4Address = IPAddress();
                         else if(wifiname == interface)
