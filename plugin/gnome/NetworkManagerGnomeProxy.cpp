@@ -24,7 +24,7 @@
 #include <sstream>
 #include <arpa/inet.h>
 
-#define IN_IS_ADDR_LINKLOCAL(a)     (((a) & htonl(0xffff0000)) == htonl (0xa9fe0000))
+#define IN_IS_ADDR_LINKLOCAL(a)     ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
 static NMClient *client = NULL;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
