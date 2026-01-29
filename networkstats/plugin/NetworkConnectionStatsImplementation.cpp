@@ -46,7 +46,7 @@ namespace Plugin {
         , _reportingIntervalSeconds(600)   // Default 10 minutes (600 seconds)
         , _stopReporting(false)
     {
-        NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
+        NSLOG_INFO("NetworkConnectionStatsImplemen  tation Constructor");
         /* Set NetworkManager Out-Process name to be NWMgrPlugin */
         Core::ProcessInfo().Name("NetworkConnectionStats");
         NSLOG_INFO((_T("NetworkConnectionStats Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
@@ -136,6 +136,19 @@ namespace Plugin {
         }
         
         // Initialize network provider
+#ifdef USE_COMRPC_PROVIDER
+        m_provider = new NetworkComRPCProvider();
+        if (m_provider == nullptr) {
+            NSLOG_ERROR("Failed to create NetworkComRPCProvider");
+            result = Core::ERROR_GENERAL;
+        } else {
+            NSLOG_INFO("NetworkComRPCProvider created");
+            
+            // Initialize the provider with Thunder COM-RPC connection
+            NetworkComRPCProvider* provider = static_cast<NetworkComRPCProvider*>(m_provider);
+            if (provider->Initialize()) {
+                NSLOG_INFO("NetworkComRPCProvider initialized successfully");
+#else
         m_provider = new NetworkJsonRPCProvider();
         if (m_provider == nullptr) {
             NSLOG_ERROR("Failed to create NetworkJsonRPCProvider");
@@ -147,6 +160,7 @@ namespace Plugin {
             NetworkJsonRPCProvider* provider = static_cast<NetworkJsonRPCProvider*>(m_provider);
             if (provider->Initialize()) {
                 NSLOG_INFO("NetworkJsonRPCProvider initialized successfully");
+#endif
                 
                 // Generate initial report
                 generateReport();
@@ -159,7 +173,11 @@ namespace Plugin {
                            _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
                 }
             } else {
+#ifdef USE_COMRPC_PROVIDER
+                NSLOG_ERROR("Failed to initialize NetworkComRPCProvider");
+#else
                 NSLOG_ERROR("Failed to initialize NetworkJsonRPCProvider");
+#endif
                 result = Core::ERROR_GENERAL;
             }
         }
@@ -208,6 +226,7 @@ namespace Plugin {
 
     void NetworkConnectionStatsImplementation::logTelemetry(const std::string& eventName, const std::string& message)
     {
+        NSLOG_INFO("NS_T2: %s:%s", eventName.c_str(), message.c_str());
 #if USE_TELEMETRY
         T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
         if (t2error != T2ERROR_SUCCESS) {

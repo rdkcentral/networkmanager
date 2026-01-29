@@ -22,7 +22,13 @@
 #include "Module.h"
 #include "INetworkConnectionStats.h"
 #include "INetworkData.h"
+
+#ifdef USE_COMRPC_PROVIDER
+#include "ThunderComRPCProvider.h"
+#else
 #include "ThunderJsonRPCProvider.h"
+#endif
+
 #include <thread>
 #include <atomic>
 

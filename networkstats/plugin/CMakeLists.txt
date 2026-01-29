@@ -27,6 +27,9 @@ find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(${NAMESPACE}Definitions REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
+# Provider selection option (default: JSON-RPC)
+option(USE_COMRPC_PROVIDER "Use COM-RPC provider instead of JSON-RPC" ON)
+
 # Optional Telemetry support
 if (USE_TELEMETRY)
     find_package(T2 REQUIRED)
@@ -68,12 +71,22 @@ set_target_properties(${MODULE_NAME} PROPERTIES
     FRAMEWORK FALSE
 )
 
+# Select the appropriate provider based on CMake option
+if (USE_COMRPC_PROVIDER)
+    message(STATUS "Using COM-RPC provider for NetworkConnectionStats")
+    set(PROVIDER_SOURCE ThunderComRPCProvider.cpp)
+    add_definitions(-DUSE_COMRPC_PROVIDER)
+else()
+    message(STATUS "Using JSON-RPC provider for NetworkConnectionStats")
+    set(PROVIDER_SOURCE ThunderJsonRPCProvider.cpp)
+endif()
+
 # Out-of-process Implementation Library
 add_library(${MODULE_IMPL_NAME} SHARED
     Module.cpp
     NetworkConnectionStatsImplementation.cpp
     NetworkConnectionStatsLogger.cpp
-    ThunderJsonRPCProvider.cpp
+    ${PROVIDER_SOURCE}
 )
 
 target_link_libraries(${MODULE_IMPL_NAME}
