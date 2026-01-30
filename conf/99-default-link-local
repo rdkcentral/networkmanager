@@ -1,0 +1,3 @@
+[connection]
+ipv4.link-local=2
+ipv4.dhcp-timeout=2147483647
