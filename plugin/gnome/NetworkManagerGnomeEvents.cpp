@@ -731,7 +731,7 @@ namespace WPEFramework
     {
          GBytes *ssid = NULL;
          int strength = 0;
-         std::string freq;
+         int freq;
          int security;
          guint32 flags, wpaFlags, rsnFlags, apFreq;
          if(ap == nullptr)
@@ -757,7 +757,7 @@ namespace WPEFramework
              security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
 
              ssidObj["security"] = security;
-             ssidObj["strength"] = nmUtils::convertPercentageToSignalStrengtStr(strength);
+             ssidObj["strength"] = nmUtils::convertPercentageToSignalStrength(strength);
              ssidObj["frequency"] = freq;
              return true;
          }
