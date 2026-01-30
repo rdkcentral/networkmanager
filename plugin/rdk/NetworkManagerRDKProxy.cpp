@@ -265,14 +265,13 @@ namespace WPEFramework
                         for (int i = 0; i < ssids.Length(); i++)
                         {
                             JsonObject object = ssids[i].Object();
-                            if (object.HasLabel("signalStrength"))
-                            {
-                                object["strength"] = object["signalStrength"];
-                                object.Delete("signalStrength");
-                            }
                             security = object["security"].Number();
-                            object["security"] = mapToNewSecurityMode(security);
-                            ssidsUpdated.Add(object);
+                            JsonObject newObject;
+                            newObject["ssid"] = object["ssid"];
+                            newObject["security"] = mapToLegacySecurityMode(security);
+                            newObject["strength"] = object["signalStrength"];
+                            newObject["frequency"] = object["frequency"];
+                            ssidsUpdated.Add(newObject);
                         }
                         ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;

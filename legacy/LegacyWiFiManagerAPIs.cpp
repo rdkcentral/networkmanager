@@ -910,14 +910,13 @@ namespace WPEFramework
             for (int i = 0; i < ssids.Length(); i++)
             {
                 JsonObject object = ssids[i].Object();
-                if (object.HasLabel("strength"))
-                {
-                    object["signalStrength"] = object["strength"];
-                    object.Delete("strength");
-                }
                 uint32_t security = object["security"].Number();
-                object["security"] = mapToLegacySecurityMode(security);
-                ssidsUpdated.Add(object);
+                JsonObject newObject;
+                newObject["ssid"] = object["ssid"];
+                newObject["security"] = mapToLegacySecurityMode(security);
+                newObject["signalStrength"] = object["strength"];
+                newObject["frequency"] = object["frequency"];
+                ssidsUpdated.Add(newObject);
             }
             newParameters["ssids"] = ssidsUpdated;
 
