@@ -910,6 +910,11 @@ namespace WPEFramework
             for (int i = 0; i < ssids.Length(); i++)
             {
                 JsonObject object = ssids[i].Object();
+                if (object.HasLabel("strength"))
+                {
+                    object["signalStrength"] = object["strength"];
+                    object.Remove("strength");
+                }
                 uint32_t security = object["security"].Number();
                 object["security"] = mapToLegacySecurityMode(security);
                 ssidsUpdated.Add(object);

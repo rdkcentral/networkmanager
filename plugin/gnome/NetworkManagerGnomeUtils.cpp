@@ -66,10 +66,10 @@ namespace WPEFramework
         }
 
         // Function to convert percentage (0-100) to dBm string
-        const char* nmUtils::convertPercentageToSignalStrengtStr(int percentage) {
+        int nmUtils::convertPercentageToSignalStrength(int percentage) {
 
             if (percentage <= 0 || percentage > 100) {
-                return "";
+                return 0;
             }
 
            /*
@@ -85,9 +85,7 @@ namespace WPEFramework
             const int max_dBm = -30;
             const int min_dBm = -90;
             int dBm_value = max_dBm + ((min_dBm - max_dBm) * (100 - percentage)) / 100;
-            static char result[8]={0};
-            snprintf(result, sizeof(result), "%d", dBm_value);
-            return result;
+            return dBm_value;
         }
 
         std::string nmUtils::getSecurityModeString(guint32 flag, guint32 wpaFlags, guint32 rsnFlags)
@@ -180,17 +178,17 @@ namespace WPEFramework
             return securityStr;
         }
 
-       std::string nmUtils::wifiFrequencyFromAp(guint32 apFreq)
+       float nmUtils::wifiFrequencyFromAp(guint32 apFreq)
        {
-            std::string freq;
+            float freq;
             if (apFreq >= 2400 && apFreq < 5000)
-                freq = "2.4";
+                freq = 2.4f;
             else if (apFreq >= 5000 && apFreq < 6000)
-                freq = "5";
+                freq = 5.0f;
             else if (apFreq >= 6000)
-                freq = "6";
+                freq = 6.0f;
             else
-                freq = "Not available";
+                freq = 0.0f;
 
             return freq;
        }

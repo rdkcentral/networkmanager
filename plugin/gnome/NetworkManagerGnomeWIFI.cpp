@@ -268,7 +268,7 @@ namespace WPEFramework
             wifiInfo.noise = std::to_string(noise);
             NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
             //TODO signal strenght to dBm
-            wifiInfo.strength = std::string(nmUtils::convertPercentageToSignalStrengtStr(strength));
+            wifiInfo.strength = std::to_string(nmUtils::convertPercentageToSignalStrength(strength));
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(wifiInfo.ssid, flags, wpaFlags, rsnFlags, doPrint));
             if(doPrint)
             {
