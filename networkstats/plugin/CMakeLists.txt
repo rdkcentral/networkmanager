@@ -28,7 +28,7 @@ find_package(${NAMESPACE}Definitions REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
 # Provider selection option (default: JSON-RPC)
-option(USE_COMRPC_PROVIDER "Use COM-RPC provider instead of JSON-RPC" ON)
+option(USE_COMRPC_PROVIDER "Use COM-RPC provider instead of JSON-RPC" OFF)
 
 # Optional Telemetry support
 if (USE_TELEMETRY)

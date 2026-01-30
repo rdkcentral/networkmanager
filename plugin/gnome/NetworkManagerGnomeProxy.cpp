@@ -22,7 +22,9 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
+#include <arpa/inet.h>
 
+#define IN_IS_ADDR_LINKLOCAL(a)     ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
 static NMClient *client = NULL;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -691,6 +693,7 @@ namespace WPEFramework
                 ip4_config = nm_active_connection_get_ip4_config(conn);
                 NMIPAddress *ipAddr = NULL;
                 std::string ipStr;
+                struct sockaddr_in sa;
                 if (ip4_config)
                     ipByte = nm_ip_config_get_addresses(ip4_config);
                 else
@@ -704,6 +707,13 @@ namespace WPEFramework
                             ipStr = nm_ip_address_get_address(ipAddr);
                         if(!ipStr.empty())
                         {
+                            // Skip link-local IPv4 addresses (169.254.x.x)
+                            inet_pton(AF_INET, ipStr.c_str(), &(sa.sin_addr));
+                            if(IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr))
+                            {
+                                NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
+                                continue;
+                            }
                             result.ipaddress = nm_ip_address_get_address(ipAddr);
                             result.prefix = nm_ip_address_get_prefix(ipAddr);
                             NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
@@ -728,6 +738,18 @@ namespace WPEFramework
                             result.dhcpserver = dhcpserver;
                     }
                     result.ula = "";
+
+                    // Check if only link-local IPv4 is available (no valid global address found)
+                    if(result.ipaddress.empty())
+                    {
+                        NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
+                        // Clear cache for link-local only
+                        if(ethname == interface)
+                            m_ethIPv4Address = IPAddress();
+                        else if(wifiname == interface)
+                            m_wlanIPv4Address = IPAddress();
+                        return Core::ERROR_GENERAL;
+                    }
 
                     // Cache the IPv4 address
                     if(ethname == interface)

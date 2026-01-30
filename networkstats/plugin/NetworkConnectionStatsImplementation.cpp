@@ -268,14 +268,11 @@ namespace Plugin {
                    m_ipv6Route.c_str(), m_ipv6Dns.c_str());
             
             // Log telemetry events
-            std::string interfaceInfo = m_interface + "," + m_ipv4Address + "," + m_ipv6Address;
-            logTelemetry("Network_Interface_Info", interfaceInfo);
-            
-            std::string ipv4Info = m_ipv4Route + "," + m_ipv4Dns;
-            logTelemetry("IPv4_Gateway_DNS", ipv4Info);
-            
-            std::string ipv6Info = m_ipv6Route + "," + m_ipv6Dns;
-            logTelemetry("IPv6_Gateway_DNS", ipv6Info);
+            logTelemetry("Network_Interface", m_interface);
+            logTelemetry("Network_IPv4_Address", m_ipv4Address);
+            logTelemetry("Network_IPv6_Address", m_ipv6Address);
+            logTelemetry("IPv4_DNS", m_ipv4Dns);
+            logTelemetry("IPv6_DNS", m_ipv6Dns);
         }
     }
 
@@ -323,11 +320,12 @@ namespace Plugin {
                 NSLOG_INFO("IPv4 gateway ping - Loss: %s%%, RTT: %sms",
                        packetLoss.c_str(), avgRtt.c_str());
                 
-                std::string ipv4PingInfo = "IPv4," + m_ipv4Route + "," + packetLoss + "," + avgRtt;
-                logTelemetry("Gateway_Ping_Stats", ipv4PingInfo);
+                logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv4_Gateway_RTT", avgRtt);
             } else {
                 NSLOG_ERROR("IPv4 gateway ping failed");
-                logTelemetry("Gateway_Ping_Stats", "IPv4," + m_ipv4Route + ",failed,0");
+                logTelemetry("IPv4_Gateway_Packet_Loss", "failed");
+                logTelemetry("IPv4_Gateway_RTT", "0");
             }
         }
         
@@ -341,11 +339,12 @@ namespace Plugin {
                 NSLOG_INFO("IPv6 gateway ping - Loss: %s%%, RTT: %sms",
                        packetLoss.c_str(), avgRtt.c_str());
                 
-                std::string ipv6PingInfo = "IPv6," + m_ipv6Route + "," + packetLoss + "," + avgRtt;
-                logTelemetry("Gateway_Ping_Stats", ipv6PingInfo);
+                logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv6_Gateway_RTT", avgRtt);
             } else {
                 NSLOG_ERROR("IPv6 gateway ping failed");
-                logTelemetry("Gateway_Ping_Stats", "IPv6," + m_ipv6Route + ",failed,0");
+                logTelemetry("IPv6_Gateway_Packet_Loss", "failed");
+                logTelemetry("IPv6_Gateway_RTT", "0");
             }
         }
     }
@@ -366,6 +365,7 @@ namespace Plugin {
         
         if (hasDns) {
             NSLOG_INFO("DNS configuration present");
+            logTelemetry("DNS_Status", "DNS configured");
         } else {
             NSLOG_WARNING("No DNS configuration found");
             logTelemetry("DNS_Status", "No DNS configured");
