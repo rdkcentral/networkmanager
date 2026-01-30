@@ -21,11 +21,18 @@
 #define __INETWORKDATA_H__
 
 #include <string>
+#include <functional>
+#include <core/JSON.h>
 
 class INetworkData
 {
   public:
     virtual ~INetworkData() {}
+
+    /* @brief Initialize the network data provider
+     * @return true if initialization successful, false otherwise
+     */
+    virtual bool Initialize() = 0;
 
     /* @brief Retrieve IPv4 address for specified interface
      * @param interface_name Interface name (e.g., eth0, wlan0)
@@ -77,6 +84,14 @@ class INetworkData
 
     /* @brief Get average RTT from last ping call */
     virtual std::string getAvgRtt() = 0;
+
+    /* @brief Subscribe to NetworkManager events
+     * @param eventName Name of the event (e.g., "onInterfaceStateChange")
+     * @param callback Callback function to be called when event fires
+     * @return Error code (Core::ERROR_NONE on success)
+     */
+    virtual uint32_t SubscribeToEvent(const std::string& eventName, 
+        std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback) = 0;
 
   protected:
     INetworkData() {}

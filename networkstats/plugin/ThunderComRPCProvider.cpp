@@ -41,15 +41,12 @@ NetworkComRPCProvider::~NetworkComRPCProvider()
 bool NetworkComRPCProvider::Initialize()
 {
     try {
-        // Set Thunder access point to COM-RPC socket instead of HTTP
-        // COM-RPC uses unix socket at /tmp/communicator
-        WPEFramework::Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T("/tmp/communicator"));
+        NSLOG_INFO("Creating JSON-RPC client for callsign: %s over COM-RPC", NETWORK_MANAGER_CALLSIGN);
         
-        // Create JSON-RPC client connection to NetworkManager (over COM-RPC transport)
-        m_networkManagerClient = std::make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>>(
-            _T(NETWORK_MANAGER_CALLSIGN), 
-            _T(""),  // No specific version
-            _T("")   // No token needed for inter-plugin communication
+        // For COM-RPC, don't set THUNDER_ACCESS - let it use the default connection
+        // The plugin framework handles the routing automatically
+        m_networkManagerClient = std::make_shared<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>>(
+            _T(NETWORK_MANAGER_CALLSIGN)
         );
         
         if (m_networkManagerClient) {
@@ -340,6 +337,39 @@ std::string NetworkComRPCProvider::getPacketLoss()
 std::string NetworkComRPCProvider::getAvgRtt()
 {
     return m_avgRtt;
+}
+
+/* @brief Subscribe to NetworkManager events */
+uint32_t NetworkComRPCProvider::SubscribeToEvent(const std::string& eventName, 
+    std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback)
+{
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return WPEFramework::Core::ERROR_UNAVAILABLE;
+    }
+
+    try {
+        // Subscribe to the event using Thunder's Subscribe API
+        // Note: The callback will be invoked when the event is received
+        uint32_t result = m_networkManagerClient->Subscribe<WPEFramework::Core::JSON::VariantContainer>(
+            5000, // timeout in milliseconds
+            eventName,
+            [callback](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                callback(parameters);
+            }
+        );
+
+        if (result == WPEFramework::Core::ERROR_NONE) {
+            NSLOG_INFO("Successfully subscribed to event: %s", eventName.c_str());
+        } else {
+            NSLOG_ERROR("Failed to subscribe to event %s, error code: %u", eventName.c_str(), result);
+        }
+
+        return result;
+    } catch (const std::exception& e) {
+        NSLOG_ERROR("Exception subscribing to event %s: %s", eventName.c_str(), e.what());
+        return WPEFramework::Core::ERROR_GENERAL;
+    }
 }
 
 #ifdef TEST_MAIN

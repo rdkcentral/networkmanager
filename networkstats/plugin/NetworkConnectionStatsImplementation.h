@@ -22,15 +22,13 @@
 #include "Module.h"
 #include "INetworkConnectionStats.h"
 #include "INetworkData.h"
-
-#ifdef USE_COMRPC_PROVIDER
-#include "ThunderComRPCProvider.h"
-#else
-#include "ThunderJsonRPCProvider.h"
-#endif
+#include "NetworkDataProviderFactory.h"
 
 #include <thread>
 #include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 #if USE_TELEMETRY
 #include <telemetry_busmessage_sender.h>
@@ -63,6 +61,16 @@ namespace Plugin {
         uint32_t Configure(const string configLine) override;
 
     private:
+        // Message queue types
+        enum class MessageType {
+            GENERATE_REPORT,
+            STOP
+        };
+        
+        struct Message {
+            MessageType type;
+        };
+        
         // Internal diagnostic methods
         void connectionTypeCheck();
         void connectionIpCheck();
@@ -72,7 +80,16 @@ namespace Plugin {
         void networkDnsCheck();
         void generateReport();
         void logTelemetry(const std::string& eventName, const std::string& message);
+        void timerThread();
         void periodicReportingThread();
+        
+        // NetworkManager event subscription
+        void subscribeToEvents();
+        void subscriptionRetryThread();
+        void ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
+        void ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
+        void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
+        void queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters = nullptr);
 
     private:
         mutable Core::CriticalSection _adminLock;
@@ -96,8 +113,21 @@ namespace Plugin {
         // Periodic reporting
         std::atomic<bool> _periodicReportingEnabled;
         std::atomic<uint32_t> _reportingIntervalSeconds;
+        std::thread _timerThread;
         std::thread _reportingThread;
         std::atomic<bool> _stopReporting;
+        
+        // Message queue system
+        std::queue<Message> _messageQueue;
+        std::mutex _queueMutex;
+        std::condition_variable _queueCondition;
+        
+        // NetworkManager event subscription
+        std::thread _subscriptionRetryThread;
+        std::atomic<bool> _stopSubscriptionRetry;
+        bool m_subsIfaceStateChange;
+        bool m_subsActIfaceChange;
+        bool m_subsIPAddrChange;
     };
 
 } // namespace Plugin

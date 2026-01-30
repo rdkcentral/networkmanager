@@ -26,6 +26,7 @@ using namespace NetworkConnectionStatsLogger;
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
+#define SUBSCRIPTION_RETRY_INTERVAL_MS 500
 
 namespace WPEFramework {
 namespace Plugin {
@@ -45,7 +46,12 @@ namespace Plugin {
         , _periodicReportingEnabled(true)  // Auto-enabled
         , _reportingIntervalSeconds(600)   // Default 10 minutes (600 seconds)
         , _stopReporting(false)
+        , _stopSubscriptionRetry(false)
+        , m_subsIfaceStateChange(false)
+        , m_subsActIfaceChange(false)
+        , m_subsIPAddrChange(false)
     {
+        
         NSLOG_INFO("NetworkConnectionStatsImplemen  tation Constructor");
         /* Set NetworkManager Out-Process name to be NWMgrPlugin */
         Core::ProcessInfo().Name("NetworkConnectionStats");
@@ -59,8 +65,26 @@ namespace Plugin {
     {
         NSLOG_INFO("NetworkConnectionStatsImplementation Destructor");
         
-        // Stop periodic reporting thread
+        // Stop subscription retry thread
+        _stopSubscriptionRetry = true;
+        if (_subscriptionRetryThread.joinable()) {
+            _subscriptionRetryThread.join();
+        }
+        
+        // Stop reporting threads
         _stopReporting = true;
+        
+        // Push STOP message to unblock consumer thread
+        {
+            std::lock_guard<std::mutex> lock(_queueMutex);
+            _messageQueue.push({MessageType::STOP});
+        }
+        _queueCondition.notify_one();
+        
+        // Wait for threads to finish
+        if (_timerThread.joinable()) {
+            _timerThread.join();
+        }
         if (_reportingThread.joinable()) {
             _reportingThread.join();
         }
@@ -76,7 +100,10 @@ namespace Plugin {
      */
     uint32_t NetworkConnectionStatsImplementation::Register(INetworkConnectionStats::INotification* notification)
     {
-        ASSERT(nullptr != notification);
+        if (nullptr == notification) {
+            NSLOG_ERROR("Register: notification parameter is nullptr");
+            return Core::ERROR_BAD_REQUEST;
+        }
         
         NSLOG_INFO("Register::Enter");
         _notificationLock.Lock();
@@ -97,7 +124,10 @@ namespace Plugin {
      */
     uint32_t NetworkConnectionStatsImplementation::Unregister(INetworkConnectionStats::INotification* notification)
     {
-        ASSERT(nullptr != notification);
+        if (nullptr == notification) {
+            NSLOG_ERROR("Unregister: notification parameter is nullptr");
+            return Core::ERROR_BAD_REQUEST;
+        }
         
         NSLOG_INFO("Unregister::Enter");
         _notificationLock.Lock();
@@ -135,49 +165,46 @@ namespace Plugin {
             NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
         }
         
-        // Initialize network provider
-#ifdef USE_COMRPC_PROVIDER
-        m_provider = new NetworkComRPCProvider();
+        // Get provider type from configuration (default: comrpc)
+        std::string providerType = "comrpc";
+        if (config.HasLabel("providerType")) {
+            providerType = config["providerType"].Value();
+        }
+        
+        // Create network provider using factory
+        m_provider = NetworkDataProviderFactory::CreateProvider(providerType);
         if (m_provider == nullptr) {
-            NSLOG_ERROR("Failed to create NetworkComRPCProvider");
+            NSLOG_ERROR("Failed to create network provider for type: %s", providerType.c_str());
             result = Core::ERROR_GENERAL;
         } else {
-            NSLOG_INFO("NetworkComRPCProvider created");
+            auto factoryType = NetworkDataProviderFactory::ParseProviderType(providerType);
+            std::string typeName = NetworkDataProviderFactory::GetProviderTypeName(factoryType);
+            NSLOG_INFO("%s provider created", typeName.c_str());
             
-            // Initialize the provider with Thunder COM-RPC connection
-            NetworkComRPCProvider* provider = static_cast<NetworkComRPCProvider*>(m_provider);
-            if (provider->Initialize()) {
-                NSLOG_INFO("NetworkComRPCProvider initialized successfully");
-#else
-        m_provider = new NetworkJsonRPCProvider();
-        if (m_provider == nullptr) {
-            NSLOG_ERROR("Failed to create NetworkJsonRPCProvider");
-            result = Core::ERROR_GENERAL;
-        } else {
-            NSLOG_INFO("NetworkJsonRPCProvider created");
-            
-            // Initialize the provider with Thunder JSON-RPC connection
-            NetworkJsonRPCProvider* provider = static_cast<NetworkJsonRPCProvider*>(m_provider);
-            if (provider->Initialize()) {
-                NSLOG_INFO("NetworkJsonRPCProvider initialized successfully");
-#endif
+            // Initialize the provider
+            if (m_provider->Initialize()) {
+                NSLOG_INFO("%s provider initialized successfully", typeName.c_str());
+                
+                // Subscribe to NetworkManager events (with automatic retry)
+                _stopSubscriptionRetry = false;
+                subscribeToEvents();
+                _subscriptionRetryThread = std::thread(&NetworkConnectionStatsImplementation::subscriptionRetryThread, this);
                 
                 // Generate initial report
                 generateReport();
                 
-                // Start periodic reporting if enabled
+                // Start timer and consumer threads if enabled
                 if (_periodicReportingEnabled) {
                     _stopReporting = false;
+                    _timerThread = std::thread(&NetworkConnectionStatsImplementation::timerThread, this);
                     _reportingThread = std::thread(&NetworkConnectionStatsImplementation::periodicReportingThread, this);
-                    NSLOG_INFO("Periodic reporting started with %u second interval (%u minutes)", 
+                    NSLOG_INFO("Timer and reporting threads started with %u second interval (%u minutes)", 
                            _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
                 }
             } else {
-#ifdef USE_COMRPC_PROVIDER
-                NSLOG_ERROR("Failed to initialize NetworkComRPCProvider");
-#else
-                NSLOG_ERROR("Failed to initialize NetworkJsonRPCProvider");
-#endif
+                auto factoryType = NetworkDataProviderFactory::ParseProviderType(providerType);
+                std::string typeName = NetworkDataProviderFactory::GetProviderTypeName(factoryType);
+                NSLOG_ERROR("Failed to initialize %s provider", typeName.c_str());
                 result = Core::ERROR_GENERAL;
             }
         }
@@ -185,9 +212,9 @@ namespace Plugin {
         return result;
     }
 
-    void NetworkConnectionStatsImplementation::periodicReportingThread()
+    void NetworkConnectionStatsImplementation::timerThread()
     {
-        NSLOG_INFO("Periodic reporting thread started");
+        NSLOG_INFO("Timer thread started");
         
         while (!_stopReporting && _periodicReportingEnabled) {
             // Sleep for configured interval
@@ -197,12 +224,51 @@ namespace Plugin {
                 break;
             }
             
-            // Generate report
-            generateReport();
-            NSLOG_INFO("Periodic report generated");
+            // Queue report generation
+            queueReportGeneration("Timer");
         }
         
-        NSLOG_INFO("Periodic reporting thread stopped");
+        NSLOG_INFO("Timer thread stopped");
+    }
+    
+    void NetworkConnectionStatsImplementation::periodicReportingThread()
+    {
+        NSLOG_INFO("Periodic reporting thread (consumer) started");
+        
+        while (!_stopReporting && _periodicReportingEnabled) {
+            Message msg;
+            
+            // Wait for message in queue
+            {
+                std::unique_lock<std::mutex> lock(_queueMutex);
+                _queueCondition.wait(lock, [this] { 
+                    return !_messageQueue.empty() || _stopReporting; 
+                });
+                
+                if (_stopReporting) {
+                    break;
+                }
+                
+                if (_messageQueue.empty()) {
+                    continue;
+                }
+                
+                msg = _messageQueue.front();
+                _messageQueue.pop();
+            }
+            
+            // Process message
+            if (msg.type == MessageType::GENERATE_REPORT) {
+                NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
+                generateReport();
+                NSLOG_INFO("Consumer: Periodic report generated");
+            } else if (msg.type == MessageType::STOP) {
+                NSLOG_INFO("Consumer: Received STOP message");
+                break;
+            }
+        }
+        
+        NSLOG_INFO("Periodic reporting thread (consumer) stopped");
     }
 
     void NetworkConnectionStatsImplementation::generateReport()
@@ -216,9 +282,9 @@ namespace Plugin {
         connectionIpCheck();
         defaultIpv4RouteCheck();
         defaultIpv6RouteCheck();
-        gatewayPacketLossCheck();
         networkDnsCheck();
-        
+        gatewayPacketLossCheck();
+       
         _adminLock.Unlock();
         
         NSLOG_INFO("Network diagnostics report completed");
@@ -268,14 +334,11 @@ namespace Plugin {
                    m_ipv6Route.c_str(), m_ipv6Dns.c_str());
             
             // Log telemetry events
-            std::string interfaceInfo = m_interface + "," + m_ipv4Address + "," + m_ipv6Address;
-            logTelemetry("Network_Interface_Info", interfaceInfo);
-            
-            std::string ipv4Info = m_ipv4Route + "," + m_ipv4Dns;
-            logTelemetry("IPv4_Gateway_DNS", ipv4Info);
-            
-            std::string ipv6Info = m_ipv6Route + "," + m_ipv6Dns;
-            logTelemetry("IPv6_Gateway_DNS", ipv6Info);
+            logTelemetry("Network_Interface", m_interface);
+            logTelemetry("Network_IPv4_Address", m_ipv4Address);
+            logTelemetry("Network_IPv6_Address", m_ipv6Address);
+            logTelemetry("IPv4_DNS", m_ipv4Dns);
+            logTelemetry("IPv6_DNS", m_ipv6Dns);
         }
     }
 
@@ -316,36 +379,43 @@ namespace Plugin {
         // Check IPv4 gateway packet loss
         if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
             NSLOG_INFO("Pinging IPv4 gateway: %s", m_ipv4Route.c_str());
-            bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 5, 30);
+            bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 10, 30);
+            std::string packetLoss = m_provider->getPacketLoss();
+            std::string avgRtt = m_provider->getAvgRtt();
             if (success) {
-                std::string packetLoss = m_provider->getPacketLoss();
-                std::string avgRtt = m_provider->getAvgRtt();
                 NSLOG_INFO("IPv4 gateway ping - Loss: %s%%, RTT: %sms",
                        packetLoss.c_str(), avgRtt.c_str());
                 
-                std::string ipv4PingInfo = "IPv4," + m_ipv4Route + "," + packetLoss + "," + avgRtt;
-                logTelemetry("Gateway_Ping_Stats", ipv4PingInfo);
+                logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv4_Gateway_RTT", avgRtt);
             } else {
                 NSLOG_ERROR("IPv4 gateway ping failed");
-                logTelemetry("Gateway_Ping_Stats", "IPv4," + m_ipv4Route + ",failed,0");
+                logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv4_Gateway_RTT", avgRtt);
             }
         }
         
         // Check IPv6 gateway packet loss
         if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
-            NSLOG_INFO("Pinging IPv6 gateway: %s", m_ipv6Route.c_str());
-            bool success = m_provider->pingToGatewayCheck(m_ipv6Route, "IPv6", 5, 30);
+            // Append zone ID for link-local IPv6 addresses
+            std::string ipv6Gateway = m_ipv6Route;
+            if (ipv6Gateway.find("fe80::") == 0 && !m_interface.empty()) {
+                ipv6Gateway += "%" + m_interface;
+            }
+            NSLOG_INFO("Pinging IPv6 gateway: %s", ipv6Gateway.c_str());
+            bool success = m_provider->pingToGatewayCheck(ipv6Gateway, "IPv6", 10, 30);
+            std::string packetLoss = m_provider->getPacketLoss();
+            std::string avgRtt = m_provider->getAvgRtt();
             if (success) {
-                std::string packetLoss = m_provider->getPacketLoss();
-                std::string avgRtt = m_provider->getAvgRtt();
                 NSLOG_INFO("IPv6 gateway ping - Loss: %s%%, RTT: %sms",
                        packetLoss.c_str(), avgRtt.c_str());
                 
-                std::string ipv6PingInfo = "IPv6," + m_ipv6Route + "," + packetLoss + "," + avgRtt;
-                logTelemetry("Gateway_Ping_Stats", ipv6PingInfo);
+                logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv6_Gateway_RTT", avgRtt);
             } else {
                 NSLOG_ERROR("IPv6 gateway ping failed");
-                logTelemetry("Gateway_Ping_Stats", "IPv6," + m_ipv6Route + ",failed,0");
+                logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv6_Gateway_RTT", avgRtt);
             }
         }
     }
@@ -366,10 +436,116 @@ namespace Plugin {
         
         if (hasDns) {
             NSLOG_INFO("DNS configuration present");
+            logTelemetry("DNS_Status", "DNS configured");
         } else {
             NSLOG_WARNING("No DNS configuration found");
             logTelemetry("DNS_Status", "No DNS configured");
         }
+    }
+
+    /** NetworkManager Event Subscription */
+    void NetworkConnectionStatsImplementation::subscribeToEvents()
+    {
+        uint32_t errCode = Core::ERROR_GENERAL;
+        if (m_provider)
+        {
+            if (!m_subsIfaceStateChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onInterfaceStateChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonInterfaceStateChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsIfaceStateChange = true;
+                else
+                    NSLOG_ERROR("Subscribe to onInterfaceStateChange failed, errCode: %u", errCode);
+            }
+
+            if (!m_subsActIfaceChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onActiveInterfaceChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonActiveInterfaceChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsActIfaceChange = true;
+                else
+                    NSLOG_ERROR("Subscribe to onActiveInterfaceChange failed, errCode: %u", errCode);
+            }
+
+            if (!m_subsIPAddrChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onIPAddressChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonIPAddressChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsIPAddrChange = true;
+                else
+                    NSLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
+            }
+        }
+        else
+            NSLOG_ERROR("m_provider is null");
+    }
+
+    void NetworkConnectionStatsImplementation::subscriptionRetryThread()
+    {
+        NSLOG_INFO("Subscription retry thread started");
+        
+        while (!_stopSubscriptionRetry)
+        {
+            // Check if all subscriptions are successful
+            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange)
+            {
+                NSLOG_INFO("All required events subscribed; Stopping retry thread");
+                break;
+            }
+            
+            // Wait before retry
+            std::this_thread::sleep_for(std::chrono::milliseconds(SUBSCRIPTION_RETRY_INTERVAL_MS));
+            
+            if (_stopSubscriptionRetry)
+                break;
+            
+            // Retry subscription
+            NSLOG_INFO("Retrying event subscriptions...");
+            subscribeToEvents();
+        }
+        
+        NSLOG_INFO("Subscription retry thread stopped");
+    }
+
+    /** Event Handling - Report methods */
+    void NetworkConnectionStatsImplementation::ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onInterfaceStateChange", &parameters);
+    }
+
+    void NetworkConnectionStatsImplementation::ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onActiveInterfaceChange", &parameters);
+    }
+
+    void NetworkConnectionStatsImplementation::ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onIPAddressChange", &parameters);
+    }
+    
+    void NetworkConnectionStatsImplementation::queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters)
+    {
+        // Log event parameters if provided
+        if (parameters != nullptr) {
+            string json;
+            parameters->ToString(json);
+            NSLOG_INFO("%s - params: %s", source.c_str(), json.c_str());
+        }
+        
+        // Queue report generation
+        std::lock_guard<std::mutex> lock(_queueMutex);
+        _messageQueue.push({MessageType::GENERATE_REPORT});
+        NSLOG_INFO("%s: Pushed GENERATE_REPORT to queue", source.c_str());
+        _queueCondition.notify_one();
     }
 
 } // namespace Plugin

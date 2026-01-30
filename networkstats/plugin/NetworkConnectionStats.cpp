@@ -67,10 +67,22 @@ namespace WPEFramework {
     {
         string message;
 
-        ASSERT(nullptr != service);
-        ASSERT(nullptr == _service);
-        ASSERT(nullptr == _networkStats);
-        ASSERT(0 == _connectionId);
+        if (nullptr == service) {
+            NSLOG_ERROR("Initialize: service parameter is nullptr");
+            return _T("Invalid service parameter");
+        }
+        if (nullptr != _service) {
+            NSLOG_ERROR("Initialize: plugin already initialized (_service is not nullptr)");
+            return _T("Plugin already initialized");
+        }
+        if (nullptr != _networkStats) {
+            NSLOG_ERROR("Initialize: plugin already initialized (_networkStats is not nullptr)");
+            return _T("Plugin already initialized");
+        }
+        if (0 != _connectionId) {
+            NSLOG_ERROR("Initialize: plugin already initialized (_connectionId is not 0)");
+            return _T("Plugin already initialized");
+        }
 
         SYSLOG(Logging::Startup, (_T("Initializing NetworkConnectionStats")));
         NetworkConnectionStatsLogger::Init();
@@ -109,8 +121,14 @@ namespace WPEFramework {
 
     void NetworkConnectionStats::Deinitialize(PluginHost::IShell* service)
     {
-        ASSERT(_service == service);
-        ASSERT(_networkStats != nullptr);
+        if (_service != service) {
+            NSLOG_ERROR("Deinitialize: service parameter mismatch");
+            return;
+        }
+        if (nullptr == _networkStats) {
+            NSLOG_ERROR("Deinitialize: _networkStats is nullptr");
+            return;
+        }
 
         SYSLOG(Logging::Shutdown, (_T("Deinitializing NetworkConnectionStats")));
         
@@ -145,7 +163,10 @@ namespace WPEFramework {
     void NetworkConnectionStats::Deactivated(RPC::IRemoteConnection* connection)
     {
         if (connection->Id() == _connectionId) {
-            ASSERT(nullptr != _service);
+            if (nullptr == _service) {
+                NSLOG_ERROR("Deactivated: _service is nullptr");
+                return;
+            }
             Core::IWorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, 
                 PluginHost::IShell::DEACTIVATED, PluginHost::IShell::FAILURE));
         }

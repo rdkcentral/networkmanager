@@ -84,6 +84,14 @@ class NetworkJsonRPCProvider : public INetworkData
     /* @brief Get average RTT from last ping call */
     std::string getAvgRtt() override;
 
+    /* @brief Subscribe to NetworkManager events
+     * @param eventName Name of the event (e.g., "onInterfaceStateChange")
+     * @param callback Callback function to be called when event fires
+     * @return Error code (Core::ERROR_NONE on success)
+     */
+    uint32_t SubscribeToEvent(const std::string& eventName, 
+        std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback) override;
+
 private:
     // Cached data from last API calls
     std::string m_ipv4Gateway;

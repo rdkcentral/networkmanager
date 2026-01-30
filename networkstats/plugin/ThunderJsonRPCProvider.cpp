@@ -324,6 +324,39 @@ std::string NetworkJsonRPCProvider::getAvgRtt()
     return m_avgRtt;
 }
 
+/* @brief Subscribe to NetworkManager events */
+uint32_t NetworkJsonRPCProvider::SubscribeToEvent(const std::string& eventName, 
+    std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback)
+{
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return WPEFramework::Core::ERROR_UNAVAILABLE;
+    }
+
+    try {
+        // Subscribe to the event using Thunder's Subscribe API
+        // Note: The callback will be invoked when the event is received
+        uint32_t result = m_networkManagerClient->Subscribe<WPEFramework::Core::JSON::VariantContainer>(
+            5000, // timeout in milliseconds
+            eventName,
+            [callback](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                callback(parameters);
+            }
+        );
+
+        if (result == WPEFramework::Core::ERROR_NONE) {
+            NSLOG_INFO("Successfully subscribed to event: %s", eventName.c_str());
+        } else {
+            NSLOG_ERROR("Failed to subscribe to event %s, error code: %u", eventName.c_str(), result);
+        }
+
+        return result;
+    } catch (const std::exception& e) {
+        NSLOG_ERROR("Exception subscribing to event %s: %s", eventName.c_str(), e.what());
+        return WPEFramework::Core::ERROR_GENERAL;
+    }
+}
+
 #ifdef TEST_MAIN
 /* Test main function to validate NetworkJsonRPCProvider member functions */
 int main()

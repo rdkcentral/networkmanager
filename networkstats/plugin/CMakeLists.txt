@@ -27,9 +27,6 @@ find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(${NAMESPACE}Definitions REQUIRED)
 find_package(CompileSettingsDebug CONFIG REQUIRED)
 
-# Provider selection option (default: JSON-RPC)
-option(USE_COMRPC_PROVIDER "Use COM-RPC provider instead of JSON-RPC" ON)
-
 # Optional Telemetry support
 if (USE_TELEMETRY)
     find_package(T2 REQUIRED)
@@ -71,22 +68,14 @@ set_target_properties(${MODULE_NAME} PROPERTIES
     FRAMEWORK FALSE
 )
 
-# Select the appropriate provider based on CMake option
-if (USE_COMRPC_PROVIDER)
-    message(STATUS "Using COM-RPC provider for NetworkConnectionStats")
-    set(PROVIDER_SOURCE ThunderComRPCProvider.cpp)
-    add_definitions(-DUSE_COMRPC_PROVIDER)
-else()
-    message(STATUS "Using JSON-RPC provider for NetworkConnectionStats")
-    set(PROVIDER_SOURCE ThunderJsonRPCProvider.cpp)
-endif()
-
 # Out-of-process Implementation Library
+# Note: Both providers are compiled; selection is done at runtime via config
 add_library(${MODULE_IMPL_NAME} SHARED
     Module.cpp
     NetworkConnectionStatsImplementation.cpp
     NetworkConnectionStatsLogger.cpp
-    ${PROVIDER_SOURCE}
+    ThunderComRPCProvider.cpp
+    ThunderJsonRPCProvider.cpp
 )
 
 target_link_libraries(${MODULE_IMPL_NAME}
@@ -100,6 +89,7 @@ target_link_libraries(${MODULE_IMPL_NAME}
 
 if (USE_TELEMETRY)
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${T2_LIBRARIES})
+    target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${T2_INCLUDE_DIRS})
 endif()
 
 target_include_directories(${MODULE_IMPL_NAME}
@@ -126,7 +116,8 @@ install(
 set(PLUGIN_NETWORKCONNECTIONSTATS_AUTOSTART "false" CACHE STRING "Automatically start the plugin")
 set(PLUGIN_NETWORKCONNECTIONSTATS_OUTOFPROCESS "true" CACHE STRING "Run plugin out-of-process")
 set(PLUGIN_NETWORKCONNECTIONSTATS_STARTUPORDER "50" CACHE STRING "Plugin startup order")
-set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "600" CACHE STRING "Reporting interval in seconds (default: 10 minutes)")
+set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "90" CACHE STRING "Reporting interval in seconds (default: 90 seconds)")
+set(PLUGIN_NETWORKCONNECTIONSTATS_PROVIDER_TYPE "comrpc" CACHE STRING "Network data provider type: 'comrpc' or 'jsonrpc' (default: comrpc)")
 
 # Install configuration
 write_config(PLUGINS NetworkConnectionStats)
