@@ -20,6 +20,7 @@
 #include "LegacyWiFiManagerAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include "rdk_otlp_instrumentation.h"
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -132,6 +133,9 @@ namespace WPEFramework
             string message{};
 
             m_service->AddRef();
+
+			// Initialize OpenTelemetry
+            rdk_otlp_init("WiFiManager", "1.0.0");
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
             string token = "";
@@ -384,6 +388,12 @@ namespace WPEFramework
         uint32_t WiFiManager::getConnectedSSID (const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
+
+			// Start distributed trace (creates parent span and stores context)
+			NMLOG_ERROR("BEFORE OTLP DIST TRACE START");
+            rdk_otlp_start_distributed_trace("WiFiManager.getConnectedSSID", "get");
+			NMLOG_ERROR("AFTER OTLP DIST TRACE START");
+			
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
 
@@ -406,6 +416,9 @@ namespace WPEFramework
                 response["signalStrength"] = ssidInfo.strength;
                 response["frequency"] = ssidInfo.frequency;
             }
+			NMLOG_ERROR("BEFORE OTLP DIST TRACE END");
+			rdk_otlp_finish_distributed_trace();
+			NMLOG_ERROR("AFTER OTLP DIST TRACE END");
             returnJson(rc);
         }
 

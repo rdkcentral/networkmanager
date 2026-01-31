@@ -20,6 +20,7 @@
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerRDKProxy.h"
 #include "libIBus.h"
+#include "rdk_otlp_instrumentation.h"
 #include <chrono>
 
 using namespace WPEFramework;
@@ -1157,6 +1158,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
             LOG_ENTRY_FUNCTION();
+            NMLOG_INFO ("Before OTLP Trace start");
+            rdk_otlp_start_distributed_trace("ConnectedSSID", "get");
+            NMLOG_INFO ("After OTLP Trace start");
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
             IARM_Bus_WiFiSrvMgr_Param_t param{};
@@ -1199,6 +1203,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             {
                 NMLOG_ERROR ("GetConnectedSSID failed");
             }
+            NMLOG_INFO ("Before OTLP Trace end");
+            rdk_otlp_finish_distributed_trace();
+            NMLOG_INFO ("Before OTLP Trace end");
             return rc;
         }
 
