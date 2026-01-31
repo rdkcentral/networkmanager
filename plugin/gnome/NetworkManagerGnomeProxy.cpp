@@ -938,8 +938,17 @@ namespace WPEFramework
             }
             else if(ssid.ssid.size() <= 32)
             {
-                if(wifi->wifiConnect(ssid))
-                    rc = Core::ERROR_NONE;
+                if(ssid.passphrase.empty() && (ssid.security == Exchange::INetworkManager::WIFI_SECURITY_NONE)) 
+                {
+                    NMLOG_INFO("Trying to autoconnect to SSID: %s", ssid.ssid.c_str());
+                    if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid.ssid))
+                        rc = Core::ERROR_NONE;
+                }
+                else
+                {
+                    if(wifi->wifiConnect(ssid))
+                        rc = Core::ERROR_NONE;
+                }
             }
             else
                 NMLOG_WARNING("SSID is invalid");
