@@ -261,23 +261,22 @@ namespace WPEFramework
             }
 
             wifiInfo.bssid = (hwaddr != nullptr) ? hwaddr : "-----";
-            std::string freqStr = std::to_string((double)freq/1000);
-            wifiInfo.frequency = freqStr.substr(0, 5);
+            wifiInfo.frequency = ((double)freq/1000);
 
-            wifiInfo.rate = std::to_string(bitrate);
-            wifiInfo.noise = std::to_string(noise);
-            NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.rate.c_str());
-            //TODO signal strenght to dBm
-            wifiInfo.strength = std::to_string(nmUtils::convertPercentageToSignalStrength(strength));
+            wifiInfo.rate = bitrate;
+            wifiInfo.noise = noise;
+            NMLOG_DEBUG("bitrate : %d kbit/s", wifiInfo.rate);
+            //TODO signal strength to dBm
+            wifiInfo.strength = nmUtils::convertPercentageToSignalStrength(strength);
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(wifiInfo.ssid, flags, wpaFlags, rsnFlags, doPrint));
             if(doPrint)
             {
-                NMLOG_INFO("ssid: %s, frequency: %s, sterngth: %s, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency.c_str(), wifiInfo.strength.c_str(), wifiInfo.security);
+                NMLOG_INFO("ssid: %s, frequency: %d, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
                 NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
             }
             else
             {
-                NMLOG_DEBUG("ssid: %s, frequency: %s, sterngth: %s, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency.c_str(), wifiInfo.strength.c_str(), wifiInfo.security);
+                NMLOG_DEBUG("ssid: %s, frequency: %d, sterngth: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
                 NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
             }
         }

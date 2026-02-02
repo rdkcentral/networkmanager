@@ -47,7 +47,7 @@ public:
     MOCK_METHOD(uint32_t, StartWPS, (const WiFiWPS& method, const string& pin), (override));
     MOCK_METHOD(uint32_t, StopWPS, (), (override));
     MOCK_METHOD(uint32_t, GetWifiState, (WPEFramework::Exchange::INetworkManager::WiFiState& state), (override));
-    MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, string& strength, string& noise, string& snr, WPEFramework::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
+    MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, int& strength, int& noise, int& snr, WPEFramework::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
     MOCK_METHOD(uint32_t, GetSupportedSecurityModes, (ISecurityModeIterator*& modes), (const));
     MOCK_METHOD(uint32_t, SetLogLevel, (const Logging& level), (override));
     MOCK_METHOD(uint32_t, SetHostname, (const string& hostname), (override));

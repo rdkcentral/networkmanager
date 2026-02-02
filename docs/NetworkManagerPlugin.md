@@ -1367,10 +1367,10 @@ This method takes no parameters.
 | result.ssid | string | The WiFi SSID Name |
 | result.bssid | string | The BSSID of given SSID |
 | result.security | string | The security mode. See the `connect` method |
-| result.strength | string | The WiFi Signal RSSI value in dBm |
-| result.frequency | string | The supported frequency for this SSID in GHz |
+| result.strength | integer | The WiFi Signal RSSI value in dBm |
+| result.frequency | number | The supported frequency for this SSID in GHz |
 | result.rate | string | The physical data rate in Mbps |
-| result.noise | string | The WiFi Signal Noise detected in dBm |
+| result.noise | integer | The WiFi Signal Noise detected in dBm |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1395,10 +1395,10 @@ This method takes no parameters.
     "ssid": "myHomeSSID",
     "bssid": "AA:BB:CC:DD:EE:FF",
     "security": "2",
-    "strength": "-32",
-    "frequency": "2.4420",
+    "strength": -32,
+    "frequency": 2.442,
     "rate": "144",
-    "noise": "-96",
+    "noise": -96,
     "success": true
   }
 }
@@ -1524,9 +1524,9 @@ This method takes no parameters.
 | result | object |  |
 | result.ssid | string | The WiFi SSID Name |
 | result.quality | string | WiFi Quality based on Signal to Noise Ratio (SNR) |
-| result.snr | string | Signal to Noise Ratio(SNR) in dBm |
-| result.strength | string | The WiFi Signal RSSI value in dBm |
-| result.noise | string | The WiFi Signal Noise detected in dBm |
+| result.snr | integer | Signal to Noise Ratio(SNR) in dBm |
+| result.strength | integer | The WiFi Signal RSSI value in dBm |
+| result.noise | integer | The WiFi Signal Noise detected in dBm |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1550,9 +1550,9 @@ This method takes no parameters.
   "result": {
     "ssid": "myHomeSSID",
     "quality": "Excellent",
-    "snr": "74",
-    "strength": "-32",
-    "noise": "-96",
+    "snr": 74,
+    "strength": -32,
+    "noise": -96,
     "success": true
   }
 }
@@ -1872,8 +1872,8 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | Discovered SSID |
 | params.ssids[#].security | integer | The security mode. See `GetSupportedSecurityModes` |
-| params.ssids[#].strength | string | The WiFi Signal RSSI value in dBm |
-| params.ssids[#].frequency | string | The supported frequency for this SSID in GHz |
+| params.ssids[#].strength | integer | The WiFi Signal RSSI value in dBm |
+| params.ssids[#].frequency | number | The supported frequency for this SSID in GHz |
 
 ### Example
 
@@ -1886,8 +1886,8 @@ Triggered when scan completes or when scan cancelled.
       {
         "ssid": "myAP-2.4",
         "security": 2,
-        "strength": "-32",
-        "frequency": "2.4420"
+        "strength": -32,
+        "frequency": 2.442
       }
     ]
   }
@@ -1932,9 +1932,9 @@ Triggered when WIFI Signal quality changed which is decided based on SNR value w
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.quality | string | WiFi Quality based on Signal to Noise Ratio (SNR) |
-| params.snr | string | Signal to Noise Ratio(SNR) in dBm |
-| params.strength | string | The WiFi Signal RSSI value in dBm |
-| params.noise | string | The WiFi Signal Noise detected in dBm |
+| params.snr | integer | Signal to Noise Ratio(SNR) in dBm |
+| params.strength | integer | The WiFi Signal RSSI value in dBm |
+| params.noise | integer | The WiFi Signal Noise detected in dBm |
 
 ### Example
 
@@ -1945,9 +1945,9 @@ Triggered when WIFI Signal quality changed which is decided based on SNR value w
   "params": {
     "ssid": "myHomeSSID",
     "quality": "Excellent",
-    "snr": "74",
-    "strength": "-32",
-    "noise": "-96"
+    "snr": 74,
+    "strength": -32,
+    "noise": -96
   }
 }
 ```

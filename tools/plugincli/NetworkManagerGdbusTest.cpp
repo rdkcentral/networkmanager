@@ -63,7 +63,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
         }
-        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             NMLOG_INFO("calling 'ReportWiFiSignalQualityChange' cb");
         }

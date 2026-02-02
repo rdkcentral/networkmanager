@@ -178,17 +178,17 @@ namespace WPEFramework
             return securityStr;
         }
 
-       float nmUtils::wifiFrequencyFromAp(guint32 apFreq)
+       double nmUtils::wifiFrequencyFromAp(guint32 apFreq)
        {
-            float freq;
+            double freq;
             if (apFreq >= 2400 && apFreq < 5000)
                 freq = 2.4f;
             else if (apFreq >= 5000 && apFreq < 6000)
-                freq = 5.0f;
+                freq = 5;
             else if (apFreq >= 6000)
-                freq = 6.0f;
+                freq = 6;
             else
-                freq = 0.0f;
+                freq = 0;
 
             return freq;
        }
