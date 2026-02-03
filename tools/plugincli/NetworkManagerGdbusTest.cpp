@@ -272,10 +272,11 @@ int main()
             }
 
             case 10: {
-                std::string ssid, signalStrength;
+                std::string ssid;
+                int signalStrength;
                 Exchange::INetworkManager::WiFiSignalQuality quality;
                 if (nmClient->getWiFiSignalQuality(ssid, signalStrength, quality)) {
-                    NMLOG_INFO("SSID: %s, Signal Strength: %s, Quality: %d", ssid.c_str(), signalStrength.c_str(), quality);
+                    NMLOG_INFO("SSID: %s, Signal Strength: %d, Quality: %d", ssid.c_str(), signalStrength, quality);
                 } else {
                     NMLOG_ERROR("Failed to get WiFi signal strength");
                 }
