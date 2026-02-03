@@ -405,7 +405,7 @@ namespace WPEFramework
                 response["security"] = JsonValue(mapToLegacySecurityMode(ssidInfo.security));
                 response["signalStrength"] = to_string(ssidInfo.strength);
                 std::string freqStr = to_string(ssidInfo.frequency);
-                response["frequency"] = freqStr.substr(0, 5);
+                response["frequency"] = freqStr.substr(0, 3);
             }
             returnJson(rc);
         }

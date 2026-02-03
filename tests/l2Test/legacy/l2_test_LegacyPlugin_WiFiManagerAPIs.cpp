@@ -203,7 +203,7 @@ TEST_F(WiFiManagerTest, getConnectedSSID) {
     // Call the getConnectedSSID method
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getConnectedSSID"), _T("{}"), response));
 
-    std::string expectedResponse = "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":100,\"noise\":-50,\"security\":6,\"signalStrength\":50,\"frequency\":2.4,\"success\":true}";
+    std::string expectedResponse = ""{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":\"100\",\"noise\":\"-50\",\"security\":6,\"signalStrength\":\"50\",\"frequency\":\"2.4\",\"success\":true}"";
     EXPECT_EQ(response, expectedResponse);
 
     delete mockNetworkManager;
@@ -236,7 +236,7 @@ TEST_F(WiFiManagerTest, getConnectedSSIDSAE) {
     // Call the getConnectedSSID method
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getConnectedSSID"), _T("{}"), response));
 
-    std::string expectedResponse = "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":100,\"noise\":-50,\"security\":14,\"signalStrength\":50,\"frequency\":2.4,\"success\":true}";
+    std::string expectedResponse = "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":\"100\",\"noise\":\"-50\",\"security\":14,\"signalStrength\":\"50\",\"frequency\":\"2.4\",\"success\":true}";
     EXPECT_EQ(response, expectedResponse);
 
     delete mockNetworkManager;
@@ -269,7 +269,7 @@ TEST_F(WiFiManagerTest, getConnectedSSIDEAP) {
     // Call the getConnectedSSID method
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("getConnectedSSID"), _T("{}"), response));
 
-    std::string expectedResponse = "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":100,\"noise\":-50,\"security\":12,\"signalStrength\":50,\"frequency\":2.4,\"success\":true}";
+    std::string expectedResponse = "{\"ssid\":\"my-ssid\",\"bssid\":\"00:11:22:33:44:55\",\"rate\":\"100\",\"noise\":\"-50\",\"security\":12,\"signalStrength\":\"50\",\"frequency\":\"2.4\",\"success\":true}";
     EXPECT_EQ(response, expectedResponse);
 
     delete mockNetworkManager;
