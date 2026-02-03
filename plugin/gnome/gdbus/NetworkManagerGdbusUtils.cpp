@@ -393,7 +393,7 @@ namespace WPEFramework
                     return false;
                 }
                 g_variant_get(result, "y", &strength);
-                wifiInfo.strength = GnomeUtils::convertPercentageToSignalStrengtStr((int)strength);
+                wifiInfo.strength = GnomeUtils::convertPercentageToSignalStrength((int)strength);
                 g_variant_unref(result);
 
                 GnomeUtils::getCachedPropertyU(proxy, "Flags", &flags);
@@ -403,14 +403,13 @@ namespace WPEFramework
                 GnomeUtils::getCachedPropertyU(proxy, "Frequency", &freq);
                 GnomeUtils::getCachedPropertyU(proxy, "MaxBitrate", &bitrate);
 
-                std::string freqStr = std::to_string((double)freq/1000);
-                wifiInfo.frequency = freqStr.substr(0, 5);
-                wifiInfo.rate = std::to_string(bitrate);
+                wifiInfo.frequency = ((double)freq/1000);
+                wifiInfo.rate = bitrate;
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
                 if(noise <= 0 && noise >= DEFAULT_NOISE)
-                    wifiInfo.noise = std::to_string(noise);
+                    wifiInfo.noise = noise;
                 else
-                    wifiInfo.noise = std::to_string(0);
+                    wifiInfo.noise = 0;
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());
@@ -436,10 +435,10 @@ namespace WPEFramework
         }
 
         // Function to convert percentage (0-100) to dBm string
-        const char* GnomeUtils::convertPercentageToSignalStrengtStr(int percentage) {
+        int GnomeUtils::convertPercentageToSignalStrength(int percentage) {
 
             if (percentage <= 0 || percentage > 100) {
-                return "";
+                return 0;
             }
 
            /*
@@ -455,9 +454,7 @@ namespace WPEFramework
             const int max_dBm = -30;
             const int min_dBm = -90;
             int dBm_value = max_dBm + ((min_dBm - max_dBm) * (100 - percentage)) / 100;
-            static char result[8]={0};
-            snprintf(result, sizeof(result), "%d", dBm_value);
-            return result;
+            return dBm_value;
         }
 
         bool GnomeUtils::getWifiConnectionPaths(DbusMgr& m_dbus, const char* devicePath, std::list<std::string>& paths)

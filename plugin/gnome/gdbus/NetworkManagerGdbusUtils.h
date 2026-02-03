@@ -86,7 +86,7 @@ namespace WPEFramework
                 static void addGvariantToBuilder(GVariant *variant, GVariantBuilder *builder, gboolean excludeRouteMetric);
 
                 static bool convertSsidInfoToJsonObject(Exchange::INetworkManager::WiFiSSIDInfo& wifiInfo, JsonObject& ssidObj);
-                static const char* convertPercentageToSignalStrengtStr(int percentage);
+                static int convertPercentageToSignalStrength(int percentage);
                 static uint8_t wifiSecurityModeFromApFlags(const std::string& ssid, guint32 flags, guint32 wpaFlags, guint32 rsnFlags);
                 static const char* getWifiIfname();
                 static const char* getEthIfname();

@@ -2382,7 +2382,7 @@ namespace WPEFramework
             return ret;
         }
 
-        bool NetworkManagerClient::getWiFiSignalQuality(string& ssid, string& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
+        bool NetworkManagerClient::getWiFiSignalQuality(string& ssid, int& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
         {
             Exchange::INetworkManager::WiFiSSIDInfo ssidInfo;
             float rssi = 0.0f;
@@ -2398,10 +2398,10 @@ namespace WPEFramework
             else
             {
                 ssid              = ssidInfo.ssid;
-                if (!ssidInfo.strength.empty())
-                    rssi          = std::stof(ssidInfo.strength.c_str());
-                if (!ssidInfo.noise.empty())
-                    noise         = std::stof(ssidInfo.noise.c_str());
+                if (!ssidInfo.strength)
+                    rssi          = ssidInfo.strength;
+                if (!ssidInfo.noise)
+                    noise         = ssidInfo.noise;
                 floatSignalStrength = (rssi - noise);
                 if (floatSignalStrength < 0)
                     floatSignalStrength = 0.0;
@@ -2412,7 +2412,7 @@ namespace WPEFramework
                 if (signalStrengthOut == 0)
                 {
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                    signalStrength = "0";
+                    signalStrength = 0;
                 }
                 else if (signalStrengthOut > 0 && signalStrengthOut < NM_WIFI_SNR_THRESHOLD_FAIR)
                 {
@@ -2431,9 +2431,9 @@ namespace WPEFramework
                     quality = Exchange::INetworkManager::WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
                 }
 
-                signalStrength = std::to_string(signalStrengthOut);
+                signalStrength = signalStrengthOut;
 
-                NMLOG_INFO("strength success %s dBm", signalStrength.c_str());
+                NMLOG_INFO("strength success %d dBm", signalStrength);
             }
 
             return true;
