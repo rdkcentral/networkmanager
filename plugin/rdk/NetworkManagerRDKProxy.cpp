@@ -268,7 +268,7 @@ namespace WPEFramework
                             security = object["security"].Number();
                             JsonObject newObject;
                             newObject["ssid"] = object["ssid"];
-                            newObject["security"] = mapToLegacySecurityMode(security);
+                            newObject["security"] = mapToNewSecurityMode(security);
                             newObject["strength"] = object["signalStrength"];
                             newObject["frequency"] = object["frequency"];
                             ssidsUpdated.Add(newObject);
