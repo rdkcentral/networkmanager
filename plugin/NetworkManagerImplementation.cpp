@@ -903,7 +903,7 @@ namespace WPEFramework
                     }
                     else if (key == "NOISE") {
                         noise = std::stoi(value);
-                        rssiFound = true;
+                        noiseFound = true;
                     }
                     else if (key == "AVG_RSSI") { // if RSSI is not available
                         if (!rssiFound)
