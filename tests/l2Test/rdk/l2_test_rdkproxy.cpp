@@ -1407,7 +1407,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":86,\"strength\":-90,\"noise\":-96,\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":86,\"strength\":0,\"noise\":-96,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
