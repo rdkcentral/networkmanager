@@ -268,14 +268,14 @@ namespace WPEFramework
                 enum { ID = ID_NETWORKMANAGER_NOTIFICATION };
 
                 // Network Notifications that other processes can subscribe to
-                virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */) = 0;
-                virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */) = 0;
-                virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */) = 0;
-                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */) = 0;
+                virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
+                virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
+                virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
+                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
 
                 // WiFi Notifications that other processes can subscribe to
-                virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */) = 0;
-                virtual void onWiFiStateChange(const WiFiState state /* @in */) = 0;
+                virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};
+                virtual void onWiFiStateChange(const WiFiState state /* @in */){};
                 virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */){};
             };
 
