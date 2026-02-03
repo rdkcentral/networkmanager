@@ -45,7 +45,13 @@ namespace WPEFramework
              * for notifications raised by the COM-RPC API
              */
             class Notification : public RPC::IRemoteConnection::INotification,
-                                 public Exchange::INetworkManager::INotification
+                                 public Exchange::INetworkManager::IInterfaceStateChangeNotification,
+                                 public Exchange::INetworkManager::IActiveInterfaceChangeNotification,
+                                 public Exchange::INetworkManager::IIPAddressChangeNotification,
+                                 public Exchange::INetworkManager::IInternetStatusChangeNotification,
+                                 public Exchange::INetworkManager::IAvailableSSIDsNotification,
+                                 public Exchange::INetworkManager::IWiFiStateChangeNotification,
+                                 public Exchange::INetworkManager::IWiFiSignalQualityChangeNotification
             {
             private:
                 Notification() = delete;
@@ -60,6 +66,13 @@ namespace WPEFramework
                 }
                 virtual ~Notification() override
                 {
+                }
+
+                template <typename T>
+                T* baseInterface()
+                {
+                    static_assert(std::is_base_of<T, Notification>(), "base type mismatch");
+                    return static_cast<T*>(this);
                 }
 
             public:
@@ -115,7 +128,13 @@ namespace WPEFramework
 
                 // Build QueryInterface implementation, specifying all possible interfaces we implement
                 BEGIN_INTERFACE_MAP(Notification)
-                INTERFACE_ENTRY(Exchange::INetworkManager::INotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IInterfaceStateChangeNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IActiveInterfaceChangeNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IIPAddressChangeNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IInternetStatusChangeNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IAvailableSSIDsNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IWiFiStateChangeNotification)
+                INTERFACE_ENTRY(Exchange::INetworkManager::IWiFiSignalQualityChangeNotification)
                 INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)
                 END_INTERFACE_MAP
 

@@ -188,8 +188,25 @@ namespace WPEFramework
                 END_INTERFACE_MAP
 
                 // Handle Notification registration/removal
-                uint32_t Register(INetworkManager::INotification *notification) override;
-                uint32_t Unregister(INetworkManager::INotification *notification) override;
+                template <typename T>
+                    uint32_t Register(std::list<T*>& list, T* notification);
+                template <typename T>
+                    uint32_t Unregister(std::list<T*>& list, T* notification);
+
+                virtual uint32_t RegisterInterfaceStateChangeNotification(IInterfaceStateChangeNotification* notification) override;
+                virtual uint32_t UnregisterInterfaceStateChangeNotification(IInterfaceStateChangeNotification* notification) override;
+                virtual uint32_t RegisterActiveInterfaceChangeNotification(IActiveInterfaceChangeNotification* notification) override;
+                virtual uint32_t UnregisterActiveInterfaceChangeNotification(IActiveInterfaceChangeNotification* notification) override;
+                virtual uint32_t RegisterIPAddressChangeNotification(IIPAddressChangeNotification* notification) override;
+                virtual uint32_t UnregisterIPAddressChangeNotification(IIPAddressChangeNotification* notification) override;
+                virtual uint32_t RegisterInternetStatusChangeNotification(IInternetStatusChangeNotification* notification) override;
+                virtual uint32_t UnregisterInternetStatusChangeNotification(IInternetStatusChangeNotification* notification) override;
+                virtual uint32_t RegisterAvailableSSIDsNotification(IAvailableSSIDsNotification* notification) override;
+                virtual uint32_t UnregisterAvailableSSIDsNotification(IAvailableSSIDsNotification* notification) override;
+                virtual uint32_t RegisterWiFiStateChangeNotification(IWiFiStateChangeNotification* notification) override;
+                virtual uint32_t UnregisterWiFiStateChangeNotification(IWiFiStateChangeNotification* notification) override;
+                virtual uint32_t RegisterWiFiSignalQualityChangeNotification(IWiFiSignalQualityChangeNotification* notification) override;
+                virtual uint32_t UnregisterWiFiSignalQualityChangeNotification(IWiFiSignalQualityChangeNotification* notification) override;
 
             public:
                 // Below Control APIs will work with RDK or GNome NW.
@@ -284,7 +301,13 @@ namespace WPEFramework
                 void processMonitor(uint16_t interval);
 
             private:
-                std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
+                std::list<Exchange::INetworkManager::IInterfaceStateChangeNotification *> _interfaceStateChangeNotifications;
+                std::list<Exchange::INetworkManager::IActiveInterfaceChangeNotification *> _activeInterfaceChangeNotifications;
+                std::list<Exchange::INetworkManager::IIPAddressChangeNotification *> _ipAddressChangeNotifications;
+                std::list<Exchange::INetworkManager::IInternetStatusChangeNotification *> _internetStatusChangeNotifications;
+                std::list<Exchange::INetworkManager::IAvailableSSIDsNotification *> _availableSSIDsNotifications;
+                std::list<Exchange::INetworkManager::IWiFiStateChangeNotification *> _wifiStateChangeNotifications;
+                std::list<Exchange::INetworkManager::IWiFiSignalQualityChangeNotification *> _wifiSignalQualityChangeNotifications;
                 Core::CriticalSection _notificationLock;
                 string m_publicIP;
                 stun::client stunClient;

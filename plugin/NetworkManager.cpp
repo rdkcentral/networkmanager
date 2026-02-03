@@ -92,7 +92,13 @@ namespace WPEFramework
 
                 // Register Notifications
                 SYSLOG(Logging::Startup, (_T("Registering Notification to NetworkManager")));
-                _networkManager->Register(&_notification);
+                _networkManager->RegisterInterfaceStateChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IInterfaceStateChangeNotification>());
+                _networkManager->RegisterActiveInterfaceChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IActiveInterfaceChangeNotification>());
+                _networkManager->RegisterIPAddressChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IIPAddressChangeNotification>());
+                _networkManager->RegisterInternetStatusChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IInternetStatusChangeNotification>());
+                _networkManager->RegisterAvailableSSIDsNotification(_notification.baseInterface<Exchange::INetworkManager::IAvailableSSIDsNotification>());
+                _networkManager->RegisterWiFiStateChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IWiFiStateChangeNotification>());
+                _networkManager->RegisterWiFiSignalQualityChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IWiFiSignalQualityChangeNotification>());
 
                 SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
                 if (_networkManager->Configure(service->ConfigLine()) != Core::ERROR_NONE)
@@ -145,7 +151,13 @@ namespace WPEFramework
                 _service->Unregister(&_notification);
 
                 SYSLOG(Logging::Shutdown, (_T("Unregister Event Notifications of NetworkManager")));
-                _networkManager->Unregister(&_notification);
+                _networkManager->UnregisterInterfaceStateChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IInterfaceStateChangeNotification>());
+                _networkManager->UnregisterActiveInterfaceChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IActiveInterfaceChangeNotification>());
+                _networkManager->UnregisterIPAddressChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IIPAddressChangeNotification>());
+                _networkManager->UnregisterInternetStatusChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IInternetStatusChangeNotification>());
+                _networkManager->UnregisterAvailableSSIDsNotification(_notification.baseInterface<Exchange::INetworkManager::IAvailableSSIDsNotification>());
+                _networkManager->UnregisterWiFiStateChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IWiFiStateChangeNotification>());
+                _networkManager->UnregisterWiFiSignalQualityChangeNotification(_notification.baseInterface<Exchange::INetworkManager::IWiFiSignalQualityChangeNotification>());
 
                 // Unregister all our JSON-RPC methods
                 SYSLOG(Logging::Shutdown, (_T("Unregister JSON RPC Methods of NetworkManager")));
