@@ -1110,8 +1110,8 @@
                     },
                     "rate":{
                         "summary": "The physical data rate in Mbps",
-                        "type": "string",
-                        "example": "144"
+                        "type": "integer",
+                        "example": 144
                     },
                     "noise":{
                         "$ref": "#/definitions/noise"

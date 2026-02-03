@@ -1369,7 +1369,7 @@ This method takes no parameters.
 | result.security | string | The security mode. See the `connect` method |
 | result.strength | integer | The WiFi Signal RSSI value in dBm |
 | result.frequency | number | The supported frequency for this SSID in GHz |
-| result.rate | string | The physical data rate in Mbps |
+| result.rate | integer | The physical data rate in Mbps |
 | result.noise | integer | The WiFi Signal Noise detected in dBm |
 | result.success | boolean | Whether the request succeeded |
 
@@ -1397,7 +1397,7 @@ This method takes no parameters.
     "security": "2",
     "strength": -32,
     "frequency": 2.442,
-    "rate": "144",
+    "rate": 144,
     "noise": -96,
     "success": true
   }
