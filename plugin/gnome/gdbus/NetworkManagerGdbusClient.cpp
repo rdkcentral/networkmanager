@@ -2398,9 +2398,9 @@ namespace WPEFramework
             else
             {
                 ssid              = ssidInfo.ssid;
-                if (!ssidInfo.strength)
+                if (ssidInfo.strength)
                     rssi          = ssidInfo.strength;
-                if (!ssidInfo.noise)
+                if (ssidInfo.noise)
                     noise         = ssidInfo.noise;
                 floatSignalStrength = (rssi - noise);
                 if (floatSignalStrength < 0)

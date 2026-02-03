@@ -898,15 +898,19 @@ namespace WPEFramework
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
                 {
                     if (key == "RSSI") {
-                        strength = std::stoi(value);
-                        rssiFound = true;
+                        if (!value.empty()) {
+                            strength = std::stoi(value);
+                            rssiFound = true;
+                        }
                     }
                     else if (key == "NOISE") {
-                        noise = std::stoi(value);
-                        noiseFound = true;
+                        if (!value.empty()) {
+                            noise = std::stoi(value);
+                            noiseFound = true;
+                        }
                     }
                     else if (key == "AVG_RSSI") { // if RSSI is not available
-                        if (!rssiFound)
+                        if (!rssiFound && !value.empty())
                             strength = std::stoi(value);
                     }
                     else if (key == "FREQUENCY")
@@ -924,7 +928,7 @@ namespace WPEFramework
                                 band = "not known";
                         }
                     }
-					else if (key == "LINKSPEED")
+		    else if (key == "LINKSPEED")
                     {
                         linkSpeed = value;
                     }
