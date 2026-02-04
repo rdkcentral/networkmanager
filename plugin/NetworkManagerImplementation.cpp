@@ -988,44 +988,25 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-	    std::string linkSpeed;
-            bool rssiFound = false;
-            bool noiseFound = false;
+            // Collect raw values during parsing
+            std::string linkSpeed, rssiValue, noiseValue, avgRssiValue, freqValue;
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
                 {
                     if (key == "RSSI") {
-                        if (!value.empty()) {
-                            strength = std::stoi(value);
-                            rssiFound = true;
-                        }
+                        rssiValue = value;
                     }
                     else if (key == "NOISE") {
-                        if (!value.empty()) {
-                            noise = std::stoi(value);
-                            noiseFound = true;
-                        }
+                        noiseValue = value;
                     }
-                    else if (key == "AVG_RSSI") { // if RSSI is not available
-                        if (!rssiFound && !value.empty())
-                            strength = std::stoi(value);
+                    else if (key == "AVG_RSSI") {
+                        avgRssiValue = value;
                     }
                     else if (key == "FREQUENCY")
                     {
-                        if (!value.empty())
-                        {
-                            int freq = std::stoi(value);
-                            if (freq >= 2400 && freq < 5000)
-                                band = "2.4GHz";
-                            else if (freq >= 5000 && freq < 6000)
-                                band = "5GHz";
-                            else if (freq >= 6000)
-                                band = "6GHz";
-                            else
-                                band = "not known";
-                        }
+                        freqValue = value;
                     }
 		    else if (key == "LINKSPEED")
                     {
@@ -1035,10 +1016,22 @@ namespace WPEFramework
             }
             pclose(fp);
 
-            if (!noiseFound)
-                noise = 0;
-            if (!rssiFound)
-                strength = 0;
+            // Helper to safely convert string to int
+            auto toInt = [](const std::string& str, int defaultVal = 0) -> int {
+                return str.empty() ? defaultVal : std::stoi(str);
+            };
+
+            // Perform conversions - use RSSI if available, otherwise fallback to AVG_RSSI
+            strength = toInt(!rssiValue.empty() ? rssiValue : avgRssiValue, 0);
+            noise = toInt(noiseValue, 0);
+
+            // Determine band from frequency
+            if (!freqValue.empty()) {
+                int freq = std::stoi(freqValue);
+                band = (freq >= 2400 && freq < 5000) ? "2.4GHz" :
+                       (freq >= 5000 && freq < 6000) ? "5GHz" :
+                       (freq >= 6000) ? "6GHz" : "not known";
+            }
 
             int16_t readRssi = strength;
             int16_t readNoise = noise;
