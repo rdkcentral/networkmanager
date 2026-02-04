@@ -271,12 +271,12 @@ namespace WPEFramework
             wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(nmUtils::wifiSecurityModeFromAp(wifiInfo.ssid, flags, wpaFlags, rsnFlags, doPrint));
             if(doPrint)
             {
-                NMLOG_INFO("ssid: %s, frequency: %d, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
+                NMLOG_INFO("ssid: %s, frequency: %f, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
                 NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
             }
             else
             {
-                NMLOG_DEBUG("ssid: %s, frequency: %d, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
+                NMLOG_DEBUG("ssid: %s, frequency: %f, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
                 NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
             }
         }

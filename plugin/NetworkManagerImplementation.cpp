@@ -1076,7 +1076,7 @@ namespace WPEFramework
                 snr = calculatedSnr;
             }
 
-	    NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%d, Noise:%d, SNR:%d", ssid.c_str(), bssid.c_str(), band.c_str(), strength, noise, snr);
+            NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%d, Noise:%d, SNR:%d", ssid.c_str(), bssid.c_str(), band.c_str(), strength, noise, snr);
             NMLOG_INFO("bssid=%s,ssid=%s,rssi=%d,phyrate=%s,noise=%d,Band=%s", bssid.c_str(), ssid.c_str(), strength, linkSpeed.c_str(), noise, band.c_str());
 
             if (calculatedSnr == 0)
