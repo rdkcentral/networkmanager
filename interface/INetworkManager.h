@@ -28,16 +28,15 @@ namespace WPEFramework
     {
         enum myIDs {
             ID_NETWORKMANAGER                               = 0x800004E0,
-            ID_NETWORKMANAGER_NOTIFICATION                  = ID_NETWORKMANAGER + 1,
-            ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 2,
-            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3,
-            ID_NETWORKMANAGER_INTERFACE_STATE_NOTIFICATION  = ID_NETWORKMANAGER + 4,
-            ID_NETWORKMANAGER_ACTIVE_INTERFACE_NOTIFICATION = ID_NETWORKMANAGER + 5,
-            ID_NETWORKMANAGER_IP_ADDRESS_NOTIFICATION       = ID_NETWORKMANAGER + 6,
-            ID_NETWORKMANAGER_INTERNET_STATUS_NOTIFICATION  = ID_NETWORKMANAGER + 7,
-            ID_NETWORKMANAGER_AVAILABLE_SSIDS_NOTIFICATION  = ID_NETWORKMANAGER + 8,
-            ID_NETWORKMANAGER_WIFI_STATE_NOTIFICATION       = ID_NETWORKMANAGER + 9,
-            ID_NETWORKMANAGER_WIFI_SIGNAL_NOTIFICATION      = ID_NETWORKMANAGER + 10
+            ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 1,
+            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 2,
+            ID_NETWORKMANAGER_INTERFACE_STATE_NOTIFICATION  = ID_NETWORKMANAGER + 3,
+            ID_NETWORKMANAGER_ACTIVE_INTERFACE_NOTIFICATION = ID_NETWORKMANAGER + 4,
+            ID_NETWORKMANAGER_IP_ADDRESS_NOTIFICATION       = ID_NETWORKMANAGER + 5,
+            ID_NETWORKMANAGER_INTERNET_STATUS_NOTIFICATION  = ID_NETWORKMANAGER + 6,
+            ID_NETWORKMANAGER_AVAILABLE_SSIDS_NOTIFICATION  = ID_NETWORKMANAGER + 7,
+            ID_NETWORKMANAGER_WIFI_STATE_NOTIFICATION       = ID_NETWORKMANAGER + 8,
+            ID_NETWORKMANAGER_WIFI_SIGNAL_NOTIFICATION      = ID_NETWORKMANAGER + 9
         };
 
         /* @json @text:keep */
@@ -270,7 +269,7 @@ namespace WPEFramework
             virtual uint32_t Configure(const string configLine/* @in */) = 0;
 
             /* @event */
-            struct EXTERNAL IInterfaceStateChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IIfaceStateChangeNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_INTERFACE_STATE_NOTIFICATION };
 
@@ -278,7 +277,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IActiveInterfaceChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IActiveIfaceNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_ACTIVE_INTERFACE_NOTIFICATION };
 
@@ -286,7 +285,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IIPAddressChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IIPAddNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_IP_ADDRESS_NOTIFICATION };
 
@@ -294,7 +293,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IInternetStatusChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IInetStatNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_INTERNET_STATUS_NOTIFICATION };
 
@@ -302,7 +301,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IAvailableSSIDsNotification : virtual public Core::IUnknown
+            struct EXTERNAL IAvailSSIDsNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_AVAILABLE_SSIDS_NOTIFICATION };
 
@@ -310,7 +309,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IWiFiStateChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IWiFiStateNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_WIFI_STATE_NOTIFICATION };
 
@@ -318,7 +317,7 @@ namespace WPEFramework
             };
 
             /* @event */
-            struct EXTERNAL IWiFiSignalQualityChangeNotification : virtual public Core::IUnknown
+            struct EXTERNAL IWiFiSigQualityNotify : virtual public Core::IUnknown
             {
                 enum { ID = ID_NETWORKMANAGER_WIFI_SIGNAL_NOTIFICATION };
 
@@ -326,20 +325,20 @@ namespace WPEFramework
             };
 
             // Allow other processes to register/unregister from our notifications
-            virtual uint32_t RegisterInterfaceStateChangeNotification(IInterfaceStateChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterInterfaceStateChangeNotification(IInterfaceStateChangeNotification* notification) = 0;
-            virtual uint32_t RegisterActiveInterfaceChangeNotification(IActiveInterfaceChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterActiveInterfaceChangeNotification(IActiveInterfaceChangeNotification* notification) = 0;
-            virtual uint32_t RegisterIPAddressChangeNotification(IIPAddressChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterIPAddressChangeNotification(IIPAddressChangeNotification* notification) = 0;
-            virtual uint32_t RegisterInternetStatusChangeNotification(IInternetStatusChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterInternetStatusChangeNotification(IInternetStatusChangeNotification* notification) = 0;
-            virtual uint32_t RegisterAvailableSSIDsNotification(IAvailableSSIDsNotification* notification) = 0;
-            virtual uint32_t UnregisterAvailableSSIDsNotification(IAvailableSSIDsNotification* notification) = 0;
-            virtual uint32_t RegisterWiFiStateChangeNotification(IWiFiStateChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterWiFiStateChangeNotification(IWiFiStateChangeNotification* notification) = 0;
-            virtual uint32_t RegisterWiFiSignalQualityChangeNotification(IWiFiSignalQualityChangeNotification* notification) = 0;
-            virtual uint32_t UnregisterWiFiSignalQualityChangeNotification(IWiFiSignalQualityChangeNotification* notification) = 0;
+            virtual uint32_t RegisterIfaceStateNotify(IIfaceStateChangeNotify* notification) = 0;
+            virtual uint32_t UnregisterIfaceStateNotify(IIfaceStateChangeNotify* notification) = 0;
+            virtual uint32_t RegisterActiveIfaceNotify(IActiveIfaceNotify* notification) = 0;
+            virtual uint32_t UnregisterActiveIfaceNotify(IActiveIfaceNotify* notification) = 0;
+            virtual uint32_t RegisterIPAddNotify(IIPAddNotify* notification) = 0;
+            virtual uint32_t UnregisterIPAddNotify(IIPAddNotify* notification) = 0;
+            virtual uint32_t RegisterInetStatNotify(IInetStatNotify* notification) = 0;
+            virtual uint32_t UnregisterInetStatNotify(IInetStatNotify* notification) = 0;
+            virtual uint32_t RegisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) = 0;
+            virtual uint32_t UnregisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) = 0;
+            virtual uint32_t RegisterWiFiStateNotify(IWiFiStateNotify* notification) = 0;
+            virtual uint32_t UnregisterWiFiStateNotify(IWiFiStateNotify* notification) = 0;
+            virtual uint32_t RegisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) = 0;
+            virtual uint32_t UnregisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) = 0;
         };
     }
 }
