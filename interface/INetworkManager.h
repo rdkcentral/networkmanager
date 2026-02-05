@@ -28,15 +28,9 @@ namespace WPEFramework
     {
         enum myIDs {
             ID_NETWORKMANAGER                               = 0x800004E0,
-            ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 1,
-            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 2,
-            ID_NETWORKMANAGER_INTERFACE_STATE_NOTIFICATION  = ID_NETWORKMANAGER + 3,
-            ID_NETWORKMANAGER_ACTIVE_INTERFACE_NOTIFICATION = ID_NETWORKMANAGER + 4,
-            ID_NETWORKMANAGER_IP_ADDRESS_NOTIFICATION       = ID_NETWORKMANAGER + 5,
-            ID_NETWORKMANAGER_INTERNET_STATUS_NOTIFICATION  = ID_NETWORKMANAGER + 6,
-            ID_NETWORKMANAGER_AVAILABLE_SSIDS_NOTIFICATION  = ID_NETWORKMANAGER + 7,
-            ID_NETWORKMANAGER_WIFI_STATE_NOTIFICATION       = ID_NETWORKMANAGER + 8,
-            ID_NETWORKMANAGER_WIFI_SIGNAL_NOTIFICATION      = ID_NETWORKMANAGER + 9
+            ID_NETWORKMANAGER_NOTIFICATION                  = ID_NETWORKMANAGER + 1,
+            ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 2,
+            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3
         };
 
         /* @json @text:keep */
@@ -269,76 +263,25 @@ namespace WPEFramework
             virtual uint32_t Configure(const string configLine/* @in */) = 0;
 
             /* @event */
-            struct EXTERNAL IIfaceStateChangeNotify : virtual public Core::IUnknown
+            struct EXTERNAL INotification : virtual public Core::IUnknown
             {
-                enum { ID = ID_NETWORKMANAGER_INTERFACE_STATE_NOTIFICATION };
+                enum { ID = ID_NETWORKMANAGER_NOTIFICATION };
 
-                virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */) = 0;
-            };
+                // Network Notifications that other processes can subscribe to
+                virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
+                virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
+                virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
+                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
 
-            /* @event */
-            struct EXTERNAL IActiveIfaceNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_ACTIVE_INTERFACE_NOTIFICATION };
-
-                virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */) = 0;
-            };
-
-            /* @event */
-            struct EXTERNAL IIPAddNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_IP_ADDRESS_NOTIFICATION };
-
-                virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */) = 0;
-            };
-
-            /* @event */
-            struct EXTERNAL IInetStatNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_INTERNET_STATUS_NOTIFICATION };
-
-                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */) = 0;
-            };
-
-            /* @event */
-            struct EXTERNAL IAvailSSIDsNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_AVAILABLE_SSIDS_NOTIFICATION };
-
-                virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */) = 0;
-            };
-
-            /* @event */
-            struct EXTERNAL IWiFiStateNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_WIFI_STATE_NOTIFICATION };
-
-                virtual void onWiFiStateChange(const WiFiState state /* @in */) = 0;
-            };
-
-            /* @event */
-            struct EXTERNAL IWiFiSigQualityNotify : virtual public Core::IUnknown
-            {
-                enum { ID = ID_NETWORKMANAGER_WIFI_SIGNAL_NOTIFICATION };
-
-                virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */) = 0;
+                // WiFi Notifications that other processes can subscribe to
+                virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};
+                virtual void onWiFiStateChange(const WiFiState state /* @in */){};
+                virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */){};
             };
 
             // Allow other processes to register/unregister from our notifications
-            virtual uint32_t RegisterIfaceStateNotify(IIfaceStateChangeNotify* notification) = 0;
-            virtual uint32_t UnregisterIfaceStateNotify(IIfaceStateChangeNotify* notification) = 0;
-            virtual uint32_t RegisterActiveIfaceNotify(IActiveIfaceNotify* notification) = 0;
-            virtual uint32_t UnregisterActiveIfaceNotify(IActiveIfaceNotify* notification) = 0;
-            virtual uint32_t RegisterIPAddNotify(IIPAddNotify* notification) = 0;
-            virtual uint32_t UnregisterIPAddNotify(IIPAddNotify* notification) = 0;
-            virtual uint32_t RegisterInetStatNotify(IInetStatNotify* notification) = 0;
-            virtual uint32_t UnregisterInetStatNotify(IInetStatNotify* notification) = 0;
-            virtual uint32_t RegisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) = 0;
-            virtual uint32_t UnregisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) = 0;
-            virtual uint32_t RegisterWiFiStateNotify(IWiFiStateNotify* notification) = 0;
-            virtual uint32_t UnregisterWiFiStateNotify(IWiFiStateNotify* notification) = 0;
-            virtual uint32_t RegisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) = 0;
-            virtual uint32_t UnregisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) = 0;
+            virtual uint32_t Register(INetworkManager::INotification* notification) = 0;
+            virtual uint32_t Unregister(INetworkManager::INotification* notification) = 0;
         };
     }
 }

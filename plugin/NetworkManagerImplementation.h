@@ -188,25 +188,8 @@ namespace WPEFramework
                 END_INTERFACE_MAP
 
                 // Handle Notification registration/removal
-                template <typename T>
-                    uint32_t Register(std::list<T*>& list, T* notification);
-                template <typename T>
-                    uint32_t Unregister(std::list<T*>& list, T* notification);
-
-                virtual uint32_t RegisterIfaceStateNotify(IIfaceStateChangeNotify* notification) override;
-                virtual uint32_t UnregisterIfaceStateNotify(IIfaceStateChangeNotify* notification) override;
-                virtual uint32_t RegisterActiveIfaceNotify(IActiveIfaceNotify* notification) override;
-                virtual uint32_t UnregisterActiveIfaceNotify(IActiveIfaceNotify* notification) override;
-                virtual uint32_t RegisterIPAddNotify(IIPAddNotify* notification) override;
-                virtual uint32_t UnregisterIPAddNotify(IIPAddNotify* notification) override;
-                virtual uint32_t RegisterInetStatNotify(IInetStatNotify* notification) override;
-                virtual uint32_t UnregisterInetStatNotify(IInetStatNotify* notification) override;
-                virtual uint32_t RegisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) override;
-                virtual uint32_t UnregisterAvailSSIDsNotify(IAvailSSIDsNotify* notification) override;
-                virtual uint32_t RegisterWiFiStateNotify(IWiFiStateNotify* notification) override;
-                virtual uint32_t UnregisterWiFiStateNotify(IWiFiStateNotify* notification) override;
-                virtual uint32_t RegisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) override;
-                virtual uint32_t UnregisterWiFiSigQualityNotify(IWiFiSigQualityNotify* notification) override;
+                uint32_t Register(INetworkManager::INotification *notification) override;
+                uint32_t Unregister(INetworkManager::INotification *notification) override;
 
             public:
                 // Below Control APIs will work with RDK or GNome NW.
@@ -301,13 +284,7 @@ namespace WPEFramework
                 void processMonitor(uint16_t interval);
 
             private:
-                std::list<Exchange::INetworkManager::IIfaceStateChangeNotify *> _ifaceStateChangeNotify;
-                std::list<Exchange::INetworkManager::IActiveIfaceNotify *> _activeIfaceNotify;
-                std::list<Exchange::INetworkManager::IIPAddNotify *> _ipAddNotify;
-                std::list<Exchange::INetworkManager::IInetStatNotify *> _inetStatNotify;
-                std::list<Exchange::INetworkManager::IAvailSSIDsNotify *> _availSSIDsNotify;
-                std::list<Exchange::INetworkManager::IWiFiStateNotify *> _wifiStateNotify;
-                std::list<Exchange::INetworkManager::IWiFiSigQualityNotify *> _wifiSigQualityNotify;
+                std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
                 Core::CriticalSection _notificationLock;
                 string m_publicIP;
                 stun::client stunClient;

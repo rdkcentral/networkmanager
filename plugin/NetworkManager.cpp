@@ -92,13 +92,7 @@ namespace WPEFramework
 
                 // Register Notifications
                 SYSLOG(Logging::Startup, (_T("Registering Notification to NetworkManager")));
-                _networkManager->RegisterIfaceStateNotify(_notification.baseInterface<Exchange::INetworkManager::IIfaceStateChangeNotify>());
-                _networkManager->RegisterActiveIfaceNotify(_notification.baseInterface<Exchange::INetworkManager::IActiveIfaceNotify>());
-                _networkManager->RegisterIPAddNotify(_notification.baseInterface<Exchange::INetworkManager::IIPAddNotify>());
-                _networkManager->RegisterInetStatNotify(_notification.baseInterface<Exchange::INetworkManager::IInetStatNotify>());
-                _networkManager->RegisterAvailSSIDsNotify(_notification.baseInterface<Exchange::INetworkManager::IAvailSSIDsNotify>());
-                _networkManager->RegisterWiFiStateNotify(_notification.baseInterface<Exchange::INetworkManager::IWiFiStateNotify>());
-                _networkManager->RegisterWiFiSigQualityNotify(_notification.baseInterface<Exchange::INetworkManager::IWiFiSigQualityNotify>());
+                _networkManager->Register(&_notification);
 
                 SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
                 if (_networkManager->Configure(service->ConfigLine()) != Core::ERROR_NONE)
@@ -151,13 +145,7 @@ namespace WPEFramework
                 _service->Unregister(&_notification);
 
                 SYSLOG(Logging::Shutdown, (_T("Unregister Event Notifications of NetworkManager")));
-                _networkManager->UnregisterIfaceStateNotify(_notification.baseInterface<Exchange::INetworkManager::IIfaceStateChangeNotify>());
-                _networkManager->UnregisterActiveIfaceNotify(_notification.baseInterface<Exchange::INetworkManager::IActiveIfaceNotify>());
-                _networkManager->UnregisterIPAddNotify(_notification.baseInterface<Exchange::INetworkManager::IIPAddNotify>());
-                _networkManager->UnregisterInetStatNotify(_notification.baseInterface<Exchange::INetworkManager::IInetStatNotify>());
-                _networkManager->UnregisterAvailSSIDsNotify(_notification.baseInterface<Exchange::INetworkManager::IAvailSSIDsNotify>());
-                _networkManager->UnregisterWiFiStateNotify(_notification.baseInterface<Exchange::INetworkManager::IWiFiStateNotify>());
-                _networkManager->UnregisterWiFiSigQualityNotify(_notification.baseInterface<Exchange::INetworkManager::IWiFiSigQualityNotify>());
+                _networkManager->Unregister(&_notification);
 
                 // Unregister all our JSON-RPC methods
                 SYSLOG(Logging::Shutdown, (_T("Unregister JSON RPC Methods of NetworkManager")));

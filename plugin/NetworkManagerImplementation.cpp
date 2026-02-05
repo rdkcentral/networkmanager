@@ -80,19 +80,17 @@ namespace WPEFramework
                 m_processMonThread.join();
             }
         }
-
         /**
          * Register a notification callback
          */
-        template <typename T>
-        uint32_t NetworkManagerImplementation::Register(std::list<T*>& list, T* notification)
+        uint32_t NetworkManagerImplementation::Register(INetworkManager::INotification *notification)
         {
             LOG_ENTRY_FUNCTION();
             _notificationLock.Lock();
 
             // Make sure we can't register the same notification callback multiple times
-            if (std::find(list.begin(), list.end(), notification) == list.end()) {
-                list.push_back(notification);
+            if (std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification) == _notificationCallbacks.end()) {
+                _notificationCallbacks.push_back(notification);
                 notification->AddRef();
             }
 
@@ -104,120 +102,21 @@ namespace WPEFramework
         /**
          * Unregister a notification callback
          */
-        template <typename T>
-        uint32_t NetworkManagerImplementation::Unregister(std::list<T*>& list, T* notification)
+        uint32_t NetworkManagerImplementation::Unregister(INetworkManager::INotification *notification)
         {
             LOG_ENTRY_FUNCTION();
             _notificationLock.Lock();
 
             // Make sure we can't register the same notification callback multiple times
-            auto itr = std::find(list.begin(), list.end(), notification);
-            if (itr != list.end()) {
+            auto itr = std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification);
+            if (itr != _notificationCallbacks.end()) {
                 (*itr)->Release();
-                list.erase(itr);
+                _notificationCallbacks.erase(itr);
             }
 
             _notificationLock.Unlock();
 
             return Core::ERROR_NONE;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterIfaceStateNotify(Exchange::INetworkManager::IIfaceStateChangeNotify* notification)
-        {
-            uint32_t errorCode = Register(_ifaceStateChangeNotify, notification);
-            NMLOG_INFO("IInterfaceStateChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterIfaceStateNotify(Exchange::INetworkManager::IIfaceStateChangeNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_ifaceStateChangeNotify, notification);
-            NMLOG_INFO("IInterfaceStateChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterActiveIfaceNotify(Exchange::INetworkManager::IActiveIfaceNotify* notification)
-        {
-            uint32_t errorCode = Register(_activeIfaceNotify, notification);
-            NMLOG_INFO("IActiveInterfaceChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterActiveIfaceNotify(Exchange::INetworkManager::IActiveIfaceNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_activeIfaceNotify, notification);
-            NMLOG_INFO("IActiveInterfaceChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterIPAddNotify(Exchange::INetworkManager::IIPAddNotify* notification)
-        {
-            uint32_t errorCode = Register(_ipAddNotify, notification);
-            NMLOG_INFO("IIPAddressChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterIPAddNotify(Exchange::INetworkManager::IIPAddNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_ipAddNotify, notification);
-            NMLOG_INFO("IIPAddressChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterInetStatNotify(Exchange::INetworkManager::IInetStatNotify* notification)
-        {
-            uint32_t errorCode = Register(_inetStatNotify, notification);
-            NMLOG_INFO("IInternetStatusChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-         uint32_t NetworkManagerImplementation::UnregisterInetStatNotify(Exchange::INetworkManager::IInetStatNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_inetStatNotify, notification);
-            NMLOG_INFO("IInternetStatusChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterAvailSSIDsNotify(Exchange::INetworkManager::IAvailSSIDsNotify* notification)
-        {
-            uint32_t errorCode = Register(_availSSIDsNotify, notification);
-            NMLOG_INFO("IAvailableSSIDsNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterAvailSSIDsNotify(Exchange::INetworkManager::IAvailSSIDsNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_availSSIDsNotify, notification);
-            NMLOG_INFO("IAvailableSSIDsNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterWiFiStateNotify(Exchange::INetworkManager::IWiFiStateNotify* notification)
-        {
-            uint32_t errorCode = Register(_wifiStateNotify, notification);
-            NMLOG_INFO("IWiFiStateChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterWiFiStateNotify(Exchange::INetworkManager::IWiFiStateNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_wifiStateNotify, notification);
-            NMLOG_INFO("IWiFiStateChangeNotification %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::RegisterWiFiSigQualityNotify(Exchange::INetworkManager::IWiFiSigQualityNotify* notification)
-        {
-            uint32_t errorCode = Register(_wifiSigQualityNotify, notification);
-            NMLOG_INFO("IWiFiSignalQualityChangeNotification  %p, errorCode: %u", notification, errorCode);
-            return errorCode;
-        }
-
-        uint32_t NetworkManagerImplementation::UnregisterWiFiSigQualityNotify(Exchange::INetworkManager::IWiFiSigQualityNotify* notification)
-        {
-            uint32_t errorCode = Unregister(_wifiSigQualityNotify, notification);
-            NMLOG_INFO("IWiFiSignalQualityChangeNotification  %p, errorCode: %u", notification, errorCode);
-            return errorCode;
         }
 
         uint32_t NetworkManagerImplementation::Configure(const string configLine)
@@ -783,7 +682,7 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
-            for (const auto callback : _ifaceStateChangeNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onInterfaceStateChange(state, interface);
             }
             _notificationLock.Unlock();
@@ -808,7 +707,7 @@ namespace WPEFramework
             // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
             // m_defaultInterface = currentActiveinterface;
 
-            for (const auto callback : _activeIfaceNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
             _notificationLock.Unlock();
@@ -847,7 +746,7 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onIPAddressChange %s - %s", ipaddress.c_str(), interface.c_str());
-            for (const auto callback : _ipAddNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
             _notificationLock.Unlock();
@@ -857,7 +756,7 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
-            for (const auto callback : _inetStatNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState, interface);
             }
             _notificationLock.Unlock();
@@ -899,7 +798,7 @@ namespace WPEFramework
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
-            for (const auto callback : _availSSIDsNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onAvailableSSIDs(jsonOfFilterScanResults);
             }
             _notificationLock.Unlock();
@@ -1208,7 +1107,7 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
-            for (const auto callback : _wifiStateNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
             _notificationLock.Unlock();
@@ -1218,7 +1117,7 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
-            for (const auto callback : _wifiSigQualityNotify) {
+            for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();

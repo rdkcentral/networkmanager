@@ -45,13 +45,7 @@ namespace WPEFramework
              * for notifications raised by the COM-RPC API
              */
             class Notification : public RPC::IRemoteConnection::INotification,
-                                 public Exchange::INetworkManager::IIfaceStateChangeNotify,
-                                 public Exchange::INetworkManager::IActiveIfaceNotify,
-                                 public Exchange::INetworkManager::IIPAddNotify,
-                                 public Exchange::INetworkManager::IInetStatNotify,
-                                 public Exchange::INetworkManager::IAvailSSIDsNotify,
-                                 public Exchange::INetworkManager::IWiFiStateNotify,
-                                 public Exchange::INetworkManager::IWiFiSigQualityNotify
+                                 public Exchange::INetworkManager::INotification
             {
             private:
                 Notification() = delete;
@@ -66,13 +60,6 @@ namespace WPEFramework
                 }
                 virtual ~Notification() override
                 {
-                }
-
-                template <typename T>
-                T* baseInterface()
-                {
-                    static_assert(std::is_base_of<T, Notification>(), "base type mismatch");
-                    return static_cast<T*>(this);
                 }
 
             public:
@@ -128,13 +115,7 @@ namespace WPEFramework
 
                 // Build QueryInterface implementation, specifying all possible interfaces we implement
                 BEGIN_INTERFACE_MAP(Notification)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IIfaceStateChangeNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IActiveIfaceNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IIPAddNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IInetStatNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IAvailSSIDsNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IWiFiStateNotify)
-                INTERFACE_ENTRY(Exchange::INetworkManager::IWiFiSigQualityNotify)
+                INTERFACE_ENTRY(Exchange::INetworkManager::INotification)
                 INTERFACE_ENTRY(RPC::IRemoteConnection::INotification)
                 END_INTERFACE_MAP
 
