@@ -859,10 +859,16 @@ namespace WPEFramework
 
                 std::string connTypStr = connTyp;
                 NMLOG_DEBUG("connection id: %s, type: %s", connId != NULL ? connId : "NULL", connTypStr.c_str());
-                if(connTypStr == "802-11-wireless") {
+                // Store first connection only if it matches the interface type
+                if(iface == nmUtils::wlanIface() && connTypStr == "802-11-wireless") {
                     NMLOG_INFO("wifi conn found : %s", connId);
                     // if no known ssid given then use first wifi connection from list
                     // it usefule when bootup there will be no known ssid
+                    if(firstConnection == NULL)
+                        firstConnection = connection;
+                }
+                else if(iface == nmUtils::ethIface() && connTypStr == "802-3-ethernet") {
+                    NMLOG_INFO("ethernet conn found : %s", connId);
                     if(firstConnection == NULL)
                         firstConnection = connection;
                 }
