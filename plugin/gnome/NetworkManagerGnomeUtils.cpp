@@ -182,7 +182,7 @@ namespace WPEFramework
        {
             double freq;
             if (apFreq >= 2400 && apFreq < 5000)
-                freq = 2.4f;
+                freq = 2.4;
             else if (apFreq >= 5000 && apFreq < 6000)
                 freq = 5;
             else if (apFreq >= 6000)
