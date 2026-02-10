@@ -149,7 +149,6 @@
         "frequency":{
             "summary": "The supported frequency for this SSID in GHz",
             "type": "number",
-            "double": true,
             "example": 2.4420
         },
         "errors": {
