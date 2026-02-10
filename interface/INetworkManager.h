@@ -113,6 +113,8 @@ namespace WPEFramework
             struct EXTERNAL WiFiConnectTo {
                     string           ssid;
                     string           passphrase;
+                    string           bssid;
+                    string           frequency;
                     WIFISecurityMode security;
                     string           ca_cert;
                     string           client_cert;

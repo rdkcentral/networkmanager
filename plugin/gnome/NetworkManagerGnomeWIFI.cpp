@@ -651,8 +651,26 @@ namespace WPEFramework
                 g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
             if(ssid)
                 g_bytes_unref(ssid);
-            // 'bssid' parameter is used to restrict the connection only to the BSSID
-            // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
+
+            if(!ssidinfo.bssid.empty())
+                g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid, NULL);
+
+            if(!ssidinfo.frequency.empty())
+            {
+                if(ssidinfo.frequency == "2.4")
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "bg", NULL);
+                }
+                else if(ssidinfo.frequency == "5")
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
+                }
+                else
+                {
+                    NMLOG_WARNING("invalid frequency value: %s", ssidinfo.frequency.c_str());
+                    return false;
+                }
+            }
 
             NMSettingWirelessSecurity *sSecurity = NULL;
             switch(ssidinfo.security)

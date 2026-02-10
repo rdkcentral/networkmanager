@@ -180,6 +180,40 @@ namespace WPEFramework
             return securityStr;
         }
 
+        bool nmUtils::isValidBSSID(const std::string& bssid)
+        {
+            if (bssid.empty())
+                return true; // BSSID is optional for connection, so empty value is considered valid
+
+            // Regular expression to match valid BSSID formats (e.g., "00:11:22:33:44:55")
+            const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
+            if (!std::regex_match(bssid, bssidRegex))
+            {
+                NMLOG_ERROR("Invalid BSSID format: %s. Expected format is XX:XX:XX:XX:XX:XX where X is a hexadecimal digit.", bssid.c_str());
+                return false;
+            }
+
+            return true;
+        }
+    
+       bool nmUtils::isValidFrequency(const std::string& frequency)
+       {
+            if (frequency.empty())
+                return true; // Frequency is optional for connection, so empty value is considered valid
+
+            // 6 GHz frequency is not supported in current implementation gnom networkmanger
+            if(frequency == "2.4" || frequency == "5")
+            {
+                NMLOG_DEBUG("Valid frequency: %s", frequency.c_str());
+                return true;
+            }
+            else
+            {
+                NMLOG_ERROR("Invalid frequency: %s. Valid values are 2.4, 5 GHz.", frequency.c_str());
+            }
+            return false;
+       }
+
        std::string nmUtils::wifiFrequencyFromAp(guint32 apFreq)
        {
             std::string freq;
