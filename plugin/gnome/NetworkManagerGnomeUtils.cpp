@@ -22,6 +22,7 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <regex>
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
 #include "Module.h"
