@@ -731,7 +731,7 @@ namespace WPEFramework
     {
          GBytes *ssid = NULL;
          int strength = 0;
-         float freq;
+         double freq;
          int security;
          guint32 flags, wpaFlags, rsnFlags, apFreq;
          if(ap == nullptr)
