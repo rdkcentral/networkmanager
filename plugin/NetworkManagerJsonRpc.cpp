@@ -778,7 +778,12 @@ namespace WPEFramework
 
                 if (parameters.HasLabel("passphrase"))
                     ssid.passphrase = parameters["passphrase"].String();
-    
+
+                if (parameters.HasLabel("bssid"))
+                    ssid.bssid = parameters["bssid"].String();
+                if (parameters.HasLabel("frequency"))
+                    ssid.frequency =  parameters["frequency"].String();
+
                 if (parameters.HasLabel("security"))
                     ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
 
