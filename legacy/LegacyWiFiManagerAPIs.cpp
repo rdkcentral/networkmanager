@@ -400,11 +400,12 @@ namespace WPEFramework
             {
                 response["ssid"] = ssidInfo.ssid;
                 response["bssid"] = ssidInfo.bssid;
-                response["rate"] = ssidInfo.rate;
-                response["noise"] = ssidInfo.noise;
+                response["rate"] = to_string(ssidInfo.rate);
+                response["noise"] = to_string(ssidInfo.noise);
                 response["security"] = JsonValue(mapToLegacySecurityMode(ssidInfo.security));
-                response["signalStrength"] = ssidInfo.strength;
-                response["frequency"] = ssidInfo.frequency;
+                response["signalStrength"] = to_string(ssidInfo.strength);
+                std::string freqStr = to_string(ssidInfo.frequency);
+                response["frequency"] = freqStr.substr(0, 3);
             }
             returnJson(rc);
         }
@@ -911,10 +912,15 @@ namespace WPEFramework
             {
                 JsonObject object = ssids[i].Object();
                 uint32_t security = object["security"].Number();
-                object["security"] = mapToLegacySecurityMode(security);
-                ssidsUpdated.Add(object);
+                JsonObject newObject;
+                newObject["ssid"] = object["ssid"];
+                newObject["security"] = mapToLegacySecurityMode(security);
+                newObject["signalStrength"] = object["strength"];
+                newObject["frequency"] = object["frequency"];
+                ssidsUpdated.Add(newObject);
             }
             newParameters["ssids"] = ssidsUpdated;
+            newParameters["moreData"] = false;
 
             newParameters.ToString(json);
             NMLOG_INFO("Event with %d SSIDs as, %s", ssids.Length(), json.c_str());
