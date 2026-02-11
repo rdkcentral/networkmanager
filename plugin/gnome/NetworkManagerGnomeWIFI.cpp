@@ -653,7 +653,10 @@ namespace WPEFramework
                 g_bytes_unref(ssid);
 
             if(!ssidinfo.bssid.empty())
-                g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid, NULL);
+            {
+                NMLOG_INFO("setting bssid: %s", ssidinfo.bssid.c_str());
+                g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
+            }
 
             if(!ssidinfo.frequency.empty())
             {
@@ -957,7 +960,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %s, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
 
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
