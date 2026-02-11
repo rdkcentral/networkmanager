@@ -386,7 +386,7 @@ TEST_F(NetworkManagerWifiTest, GetConnectedSSID_ApNotConnected)
         .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":\"\",\"frequency\":\"\",\"rate\":\"\",\"noise\":\"\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
 
     g_object_unref(deviceDummy);
     g_ptr_array_free(fakeDevices, TRUE);
@@ -467,7 +467,7 @@ TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_psk)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
     
     // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":\"-39\",\"frequency\":\"2.462\",\"rate\":\"54000\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
 
     // Free the GBytes object
     g_bytes_unref(fake_ssid);
@@ -528,7 +528,7 @@ TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_EAP)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
     
     // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":3,\"strength\":\"-39\",\"frequency\":\"2.462\",\"rate\":\"54000\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":3,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
 
     // Free the GBytes object
     g_bytes_unref(fake_ssid);
@@ -589,7 +589,7 @@ TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_ssidNull)
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
     
     // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":1,\"strength\":\"-78\",\"frequency\":\"2.462\",\"rate\":\"54000\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":1,\"strength\":-78,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
 
     // Free the GBytes object
     g_bytes_unref(fake_ssid);
