@@ -2384,7 +2384,7 @@ namespace WPEFramework
 
         bool NetworkManagerClient::getWiFiSignalQuality(string& ssid, int& signalStrength, Exchange::INetworkManager::WiFiSignalQuality& quality)
         {
-            Exchange::INetworkManager::WiFiSSIDInfo ssidInfo;
+            Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
             float rssi = 0.0f;
             float noise = 0.0f;
             float floatSignalStrength = 0.0f;
