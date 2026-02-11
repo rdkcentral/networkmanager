@@ -266,8 +266,12 @@ namespace WPEFramework
                         {
                             JsonObject object = ssids[i].Object();
                             security = object["security"].Number();
-                            object["security"] = mapToNewSecurityMode(security);
-                            ssidsUpdated.Add(object);
+                            JsonObject newObject;
+                            newObject["ssid"] = object["ssid"];
+                            newObject["security"] = mapToNewSecurityMode(security);
+                            newObject["strength"] = object["signalStrength"];
+                            newObject["frequency"] = object["frequency"];
+                            ssidsUpdated.Add(newObject);
                         }
                         ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
@@ -1173,24 +1177,23 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.ssid             = string(connectedSsid.ssid);
                 ssidInfo.bssid            = string(connectedSsid.bssid);
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
-                ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
-                ssidInfo.rate             = to_string((int)connectedSsid.rate);
+                ssidInfo.strength         = (int)connectedSsid.signalStrength;
+                ssidInfo.rate             = (int)connectedSsid.rate;
 
                 if(((int) connectedSsid.noise >= 0) || ((int) connectedSsid.noise < DEFAULT_NOISE))
                 {
                     NMLOG_DEBUG ("Received Noise (%f) from wifi driver is not valid; so clamping it", connectedSsid.noise);
                     if (connectedSsid.noise >= 0) {
-                        ssidInfo.noise = std::to_string(0);
+                        ssidInfo.noise = 0;
                     }
                     else if (connectedSsid.noise < DEFAULT_NOISE) {
-                        ssidInfo.noise = std::to_string(DEFAULT_NOISE);
+                        ssidInfo.noise = DEFAULT_NOISE;
                     }
                 }
                 else
-                    ssidInfo.noise = std::to_string((int)connectedSsid.noise);
+                    ssidInfo.noise = (int)connectedSsid.noise;
 
-                std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
-                ssidInfo.frequency        = freqStr.substr(0, 5);
+                ssidInfo.frequency        = ((double)connectedSsid.frequency/1000);
 
                 NMLOG_INFO ("GetConnectedSSID Success");
                 rc = Core::ERROR_NONE;
