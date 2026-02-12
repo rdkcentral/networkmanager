@@ -70,6 +70,9 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
 
+# Link OpenTelemetry RDK wrapper library
+target_link_libraries(${PLUGIN_LEGACY_WIFI} PRIVATE rdk_otlp)
+
 set_target_properties(${PLUGIN_LEGACY_WIFI} PROPERTIES
                                         CXX_STANDARD 11
                                         CXX_STANDARD_REQUIRED YES)
