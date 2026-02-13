@@ -920,9 +920,9 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string ssid{};
-            string strength{};
-            string noise{};
-            string snr{};
+            int strength = 0;
+            int noise = 0;
+            int snr = 0;
             Exchange::INetworkManager::WiFiSignalQuality quality{};
 
             if (_networkManager)
@@ -1049,7 +1049,7 @@ namespace WPEFramework
             Notify(_T("onWiFiStateChange"), parameters);
         }
 
-        void NetworkManager::onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManager::onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             Core::JSON::EnumType<Exchange::INetworkManager::WiFiSignalQuality> iquality(quality);
             JsonObject parameters;
