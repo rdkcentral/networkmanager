@@ -52,6 +52,7 @@ namespace WPEFramework
                static bool readPersistentHostname(std::string& hostname);
                static bool isValidFrequency(const std::string& frequency);
                static bool isValidBSSID(const std::string& bssid);
+               static bool isValidWifiFrequencyForBand(std::string& band, guint32 apFreq);
         };
     }
 }

@@ -413,37 +413,79 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, std::string& ssid)
+        static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, Exchange::INetworkManager::WiFiConnectTo& ssidInfo)
         {
             NMAccessPoint *AccessPoint = nullptr;
-            if(ssid.empty())
+            if(ssidInfo.ssid.empty())
                 return nullptr;
 
             for (guint i = 0; i < ApList->len; i++)
             {
                 std::string ssidstr{};
+                bool ssidMatch = false;
                 NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(ApList, i));
                 GBytes *ssidGBytes = nm_access_point_get_ssid(ap);
-                if(ssidGBytes)
+                if(ssidGBytes == nullptr)
                 {
-                    char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
-                    if(ssidUtf8 != nullptr)
+                    NMLOG_WARNING("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap)); 
+                    // TODO remove log or handle hidden ssid case based on bssid matching if ssidInfo.ssid is empty
+                    continue;
+                }
+
+                char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
+                if(ssidUtf8 == nullptr)
+                {
+                    NMLOG_WARNING("Invalid ssid length Error");
+                    continue;
+                }
+
+                ssidstr = ssidUtf8;
+                free(ssidUtf8);
+
+                if(ssidInfo.ssid == ssidstr)
+                {
+                    NMLOG_INFO("SSID matched: %s", ssidstr.c_str());
+                    ssidMatch = true;
+                }
+                else
+                {
+                    NMLOG_WARNING("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
+                    // continue searching other APs in case of multiple APs with same SSID and matching BSSID or frequency
+                    // TODO hidden ssid handling - if ssidInfo.ssid is empty then matching based on bssid ?
+                    continue;
+                }
+
+                if(!ssidInfo.bssid.empty())
+                {
+                    std::string bssidStr = nm_access_point_get_bssid(ap);
+                    if(ssidInfo.bssid == bssidStr)
                     {
-                        ssidstr = ssidUtf8;
-                        if(ssid == ssidstr)
-                        {
-                            AccessPoint = ap;
-                            free(ssidUtf8);
-                            break;
-                        }
-                        // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
+                        NMLOG_INFO("BSSID matched: %s", bssidStr.c_str()); // TODO remove log
+                        ssidMatch = true;
                     }
                     else
-                        NMLOG_WARNING("Invalid ssid length Error");
-
-                    if(ssidUtf8 != nullptr)
-                        free(ssidUtf8);
+                    {
+                        NMLOG_WARNING("BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
+                        continue;
+                    }
                 }
+
+                if(!ssidInfo.frequency.empty())
+                {
+                    if(nmUtils::isValidWifiFrequencyForBand(ssidInfo.frequency, nm_access_point_get_frequency(ap)))
+                    {
+                        NMLOG_INFO("Frequency matched: %s GHz", ssidInfo.frequency.c_str()); // TODO remove log
+                        ssidMatch = true;
+                    }
+                    else
+                    {
+                        NMLOG_WARNING("Frequency did not match: expected %s GHz, got %s GHz", ssidInfo.frequency.c_str(), ssidInfo.frequency.c_str());
+                        ssidMatch = false;
+                    }
+                }
+
+                if(ssidMatch)
+                    AccessPoint = ap;
             }
 
             return AccessPoint;
@@ -652,10 +694,7 @@ namespace WPEFramework
                 g_bytes_unref(ssid);
 
             if(!ssidinfo.bssid.empty())
-            {
-                NMLOG_INFO("setting bssid: %s", ssidinfo.bssid.c_str());
                 g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
-            }
 
             if(!ssidinfo.frequency.empty())
             {
@@ -1000,7 +1039,7 @@ namespace WPEFramework
                 return false;
             }
 
-            AccessPoint = findMatchingSSID(ApList, ssidInfo.ssid);
+            AccessPoint = findMatchingSSID(ApList, ssidInfo);
             if(AccessPoint == NULL)
             {
                 NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
