@@ -94,7 +94,7 @@ namespace WPEFramework
                     _parent.onWiFiStateChange(state);
                 }
 
-                void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
                     _parent.onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
                 }
@@ -262,7 +262,7 @@ namespace WPEFramework
             void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
             void onAvailableSSIDs(const string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
-            void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+            void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         private:
             uint32_t _connectionId;
