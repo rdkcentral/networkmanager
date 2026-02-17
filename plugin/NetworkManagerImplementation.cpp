@@ -1118,16 +1118,7 @@ namespace WPEFramework
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
             for (const auto callback : _notificationCallbacks) {
-                // Notify subscribers using the new (numeric) overload.
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
-
-                //Notify subscribers that still rely on the legacy (string)
-                callback->onWiFiSignalQualityChange(
-                    ssid,
-                    std::to_string(strength),
-                    std::to_string(noise),
-                    std::to_string(snr),
-                    std::to_string(static_cast<int>(quality)));
             }
             _notificationLock.Unlock();
         }
