@@ -2355,7 +2355,7 @@ TEST_F(NetworkManagerWifiTest, ActivateKnownConnection_EthernetConnectionTypeFil
     
     // Setup connection IDs and types
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_id(::testing::_))
-        .WillOnce(::testing::Return("Wired connection 1"))   // ethConn - match
+        .WillOnce(::testing::Return("MyWiFiNetwork"))   // ethConn - match
         .WillOnce(::testing::Return("Wired connection 1"));  // ethConn - for activation
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_connection_type(::testing::_))
