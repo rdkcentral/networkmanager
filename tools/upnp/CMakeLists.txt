@@ -25,8 +25,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBSOUP3 libsoup-3.0)
-pkg_check_modules(GSSDP16 gssdp-1.6)    
-pkg_check_modules(GUPNP16 gupnp-1.6)    
+pkg_check_modules(GSSDP16 gssdp-1.6)
+pkg_check_modules(GUPNP16 gupnp-1.6)
 
 if (LIBSOUP3_FOUND AND GSSDP16_FOUND AND GUPNP16_FOUND)
     # Use 3.0 stack with REQUIRED to set final variables
