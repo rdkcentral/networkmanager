@@ -36,7 +36,6 @@ namespace WPEFramework
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
-            : _notificationCallbacks({})
         {
             /* Initialize STUN Endpoints */
             m_stunEndpoint = "stun.l.google.com";
@@ -81,7 +80,6 @@ namespace WPEFramework
                 m_processMonThread.join();
             }
         }
-
         /**
          * Register a notification callback
          */
@@ -839,7 +837,7 @@ namespace WPEFramework
         }
 
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
-        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, int& strength /* @out */, int& noise /* @out */, int& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
             std::string key{}, value{}, bssid{}, band{};
             char buff[512] = {'\0'};
@@ -875,9 +873,9 @@ namespace WPEFramework
                 NMLOG_WARNING("WiFi is disconnected (BSSID is empty)");
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
                 ssid = "";
-                strength = "0";
-                noise = "0";
-                snr = "0";
+                strength = 0;
+                noise = 0;
+                snr = 0;
                 return Core::ERROR_NONE;
             }
 
@@ -889,38 +887,27 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-			std::string linkSpeed;
+            // Collect raw values during parsing
+            std::string linkSpeed, rssiValue, noiseValue, avgRssiValue, freqValue;
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
                 {
                     if (key == "RSSI") {
-                        strength = value;
+                        rssiValue = value;
                     }
                     else if (key == "NOISE") {
-                        noise = value;
+                        noiseValue = value;
                     }
-                    else if (key == "AVG_RSSI") { // if RSSI is not available
-                        if (strength.empty())
-                            strength = value;
+                    else if (key == "AVG_RSSI") {
+                        avgRssiValue = value;
                     }
                     else if (key == "FREQUENCY")
                     {
-                        if (!value.empty())
-                        {
-                            int freq = std::stoi(value);
-                            if (freq >= 2400 && freq < 5000)
-                                band = "2.4GHz";
-                            else if (freq >= 5000 && freq < 6000)
-                                band = "5GHz";
-                            else if (freq >= 6000)
-                                band = "6GHz";
-                            else
-                                band = "not known";
-                        }
+                        freqValue = value;
                     }
-					else if (key == "LINKSPEED")
+		    else if (key == "LINKSPEED")
                     {
                         linkSpeed = value;
                     }
@@ -928,13 +915,25 @@ namespace WPEFramework
             }
             pclose(fp);
 
-            if (noise.empty())
-                noise = "0";
-            if (strength.empty())
-                strength = "0";
+            // Helper to safely convert string to int
+            auto toInt = [](const std::string& str, int defaultVal = 0) -> int {
+                return str.empty() ? defaultVal : std::stoi(str);
+            };
 
-            int16_t readRssi = std::stoi(strength);
-            int16_t readNoise = std::stoi(noise);
+            // Perform conversions - use RSSI if available, otherwise fallback to AVG_RSSI
+            strength = toInt(!rssiValue.empty() ? rssiValue : avgRssiValue, 0);
+            noise = toInt(noiseValue, 0);
+
+            // Determine band from frequency
+            if (!freqValue.empty()) {
+                int freq = std::stoi(freqValue);
+                band = (freq >= 2400 && freq < 5000) ? "2.4GHz" :
+                       (freq >= 5000 && freq < 6000) ? "5GHz" :
+                       (freq >= 6000) ? "6GHz" : "not known";
+            }
+
+            int16_t readRssi = strength;
+            int16_t readNoise = noise;
 
             /* Check the RSSI is within range between -10 and -100 dbm*/
             if (readRssi >= 0 || readRssi < -100) {
@@ -953,36 +952,36 @@ namespace WPEFramework
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
                     readNoise = 0;
-                    noise = std::to_string(0);
+                    noise = 0;
                 }
                 else if (readNoise < DEFAULT_NOISE) {
                     readNoise = DEFAULT_NOISE;
-                    noise = std::to_string(DEFAULT_NOISE);
+                    noise = DEFAULT_NOISE;
                 }
             }
 
             /*Calculate SNR = RSSI - Noise */
             int16_t calculatedSnr = readRssi - readNoise;
-            snr = std::to_string(calculatedSnr);
+            snr = calculatedSnr;
 
             /* mapping rssi value when the SNR value is not proper */
             if(!(calculatedSnr > 0 && calculatedSnr <= MAX_SNR_VALUE))
             {
-                NMLOG_WARNING("calculated SNR (%d) is not valid; Lets map with RSSI (%s)", calculatedSnr, strength.c_str());
-                calculatedSnr = std::stoi(strength);
+                NMLOG_WARNING("calculated SNR (%d) is not valid; Lets map with RSSI (%d)", calculatedSnr, strength);
+                calculatedSnr = strength;
                 /* Take the absolute value */
                 calculatedSnr = (calculatedSnr < 0) ? -calculatedSnr : calculatedSnr;
 
-                snr = std::to_string(calculatedSnr);
+                snr = calculatedSnr;
             }
 
-			NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%s, Noise:%s, SNR:%s", ssid.c_str(), bssid.c_str(), band.c_str(), strength.c_str(), noise.c_str(), snr.c_str());
-            NMLOG_INFO("bssid=%s,ssid=%s,rssi=%s,phyrate=%s,noise=%s,Band=%s", bssid.c_str(), ssid.c_str(), strength.c_str(), linkSpeed.c_str(), noise.c_str(), band.c_str());
+            NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%d, Noise:%d, SNR:%d", ssid.c_str(), bssid.c_str(), band.c_str(), strength, noise, snr);
+            NMLOG_INFO("bssid=%s,ssid=%s,rssi=%d,phyrate=%s,noise=%d,Band=%s", bssid.c_str(), ssid.c_str(), strength, linkSpeed.c_str(), noise, band.c_str());
 
             if (calculatedSnr == 0)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                strength = "0";
+                strength = 0;
             }
             else if (calculatedSnr > 0 && calculatedSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
             {
@@ -1062,9 +1061,9 @@ namespace WPEFramework
             while (true)
             {
                 std::string ssid{};
-                std::string strength{};
-                std::string noise{};
-                std::string snr{};
+                int strength = 0;
+                int noise = 0;
+                int snr = 0;
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
@@ -1114,10 +1113,10 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onWiFiSignalQualityChange %s", strength.c_str());
+            NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }

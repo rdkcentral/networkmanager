@@ -921,7 +921,7 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success)
         ));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":-30,\"frequency\":2.412,\"rate\":0,\"noise\":0,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_9999)
@@ -946,7 +946,7 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_9999)
         ));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":-30,\"frequency\":2.412,\"rate\":0,\"noise\":0,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_100)
@@ -971,7 +971,7 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_100)
         ));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"-96\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":-30,\"frequency\":2.412,\"rate\":0,\"noise\":-96,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_50)
@@ -996,7 +996,7 @@ TEST_F(NetworkManagerTest, GetConnectedSSID_Success_noise_50)
         ));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":\"-30\",\"frequency\":\"2.412\",\"rate\":\"0\",\"noise\":\"-50\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"TestNetwork\",\"bssid\":\"AB:CD:EF:GH:IJ:KL\",\"security\":1,\"strength\":-30,\"frequency\":2.412,\"rate\":0,\"noise\":-50,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetConnectedSSID_Failed)
@@ -1331,7 +1331,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityDisconnected2)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"quality\":\"Disconnected\",\"snr\":\"0\",\"strength\":\"0\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"quality\":\"Disconnected\",\"snr\":0,\"strength\":0,\"noise\":0,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
@@ -1369,7 +1369,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnected)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"66\",\"strength\":\"-30\",\"noise\":\"-96\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":66,\"strength\":-30,\"noise\":-96,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
@@ -1407,7 +1407,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedGood)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Weak\",\"snr\":\"6\",\"strength\":\"-90\",\"noise\":\"-96\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Weak\",\"snr\":6,\"strength\":-90,\"noise\":-96,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
@@ -1445,7 +1445,7 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
         }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWiFiSignalQuality"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":\"120\",\"strength\":\"-120\",\"noise\":\"0\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":120,\"strength\":-120,\"noise\":0,\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, Trace_Success_ipv4)
