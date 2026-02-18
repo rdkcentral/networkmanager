@@ -34,6 +34,15 @@ if (USE_TELEMETRY)
     message("Telemetry support enabled")
 endif()
 
+# Optional RFC API support (for reading TR-181 RFC feature flags)
+option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" ON)
+if (USE_RFCAPI)
+    find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
+    find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
+    add_definitions(-DUSE_RFCAPI)
+    message("RFC API support enabled")
+endif()
+
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
@@ -92,6 +101,13 @@ if (USE_TELEMETRY)
     target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${T2_INCLUDE_DIRS})
 endif()
 
+if (USE_RFCAPI)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if (RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
+
 target_include_directories(${MODULE_IMPL_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -116,7 +132,7 @@ install(
 set(PLUGIN_NETWORKCONNECTIONSTATS_AUTOSTART "false" CACHE STRING "Automatically start the plugin")
 set(PLUGIN_NETWORKCONNECTIONSTATS_OUTOFPROCESS "true" CACHE STRING "Run plugin out-of-process")
 set(PLUGIN_NETWORKCONNECTIONSTATS_STARTUPORDER "50" CACHE STRING "Plugin startup order")
-set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "90" CACHE STRING "Reporting interval in seconds (default: 90 seconds)")
+set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "600" CACHE STRING "Reporting interval in seconds (default: 600 seconds)")
 set(PLUGIN_NETWORKCONNECTIONSTATS_PROVIDER_TYPE "comrpc" CACHE STRING "Network data provider type: 'comrpc' or 'jsonrpc' (default: comrpc)")
 
 # Install configuration
