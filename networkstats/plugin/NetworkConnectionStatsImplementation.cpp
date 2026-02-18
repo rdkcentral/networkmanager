@@ -31,7 +31,7 @@ using namespace NetworkConnectionStatsLogger;
 namespace WPEFramework {
 namespace Plugin {
 
-    SERVICE_REGISTRATION(NetworkConnectionStatsImplementation, 1, 0);
+    SERVICE_REGISTRATION(NetworkConnectionStatsImplementation, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);
 
     NetworkConnectionStatsImplementation::NetworkConnectionStatsImplementation()
         : _adminLock()
@@ -52,8 +52,8 @@ namespace Plugin {
         , m_subsIPAddrChange(false)
     {
         
-        NSLOG_INFO("NetworkConnectionStatsImplemen  tation Constructor");
-        /* Set NetworkManager Out-Process name to be NWMgrPlugin */
+        NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
+        /* Set NetworkManager Out-Process name to be "NetworkConnectionStats" */
         Core::ProcessInfo().Name("NetworkConnectionStats");
         NSLOG_INFO((_T("NetworkConnectionStats Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
 #if USE_TELEMETRY
@@ -205,6 +205,9 @@ namespace Plugin {
                 auto factoryType = NetworkDataProviderFactory::ParseProviderType(providerType);
                 std::string typeName = NetworkDataProviderFactory::GetProviderTypeName(factoryType);
                 NSLOG_ERROR("Failed to initialize %s provider", typeName.c_str());
+                // Clean up the partially initialized provider to prevent leaks and later accidental use
+                delete m_provider;
+                m_provider = nullptr;
                 result = Core::ERROR_GENERAL;
             }
         }
@@ -292,7 +295,7 @@ namespace Plugin {
 
     void NetworkConnectionStatsImplementation::logTelemetry(const std::string& eventName, const std::string& message)
     {
-        NSLOG_INFO("NS_T2: %s:%s", eventName.c_str(), message.c_str());
+        //NSLOG_INFO("NS_T2: %s:%s", eventName.c_str(), message.c_str());
 #if USE_TELEMETRY
         T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
         if (t2error != T2ERROR_SUCCESS) {
@@ -376,14 +379,23 @@ namespace Plugin {
             return;
         }
         
+        bool ipv4PacketLoss100 = false;
+        bool ipv6PacketLoss100 = false;
+        
         // Check IPv4 gateway packet loss
         if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
             NSLOG_INFO("Pinging IPv4 gateway: %s", m_ipv4Route.c_str());
             bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 10, 30);
             std::string packetLoss = m_provider->getPacketLoss();
             std::string avgRtt = m_provider->getAvgRtt();
+            
+            // Check if packet loss is 100%
+            if (packetLoss == "100" || packetLoss == "100.0") {
+                ipv4PacketLoss100 = true;
+            }
+            
             if (success) {
-                NSLOG_INFO("IPv4 gateway ping - Loss: %s%%, RTT: %sms",
+                NSLOG_INFO("IPv4 gateway ping Loss: %s%%, RTT: %s",
                        packetLoss.c_str(), avgRtt.c_str());
                 
                 logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
@@ -406,8 +418,14 @@ namespace Plugin {
             bool success = m_provider->pingToGatewayCheck(ipv6Gateway, "IPv6", 10, 30);
             std::string packetLoss = m_provider->getPacketLoss();
             std::string avgRtt = m_provider->getAvgRtt();
+            
+            // Check if packet loss is 100%
+            if (packetLoss == "100" || packetLoss == "100.0") {
+                ipv6PacketLoss100 = true;
+            }
+            
             if (success) {
-                NSLOG_INFO("IPv6 gateway ping - Loss: %s%%, RTT: %sms",
+                NSLOG_INFO("IPv6 gateway ping Loss: %s%%, RTT: %s",
                        packetLoss.c_str(), avgRtt.c_str());
                 
                 logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
@@ -416,6 +434,27 @@ namespace Plugin {
                 NSLOG_ERROR("IPv6 gateway ping failed");
                 logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
                 logTelemetry("IPv6_Gateway_RTT", avgRtt);
+            }
+        }
+        
+        // WiFi reassociation logic
+        // Trigger reassociation if:
+        // 1. Connection type is WiFi
+        // 2. Both IPv4 and IPv6 show 100% packet loss
+        std::string connType = m_provider->getConnectionType();
+        
+        if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
+            ipv4PacketLoss100 && ipv6PacketLoss100) {
+            NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have 100%% packet loss");
+            NSLOG_WARNING("Triggering WiFi reassociation via wpa_cli");
+            
+            logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
+            
+            int result = system("wpa_cli reassociate");
+            if (result == 0) {
+                NSLOG_INFO("wpa_cli reassociate command executed successfully");
+            } else {
+                NSLOG_ERROR("wpa_cli reassociate command failed with exit code: %d", result);
             }
         }
     }

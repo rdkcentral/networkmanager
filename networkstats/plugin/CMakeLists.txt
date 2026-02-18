@@ -116,7 +116,7 @@ install(
 set(PLUGIN_NETWORKCONNECTIONSTATS_AUTOSTART "false" CACHE STRING "Automatically start the plugin")
 set(PLUGIN_NETWORKCONNECTIONSTATS_OUTOFPROCESS "true" CACHE STRING "Run plugin out-of-process")
 set(PLUGIN_NETWORKCONNECTIONSTATS_STARTUPORDER "50" CACHE STRING "Plugin startup order")
-set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "90" CACHE STRING "Reporting interval in seconds (default: 90 seconds)")
+set(PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL "600" CACHE STRING "Reporting interval in seconds (default: 600 seconds)")
 set(PLUGIN_NETWORKCONNECTIONSTATS_PROVIDER_TYPE "comrpc" CACHE STRING "Network data provider type: 'comrpc' or 'jsonrpc' (default: comrpc)")
 
 # Install configuration
