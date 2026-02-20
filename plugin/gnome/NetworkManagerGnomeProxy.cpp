@@ -139,7 +139,6 @@ namespace WPEFramework
 
         static bool modifyDefaultConnConfig(NMClient *client)
         {
-            GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
             std::string hostname{};
@@ -975,8 +974,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
-                NMLOG_INFO("Requested frequency is %d GHz", ssidinfo.frequency);
+            if(ssid.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
+                NMLOG_INFO("Requested frequency is %d GHz", ssid.frequency);
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
