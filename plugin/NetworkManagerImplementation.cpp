@@ -357,6 +357,10 @@ namespace WPEFramework
                     interface = m_defaultInterface;
 
                 ipaddress = result.public_ip;
+#if USE_TELEMETRY
+                if(ipversion == "IPv4")
+                    logTelemetry("NM_PUBLIC_IPV4", ipaddress);
+#endif
                 return Core::ERROR_NONE;
             }
             else
@@ -710,6 +714,9 @@ namespace WPEFramework
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
+#if USE_TELEMETRY
+            logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -756,9 +763,22 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+#if USE_TELEMETRY
+            // Log error only when ethernet is down and there's no internet
+            if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
+               !m_ethConnected.load() &&
+               prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
+            {
+                logTelemetry("NM_ETHERNET_FAILED", "Ethernet is down, no internet");
+            }
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState, interface);
             }
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
+            logTelemetry("NM_INTERNET_STATUS", stateStr);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -1107,6 +1127,10 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
+            logTelemetry("NM_WIFI_STATUS", stateStr);
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
@@ -1121,6 +1145,17 @@ namespace WPEFramework
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
+        }
+
+        void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
+        {
+#if USE_TELEMETRY
+            T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
+            if (t2error != T2ERROR_SUCCESS) {
+                NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d",
+                        eventName.c_str(), message.c_str(), t2error);
+            }
+#endif
         }
     }
 }

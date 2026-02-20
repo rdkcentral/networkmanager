@@ -124,6 +124,10 @@ namespace WPEFramework
                 message = _T("Failed to initialize NetworkManager");
             }
 
+            #if USE_TELEMETRY
+                // Initialize Telemtry T2 for NwMgrPlugin
+                t2_init("NwMgrPlugin");
+            #endif
             // Success
             return message;
         }
