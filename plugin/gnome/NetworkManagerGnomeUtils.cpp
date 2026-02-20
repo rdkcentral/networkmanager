@@ -209,53 +209,6 @@ namespace WPEFramework
 
             return true;
         }
-    
-       bool nmUtils::isValidFrequency(const std::string& frequency)
-       {
-            if (frequency.empty())
-                return true; // Frequency is optional for connection, so empty value is considered valid
-
-            // 6 GHz frequency is not supported in current implementation gnom networkmanger
-            if(frequency == "2.4" || frequency == "5")
-            {
-                NMLOG_DEBUG("Valid frequency: %s", frequency.c_str());
-                return true;
-            }
-            else
-            {
-                NMLOG_ERROR("Invalid frequency: %s. Valid values are 2.4, 5 GHz.", frequency.c_str());
-            }
-            return false;
-       }
-
-       bool nmUtils::isValidWifiFrequencyForBand(std::string& band, guint32 apFreq)
-       {
-            if (apFreq != 0)
-            {
-                if (band == "a")
-                { 
-                    // frequency range for 5 GHz band is typically 4915 MHz to 5825 MHz
-                    if (apFreq < 4915 || apFreq > 5825)
-                        return false;
-                    else
-                        NMLOG_INFO("Valid 5 GHz frequency: %u MHz", apFreq); // TODO change to debug
-                }
-                else if (band == "bg")
-                {
-                    // frequency range for 2.4 GHz band is typically 2412 MHz to 2484 MHz
-                    if (apFreq < 2412 || apFreq > 2484)
-                        return false;
-                    else
-                        NMLOG_INFO("Valid 2.4 GHz frequency: %u MHz", apFreq); // TODO change to debug
-                }
-                else
-                {
-                    NMLOG_ERROR("Invalid band: %s. Valid values are 'a' for 5 GHz and 'bg' for 2.4 GHz.", band.c_str());
-                    return false;
-                }
-            }
-            return true;
-       }
 
        bool nmUtils::caseInsensitiveCompare(const std::string& str1, const std::string& str2)
        {

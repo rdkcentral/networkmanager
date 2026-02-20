@@ -103,6 +103,14 @@ namespace WPEFramework
                 WIFI_SECURITY_EAP           /* @text: EAP */,
             };
 
+            enum WIFIFrequency : uint8_t
+            {
+                WIFI_FREQUENCY_NONE          /* @text: NONE */,
+                WIFI_FREQUENCY_2_4_GHZ       /* @text: 2.4GHz */,
+                WIFI_FREQUENCY_5_GHZ         /* @text: 5GHz */,
+                WIFI_FREQUENCY_6_GHZ         /* @text: 6GHz */,
+            };
+
             struct EXTERNAL WiFiScanResults {
                     string           ssid;
                     WIFISecurityMode security;
@@ -114,7 +122,7 @@ namespace WPEFramework
                     string           ssid;
                     string           passphrase;
                     string           bssid;
-                    string           frequency;
+                    WIFIFrequency    frequency;
                     WIFISecurityMode security;
                     string           ca_cert;
                     string           client_cert;

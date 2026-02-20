@@ -638,7 +638,7 @@ namespace WPEFramework
             deviceState = nm_device_get_state(device);
             if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
             {
-                NMLOG_WARNING("Device state is not a valid state: (%d)", deviceState);
+                NMLOG_WARNING("%s state is not a valid state: (%d)", interface.c_str(), deviceState);
                 return Core::ERROR_GENERAL;
             }
 
@@ -975,10 +975,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(!nmUtils::isValidFrequency(ssid.frequency))
-            {
-                return Core::ERROR_GENERAL;
-            }
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
+                NMLOG_INFO("Requested frequency is %d GHz", ssidinfo.frequency);
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())

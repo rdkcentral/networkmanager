@@ -449,7 +449,7 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_WARNING("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
+                    NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
                     // continue searching other APs in case of multiple APs with same SSID and matching BSSID or frequency
                     // TODO hidden ssid handling - if ssidInfo.ssid is empty then matching based on bssid ?
                     continue;
@@ -460,29 +460,19 @@ namespace WPEFramework
                     std::string bssidStr = nm_access_point_get_bssid(ap);
                     if(ssidInfo.bssid == bssidStr)
                     {
-                        NMLOG_INFO("BSSID matched: %s", bssidStr.c_str()); // TODO remove log
+                        NMLOG_DEBUG("BSSID matched: %s", bssidStr.c_str());
                         ssidMatch = true;
                     }
                     else
                     {
-                        NMLOG_WARNING("BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
+                        ssidMatch = false;
+                        NMLOG_WARNING("SSID matched but BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
                         continue;
                     }
                 }
 
-                if(!ssidInfo.frequency.empty())
-                {
-                    if(nmUtils::isValidWifiFrequencyForBand(ssidInfo.frequency, nm_access_point_get_frequency(ap)))
-                    {
-                        NMLOG_INFO("Frequency matched: %s GHz", ssidInfo.frequency.c_str()); // TODO remove log
-                        ssidMatch = true;
-                    }
-                    else
-                    {
-                        NMLOG_WARNING("Frequency did not match: expected %s GHz, got %s GHz", ssidInfo.frequency.c_str(), ssidInfo.frequency.c_str());
-                        ssidMatch = false;
-                    }
-                }
+                // TODO frequency matching if ssidInfo.frequency ?
+                // BSSID matching should be sufficient to identify the AP uniquely even if there are multiple APs with same SSID
 
                 if(ssidMatch)
                     AccessPoint = ap;
@@ -696,19 +686,19 @@ namespace WPEFramework
             if(!ssidinfo.bssid.empty())
                 g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
 
-            if(!ssidinfo.frequency.empty())
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
             {
-                if(ssidinfo.frequency == "2.4")
+                if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
                 {
                     g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "bg", NULL);
                 }
-                else if(ssidinfo.frequency == "5")
+                else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_5_GHZ)
                 {
                     g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
                 }
                 else
                 {
-                    NMLOG_WARNING("invalid frequency value: %s", ssidinfo.frequency.c_str());
+                    NMLOG_WARNING("invalid frequency value: %d", ssidinfo.frequency);
                     return false;
                 }
             }
@@ -719,7 +709,6 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
-
                     sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                     nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
                     if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
