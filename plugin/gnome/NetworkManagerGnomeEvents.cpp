@@ -271,8 +271,28 @@ namespace WPEFramework
             }
             if (nm_ip_address_get_family(address) == AF_INET) {
                 const char *ipAddress = nm_ip_address_get_address(address);
-                if(ipAddress != NULL)
+                if(ipAddress != NULL) {
                     GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
+                    // Get gateway MAC address for WiFi after IP is acquired
+                    if(ifname == nmUtils::wlanIface() || ifname == nmUtils::ethIface()) {
+                        static std::map<std::string, std::string> gatewayMacCache;
+                        NMClient *client = nm_object_get_client(NM_OBJECT(device));
+                        if (client != NULL) {
+                            std::string gatewayMac = nmUtils::getGatewayMacAddress(client, ifname);
+                            if (!gatewayMac.empty()) {
+                                // Only log when MAC changes or is first time
+                                if (gatewayMacCache[ifname] != gatewayMac) {
+                                    gatewayMacCache[ifname] = gatewayMac;
+                                    NMLOG_INFO("******** GURU: gatewayMacCache[%s] : %s ********", ifname.c_str(), gatewayMacCache[ifname].c_str());
+#if USE_TELEMETRY
+                                    NMLOG_INFO("******** GURU: connected - Gateway MAC: %s ********", gatewayMac.c_str());
+                                    logTelemetry("NM_GW_MAC", gatewayMac);
+#endif
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
