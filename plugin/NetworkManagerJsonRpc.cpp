@@ -75,6 +75,7 @@ namespace WPEFramework
             Register("GetKnownSSIDs",                     &NetworkManager::GetKnownSSIDs, this);
             Register("AddToKnownSSIDs",                   &NetworkManager::AddToKnownSSIDs, this);
             Register("RemoveKnownSSID",                   &NetworkManager::RemoveKnownSSID, this);
+            Register("ActivateKnownSSID",                 &NetworkManager::ActivateKnownSSID, this);
             Register("WiFiConnect",                       &NetworkManager::WiFiConnect, this);
             Register("WiFiDisconnect",                    &NetworkManager::WiFiDisconnect, this);
             Register("GetConnectedSSID",                  &NetworkManager::GetConnectedSSID, this);
@@ -112,6 +113,7 @@ namespace WPEFramework
             Unregister("GetKnownSSIDs");
             Unregister("AddToKnownSSIDs");
             Unregister("RemoveKnownSSID");
+            Unregister("ActivateKnownSSID");
             Unregister("WiFiConnect");
             Unregister("WiFiDisconnect");
             Unregister("GetConnectedSSID");
