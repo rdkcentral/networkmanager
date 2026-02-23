@@ -247,6 +247,7 @@ namespace WPEFramework
             uint32_t GetKnownSSIDs(const JsonObject& parameters, JsonObject& response);
             uint32_t AddToKnownSSIDs(const JsonObject& parameters, JsonObject& response);
             uint32_t RemoveKnownSSID(const JsonObject& parameters, JsonObject& response);
+            uint32_t ActivateKnownSSID(const JsonObject& parameters, JsonObject& response);
             uint32_t WiFiConnect(const JsonObject& parameters, JsonObject& response);
             uint32_t WiFiDisconnect(const JsonObject& parameters, JsonObject& response);
             uint32_t GetConnectedSSID(const JsonObject& parameters, JsonObject& response);
