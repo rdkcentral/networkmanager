@@ -909,6 +909,14 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ActivateKnownSSID(const string& ssid /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -944,23 +952,23 @@ namespace WPEFramework
 
                 return rc;
             }
-            else if(!ssid.ssid.empty() && (ssid.security == WIFI_SECURITY_NONE) && ssid.passphrase.empty())
-            {
-                NMLOG_INFO("Only SSID: %s, so activating know connection", ssid.ssid.c_str());
+            // else if(!ssid.ssid.empty() && (ssid.security == WIFI_SECURITY_NONE) && ssid.passphrase.empty())
+            // {
+            //     NMLOG_INFO("Only SSID: %s, so activating know connection", ssid.ssid.c_str());
 
-                // TODO: 1 find how to find this is open network request of activate known connection, 
-                // because for open network ssid is only required field, 
-                // so if passphrase is empty and security is none then it is open network request
+            //     // TODO: 1 find how to find this is open network request of activate known connection, 
+            //     // because for open network ssid is only required field, 
+            //     // so if passphrase is empty and security is none then it is open network request
 
-                // TODO: 2 do we need to persisit same ssid multiple connection
+            //     // TODO: 2 do we need to persisit same ssid multiple connection
 
-                if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid.ssid))
-                    rc = Core::ERROR_NONE;
-                else
-                    NMLOG_ERROR("activating last connected ssid failed");
+            //     if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid.ssid))
+            //         rc = Core::ERROR_NONE;
+            //     else
+            //         NMLOG_ERROR("activating last connected ssid failed");
 
-                return rc;
-            }
+            //     return rc;
+            // }
 
             // Gnome will not accept passphrase less than 8 char for WPA/WPA2 security
             if(!ssid.passphrase.empty() && ssid.passphrase.size() < 8)

@@ -254,6 +254,7 @@ namespace WPEFramework
             virtual uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) = 0;
             virtual uint32_t AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */) = 0;
             virtual uint32_t RemoveKnownSSID(const string& ssid /* @in */) = 0;
+            virtual uint32_t ActivateKnownSSID(const string& ssid /* @in */) = 0;
 
             virtual uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) = 0;
             virtual uint32_t WiFiDisconnect(void) = 0;
