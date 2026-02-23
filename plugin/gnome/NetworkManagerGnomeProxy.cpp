@@ -912,7 +912,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::ActivateKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid))
+            if(wifi->activateKnownSSID(ssid))
                 rc = Core::ERROR_NONE;
             return rc;
         }

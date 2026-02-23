@@ -839,6 +839,86 @@ namespace WPEFramework
             return true;
         }
 
+
+        bool wifiManager::activateKnownSSID(const std::string& ssid)
+        {
+            const GPtrArray *allnmConn = NULL;
+            const char* specificObjPath = "/";
+            NMConnection *knownConnection = NULL;
+            bool ret = false;
+
+            if(!createClientNewConnection())
+                return ret;
+
+            m_wifidevice = getWifiDevice();
+            if(m_wifidevice == NULL)
+            {
+                deleteClientConnection();
+                return false;
+            }
+
+            allnmConn = nm_client_get_connections(m_client);
+            if(allnmConn == NULL || allnmConn->len == 0)
+            {
+                NMLOG_ERROR("No connections found !");
+                deleteClientConnection();
+                return ret;
+            }
+
+            for (guint i = 0; i < allnmConn->len; i++)
+            {
+                NMConnection *conn = static_cast<NMConnection*>(g_ptr_array_index(allnmConn, i));
+                if(conn == NULL)
+                    continue;
+
+                const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                if (connId == NULL) {
+                    NMLOG_WARNING("connection id is NULL");
+                    continue;
+                }
+
+                const char *connTyp = nm_connection_get_connection_type(NM_CONNECTION(conn));
+                if (connTyp == NULL) {
+                    NMLOG_WARNING("connection type is NULL");
+                    continue;
+                }
+
+                std::string connTypStr = connTyp;
+                if(connTypStr != "802-11-wireless")
+                {
+                    NMLOG_DEBUG("skipping non wifi connection: %s", connId);
+                    continue;
+                }
+
+                if(ssid == connId)
+                {
+                    knownConnection = g_object_ref(conn);
+                    NMLOG_DEBUG("connection '%s' exists !", ssid.c_str());
+                    break;
+                }
+            }
+
+            if(knownConnection != NULL)
+            {
+                NMLOG_INFO("activating known wifi '%s' connection", ssid.c_str());
+                m_isSuccess = false;
+                m_createNewConnection = false; // no need to create new connection
+                nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), m_wifidevice, specificObjPath, m_cancellable, wifiConnectCb, this);
+                wait(m_loop);
+                deleteClientConnection();
+                g_object_unref(knownConnection);
+                ret =  m_isSuccess;
+            }
+            else
+            {
+                NMLOG_WARNING("'%s' connection not found", ssid.c_str());
+                ret = false;
+            }
+
+            deleteClientConnection();
+            return ret;
+        }
+
         bool wifiManager::activateKnownConnection(std::string iface, std::string knowConnectionID)
         {
             const GPtrArray *devConnections = NULL;
