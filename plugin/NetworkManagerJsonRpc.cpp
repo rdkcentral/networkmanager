@@ -766,6 +766,23 @@ namespace WPEFramework
             returnJson(rc);
         }
 
+        uint32_t NetworkManager::ActivateKnownSSID(const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string ssid{};
+
+            if (parameters.HasLabel("ssid"))
+                ssid = parameters["ssid"].String();
+
+            if (_networkManager)
+                rc = _networkManager->ActivateKnownSSID(ssid);
+            else
+                rc = Core::ERROR_UNAVAILABLE;
+
+            returnJson(rc);
+        }
+
         uint32_t NetworkManager::WiFiConnect(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
