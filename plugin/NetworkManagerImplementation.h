@@ -33,6 +33,7 @@ using namespace std;
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+#include "NetworkManagerJsonEnum.h"
 
 #if USE_TELEMETRY
 #include <telemetry_busmessage_sender.h>
