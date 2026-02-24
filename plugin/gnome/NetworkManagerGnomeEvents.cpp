@@ -286,7 +286,7 @@ namespace WPEFramework
                                     NMLOG_INFO("******** GURU: gatewayMacCache[%s] : %s ********", ifname.c_str(), gatewayMacCache[ifname].c_str());
 #if USE_TELEMETRY
                                     NMLOG_INFO("******** GURU: connected - Gateway MAC: %s ********", gatewayMac.c_str());
-                                    logTelemetry("NM_GW_MAC", gatewayMac);
+                                    _instance->logTelemetry("NM_GW_MAC", gatewayMac);
 #endif
                                 }
                             }

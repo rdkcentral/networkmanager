@@ -20,6 +20,10 @@
 #include "NetworkManager.h"
 #include <random>
 
+#if USE_TELEMETRY
+#include <telemetry_busmessage_sender.h>
+#endif
+
 namespace WPEFramework
 {
     namespace Plugin
