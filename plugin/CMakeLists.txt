@@ -33,7 +33,9 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
-
+if (USE_TELEMETRY)
+    add_definitions(-DUSE_TELEMETRY)
+endif (USE_TELEMETRY)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     pkg_check_modules(GLIB REQUIRED glib-2.0)
