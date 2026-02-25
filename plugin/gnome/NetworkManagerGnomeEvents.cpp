@@ -730,9 +730,9 @@ namespace WPEFramework
     bool GnomeNetworkManagerEvents::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
     {
          GBytes *ssid = NULL;
+         const char *bssid = NULL;
          int strength = 0;
          double freq;
-         std::string bssid;
          int security;
          guint32 flags, wpaFlags, rsnFlags, apFreq;
          if(ap == nullptr)
@@ -750,6 +750,13 @@ namespace WPEFramework
              }
              ssidObj["ssid"] = ssidString;
              bssid = nm_access_point_get_bssid(ap);
+             if (bssid) {
+                 ssidObj["bssid"] = bssid;
+             }
+             else
+             {
+                 NMLOG_WARNING("BSSID is null for SSID: %s", ssidString.c_str());
+             }
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
              flags    = nm_access_point_get_flags(ap);
@@ -758,7 +765,6 @@ namespace WPEFramework
              freq = nmUtils::wifiFrequencyFromAp(apFreq);
              security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
 
-             ssidObj["bssid"] = bssid;
              ssidObj["security"] = security;
              ssidObj["strength"] = nmUtils::convertPercentageToSignalStrength(strength);
              ssidObj["frequency"] = freq;
@@ -789,7 +795,7 @@ namespace WPEFramework
 
         NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
 
-        if(_nmEventInstance->doScanNotify) {
+        if(_nmEventInstance->doScanNotify && _instance != nullptr) {
             _nmEventInstance->doScanNotify = false;
             _instance->ReportAvailableSSIDs(ssidList);
         }
