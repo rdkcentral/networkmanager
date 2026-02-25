@@ -20,6 +20,7 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerJsonEnum.h"
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
