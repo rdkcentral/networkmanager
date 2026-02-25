@@ -64,7 +64,6 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin)
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
-                            NetworkManagerJsonEnum.cpp
                             NetworkManagerLogger.cpp
                             Module.cpp)
 
@@ -83,7 +82,6 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
-                            NetworkManagerJsonEnum.cpp
                             Module.cpp)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
@@ -106,7 +104,6 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/NetworkManagerGnomeWIFI.cpp
             gnome/NetworkManagerGnomeEvents.cpp
             gnome/NetworkManagerGnomeUtils.cpp
-            NetworkManagerJsonEnum.cpp
             NetworkManagerSecretAgent.cpp )
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
