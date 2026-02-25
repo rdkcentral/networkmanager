@@ -33,7 +33,11 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
-
+if (USE_TELEMETRY)
+    find_package(T2 REQUIRED)
+    add_definitions(-DUSE_TELEMETRY)
+    include_directories(${T2_INCLUDE_DIRS})
+endif (USE_TELEMETRY)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -60,6 +64,7 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin)
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
+                            NetworkManagerJsonEnum.cpp
                             NetworkManagerLogger.cpp
                             Module.cpp)
 
@@ -78,6 +83,7 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
+                            NetworkManagerJsonEnum.cpp
                             Module.cpp)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
@@ -100,6 +106,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/NetworkManagerGnomeWIFI.cpp
             gnome/NetworkManagerGnomeEvents.cpp
             gnome/NetworkManagerGnomeUtils.cpp
+            NetworkManagerJsonEnum.cpp
             NetworkManagerSecretAgent.cpp )
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
@@ -140,6 +147,11 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
+
+if (USE_TELEMETRY)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${T2_LIBRARIES})
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${T2_LIBRARIES})
+endif (USE_TELEMETRY)
 
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)

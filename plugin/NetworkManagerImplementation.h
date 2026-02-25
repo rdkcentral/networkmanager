@@ -33,6 +33,11 @@ using namespace std;
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+#include "NetworkManagerJsonEnum.h"
+
+#if USE_TELEMETRY
+#include <telemetry_busmessage_sender.h>
+#endif
 
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
@@ -269,6 +274,7 @@ namespace WPEFramework
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void logTelemetry(const std::string& eventName, const std::string& message);
 
             private:
                 void platform_init(void);
