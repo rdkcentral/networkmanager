@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <glib.h>
 #include <thread>
-#include <atomic>
 #include <string>
 #include <map>
 #include <NetworkManager.h>
@@ -42,19 +41,9 @@ namespace WPEFramework
 
     extern NetworkManagerImplementation* _instance;
     static GnomeNetworkManagerEvents *_nmEventInstance = nullptr;
-    static std::atomic<unsigned int> g_nmEventTraceCount {0};
-
-    static inline void nmEventTrace(const int line)
-    {
-        const unsigned int count = g_nmEventTraceCount.fetch_add(1, std::memory_order_relaxed) + 1;
-        NMLOG_INFO("nm_event_thrd line=%d count=%u", line, count);
-    }
-
-#define NM_EVENT_TRACE() nmEventTrace(__LINE__)
 
     static void primaryConnectionCb(NMClient *client, GParamSpec *param, NMEvents *nmEvents)
     {
-        NM_EVENT_TRACE();
         NMActiveConnection *primaryConn;
         const char *activeConnId = NULL;
         const char *connectionTyp = NULL;
@@ -63,7 +52,6 @@ namespace WPEFramework
         std::string newIface ="unknown";
         if (primaryConn)
         {
-            NM_EVENT_TRACE();
             activeConnId = nm_active_connection_get_id(primaryConn);
             connectionTyp = nm_active_connection_get_connection_type(primaryConn);
             NMLOG_INFO("active connection - %s (%s)", activeConnId, connectionTyp);
@@ -73,17 +61,14 @@ namespace WPEFramework
             else if(0 == strncmp("802-11-wireless", connectionTyp, sizeof("802-11-wireless")) && string("wlan0_missing") != nmUtils::wlanIface())
                 newIface = nmUtils::wlanIface();
             else {
-                NM_EVENT_TRACE();
                 NMLOG_WARNING("Active connection not valid: Ethernet/WiFi ID: %s", connectionTyp);
                 return; // if not good don't report the evnet
             }
 
-            NM_EVENT_TRACE();
             GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
         }
         else
         {
-            NM_EVENT_TRACE();
             GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
             NMLOG_WARNING("now there's no active connection");
         }
@@ -91,23 +76,17 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::deviceStateChangeCb(NMDevice *device, GParamSpec *pspec, NMEvents *nmEvents)
     {
-        NM_EVENT_TRACE();
         static bool isEthDisabled = false;
         static bool isWlanDisabled = false;
         if(device == nullptr)
-        {
-            NM_EVENT_TRACE();
             return;
-        }
         NMDeviceState deviceState;
         deviceState = nm_device_get_state(device);
         std::string ifname = nm_device_get_iface(device);
         NMDeviceStateReason reason = nm_device_get_state_reason(device);
         if(ifname == nmUtils::wlanIface())
         {
-            NM_EVENT_TRACE();
             if(!NM_IS_DEVICE_WIFI(device)) {
-                NM_EVENT_TRACE();
                 NMLOG_FATAL("not a wifi device !");
                 return;
             }
@@ -204,7 +183,6 @@ namespace WPEFramework
 
                     if(isWlanDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
                     {
-                        NM_EVENT_TRACE();
                         isWlanDisabled = false;
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
                     }
@@ -216,7 +194,6 @@ namespace WPEFramework
         }
         else if(ifname == nmUtils::ethIface())
         {
-            NM_EVENT_TRACE();
             switch (deviceState)
             {
                 case NM_DEVICE_STATE_UNKNOWN:
@@ -249,7 +226,6 @@ namespace WPEFramework
             */
             if(isEthDisabled && deviceState > NM_DEVICE_STATE_UNMANAGED)
             {
-                NM_EVENT_TRACE();
                 isEthDisabled = false;
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
             }
@@ -260,68 +236,50 @@ namespace WPEFramework
 
     static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
     {
-        NM_EVENT_TRACE();
         if (!ipConfig) {
-            NM_EVENT_TRACE();
             NMLOG_ERROR("IP config is null");
             return;
         }
 
         NMDevice *device = (NMDevice*)userData;
         if((device == NULL) || (!NM_IS_DEVICE(device)))
-        {
-            NM_EVENT_TRACE();
         return;
-        }
 
         const char* iface = nm_device_get_iface(device);
         if(iface == NULL)
-        {
-            NM_EVENT_TRACE();
             return;
-        }
         std::string ifname = iface;
 
         GPtrArray *addresses = nm_ip_config_get_addresses(ipConfig);
         if (!addresses) {
-            NM_EVENT_TRACE();
             NMLOG_ERROR("No addresses found");
             return;
         }
         else {
             if(addresses->len == 0) {
-                NM_EVENT_TRACE();
                 GnomeNetworkManagerEvents::onAddressChangeCb(ifname, "", false, false);
                 return;
             }
         }
 
         for (guint i = 0; i < addresses->len; ++i) {
-            NM_EVENT_TRACE();
             NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
             if(address == NULL)
             {
-                NM_EVENT_TRACE();
                 NMLOG_WARNING("IPv4 address is null");
                 continue;
             }
             if (nm_ip_address_get_family(address) == AF_INET) {
-                NM_EVENT_TRACE();
                 const char *ipAddress = nm_ip_address_get_address(address);
                 if(ipAddress != NULL)
-                {
-                    NM_EVENT_TRACE();
                     GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
-                }
             }
         }
     }
 
     static void ip6ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
     {
-        NM_EVENT_TRACE();
         if (!ipConfig) {
-            NM_EVENT_TRACE();
             NMLOG_ERROR("ip config is null");
             return;
         }
@@ -329,51 +287,39 @@ namespace WPEFramework
         NMDevice *device = (NMDevice*)userData;
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
-            NM_EVENT_TRACE();
             const char* iface = nm_device_get_iface(device);
             if(iface == NULL)
-            {
-                NM_EVENT_TRACE();
                 return;
-            }
             std::string ifname = iface;
             GPtrArray *addresses = nm_ip_config_get_addresses(ipConfig);
             if (!addresses) {
-                NM_EVENT_TRACE();
                 NMLOG_ERROR("No addresses found");
                 return;
             }
             else {
                 if(addresses->len == 0) {
-                    NM_EVENT_TRACE();
                     GnomeNetworkManagerEvents::onAddressChangeCb(ifname, "", false, true);
                     return;
                 }
             }
 
             for (guint i = 0; i < addresses->len; ++i) {
-                NM_EVENT_TRACE();
                 NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
                 if(address == NULL)
                 {
-                    NM_EVENT_TRACE();
                     NMLOG_WARNING("IPv6 address is null");
                     continue;
                 }
                 if (nm_ip_address_get_family(address) == AF_INET6) {
-                    NM_EVENT_TRACE();
                     const char *ipaddr = nm_ip_address_get_address(address);
                     //int prefix = nm_ip_address_get_prefix(address);
                     if(ipaddr != NULL) {
-                        NM_EVENT_TRACE();
                         std::string ipAddress = ipaddr;
                         if (ipAddress.compare(0, 5, "fe80:") == 0 || 
                             ipAddress.compare(0, 6, "fe80::") == 0) {
-                            NM_EVENT_TRACE();
                             NMLOG_DEBUG("%s It's link-local ip", ipAddress.c_str());
                             continue; // It's link-local so skiping
                         }
-                        NM_EVENT_TRACE();
                         GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, true);
                         break; // SLAAC protocol may include multip ipv6 address posting only one Global address
                     }
@@ -384,18 +330,14 @@ namespace WPEFramework
 
     static void deviceAddedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
-        NM_EVENT_TRACE();
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
-            NM_EVENT_TRACE();
             std::string ifname = nm_device_get_iface(device);
             if(ifname == nmUtils::wlanIface()) {
-                NM_EVENT_TRACE();
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
                 NMLOG_INFO("WIFI device added: %s", ifname.c_str());
             }
             else if(ifname == nmUtils::ethIface()) {
-                NM_EVENT_TRACE();
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::ethIface());
                 NMLOG_INFO("ETHERNET device added: %s", ifname.c_str());
             }
@@ -403,24 +345,20 @@ namespace WPEFramework
             /* ip events added only for eth0 and wlan0 */
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
-                NM_EVENT_TRACE();
                 g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                 // TODO call notify::" NM_DEVICE_ACTIVE_CONNECTION if needed
                 NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                 NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                 if (ipv4Config) {
-                    NM_EVENT_TRACE();
                     g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
                 }
 
                 if (ipv6Config) {
-                    NM_EVENT_TRACE();
                     g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                 }
 
                 if (NM_IS_DEVICE_WIFI(device))
                 {
-                    NM_EVENT_TRACE();
                     // Register signal handler for WiFi scanning events to detect when scan operations complete
                     nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
                     NMLOG_INFO("WIFI device added, adding signal handler for last-scan");
@@ -429,27 +367,20 @@ namespace WPEFramework
             }
         }
         else
-        {
-            NM_EVENT_TRACE();
             NMLOG_DEBUG("device error null");
-        }
     }
 
     static void deviceRemovedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
-        NM_EVENT_TRACE();
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
-            NM_EVENT_TRACE();
             std::string ifname = nm_device_get_iface(device);
             if(ifname == nmUtils::wlanIface()) {
-                NM_EVENT_TRACE();
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                 g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
                 NMLOG_INFO("WIFI device removed: %s", ifname.c_str());
             }
             else if(ifname == nmUtils::ethIface()) {
-                NM_EVENT_TRACE();
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
                 g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
                 NMLOG_INFO("ETHERNET device removed: %s", ifname.c_str());
@@ -466,15 +397,12 @@ namespace WPEFramework
 
     static void clientStateChangedCb (NMClient *client, GParamSpec *pspec, gpointer user_data)
     {
-        NM_EVENT_TRACE();
 
         switch (nm_client_get_state (client)) {
         case NM_STATE_DISCONNECTED:
-            NM_EVENT_TRACE();
             NMLOG_WARNING("internet connection down");
             break;
         case NM_STATE_CONNECTED_GLOBAL:
-            NM_EVENT_TRACE();
             NMLOG_DEBUG("global internet connection success");
             break;
         default:
@@ -484,12 +412,9 @@ namespace WPEFramework
 
     static void managerRunningCb (NMClient *client, GParamSpec *pspec, gpointer user_data)
     {
-        NM_EVENT_TRACE();
         if (nm_client_get_nm_running (client)) {
-            NM_EVENT_TRACE();
             NMLOG_INFO("network manager daemon is running");
         } else {
-            NM_EVENT_TRACE();
             NMLOG_FATAL("network manager daemon not running !");
             // TODO  check need any client reconnection or not ?
         }
@@ -497,58 +422,43 @@ namespace WPEFramework
 
     void* GnomeNetworkManagerEvents::networkMangerEventMonitor(void *arg)
     {
-        NM_EVENT_TRACE();
         if(arg == nullptr)
         {
-            NM_EVENT_TRACE();
             NMLOG_FATAL("function argument error: nm event monitor failed");
             return nullptr;
         }
 
         NMEvents *nmEvents = static_cast<NMEvents *>(arg);
-        NM_EVENT_TRACE();
         primaryConnectionCb(nmEvents->client, NULL, nmEvents);
-        NM_EVENT_TRACE();
         g_signal_connect (nmEvents->client, "notify::" NM_CLIENT_NM_RUNNING,G_CALLBACK (managerRunningCb), nmEvents);
-        NM_EVENT_TRACE();
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
-        NM_EVENT_TRACE();
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_PRIMARY_CONNECTION, G_CALLBACK(primaryConnectionCb), nmEvents);
 
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
-        NM_EVENT_TRACE();
 
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
-        NM_EVENT_TRACE();
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
-        NM_EVENT_TRACE();
 
         for (u_int count = 0; count < devices->len; count++)
         {
-            NM_EVENT_TRACE();
             NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, count));
             if( ((device != NULL) && NM_IS_DEVICE(device)) )
             {
-                NM_EVENT_TRACE();
                 std::string ifname = nm_device_get_iface(device);
                 if((ifname == nmUtils::ethIface()) || (ifname == nmUtils::wlanIface()))
                 {
-                    NM_EVENT_TRACE();
                     NMDeviceState devState =  nm_device_get_state(device);
 
                     if(devState > NM_DEVICE_STATE_DISCONNECTED && devState <= NM_DEVICE_STATE_ACTIVATED)
                     {
-                        NM_EVENT_TRACE();
                         // posting device state change event if interface already connected
                         GnomeNetworkManagerEvents::deviceStateChangeCb(device, nullptr, nullptr);
                     }
 
                     /* Register device state change event */
-                    NM_EVENT_TRACE();
                     g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                     if(NM_IS_DEVICE_WIFI(device)) {
-                        NM_EVENT_TRACE();
                         nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
                         g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
                     }
@@ -556,107 +466,74 @@ namespace WPEFramework
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
-                        NM_EVENT_TRACE();
                         ip4ChangedCb(ipv4Config, NULL, device); // posting event if interface already connected
-                        NM_EVENT_TRACE();
                         g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
                     }
                     else
-                    {
-                        NM_EVENT_TRACE();
                         NMLOG_WARNING("IPv4 config is null for device: %s, No IPv4 monitor", ifname.c_str());
-                    }
 
                     if (ipv6Config) {
-                        NM_EVENT_TRACE();
                         ip6ChangedCb(ipv6Config, NULL, device);
-                        NM_EVENT_TRACE();
                         g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
                     }
                     else
-                    {
-                        NM_EVENT_TRACE();
                         NMLOG_WARNING("IPv6 config is null for device: %s, No IPv6 monitor", ifname.c_str());
-                    }
                 }
                 else
-                {
-                    NM_EVENT_TRACE();
                     NMLOG_DEBUG("device type not eth/wifi %s", ifname.c_str());
-                }
             }
             else
-            {
-                NM_EVENT_TRACE();
                 NMLOG_WARNING("device error null");
-            }
         }
 
-        NM_EVENT_TRACE();
         NMLOG_INFO("registered all networkmnager dbus events");
-        NM_EVENT_TRACE();
         g_main_loop_run(nmEvents->loop);
-        NM_EVENT_TRACE();
         // Clean up all signal handlers after thread has stopped
         if(_nmEventInstance != nullptr)
         {
-            NM_EVENT_TRACE();
             _nmEventInstance->cleanupSignalHandlers();
         }
         //g_main_loop_unref(nmEvents->loop);
-        NM_EVENT_TRACE();
         return nullptr;
     }
 
     bool GnomeNetworkManagerEvents::startNetworkMangerEventMonitor()
     {
-        NM_EVENT_TRACE();
         NMLOG_DEBUG("starting gnome event monitor");
         if (NULL == nmEvents.client) {
-            NM_EVENT_TRACE();
             NMLOG_ERROR("Client Connection NULL DBUS event Failed!");
             return false;
         }
         if(!isEventThrdActive) {
-            NM_EVENT_TRACE();
             isEventThrdActive = true;
             // Create event monitor thread
             eventThrdID = g_thread_new("nm_event_thrd", GnomeNetworkManagerEvents::networkMangerEventMonitor, &nmEvents);
-            NM_EVENT_TRACE();
         }
-        NM_EVENT_TRACE();
         return true;
     }
 
     void GnomeNetworkManagerEvents::stopNetworkMangerEventMonitor()
     {
-        NM_EVENT_TRACE();
         // g_signal_handlers_disconnect_by_func(client, G_CALLBACK(primaryConnectionCb), NULL);
         if (!isEventThrdActive) {
-            NM_EVENT_TRACE();
             return;
         }
         if (nmEvents.loop != NULL) {
-            NM_EVENT_TRACE();
             g_main_loop_quit(nmEvents.loop);
         }
 
         if (eventThrdID) {
-            NM_EVENT_TRACE();
             g_thread_join(eventThrdID);  // Wait for the thread to finish
             eventThrdID = NULL;  // Reset the thread ID
             NMLOG_WARNING("gnome event monitor stopped");
         }
         isEventThrdActive = false;
-        NM_EVENT_TRACE();
 
     }
 
     void GnomeNetworkManagerEvents::cleanupSignalHandlers()
     {
-        NM_EVENT_TRACE();
         if(nmEvents.client == nullptr) {
-            NM_EVENT_TRACE();
             return; // Already cleaned up
         }
 
@@ -668,23 +545,18 @@ namespace WPEFramework
         // Clean up device signals
         const GPtrArray *devices = nm_client_get_devices(nmEvents.client);
         if (devices) {
-            NM_EVENT_TRACE();
             for (guint i = 0; i < devices->len; i++) {
-                NM_EVENT_TRACE();
                 NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, i));
                 if (device && NM_IS_DEVICE(device)) {
-                    NM_EVENT_TRACE();
                     g_signal_handlers_disconnect_by_data(device, &nmEvents);
 
                     // Clean up IP config signals
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
-                        NM_EVENT_TRACE();
                         g_signal_handlers_disconnect_by_func(ipv4Config, (gpointer)ip4ChangedCb, device);
                     }
                     if (ipv6Config) {
-                        NM_EVENT_TRACE();
                         g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
                     }
                 }
