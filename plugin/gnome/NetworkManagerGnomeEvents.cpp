@@ -725,6 +725,7 @@ namespace WPEFramework
         nmEvents.client = nm_client_new(NULL, &error);
         if(!nmEvents.client || error )
         {
+            NM_EVENT_TRACE();
             if (error) {
                 NMLOG_ERROR("Could not connect to NetworkManager: %s", error->message);
                 g_error_free(error);
@@ -821,6 +822,7 @@ namespace WPEFramework
         {
             if (isIPv6)
             {
+                 NM_EVENT_TRACE();
                 if (ipv6Map[iface].find(ipAddress) == std::string::npos) { // same ip comes multiple time so avoding that
                     ipv6Map[iface] = ipAddress;
                 }
@@ -829,6 +831,7 @@ namespace WPEFramework
             }
             else
             {
+                 NM_EVENT_TRACE();
                 ipv4Map[iface] = ipAddress;
             }
         }
@@ -836,11 +839,13 @@ namespace WPEFramework
         {
             if (isIPv6)
             {
+                 NM_EVENT_TRACE();
                 ipAddress = ipv6Map[iface];
                 ipv6Map[iface].clear();
             }
             else
             {
+                 NM_EVENT_TRACE();
                 ipAddress = ipv4Map[iface];
                 ipv4Map[iface].clear();
             }
@@ -857,10 +862,11 @@ namespace WPEFramework
 
     bool GnomeNetworkManagerEvents::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
     {
+         NM_EVENT_TRACE();
          GBytes *ssid = NULL;
          int strength = 0;
          double freq;
-         std::string bssid;
+         std::string bssid{};
          int security;
          guint32 flags, wpaFlags, rsnFlags, apFreq;
          if(ap == nullptr)
@@ -877,7 +883,12 @@ namespace WPEFramework
                 free(ssidStr);
              }
              ssidObj["ssid"] = ssidString;
-             bssid = nm_access_point_get_bssid(ap);
+             if (nm_access_point_get_bssid(ap) == NULL)
+             {
+                NMLOG_WARNING("BSSID is null for ssid: %s", ssidString.c_str());
+             }
+             else
+                bssid = nm_access_point_get_bssid(ap);
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
              flags    = nm_access_point_get_flags(ap);
@@ -885,11 +896,11 @@ namespace WPEFramework
              rsnFlags = nm_access_point_get_rsn_flags(ap);
              freq = nmUtils::wifiFrequencyFromAp(apFreq);
              security = nmUtils::wifiSecurityModeFromAp(ssidString, flags, wpaFlags, rsnFlags, false);
-
              ssidObj["bssid"] = bssid;
              ssidObj["security"] = security;
              ssidObj["strength"] = nmUtils::convertPercentageToSignalStrength(strength);
              ssidObj["frequency"] = freq;
+             NM_EVENT_TRACE();
              return true;
          }
          // else
@@ -899,6 +910,7 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData)
     {
+        NM_EVENT_TRACE();
         if(!NM_IS_DEVICE_WIFI(wifiDevice))
         {
             NMLOG_ERROR("Not a wifi object ");
@@ -909,22 +921,26 @@ namespace WPEFramework
         const GPtrArray *accessPoints = nm_device_wifi_get_access_points(wifiDevice);
         for (guint i = 0; i < accessPoints->len; i++)
         {
+            NM_EVENT_TRACE();
             JsonObject ssidObj;
             ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
             if(GnomeNetworkManagerEvents::apToJsonObject(ap, ssidObj))
                 ssidList.Add(ssidObj);
         }
-
+        NM_EVENT_TRACE();
         NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
 
         if(_nmEventInstance->doScanNotify) {
             _nmEventInstance->doScanNotify = false;
+            NM_EVENT_TRACE();
             _instance->ReportAvailableSSIDs(ssidList);
+            NM_EVENT_TRACE();
         }
     }
 
     void GnomeNetworkManagerEvents::setwifiScanOptions(bool doNotify)
     {
+        NM_EVENT_TRACE();
         doScanNotify.store(doNotify);
         if(!doScanNotify)
         {
