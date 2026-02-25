@@ -105,6 +105,7 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/NetworkManagerGnomeWIFI.cpp
             gnome/NetworkManagerGnomeEvents.cpp
             gnome/NetworkManagerGnomeUtils.cpp
+            NetworkManagerJsonEnum.cpp
             NetworkManagerSecretAgent.cpp )
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
