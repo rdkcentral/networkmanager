@@ -64,6 +64,7 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin)
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
+                            NetworkManagerJsonEnum.cpp
                             NetworkManagerLogger.cpp
                             Module.cpp)
 
