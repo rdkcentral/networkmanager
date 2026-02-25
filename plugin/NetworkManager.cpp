@@ -20,10 +20,6 @@
 #include "NetworkManager.h"
 #include <random>
 
-#if USE_TELEMETRY
-#include <telemetry_busmessage_sender.h>
-#endif
-
 namespace WPEFramework
 {
     namespace Plugin
@@ -128,10 +124,6 @@ namespace WPEFramework
                 message = _T("Failed to initialize NetworkManager");
             }
 
-            #if USE_TELEMETRY
-                // Initialize Telemtry T2 for NwMgrPlugin
-                t2_init("NwMgrPlugin");
-            #endif
             // Success
             return message;
         }

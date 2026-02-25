@@ -21,6 +21,11 @@
 #include <chrono>
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerJsonEnum.h"
+
+#if USE_TELEMETRY
+#include <telemetry_busmessage_sender.h>
+#endif
+
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
@@ -57,6 +62,10 @@ namespace WPEFramework
             NetworkManagerLogger::Init();
             NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
+            #if USE_TELEMETRY
+                // Initialize Telemtry T2 for NwMgrPlugin
+                t2_init("NwMgrPlugin");
+            #endif
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -359,7 +368,7 @@ namespace WPEFramework
 
                 ipaddress = result.public_ip;
 #if USE_TELEMETRY
-                NMLOG_INFO("****** GURU: sending T2 event for NM_PUBLIC_IPV4 = %s ******", ipaddress);
+                NMLOG_INFO("****** GURU: sending T2 event for NM_PUBLIC_IPV4 = %s ******", ipaddress.c_str());
                 if(ipversion == "IPv4")
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
 #endif
