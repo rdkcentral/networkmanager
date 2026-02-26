@@ -273,7 +273,7 @@ namespace WPEFramework
                 const char *ipAddress = nm_ip_address_get_address(address);
                 if(ipAddress != NULL) {
                     GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
-                    // Get gateway MAC address for WiFi after IP is acquired
+                    // Get gateway MAC address for WiFi and Ethernet after IP is acquired
                     if(ifname == nmUtils::wlanIface() || ifname == nmUtils::ethIface()) {
                         static std::map<std::string, std::string> gatewayMacCache;
                         NMClient *client = nm_object_get_client(NM_OBJECT(device));

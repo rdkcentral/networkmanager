@@ -368,9 +368,11 @@ namespace WPEFramework
 
                 ipaddress = result.public_ip;
 #if USE_TELEMETRY
-                NMLOG_INFO("****** GURU: sending T2 event for NM_PUBLIC_IPV4 = %s ******", ipaddress.c_str());
                 if(ipversion == "IPv4")
+                {
+                    NMLOG_INFO("****** GURU: sending T2 event for NM_PUBLIC_IPV4 = %s ******", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
+                }
 #endif
                 return Core::ERROR_NONE;
             }
@@ -1165,7 +1167,7 @@ namespace WPEFramework
         void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
         {
 #if USE_TELEMETRY
-            T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
+            T2ERROR t2error = t2_event_s(eventName.c_str(), const_cast<char*>(message.c_str()));
             if (t2error != T2ERROR_SUCCESS) {
                 NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d",
                         eventName.c_str(), message.c_str(), t2error);

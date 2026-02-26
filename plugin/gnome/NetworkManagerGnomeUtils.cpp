@@ -22,6 +22,8 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <sstream>
+#include <fstream>
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
 #include "Module.h"

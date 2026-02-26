@@ -34,8 +34,6 @@ if (USE_RDK_LOGGER)
 endif (USE_RDK_LOGGER)
 
 if (USE_TELEMETRY)
-    find_package(T2 REQUIRED)
-    add_definitions(-DUSE_TELEMETRY)
     include_directories(${T2_INCLUDE_DIRS})
 endif (USE_TELEMETRY)
 

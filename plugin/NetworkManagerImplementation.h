@@ -34,10 +34,6 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
-#if USE_TELEMETRY
-#include <telemetry_busmessage_sender.h>
-#endif
-
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
  * for a 20MHz channel,

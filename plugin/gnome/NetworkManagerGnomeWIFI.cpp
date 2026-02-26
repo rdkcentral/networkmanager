@@ -945,10 +945,6 @@ namespace WPEFramework
             std::string activeSSID{};
 
             NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
-#if USE_TELEMETRY
-            if(ssidInfoParam.ssid.empty())
-                _instance->logTelemetry("NM_WIFI_SSID_NULL", "WiFi SSID is NULL");
-#endif
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
             if(!createClientNewConnection())
