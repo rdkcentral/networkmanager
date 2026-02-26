@@ -196,9 +196,6 @@ namespace WPEFramework
 
         bool nmUtils::isValidBSSID(const std::string& bssid)
         {
-            if (bssid.empty())
-                return true; // BSSID is optional for connection, so empty value is considered valid
-
             // Regular expression to match valid BSSID formats (e.g., "00:11:22:33:44:55")
             const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
             if (!std::regex_match(bssid, bssidRegex))

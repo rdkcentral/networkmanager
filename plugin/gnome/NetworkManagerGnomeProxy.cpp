@@ -943,7 +943,7 @@ namespace WPEFramework
                 }
                 else
                 {
-                    NMLOG_WARNING("ssid is empty activating last connectd ssid !");
+                    NMLOG_WARNING("ssid is empty activating last connected ssid !");
                     if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                         rc = Core::ERROR_NONE;
                     else
@@ -952,23 +952,6 @@ namespace WPEFramework
 
                 return rc;
             }
-            // else if(!ssid.ssid.empty() && (ssid.security == WIFI_SECURITY_NONE) && ssid.passphrase.empty())
-            // {
-            //     NMLOG_INFO("Only SSID: %s, so activating know connection", ssid.ssid.c_str());
-
-            //     // TODO: 1 find how to find this is open network request of activate known connection, 
-            //     // because for open network ssid is only required field, 
-            //     // so if passphrase is empty and security is none then it is open network request
-
-            //     // TODO: 2 do we need to persisit same ssid multiple connection
-
-            //     if(wifi->activateKnownConnection(nmUtils::wlanIface(), ssid.ssid))
-            //         rc = Core::ERROR_NONE;
-            //     else
-            //         NMLOG_ERROR("activating last connected ssid failed");
-
-            //     return rc;
-            // }
 
             // Gnome will not accept passphrase less than 8 char for WPA/WPA2 security
             if(!ssid.passphrase.empty() && ssid.passphrase.size() < 8)
@@ -977,13 +960,10 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(!nmUtils::isValidBSSID(ssid.bssid))
+            if(!ssid.bssid.empty() && !nmUtils::isValidBSSID(ssid.bssid))
             {
                 return Core::ERROR_GENERAL;
             }
-
-            if(ssid.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
-                NMLOG_INFO("Requested frequency is %d GHz", ssid.frequency);
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
