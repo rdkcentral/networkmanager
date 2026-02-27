@@ -94,6 +94,7 @@ NetworkManager interface methods:
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
 | [RemoveKnownSSID](#method.RemoveKnownSSID) | Remove given SSID from saved SSIDs |
+| [ActivateKnownSSID](#method.ActivateKnownSSID) | Activate given SSID from saved SSIDs |
 | [WiFiConnect](#method.WiFiConnect) | Initiates request to connect to the specified SSID with the given passphrase |
 | [WiFiDisconnect](#method.WiFiDisconnect) | Disconnects from the currently connected SSID |
 | [GetConnectedSSID](#method.GetConnectedSSID) | Returns the connected SSID information |
@@ -113,7 +114,7 @@ Set Log level for more information. The possible set log level are as follows.
 * `2`: WARNING  
 * `3`: INFO 
 * `4`: DEBUG 
-.
+ if logllevel is debug, it will also enable Gnome Networkmanager debug logs which can be helpful to debug network related issues.
 
 ### Parameters
 
@@ -257,7 +258,7 @@ This method takes no parameters.
 <a name="method.GetPrimaryInterface"></a>
 ## *GetPrimaryInterface [<sup>method</sup>](#head.Methods)*
 
-Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`.
+Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. if no active network is available, it returns empty string.
 
 ### Parameters
 
@@ -1238,6 +1239,54 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 }
 ```
 
+<a name="method.ActivateKnownSSID"></a>
+## *ActivateKnownSSID [<sup>method</sup>](#head.Methods)*
+
+Activate given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.
+
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.ssid | string | The WiFi SSID Name |
+
+### Result
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| result | object |  |
+| result.success | boolean | Whether the request succeeded |
+
+### Example
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.ActivateKnownSSID",
+  "params": {
+    "ssid": "myHomeSSID"
+  }
+}
+```
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
+}
+```
+
 <a name="method.WiFiConnect"></a>
 ## *WiFiConnect [<sup>method</sup>](#head.Methods)*
 
@@ -1250,8 +1299,11 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The WiFi SSID Name |
-| params.passphrase | string | The access point password |
+| params?.ssid | string | <sup>*(optional)*</sup> The WiFi SSID Name |
+| params?.passphrase | string | <sup>*(optional)*</sup> The access point password |
+| params?.security | integer | <sup>*(optional)*</sup> The security mode. See `GetSupportedSecurityModes` |
+| params?.bssid | string | <sup>*(optional)*</sup> Specify the BSSID to connect. if specified it will not connect to other BSSID even with the same SSID. It is optional parameter and if not specified, it will connect to the best BSSID available for the SSID |
+| params?.frequency | integer | <sup>*(optional)*</sup> Specify the frequency band to connect. `1`: 2.4GHz `2`: 5GHz When not specified it will connect to the best frequency available |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1282,6 +1334,9 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
+    "security": 2,
+    "bssid": "00:11:22:33:44:55",
+    "frequency": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",
