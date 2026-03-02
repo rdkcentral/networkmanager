@@ -20,9 +20,9 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
-#include "NetworkManagerJsonEnum.h"
 
 #if USE_TELEMETRY
+#include "NetworkManagerJsonEnum.h"
 #include <telemetry_busmessage_sender.h>
 #endif
 
