@@ -58,7 +58,7 @@ option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
 
 if (USE_TELEMETRY)
     find_package(T2 REQUIRED)
-    add_definitions(-DUSE_TELEMETRY)
+    add_compile_definitions(USE_TELEMETRY=1)
     message("Telemetry support enabled")
 endif(USE_TELEMETRY)
 

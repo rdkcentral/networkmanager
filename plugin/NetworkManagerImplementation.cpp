@@ -63,7 +63,7 @@ namespace WPEFramework
             NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             #if USE_TELEMETRY
-                // Initialize Telemtry T2 for NwMgrPlugin
+                // Initialize Telemetry T2 for NwMgrPlugin
                 t2_init("NwMgrPlugin");
             #endif
         }
