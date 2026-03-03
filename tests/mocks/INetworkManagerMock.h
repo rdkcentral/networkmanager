@@ -41,6 +41,7 @@ public:
     MOCK_METHOD(uint32_t, GetKnownSSIDs, (IStringIterator*& ssids), (override));
     MOCK_METHOD(uint32_t, AddToKnownSSIDs, (const WiFiConnectTo& ssid), (override));
     MOCK_METHOD(uint32_t, RemoveKnownSSID, (const string& ssid), (override));
+    MOCK_METHOD(uint32_t, ActivateKnownSSID, (const string& ssid), (override));
     MOCK_METHOD(uint32_t, WiFiConnect, (const WiFiConnectTo& ssid), (override));
     MOCK_METHOD(uint32_t, WiFiDisconnect, (), (override));
     MOCK_METHOD(uint32_t, GetConnectedSSID, (WiFiSSIDInfo& ssidInfo), (override));
