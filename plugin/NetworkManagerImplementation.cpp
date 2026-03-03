@@ -370,7 +370,7 @@ namespace WPEFramework
 #if USE_TELEMETRY
                 if(ipversion == "IPv4")
                 {
-                    NMLOG_INFO("****** GURU: sending T2 event for NM_PUBLIC_IPV4 = %s ******", ipaddress.c_str());
+                    NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
                 }
 #endif
@@ -728,7 +728,7 @@ namespace WPEFramework
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
 #if USE_TELEMETRY
-            NMLOG_INFO("****** GURU: sending T2 event for NM_INTERFACE_STATUS = %s ******", currentActiveinterface.c_str());
+            NMLOG_INFO("NM_INTERFACE_STATUS = Active Interface changed");
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
 #endif
             _notificationLock.Unlock();
@@ -783,7 +783,7 @@ namespace WPEFramework
                !m_ethConnected.load() &&
                prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
             {
-                NMLOG_INFO("****** GURU: sending T2 event for NM_ETHERNET_FAILED = %s ******", "Ethernet is down, no internet");
+                NMLOG_INFO("NM_ETHERNET_FAILED = Ethernet is down, no internet");
                 logTelemetry("NM_ETHERNET_FAILED", "Ethernet is down, no internet");
             }
 #endif
@@ -792,7 +792,7 @@ namespace WPEFramework
             }
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
-            NMLOG_INFO("****** GURU: sending T2 event for NM_INTERNET_STATUS = %s ******", stateStr.c_str());
+            NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
 #endif
             _notificationLock.Unlock();
@@ -1145,7 +1145,10 @@ namespace WPEFramework
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
-            NMLOG_INFO("****** GURU: sending T2 event for NM_WIFI_STATUS = %s ******", stateStr.c_str());
+            if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
+                NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
+            else if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
+                NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             for (const auto callback : _notificationCallbacks) {

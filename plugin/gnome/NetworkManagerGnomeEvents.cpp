@@ -283,10 +283,17 @@ namespace WPEFramework
                                 // Only log when MAC changes or is first time
                                 if (gatewayMacCache[ifname] != gatewayMac) {
                                     gatewayMacCache[ifname] = gatewayMac;
-                                    NMLOG_INFO("******** GURU: gatewayMacCache[%s] : %s ********", ifname.c_str(), gatewayMacCache[ifname].c_str());
 #if USE_TELEMETRY
-                                    NMLOG_INFO("******** GURU: connected - Gateway MAC: %s ********", gatewayMac.c_str());
-                                    _instance->logTelemetry("NM_GW_MAC", gatewayMac);
+                                    if(ifname == nmUtils::wlanIface()
+                                    {
+                                        NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
+                                        _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                    }
+                                    else if(ifname == nmUtils::ethIface())
+                                    {
+                                        NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
+                                        _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
+                                    }
 #endif
                                 }
                             }
