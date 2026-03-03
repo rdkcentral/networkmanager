@@ -159,7 +159,7 @@
     },
     "methods": {
         "SetLogLevel":{
-            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: DEBUG \n",
+            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: DEBUG \n if logllevel is debug, it will also enable Gnome Networkmanager debug logs which can be helpful to debug network related issues.",
             "params": {
                 "type": "object",
                 "properties": {
@@ -262,7 +262,7 @@
             }
         },
         "GetPrimaryInterface": {
-            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`.",
+            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. if no active network is available, it returns empty string.",
             "result": {
                 "type": "object",
                 "properties": {
@@ -984,6 +984,36 @@
                 ]
             }
         },
+        "ActivateKnownSSID":{
+            "summary": "Activate given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.",
+            "events":{
+                "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED .",
+                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onInternetStatusChange" : "Triggered when internet connection state changed"
+            },
+            "params": {
+                "type": "object",
+                "properties": {
+                    "ssid": {
+                        "$ref": "#/definitions/ssid"
+                    }
+                },
+                "required": [
+                    "ssid"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success":{
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        },
         "WiFiConnect":{
             "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.",
             "events":{
@@ -997,6 +1027,19 @@
                     },
                     "passphrase": {
                         "$ref": "#/definitions/passphrase"
+                    },
+                    "security": {
+                        "$ref": "#/definitions/security"
+                    },
+                    "bssid": {
+                        "summary": "Specify the BSSID to connect. if specified it will not connect to other BSSID even with the same SSID. It is optional parameter and if not specified, it will connect to the best BSSID available for the SSID.",
+                        "type": "string",
+                        "example": "00:11:22:33:44:55"
+                    },
+                    "frequency": {
+                        "summary": "Specify the frequency band to connect. `1`: 2.4GHz `2`: 5GHz When not specified it will connect to the best frequency available",
+                        "type": "integer",
+                        "example": 2
                     },
                     "ca_cert": {
                         "summary": "The ca_cert to be used for EAP",
@@ -1048,11 +1091,7 @@
                         "type": "boolean",
                         "example": true
                     }
-                },
-                "required": [
-                    "ssid",
-                    "passphrase"
-                ]
+                }
             },
             "result": {
                 "type": "object",

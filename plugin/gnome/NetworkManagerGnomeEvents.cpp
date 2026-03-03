@@ -730,6 +730,7 @@ namespace WPEFramework
     bool GnomeNetworkManagerEvents::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)
     {
          GBytes *ssid = NULL;
+         const char *bssid = NULL;
          int strength = 0;
          double freq;
          int security;
@@ -748,6 +749,14 @@ namespace WPEFramework
                 free(ssidStr);
              }
              ssidObj["ssid"] = ssidString;
+             bssid = nm_access_point_get_bssid(ap);
+             if (bssid) {
+                 ssidObj["bssid"] = bssid;
+             }
+             else
+             {
+                 NMLOG_WARNING("BSSID is null for SSID: %s", ssidString.c_str());
+             }
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
              flags    = nm_access_point_get_flags(ap);
@@ -773,20 +782,32 @@ namespace WPEFramework
             NMLOG_ERROR("Not a wifi object ");
             return;
         }
-        JsonArray ssidList = JsonArray();
-        NMAccessPoint *ap = nullptr;
+
         const GPtrArray *accessPoints = nm_device_wifi_get_access_points(wifiDevice);
-        for (guint i = 0; i < accessPoints->len; i++)
-        {
-            JsonObject ssidObj;
-            ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
-            if(GnomeNetworkManagerEvents::apToJsonObject(ap, ssidObj))
-                ssidList.Add(ssidObj);
+
+        if (accessPoints == nullptr) {
+            NMLOG_ERROR("scanning result No access points found !");
+            return;
         }
 
         NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
 
-        if(_nmEventInstance->doScanNotify) {
+        if(!_nmEventInstance->doScanNotify)
+        {
+            NMLOG_DEBUG("wifi scan result received but notify is false, skipping event notify");
+            return;
+        }
+
+        JsonArray ssidList = JsonArray();
+        for (guint i = 0; i < accessPoints->len; i++)
+        {
+            JsonObject ssidObj{};
+            NMAccessPoint *ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
+            if(GnomeNetworkManagerEvents::apToJsonObject(ap, ssidObj))
+                ssidList.Add(ssidObj);
+        }
+
+        if(_instance != nullptr) {
             _nmEventInstance->doScanNotify = false;
             _instance->ReportAvailableSSIDs(ssidList);
         }

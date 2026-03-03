@@ -139,7 +139,6 @@ namespace WPEFramework
 
         static bool modifyDefaultConnConfig(NMClient *client)
         {
-            GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
             std::string hostname{};
@@ -638,7 +637,7 @@ namespace WPEFramework
             deviceState = nm_device_get_state(device);
             if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
             {
-                NMLOG_WARNING("Device state is not a valid state: (%d)", deviceState);
+                NMLOG_WARNING("%s state is not a valid state: (%d)", interface.c_str(), deviceState);
                 return Core::ERROR_GENERAL;
             }
 
@@ -910,6 +909,14 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ActivateKnownSSID(const string& ssid /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->activateKnownSSID(ssid))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -922,6 +929,42 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
+            if(!ssid.ssid.empty() && ssid.ssid.size() > 32)
+            {
+                NMLOG_WARNING("SSID is invalid");
+                return Core::ERROR_NONE;
+            }
+            else if(ssid.ssid.empty())
+            {
+                if(_instance != NULL && !_instance->m_lastConnectedSSID.empty())
+                {
+                    NMLOG_WARNING("There is no last connected ssid available");
+                    rc = Core::ERROR_NONE;
+                }
+                else
+                {
+                    NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                    if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
+                        rc = Core::ERROR_NONE;
+                    else
+                        NMLOG_ERROR("activating last connected ssid failed");
+                }
+
+                return rc;
+            }
+
+            // Gnome will not accept passphrase less than 8 char for WPA/WPA2 security
+            if(!ssid.passphrase.empty() && ssid.passphrase.size() < 8)
+            {
+                NMLOG_ERROR("Passphrase is invalid");
+                return Core::ERROR_GENERAL;
+            }
+
+            if(!ssid.bssid.empty() && !nmUtils::isValidBSSID(ssid.bssid))
+            {
+                return Core::ERROR_GENERAL;
+            }
+
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
             {
@@ -930,19 +973,8 @@ namespace WPEFramework
                     NMLOG_WARNING("scanning failed but try to connect");
             }
 
-            if(ssid.ssid.empty() && _instance != NULL)
-            {
-                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
-                    rc = Core::ERROR_NONE;
-            }
-            else if(ssid.ssid.size() <= 32)
-            {
-                if(wifi->wifiConnect(ssid))
-                    rc = Core::ERROR_NONE;
-            }
-            else
-                NMLOG_WARNING("SSID is invalid");
+            if(wifi->wifiConnect(ssid))
+                rc = Core::ERROR_NONE;
 
             return rc;
         }

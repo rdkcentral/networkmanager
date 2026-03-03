@@ -103,6 +103,14 @@ namespace WPEFramework
                 WIFI_SECURITY_EAP           /* @text: EAP */,
             };
 
+            enum WIFIFrequency : uint8_t
+            {
+                WIFI_FREQUENCY_NONE          /* @text: NONE */,
+                WIFI_FREQUENCY_2_4_GHZ       /* @text: 2.4GHz */,
+                WIFI_FREQUENCY_5_GHZ         /* @text: 5GHz */,
+                WIFI_FREQUENCY_6_GHZ         /* @text: 6GHz */,
+            };
+
             struct EXTERNAL WiFiScanResults {
                     string           ssid;
                     WIFISecurityMode security;
@@ -113,6 +121,8 @@ namespace WPEFramework
             struct EXTERNAL WiFiConnectTo {
                     string           ssid;
                     string           passphrase;
+                    string           bssid;
+                    WIFIFrequency    frequency;
                     WIFISecurityMode security;
                     string           ca_cert;
                     string           client_cert;
@@ -244,6 +254,7 @@ namespace WPEFramework
             virtual uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) = 0;
             virtual uint32_t AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */) = 0;
             virtual uint32_t RemoveKnownSSID(const string& ssid /* @in */) = 0;
+            virtual uint32_t ActivateKnownSSID(const string& ssid /* @in */) = 0;
 
             virtual uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) = 0;
             virtual uint32_t WiFiDisconnect(void) = 0;

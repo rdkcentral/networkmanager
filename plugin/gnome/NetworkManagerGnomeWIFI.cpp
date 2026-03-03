@@ -413,37 +413,69 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, std::string& ssid)
+        static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, Exchange::INetworkManager::WiFiConnectTo& ssidInfo)
         {
             NMAccessPoint *AccessPoint = nullptr;
-            if(ssid.empty())
+            if(ssidInfo.ssid.empty())
                 return nullptr;
 
             for (guint i = 0; i < ApList->len; i++)
             {
                 std::string ssidstr{};
+                bool ssidMatch = false;
                 NMAccessPoint *ap = static_cast<NMAccessPoint *>(g_ptr_array_index(ApList, i));
                 GBytes *ssidGBytes = nm_access_point_get_ssid(ap);
-                if(ssidGBytes)
+                if(ssidGBytes == nullptr)
                 {
-                    char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
-                    if(ssidUtf8 != nullptr)
+                    NMLOG_WARNING("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap)); 
+                    // TODO remove log or handle hidden ssid case based on bssid matching if ssidInfo.ssid is empty
+                    continue;
+                }
+
+                char* ssidUtf8 = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidGBytes, NULL), g_bytes_get_size(ssidGBytes));
+                if(ssidUtf8 == nullptr)
+                {
+                    NMLOG_WARNING("Invalid ssid length Error");
+                    continue;
+                }
+
+                ssidstr = ssidUtf8;
+                free(ssidUtf8);
+
+                if(ssidInfo.ssid == ssidstr)
+                {
+                    NMLOG_INFO("SSID matched: %s", ssidstr.c_str());
+                    ssidMatch = true;
+                }
+                else
+                {
+                    NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
+                    // continue searching other APs in case of multiple APs with same SSID and matching BSSID or frequency
+                    // TODO hidden ssid handling - if ssidInfo.ssid is empty then matching based on bssid ?
+                    continue;
+                }
+
+                if(!ssidInfo.bssid.empty())
+                {
+                    std::string bssidStr = nm_access_point_get_bssid(ap);
+                    if(ssidInfo.bssid == bssidStr)
                     {
-                        ssidstr = ssidUtf8;
-                        if(ssid == ssidstr)
-                        {
-                            AccessPoint = ap;
-                            free(ssidUtf8);
-                            break;
-                        }
-                        // NMLOG_DEBUG("ssid <  %s  >", ssidstr.c_str());
+                        NMLOG_DEBUG("BSSID matched: %s", bssidStr.c_str());
+                        ssidMatch = true;
                     }
                     else
-                        NMLOG_WARNING("Invalid ssid length Error");
-
-                    if(ssidUtf8 != nullptr)
-                        free(ssidUtf8);
+                    {
+                        ssidMatch = false;
+                        NMLOG_WARNING("SSID matched but BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
+                        continue;
+                    }
                 }
+
+                // TODO frequency matching if ssidInfo.frequency ?
+                // BSSID matching should be sufficient to identify the AP uniquely even if there are multiple APs with same SSID
+
+                if(ssidMatch)
+                    AccessPoint = ap;
             }
 
             return AccessPoint;
@@ -650,8 +682,26 @@ namespace WPEFramework
                 g_object_set(G_OBJECT(sWireless), NM_SETTING_WIRELESS_HIDDEN, true, NULL); // hidden = true 
             if(ssid)
                 g_bytes_unref(ssid);
-            // 'bssid' parameter is used to restrict the connection only to the BSSID
-            // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
+
+            if(!ssidinfo.bssid.empty())
+                g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
+
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
+            {
+                if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "bg", NULL);
+                }
+                else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_5_GHZ)
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
+                }
+                else
+                {
+                    NMLOG_WARNING("invalid frequency value: %d", ssidinfo.frequency);
+                    return false;
+                }
+            }
 
             NMSettingWirelessSecurity *sSecurity = NULL;
             switch(ssidinfo.security)
@@ -659,7 +709,6 @@ namespace WPEFramework
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_WPA_PSK:
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE:
                 {
-
                     sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                     nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
                     if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
@@ -788,6 +837,86 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
             return true;
+        }
+
+
+        bool wifiManager::activateKnownSSID(const std::string& ssid)
+        {
+            const GPtrArray *allnmConn = NULL;
+            const char* specificObjPath = "/";
+            NMConnection *knownConnection = NULL;
+            bool ret = false;
+
+            if(!createClientNewConnection())
+                return ret;
+
+            m_wifidevice = getWifiDevice();
+            if(m_wifidevice == NULL)
+            {
+                deleteClientConnection();
+                return false;
+            }
+
+            allnmConn = nm_client_get_connections(m_client);
+            if(allnmConn == NULL || allnmConn->len == 0)
+            {
+                NMLOG_ERROR("No connections found !");
+                deleteClientConnection();
+                return ret;
+            }
+
+            for (guint i = 0; i < allnmConn->len; i++)
+            {
+                NMConnection *conn = static_cast<NMConnection*>(g_ptr_array_index(allnmConn, i));
+                if(conn == NULL)
+                    continue;
+
+                const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                if (connId == NULL) {
+                    NMLOG_WARNING("connection id is NULL");
+                    continue;
+                }
+
+                const char *connTyp = nm_connection_get_connection_type(NM_CONNECTION(conn));
+                if (connTyp == NULL) {
+                    NMLOG_WARNING("connection type is NULL");
+                    continue;
+                }
+
+                std::string connTypStr = connTyp;
+                if(connTypStr != "802-11-wireless")
+                {
+                    NMLOG_DEBUG("skipping non wifi connection: %s", connId);
+                    continue;
+                }
+
+                if(ssid == connId)
+                {
+                    knownConnection = g_object_ref(conn);
+                    NMLOG_DEBUG("connection '%s' exists !", ssid.c_str());
+                    break;
+                }
+            }
+
+            if(knownConnection != NULL)
+            {
+                NMLOG_INFO("activating known wifi '%s' connection", ssid.c_str());
+                m_isSuccess = false;
+                m_createNewConnection = false; // no need to create new connection
+                nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), m_wifidevice, specificObjPath, m_cancellable, wifiConnectCb, this);
+                wait(m_loop);
+                deleteClientConnection();
+                g_object_unref(knownConnection);
+                ret =  m_isSuccess;
+            }
+            else
+            {
+                NMLOG_WARNING("'%s' connection not found", ssid.c_str());
+                ret = false;
+            }
+
+            deleteClientConnection();
+            return ret;
         }
 
         bool wifiManager::activateKnownConnection(std::string iface, std::string knowConnectionID)
@@ -944,7 +1073,7 @@ namespace WPEFramework
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             std::string activeSSID{};
 
-            NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
+            NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %d, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency, ssidInfoParam.security, ssidInfoParam.persist);
 
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
@@ -979,7 +1108,7 @@ namespace WPEFramework
                 return false;
             }
 
-            AccessPoint = findMatchingSSID(ApList, ssidInfo.ssid);
+            AccessPoint = findMatchingSSID(ApList, ssidInfo);
             if(AccessPoint == NULL)
             {
                 NMLOG_WARNING("SSID '%s' not found !", ssidInfo.ssid.c_str());
