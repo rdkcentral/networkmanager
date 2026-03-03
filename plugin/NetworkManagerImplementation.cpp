@@ -728,7 +728,7 @@ namespace WPEFramework
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
 #if USE_TELEMETRY
-            NMLOG_INFO("NM_INTERFACE_STATUS = Active Interface changed");
+            NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface);
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
 #endif
             _notificationLock.Unlock();
@@ -783,8 +783,8 @@ namespace WPEFramework
                !m_ethConnected.load() &&
                prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
             {
-                NMLOG_INFO("NM_ETHERNET_FAILED = Ethernet is down, no internet");
-                logTelemetry("NM_ETHERNET_FAILED", "Ethernet is down, no internet");
+                NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
+                logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
             }
 #endif
             for (const auto callback : _notificationCallbacks) {
@@ -1145,10 +1145,7 @@ namespace WPEFramework
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
-            if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
-                NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
-            else if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
-                NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
+            NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             for (const auto callback : _notificationCallbacks) {
