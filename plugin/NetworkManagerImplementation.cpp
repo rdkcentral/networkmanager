@@ -20,6 +20,12 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
+
+#if USE_TELEMETRY
+#include "NetworkManagerJsonEnum.h"
+#include <telemetry_busmessage_sender.h>
+#endif
+
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
@@ -58,6 +64,10 @@ namespace WPEFramework
             NetworkManagerLogger::Init();
             NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
+            #if USE_TELEMETRY
+                // Initialize Telemetry T2 for NwMgrPlugin
+                t2_init("NwMgrPlugin");
+            #endif
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -361,6 +371,18 @@ namespace WPEFramework
                     interface = m_defaultInterface;
 
                 ipaddress = result.public_ip;
+#if USE_TELEMETRY
+                if(ipversion == "IPv4")
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV4", ipaddress);
+                }
+                else
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
+                }
+#endif
                 return Core::ERROR_NONE;
             }
             else
@@ -714,6 +736,10 @@ namespace WPEFramework
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
+#if USE_TELEMETRY
+            NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
+            logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -760,9 +786,24 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+#if USE_TELEMETRY
+            // Log error only when ethernet is down and there's no internet
+            if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
+               !m_ethConnected.load() &&
+               prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
+            {
+                NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
+                logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
+            }
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState, interface);
             }
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
+            NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
+            logTelemetry("NM_INTERNET_STATUS", stateStr);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -1111,6 +1152,11 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
+            NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
+            logTelemetry("NM_WIFI_STATUS", stateStr);
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
@@ -1245,6 +1291,17 @@ namespace WPEFramework
                     }
                 }
             }
+        }
+
+        void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
+        {
+#if USE_TELEMETRY
+            T2ERROR t2error = t2_event_s(eventName.c_str(), const_cast<char*>(message.c_str()));
+            if (t2error != T2ERROR_SUCCESS) {
+                NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d",
+                        eventName.c_str(), message.c_str(), t2error);
+            }
+#endif
         }
     }
 }
