@@ -755,7 +755,8 @@ namespace WPEFramework
              }
              else
              {
-                 NMLOG_WARNING("BSSID is null for SSID: %s", ssidString.c_str());
+                NMLOG_WARNING("BSSID is null for SSID: %s", ssidString.c_str());
+                ssidObj["bssid"] = "";
              }
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
@@ -790,13 +791,13 @@ namespace WPEFramework
             return;
         }
 
-        NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
-
         if(!_nmEventInstance->doScanNotify)
         {
             NMLOG_DEBUG("wifi scan result received but notify is false, skipping event notify");
             return;
         }
+        
+        NMLOG_INFO("No of AP Available = %d", static_cast<int>(accessPoints->len));
 
         JsonArray ssidList = JsonArray();
         for (guint i = 0; i < accessPoints->len; i++)
