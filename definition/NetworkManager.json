@@ -984,8 +984,8 @@
                 ]
             }
         },
-        "ActivateKnownSSID":{
-            "summary": "Activate given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.",
+        "ConnectToKnownSSID":{
+            "summary": "Connect To given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED .",
                 "onAddressChange" : "Triggered when an IP Address is assigned or lost",

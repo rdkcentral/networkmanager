@@ -94,7 +94,7 @@ NetworkManager interface methods:
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
 | [RemoveKnownSSID](#method.RemoveKnownSSID) | Remove given SSID from saved SSIDs |
-| [ActivateKnownSSID](#method.ActivateKnownSSID) | Activate given SSID from saved SSIDs |
+| [ConnectToKnownSSID](#method.ConnectToKnownSSID) | Connect To given SSID from saved SSIDs |
 | [WiFiConnect](#method.WiFiConnect) | Initiates request to connect to the specified SSID with the given passphrase |
 | [WiFiDisconnect](#method.WiFiDisconnect) | Disconnects from the currently connected SSID |
 | [GetConnectedSSID](#method.GetConnectedSSID) | Returns the connected SSID information |
@@ -1239,10 +1239,10 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 }
 ```
 
-<a name="method.ActivateKnownSSID"></a>
-## *ActivateKnownSSID [<sup>method</sup>](#head.Methods)*
+<a name="method.ConnectToKnownSSID"></a>
+## *ConnectToKnownSSID [<sup>method</sup>](#head.Methods)*
 
-Activate given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.
+Connect To given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
@@ -1268,7 +1268,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 {
   "jsonrpc": "2.0",
   "id": 42,
-  "method": "org.rdk.NetworkManager.1.ActivateKnownSSID",
+  "method": "org.rdk.NetworkManager.1.ConnectToKnownSSID",
   "params": {
     "ssid": "myHomeSSID"
   }

@@ -75,7 +75,7 @@ namespace WPEFramework
             Register("GetKnownSSIDs",                     &NetworkManager::GetKnownSSIDs, this);
             Register("AddToKnownSSIDs",                   &NetworkManager::AddToKnownSSIDs, this);
             Register("RemoveKnownSSID",                   &NetworkManager::RemoveKnownSSID, this);
-            Register("ActivateKnownSSID",                 &NetworkManager::ActivateKnownSSID, this);
+            Register("ConnectToKnownSSID",                &NetworkManager::ConnectToKnownSSID, this);
             Register("WiFiConnect",                       &NetworkManager::WiFiConnect, this);
             Register("WiFiDisconnect",                    &NetworkManager::WiFiDisconnect, this);
             Register("GetConnectedSSID",                  &NetworkManager::GetConnectedSSID, this);
@@ -113,7 +113,7 @@ namespace WPEFramework
             Unregister("GetKnownSSIDs");
             Unregister("AddToKnownSSIDs");
             Unregister("RemoveKnownSSID");
-            Unregister("ActivateKnownSSID");
+            Unregister("ConnectToKnownSSID");
             Unregister("WiFiConnect");
             Unregister("WiFiDisconnect");
             Unregister("GetConnectedSSID");
@@ -768,7 +768,7 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        uint32_t NetworkManager::ActivateKnownSSID(const JsonObject& parameters, JsonObject& response)
+        uint32_t NetworkManager::ConnectToKnownSSID(const JsonObject& parameters, JsonObject& response)
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
@@ -778,7 +778,7 @@ namespace WPEFramework
                 ssid = parameters["ssid"].String();
 
             if (_networkManager)
-                rc = _networkManager->ActivateKnownSSID(ssid);
+                rc = _networkManager->ConnectToKnownSSID(ssid);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 

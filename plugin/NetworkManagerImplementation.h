@@ -217,7 +217,7 @@ namespace WPEFramework
                 uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) override;
                 uint32_t AddToKnownSSIDs(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t RemoveKnownSSID(const string& ssid /* @in */) override;
-                uint32_t ActivateKnownSSID(const string& ssid /* @in */) override;
+                uint32_t ConnectToKnownSSID(const string& ssid /* @in */) override;
 
                 uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t WiFiDisconnect(void) override;

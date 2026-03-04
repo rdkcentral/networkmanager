@@ -909,7 +909,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::ActivateKnownSSID(const string& ssid /* @in */)
+        uint32_t NetworkManagerImplementation::ConnectToKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->activateKnownSSID(ssid))
