@@ -271,8 +271,41 @@ namespace WPEFramework
             }
             if (nm_ip_address_get_family(address) == AF_INET) {
                 const char *ipAddress = nm_ip_address_get_address(address);
-                if(ipAddress != NULL)
+                if(ipAddress != NULL) {
                     GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
+                    // Get gateway MAC address for WiFi and Ethernet after IP is acquired
+                    if(ifname == nmUtils::wlanIface() || ifname == nmUtils::ethIface()) {
+                        static std::map<std::string, std::string> gatewayMacCache;
+                        NMClient *client = nm_object_get_client(NM_OBJECT(device));
+                        if (client != NULL) {
+                            std::string gatewayMac = nmUtils::getGatewayMacAddress(client, ifname);
+                            if (!gatewayMac.empty()) {
+                                // Only log when MAC changes or is first time
+                                if (gatewayMacCache[ifname] != gatewayMac) {
+                                    gatewayMacCache[ifname] = gatewayMac;
+#if USE_TELEMETRY
+                                    if(ifname == nmUtils::wlanIface())
+                                    {
+                                        NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
+                                        if (_instance != nullptr)
+                                        {
+                                            _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                        }
+                                    }
+                                    else if(ifname == nmUtils::ethIface())
+                                    {
+                                        NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
+                                        if (_instance != nullptr)
+                                        {
+                                            _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
+                                        }
+                                    }
+#endif
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

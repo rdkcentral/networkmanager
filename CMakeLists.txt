@@ -54,7 +54,13 @@ get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
 option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
+option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
 
+if (USE_TELEMETRY)
+    find_package(T2 REQUIRED)
+    add_compile_definitions(USE_TELEMETRY=1)
+    message("Telemetry support enabled")
+endif(USE_TELEMETRY)
 
 add_subdirectory(interface)
 add_subdirectory(definition)
@@ -70,4 +76,3 @@ if(ENABLE_UNIT_TESTING)
     add_subdirectory(tests/l1Test)
     add_subdirectory(tests/l2Test)
 endif(ENABLE_UNIT_TESTING)
-
