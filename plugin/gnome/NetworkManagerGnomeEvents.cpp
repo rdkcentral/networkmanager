@@ -284,15 +284,21 @@ namespace WPEFramework
                                 if (gatewayMacCache[ifname] != gatewayMac) {
                                     gatewayMacCache[ifname] = gatewayMac;
 #if USE_TELEMETRY
-                                    if(ifname == nmUtils::wlanIface()
+                                    if(ifname == nmUtils::wlanIface())
                                     {
                                         NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
-                                        _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                        if (_instance != nullptr)
+                                        {
+                                            _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                        }
                                     }
                                     else if(ifname == nmUtils::ethIface())
                                     {
                                         NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
-                                        _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
+                                        if (_instance != nullptr)
+                                        {
+                                            _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
+                                        }
                                     }
 #endif
                                 }

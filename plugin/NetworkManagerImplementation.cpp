@@ -728,7 +728,7 @@ namespace WPEFramework
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
 #if USE_TELEMETRY
-            NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface);
+            NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
 #endif
             _notificationLock.Unlock();
