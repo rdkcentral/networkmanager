@@ -186,37 +186,6 @@ namespace WPEFramework
             return wifiDevice;
         }
 
-        bool static getConnectedSSID(NMDevice *device, std::string& ssidin)
-        {
-            GBytes *ssid = nullptr;
-            NMDeviceState deviceState = nm_device_get_state(device);
-            if (deviceState == NM_DEVICE_STATE_ACTIVATED)
-            {
-                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
-                if(activeAP == nullptr)
-                    return false;
-                ssid = nm_access_point_get_ssid(activeAP);
-                if(ssid)
-                {
-                    char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssid, NULL), g_bytes_get_size(ssid));
-                    if(ssidStr != nullptr)
-                    {
-                        ssidin = ssidStr;
-                        free(ssidStr);
-                    }
-                    else
-                    {
-                        NMLOG_ERROR("Invalid ssid length Error");
-                        ssidin.clear();
-                        return false;
-                    }
-                }
-                NMLOG_INFO("connected ssid: %s", ssidin.c_str());
-                return true;
-            }
-            return false;
-        }
-
         static void getApInfo(NMAccessPoint *AccessPoint, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo, bool doPrint = true)
         {
             guint32 flags, wpaFlags, rsnFlags, freq, bitrate;
@@ -279,6 +248,22 @@ namespace WPEFramework
                 NMLOG_DEBUG("ssid: %s, frequency: %f, strength: %d, security: %u", wifiInfo.ssid.c_str(), wifiInfo.frequency, wifiInfo.strength, wifiInfo.security);
                 NMLOG_DEBUG("Mode: %s", mode == NM_802_11_MODE_ADHOC   ? "Ad-Hoc": mode == NM_802_11_MODE_INFRA ? "Infrastructure": "Unknown");
             }
+        }
+
+        bool static getConnectedAPInfo(NMDevice *device, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo)
+        {
+            GBytes *ssid = nullptr;
+            NMDeviceState deviceState = nm_device_get_state(device);
+            if (deviceState == NM_DEVICE_STATE_ACTIVATED)
+            {
+                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(device));
+                if(activeAP == nullptr)
+                    return false;
+                getApInfo(activeAP, wifiInfo, false);
+                NMLOG_INFO("connected ssid: %s", wifiInfo.ssid.c_str());
+                return true;
+            }
+            return false;
         }
 
         bool wifiManager::getWifiState(Exchange::INetworkManager::WiFiState& state)
@@ -1071,6 +1056,7 @@ namespace WPEFramework
             const GPtrArray  *availableConnections = NULL;
 
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
+            Exchange::INetworkManager::WiFiSSIDInfo connectedApInfo;
             std::string activeSSID{};
 
             NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %d, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency, ssidInfoParam.security, ssidInfoParam.persist);
@@ -1087,14 +1073,29 @@ namespace WPEFramework
                 return false;
             }
 
-            if(getConnectedSSID(m_wifidevice, activeSSID))
+            if(getConnectedAPInfo(m_wifidevice, connectedApInfo))
             {
-                if(ssidInfo.ssid == activeSSID)
+                if(ssidInfo.ssid == connectedApInfo.ssid && ssidInfo.security == connectedApInfo.security)
                 {
-                    NMLOG_INFO("'%s' already connected !", activeSSID.c_str());
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
-                    deleteClientConnection();
-                    return true;
+                    if(ssidInfo.bssid.empty())
+                    {
+                        NMLOG_INFO("'%s' Already connected !", connectedApInfo.ssid.c_str());
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        deleteClientConnection();
+                        return true;
+                    }
+                    else if (ssidInfo.bssid == connectedApInfo.bssid)
+                    {
+                        NMLOG_INFO("Already connected to the requested SSID '%s' with matching BSSID", ssidInfo.ssid.c_str());
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        deleteClientConnection();
+                        return true;
+                    }
+                    else
+                    {
+                        NMLOG_INFO("SSID '%s' matches but BSSID mismatch (connected: %s, requested: %s), reconnecting...",
+                            ssidInfo.ssid.c_str(), connectedApInfo.bssid.c_str(), ssidInfo.bssid.c_str());
+                    }
                 }
                 else
                     NMLOG_DEBUG("wifi already connected with %s AP", activeSSID.c_str());
