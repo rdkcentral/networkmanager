@@ -1155,6 +1155,7 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_activateKnownConnection_success)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_,::testing::_))

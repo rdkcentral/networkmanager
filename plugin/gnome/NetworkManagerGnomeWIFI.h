@@ -52,7 +52,6 @@ namespace WPEFramework
             bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
             bool activateKnownConnection(std::string iface, std::string knowConnectionID="");
-            bool activateKnownSSID(const std::string& ssid);
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo);
             bool wifiScanRequest(std::string ssidReq = "");
@@ -60,6 +59,7 @@ namespace WPEFramework
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo);
             bool removeKnownSSID(const string& ssid);
+            bool connectToKnownSSID(const std::string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
             bool startWPS();

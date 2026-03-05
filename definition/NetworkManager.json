@@ -159,7 +159,7 @@
     },
     "methods": {
         "SetLogLevel":{
-            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: DEBUG \n if logllevel is debug, it will also enable Gnome Networkmanager debug logs which can be helpful to debug network related issues.",
+            "summary": "Set Log level for more information. The possible set log level are as follows. \n* `0`: FATAL  \n* `1`: ERROR  \n* `2`: WARNING  \n* `3`: INFO \n* `4`: DEBUG \n",
             "params": {
                 "type": "object",
                 "properties": {

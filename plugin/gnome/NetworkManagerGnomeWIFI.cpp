@@ -840,7 +840,7 @@ namespace WPEFramework
         }
 
 
-        bool wifiManager::activateKnownSSID(const std::string& ssid)
+        bool wifiManager::connectToKnownSSID(const std::string& ssid)
         {
             const GPtrArray *allnmConn = NULL;
             const char* specificObjPath = "/";
