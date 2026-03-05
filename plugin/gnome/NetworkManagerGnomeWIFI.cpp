@@ -886,7 +886,7 @@ namespace WPEFramework
                 std::string connTypStr = connTyp;
                 if(connTypStr != "802-11-wireless")
                 {
-                    NMLOG_DEBUG("skipping non wifi connection: %s", connId);
+                    NMLOG_DEBUG("%s not a wifi connection", connId);
                     continue;
                 }
 

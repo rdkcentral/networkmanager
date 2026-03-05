@@ -114,7 +114,7 @@ Set Log level for more information. The possible set log level are as follows.
 * `2`: WARNING  
 * `3`: INFO 
 * `4`: DEBUG 
- if logllevel is debug, it will also enable Gnome Networkmanager debug logs which can be helpful to debug network related issues.
+.
 
 ### Parameters
 
