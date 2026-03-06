@@ -412,8 +412,7 @@ namespace WPEFramework
                 GBytes *ssidGBytes = nm_access_point_get_ssid(ap);
                 if(ssidGBytes == nullptr)
                 {
-                    NMLOG_WARNING("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap)); 
-                    // TODO remove log or handle hidden ssid case based on bssid matching if ssidInfo.ssid is empty
+                    NMLOG_DEBUG("hidden ssid found, bssid: %s", nm_access_point_get_bssid(ap));
                     continue;
                 }
 
@@ -451,7 +450,7 @@ namespace WPEFramework
                     else
                     {
                         ssidMatch = false;
-                        NMLOG_WARNING("SSID matched but BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
+                        NMLOG_DEBUG("SSID matched but BSSID did not match: expected %s, got %s", ssidInfo.bssid.c_str(), bssidStr.c_str());
                         continue;
                     }
                 }
