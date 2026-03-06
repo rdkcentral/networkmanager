@@ -1285,10 +1285,35 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_same_ssid)
 
     const char* ssid_str = "TestWiFiNetwork";
     GBytes* fake_ssid = g_bytes_new_static(ssid_str, strlen(ssid_str));
+    // AP property mocks
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+    
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
         .WillOnce(::testing::Return(fake_ssid));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), _T("{ \"ssid\":\"TestWiFiNetwork\",\"passphrase\": \"123454321\",\"security\":1, \"persist\":false}"), response));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), _T("{ \"ssid\":\"TestWiFiNetwork\",\"passphrase\": \"123454321\",\"security\":2, \"persist\":false}"), response));
     EXPECT_EQ(response, _T("{\"success\":true}"));
 
     g_bytes_unref(fake_ssid);
@@ -1316,10 +1341,35 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_Ap_list_null)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(0x333223)));
 
-    const char* ssid_str = "TestWiFiNetwork_1";
+    const char* ssid_str = "TestWiFiNetwork";
     GBytes* fake_ssid = g_bytes_new_static(ssid_str, strlen(ssid_str));
+    // AP property mocks
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+    
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
         .WillOnce(::testing::Return(fake_ssid));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
+        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_access_points(::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(NULL)));
@@ -1354,7 +1404,7 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_no_access_point)
         .WillOnce(::testing::Return(nm_utils_get_timestamp_msec() - 10));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(0x333223)));
+        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(NULL)));
 
     const char* ssid_str = "TestWiFiNetwork_1";
     GBytes* fake_ssid1 = g_bytes_new_static(ssid_str, strlen(ssid_str));
@@ -1401,28 +1451,36 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_different_ssid)
 
     // AP property mocks
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)))
         .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)))
         .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:F2"));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))) // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)))
         .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))) // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85))) // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85)));
 
     const char* ssid_str = "TestWiFiNetwork_1";
     GBytes* fake_ssid1 = g_bytes_new_static(ssid_str, strlen(ssid_str));
@@ -1481,28 +1539,36 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_different_good_password)
 
     // AP property mocks
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)))
         .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)))
         .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:F2"));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))) // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)))
         .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))) // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85))) // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85)));
 
     const char* ssid_str = "TestWiFiNetwork_1";
     GBytes* fake_ssid1 = g_bytes_new_static(ssid_str, strlen(ssid_str));
@@ -1564,28 +1630,36 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_connection_update)
 
     // AP property mocks
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)))
         .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)))
         .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:F2"));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))) // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)))
         .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))) // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85))) // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85)));
 
     const char* ssid_str = "TestWiFiNetwork_1";
     GBytes* fake_ssid1 = g_bytes_new_static(ssid_str, strlen(ssid_str));
@@ -1667,28 +1741,36 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_connection_not_valid)
 
     // AP property mocks
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)))
         .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)))
         .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)))
+        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"))
+        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:F2"));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462))) // Channel 11 (2.4GHz)
+        .WillOnce(::testing::Return(static_cast<guint32>(2462)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
+        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)))
         .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000))) // 54 Mbps
+        .WillOnce(::testing::Return(static_cast<guint32>(54000)));
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85))) // 85% signal strength
+        .WillOnce(::testing::Return(static_cast<guint32>(85)));
 
     const char* ssid_str = "TestWiFiNetwork_1";
     GBytes* fake_ssid1 = g_bytes_new_static(ssid_str, strlen(ssid_str));
