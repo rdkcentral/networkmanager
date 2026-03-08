@@ -92,6 +92,9 @@ class NetworkJsonRPCProvider : public INetworkData
     uint32_t SubscribeToEvent(const std::string& eventName, 
         std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback) override;
 
+    /* @brief Invoke WiFiConnect API on NetworkManager with empty params to reconnect to last SSID */
+    uint32_t invokeWiFiConnect() override;
+
 private:
     // Cached data from last API calls
     std::string m_ipv4Gateway;

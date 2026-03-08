@@ -125,7 +125,7 @@ namespace WPEFramework
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
             g_source_set_callback(m_source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
-            g_source_attach(m_source, NULL);
+            g_source_attach(m_source, g_main_loop_get_context(loop));
             g_main_loop_run(loop);
             if(m_source != nullptr) {
                 if(g_source_is_destroyed(m_source)) {
@@ -1718,7 +1718,7 @@ namespace WPEFramework
                     GSource *source = g_timeout_source_new(10000);  // 10000ms interval
                     if(source != nullptr) {
                         g_source_set_callback(source, (GSourceFunc)wpsGmainLoopTimoutCB, loop, NULL);
-                        g_source_attach(source, NULL);
+                        g_source_attach(source, wpsContext);
                         g_main_loop_run(loop);
                         if(g_source_is_destroyed(source)) {
                             NMLOG_WARNING("Source has been destroyed");

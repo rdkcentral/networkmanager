@@ -372,6 +372,29 @@ uint32_t NetworkComRPCProvider::SubscribeToEvent(const std::string& eventName,
     }
 }
 
+/* @brief Invoke WiFiConnect API on NetworkManager with empty params to reconnect to last SSID */
+uint32_t NetworkComRPCProvider::invokeWiFiConnect()
+{
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return WPEFramework::Core::ERROR_UNAVAILABLE;
+    }
+
+    WPEFramework::Core::JSON::VariantContainer params;
+    WPEFramework::Core::JSON::VariantContainer result;
+
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "WiFiConnect", params, result);
+
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        NSLOG_INFO("WiFiConnect invoked successfully on NetworkManager");
+    } else {
+        NSLOG_ERROR("WiFiConnect invocation failed with error code: %u", rc);
+    }
+
+    return rc;
+}
+
 #ifdef TEST_MAIN
 /* Test main function to validate NetworkComRPCProvider member functions */
 int main()
