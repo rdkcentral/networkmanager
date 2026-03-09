@@ -79,6 +79,17 @@ endif (ENABLE_LEGACY_PLUGINS)
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
+    # Fetch GoogleTest for all test targets
+    include(FetchContent)
+    set(GOOGLE_TEST_VERSION "v1.15.2" CACHE STRING "GoogleTest git tag/branch/commit to use")
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG ${GOOGLE_TEST_VERSION}
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
     add_subdirectory(tests/l1Test)
     add_subdirectory(tests/l2Test)
 endif(ENABLE_UNIT_TESTING)
