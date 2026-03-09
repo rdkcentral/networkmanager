@@ -22,19 +22,24 @@ set(NM_LEGACY_WIFI_UT "legacywifi_tests")
 set(NM_LEGACY_NETWORK_UT "legacynetwork_tests")
 
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 
 add_executable(${NM_LEGACY_WIFI_UT}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/legacy/l2_test_LegacyPlugin_WiFiManagerAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/legacy/LegacyWiFiManagerAPIs.cpp
 )
 
 add_executable(${NM_LEGACY_NETWORK_UT}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/legacy/l2_test_LegacyPlugin_NetworkAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
 )
@@ -55,7 +60,6 @@ include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
 
 target_include_directories(${NM_LEGACY_WIFI_UT} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

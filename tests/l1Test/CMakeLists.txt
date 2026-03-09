@@ -20,8 +20,13 @@ message ("building l1 test")
 
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)

@@ -8,18 +8,18 @@ set(NM_LIBNM_PROXY_L2_TEST "libnm_proxy_l2_test")
 
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(LIBNM REQUIRED libnm)
 pkg_check_modules(GIO REQUIRED gio-2.0)
 
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip
-)
-FetchContent_MakeAvailable(googletest)
+# GoogleTest is provided by tests/thunder/CMakeLists.txt via FetchContent
 
 message("networkmanager building with libnm")
 add_executable(${NM_LIBNM_PROXY_L2_TEST}
@@ -27,7 +27,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyWifi.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyInit.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxy.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/LibnmWraps.cpp
@@ -63,7 +63,6 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/gnome)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
 
 target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
