@@ -20,24 +20,30 @@ cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
 
-# Try WPEFramework first
-find_package(WPEFramework QUIET CONFIG)
+# When THUNDER_VERSION is explicitly set, always use FetchContent
+# (skip find_package — avoids conflicts with stale cached installs)
+if(DEFINED THUNDER_VERSION)
+    message(STATUS "THUNDER_VERSION set — using FetchContent (${THUNDER_VERSION})")
+    add_subdirectory(tests/thunder)
+else()
+    # Try WPEFramework first
+    find_package(WPEFramework QUIET CONFIG)
 
-# If WPEFramework isn't found, try Thunder
-if (NOT WPEFramework_FOUND)
-    find_package(Thunder QUIET CONFIG)
-endif()
+    # If WPEFramework isn't found, try Thunder
+    if (NOT WPEFramework_FOUND)
+        find_package(Thunder QUIET CONFIG)
+    endif()
 
-# If neither is found, use FetchContent when THUNDER_VERSION or ENABLE_UNIT_TESTING is set
-if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
-    if(DEFINED THUNDER_VERSION OR ENABLE_UNIT_TESTING)
-        message(STATUS "Thunder not found via find_package — using FetchContent (THUNDER_VERSION=${THUNDER_VERSION})")
-        add_subdirectory(tests/thunder)
-    else()
-        message(FATAL_ERROR
-            "Neither WPEFramework nor Thunder could be found.\n"
-            "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.\n"
-            "Alternatively, pass -DTHUNDER_VERSION=<tag> to use FetchContent.")
+    if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
+        if(ENABLE_UNIT_TESTING)
+            message(STATUS "Thunder not found via find_package — using FetchContent for test builds")
+            add_subdirectory(tests/thunder)
+        else()
+            message(FATAL_ERROR
+                "Neither WPEFramework nor Thunder could be found.\n"
+                "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.\n"
+                "Alternatively, pass -DTHUNDER_VERSION=<tag> to use FetchContent.")
+        endif()
     endif()
 endif()
 
