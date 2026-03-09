@@ -94,7 +94,7 @@ NetworkManager interface methods:
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
 | [RemoveKnownSSID](#method.RemoveKnownSSID) | Remove given SSID from saved SSIDs |
-| [ConnectToKnownSSID](#method.ConnectToKnownSSID) | Connect To given SSID from saved SSIDs |
+| [ConnectToKnownSSID](#method.ConnectToKnownSSID) | Connects to a saved SSID |
 | [WiFiConnect](#method.WiFiConnect) | Initiates request to connect to the specified SSID with the given passphrase |
 | [WiFiDisconnect](#method.WiFiDisconnect) | Disconnects from the currently connected SSID |
 | [GetConnectedSSID](#method.GetConnectedSSID) | Returns the connected SSID information |
@@ -1242,7 +1242,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 <a name="method.ConnectToKnownSSID"></a>
 ## *ConnectToKnownSSID [<sup>method</sup>](#head.Methods)*
 
-Connect To given SSID from saved SSIDs. This method will initiate a connect a specified SSID from the list of saved SSIDs. if given ssid not in the list of saved SSIDs, it will return failure.
+Connects to a saved SSID. The `ssid` parameter is mandatory. Returns failure if `ssid` is not specified or not found in the saved SSIDs list.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
@@ -1303,7 +1303,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params?.passphrase | string | <sup>*(optional)*</sup> The access point password |
 | params?.security | integer | <sup>*(optional)*</sup> The security mode. See `GetSupportedSecurityModes` |
 | params?.bssid | string | <sup>*(optional)*</sup> Specify the BSSID to connect. if specified it will not connect to other BSSID even with the same SSID. It is optional parameter and if not specified, it will connect to the best BSSID available for the SSID |
-| params?.frequency | integer | <sup>*(optional)*</sup> Specify the frequency band to connect. `1`: 2.4GHz `2`: 5GHz When not specified it will connect to the best frequency available |
+| params?.frequency | integer | <sup>*(optional)*</sup> Specify the frequency band to connect. `1`: 2.4GHz `2`: 5GHz `3`: 6GHz (NOTE: 6GHz is not supported by the current NetworkManager version 1.47.7). When not specified it will connect to the best frequency available |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1926,6 +1926,7 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | Discovered SSID |
+| params.ssids[#].bssid | string | Discovered BSSID |
 | params.ssids[#].security | integer | The security mode. See `GetSupportedSecurityModes` |
 | params.ssids[#].strength | integer | The WiFi Signal RSSI value in dBm |
 | params.ssids[#].frequency | number | The supported frequency for this SSID in GHz |
@@ -1940,6 +1941,7 @@ Triggered when scan completes or when scan cancelled.
     "ssids": [
       {
         "ssid": "myAP-2.4",
+        "bssid": "00:11:22:33:44:55",
         "security": 2,
         "strength": -32,
         "frequency": 2.442

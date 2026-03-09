@@ -680,6 +680,12 @@ namespace WPEFramework
                 {
                     g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
                 }
+                else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_6_GHZ)
+                {
+                    // TODO: 6GHz band support - not supported by current NetworkManager version 1.47.7
+                    NMLOG_WARNING("6GHz frequency band is not supported by the current NetworkManager version");
+                    return false;
+                }
                 else
                 {
                     NMLOG_WARNING("invalid frequency value: %d", ssidinfo.frequency);
@@ -889,7 +895,6 @@ namespace WPEFramework
                 m_createNewConnection = false; // no need to create new connection
                 nm_client_activate_connection_async(m_client, NM_CONNECTION(knownConnection), m_wifidevice, specificObjPath, m_cancellable, wifiConnectCb, this);
                 wait(m_loop);
-                deleteClientConnection();
                 g_object_unref(knownConnection);
                 ret =  m_isSuccess;
             }
@@ -1074,7 +1079,7 @@ namespace WPEFramework
 
             if(getConnectedAPInfo(m_wifidevice, connectedApInfo))
             {
-                if(ssidInfo.ssid == connectedApInfo.ssid && ssidInfo.security == connectedApInfo.security)
+                if(ssidInfo.ssid == connectedApInfo.ssid)
                 {
                     if(ssidInfo.bssid.empty())
                     {

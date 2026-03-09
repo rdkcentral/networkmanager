@@ -777,10 +777,16 @@ namespace WPEFramework
             if (parameters.HasLabel("ssid"))
                 ssid = parameters["ssid"].String();
 
-            if (_networkManager)
+            if (ssid.empty()) {
+                NMLOG_WARNING("ssid not provided or empty in ConnectToKnownSSID request!");
+                rc = Core::ERROR_BAD_REQUEST;
+            }
+            else if (_networkManager) {
                 rc = _networkManager->ConnectToKnownSSID(ssid);
-            else
+            }
+            else {
                 rc = Core::ERROR_UNAVAILABLE;
+            }
 
             returnJson(rc);
         }
@@ -801,7 +807,15 @@ namespace WPEFramework
                 if (parameters.HasLabel("bssid"))
                     ssid.bssid = parameters["bssid"].String();
                 if (parameters.HasLabel("frequency"))
-                    ssid.frequency =  static_cast <Exchange::INetworkManager::WIFIFrequency> (parameters["frequency"].Number());
+                {
+                    int freq = parameters["frequency"].Number();
+                    if (freq < 0 || freq > 3) {
+                        NMLOG_WARNING("Invalid frequency value: %d", freq);
+                        rc = Core::ERROR_BAD_REQUEST;
+                        returnJson(rc);
+                    }
+                    ssid.frequency =  static_cast <Exchange::INetworkManager::WIFIFrequency> (freq);
+                }
 
                 if (parameters.HasLabel("security"))
                     ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());

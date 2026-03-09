@@ -34,7 +34,7 @@
 #endif
 
 namespace NetworkManagerLogger {
-    static LogLevel gDefaultLogLevel = DEBUG_LEVEL;
+    static LogLevel gDefaultLogLevel = INFO_LEVEL;
 
 
 #ifdef USE_RDK_LOGGER
