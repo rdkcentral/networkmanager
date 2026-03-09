@@ -30,6 +30,8 @@ configure_file("${thundertools_SOURCE_DIR}/cmake/FindProxyStubGenerator.cmake.in
                "${thundertools_BINARY_DIR}/FindProxyStubGenerator.cmake" @ONLY)
 configure_file("${thundertools_SOURCE_DIR}/cmake/FindJsonGenerator.cmake.in"
                "${thundertools_BINARY_DIR}/FindJsonGenerator.cmake" @ONLY)
+configure_file("${thundertools_SOURCE_DIR}/cmake/FindConfigGenerator.cmake.in"
+               "${thundertools_BINARY_DIR}/FindConfigGenerator.cmake" @ONLY)
 
 # ============================================================================
 # 2. Thunder (built as static libraries for unit testing)
