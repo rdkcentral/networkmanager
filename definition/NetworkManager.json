@@ -1032,12 +1032,12 @@
                         "$ref": "#/definitions/security"
                     },
                     "bssid": {
-                        "summary": "Specify the BSSID to connect. if specified it will not connect to other BSSID even with the same SSID. It is optional parameter and if not specified, it will connect to the best BSSID available for the SSID.",
+                        "summary": "BSSID to connect to. If specified, restricts connection to this BSSID only. Defaults to the best available BSSID for the SSID.",
                         "type": "string",
                         "example": "00:11:22:33:44:55"
                     },
                     "frequency": {
-                        "summary": "Specify the frequency band to connect. `1`: 2.4GHz `2`: 5GHz `3`: 6GHz (NOTE: 6GHz is not supported by the current NetworkManager version 1.47.7). When not specified it will connect to the best frequency available",
+                        "summary": "Frequency band: `1` - 2.4GHz, `2` - 5GHz. If specified, connects only to SSIDs on the given frequency band. Defaults to best available.",
                         "type": "integer",
                         "example": 2
                     },
