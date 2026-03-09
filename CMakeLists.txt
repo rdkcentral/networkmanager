@@ -28,16 +28,16 @@ if (NOT WPEFramework_FOUND)
     find_package(Thunder QUIET CONFIG)
 endif()
 
-# If neither is found, use FetchContent for test-only builds
+# If neither is found, use FetchContent when THUNDER_VERSION or ENABLE_UNIT_TESTING is set
 if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
-    if(ENABLE_UNIT_TESTING)
-        message(STATUS "Thunder not found via find_package — using FetchContent for test builds")
+    if(DEFINED THUNDER_VERSION OR ENABLE_UNIT_TESTING)
+        message(STATUS "Thunder not found via find_package — using FetchContent (THUNDER_VERSION=${THUNDER_VERSION})")
         add_subdirectory(tests/thunder)
     else()
         message(FATAL_ERROR
             "Neither WPEFramework nor Thunder could be found.\n"
             "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.\n"
-            "Alternatively, enable ENABLE_UNIT_TESTING to use FetchContent.")
+            "Alternatively, pass -DTHUNDER_VERSION=<tag> to use FetchContent.")
     endif()
 endif()
 

@@ -15,31 +15,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      # Set up Thunder cache
-      - name: Set up Thunder cache
-        id: cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            build/Thunder
-            build/ThunderInterfaces
-            build/ThunderTools
-            install
-            !install/etc/WPEFramework/plugins
-            !install/usr/bin/libnmproxy_l1_test
-            !install/usr/include/gmock
-            !install/usr/include/gtest
-            !install/usr/lib/libgmockd.a
-            !install/usr/lib/libgmock_maind.a
-            !install/usr/lib/libgtestd.a
-            !install/usr/lib/libgtest_maind.a
-            !install/usr/lib/cmake/GTest
-            !install/usr/lib/pkgconfig/gmock.pc
-            !install/usr/lib/pkgconfig/gmock_main.pc
-            !install/usr/lib/pkgconfig/gtest.pc
-            !install/usr/lib/pkgconfig/gtest_main.pc
-            !install/usr/lib/wpeframework/plugins
-          key: thunder-${{ env.THUNDER_REF }}-libnm
       - name: Install packages
         run: |
           sudo apt update
