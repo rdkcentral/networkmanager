@@ -86,4 +86,8 @@ set(CMAKE_MODULE_PATH
 # Now build Thunder (its CMakeLists.txt will find everything it needs)
 add_subdirectory(${thunder_SOURCE_DIR} ${thunder_BINARY_DIR})
 
+# ProxyStubGenerator needs to resolve Thunder headers (e.g. com/IIteratorType.h)
+# when processing INetworkManager.h. Point it at Thunder's Source directory.
+set(GENERATOR_SEARCH_PATH "${thunder_SOURCE_DIR}/Source" CACHE PATH "" FORCE)
+
 # GoogleTest is fetched in the root CMakeLists.txt when ENABLE_UNIT_TESTING is ON
