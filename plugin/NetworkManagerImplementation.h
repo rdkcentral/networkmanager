@@ -270,6 +270,7 @@ namespace WPEFramework
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void logTelemetry(const std::string& eventName, const std::string& message);
 
             private:
                 void platform_init(void);

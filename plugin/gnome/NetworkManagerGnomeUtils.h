@@ -50,6 +50,8 @@ namespace WPEFramework
                static bool isInterfaceEnabled(const std::string& interface);
                static bool writePersistentHostname(const std::string& hostname);
                static bool readPersistentHostname(std::string& hostname);
+               static std::string resolveGatewayMac(const std::string& gatewayIp);
+               static std::string getGatewayMacAddress(NMClient* client, const std::string& interface);
                static bool isValidBSSID(const std::string& bssid);
         };
     }

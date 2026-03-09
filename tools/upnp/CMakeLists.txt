@@ -34,9 +34,7 @@ if (NOT GUPNP_FOUND)
 endif ()
 
 if (USE_TELEMETRY)
-    find_package(T2 REQUIRED)
-    add_definitions(-DUSE_TELEMETRY)
-    include_directories(${TELEMETRY_INCLUDE_DIRS})
+    include_directories(${T2_INCLUDE_DIRS})
 endif (USE_TELEMETRY)
 
 add_definitions(-DENABLE_ROUTER_DISCOVERY_MAIN)

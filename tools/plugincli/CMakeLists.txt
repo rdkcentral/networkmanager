@@ -85,7 +85,7 @@ if(ENABLE_GNOME_GDBUS)
 
     target_compile_options(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_COMPILE_OPTIONS})
     target_include_directories(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_INCLUDES})
-    target_link_libraries(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_LIBS} uuid)
+    target_link_libraries(${PLUGIN_GDBUS_CLI} PRIVATE ${COMMON_LIBS} ${LIBNM_LIBRARIES} uuid)
 
     install(TARGETS ${PLUGIN_GDBUS_CLI} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
