@@ -23,6 +23,7 @@
 #include <iostream>
 #include "ServiceMock.h"
 #include "FactoriesImplementation.h"
+#include "WorkerPoolImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "LegacyNetworkAPIs.h"
 #include "ThunderPortability.h"
@@ -52,6 +53,8 @@ protected:
     bool m_subsActIfaceChange;
     bool m_subsIPAddrChange;
     bool m_subsInternetChange;
+    Core::ProxyType<WorkerPoolImplementation> workerPool;
+    NiceMock<FactoriesImplementation> factoriesImplementation;
 
     NetworkTest()
         : plugin(Core::ProxyType<Plugin::Network>::Create())
@@ -62,7 +65,11 @@ protected:
           , m_subsActIfaceChange(true)
           , m_subsIPAddrChange(true)
           , m_subsInternetChange(true)
+          , workerPool(Core::ProxyType<WorkerPoolImplementation>::Create(2, Core::Thread::DefaultStackSize(), 16))
     {
+        PluginHost::IFactories::Assign(&factoriesImplementation);
+        Core::IWorkerPool::Assign(&(*workerPool));
+        workerPool->Run();
         ServiceMock* service = new ServiceMock();
         WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
         ServiceMock* mockShell = new ServiceMock();
@@ -98,6 +105,10 @@ protected:
         plugin->Deinitialize(m_service);
         m_service->Release();
         delete m_service;
+
+        Core::IWorkerPool::Assign(nullptr);
+        workerPool.Release();
+        PluginHost::IFactories::Assign(nullptr);
     }
 };
 
