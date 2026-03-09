@@ -435,13 +435,19 @@ namespace WPEFramework
                 {
                     NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
                     // continue searching other APs in case of multiple APs with same SSID and matching BSSID or frequency
-                    // TODO hidden ssid handling - if ssidInfo.ssid is empty then matching based on bssid ?
                     continue;
                 }
 
                 if(!ssidInfo.bssid.empty())
                 {
-                    std::string bssidStr = nm_access_point_get_bssid(ap);
+                    const char* bssid = nm_access_point_get_bssid(ap);
+                    if(bssid == nullptr)
+                    {
+                        NMLOG_DEBUG("BSSID is NULL for AP, skipping");
+                        continue;
+                    }
+
+                    std::string bssidStr = bssid;
                     if(ssidInfo.bssid == bssidStr)
                     {
                         NMLOG_DEBUG("BSSID matched: %s", bssidStr.c_str());
@@ -455,11 +461,11 @@ namespace WPEFramework
                     }
                 }
 
-                // TODO frequency matching if ssidInfo.frequency ?
-                // BSSID matching should be sufficient to identify the AP uniquely even if there are multiple APs with same SSID
-
                 if(ssidMatch)
+                {
                     AccessPoint = ap;
+                    break;
+                }
             }
 
             return AccessPoint;
