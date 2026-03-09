@@ -1178,6 +1178,101 @@ TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_success)
     g_ptr_array_free(fakeDevices, TRUE);
 }
 
+TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_BOOT_MIGRATION_deletesWiredConnections)
+{
+    // Scope guard: remove /tmp/bootType on exit regardless of test outcome so that
+    // early ASSERT failures or exceptions cannot leave the file behind and pollute
+    // subsequent SetInterfaceState tests that read the same path.
+    struct BootFileGuard {
+        ~BootFileGuard() { std::remove("/tmp/bootType"); }
+    } bootFileGuard;
+
+    // Write the boot type indicator file so the production code detects BOOT_MIGRATION
+    {
+        std::ofstream bootFile("/tmp/bootType");
+        ASSERT_TRUE(bootFile.is_open());
+        bootFile << "BOOT_TYPE=BOOT_MIGRATION";
+    }
+
+    // --- Device / enable-path mocks (same pattern as SetInterfaceState_eth0_enable_success) ---
+    GPtrArray* fakeDevices = g_ptr_array_new();
+    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    g_ptr_array_add(fakeDevices, deviceDummy);
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
+        .WillRepeatedly(::testing::Return(fakeDevices));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("eth0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+
+    EXPECT_CALL(*p_gLibWrapsImplMock, g_main_loop_is_running(::testing::_))
+        .WillRepeatedly(::testing::Return(true));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_object_get_path(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<char*>(NULL)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_dbus_set_property_finish(::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Invoke([](NMClient *client, GAsyncResult *result, GError **error) -> gboolean {
+            return TRUE;
+        }));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_dbus_set_property(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Invoke([](NMClient *client, const char *object_path, const char *interface_name, const char *property_name, GVariant *value, int timeout_msec, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                if (callback) {
+                    GObject* source_object = G_OBJECT(client);
+                    GAsyncResult* result = nullptr;
+                    callback(source_object, result, user_data);
+                }
+        }));
+
+    // --- BOOT_MIGRATION mocks ---
+    // One wired NMRemoteConnection in the connections snapshot
+    NMRemoteConnection* wiredConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
+    GPtrArray* dummyConns = g_ptr_array_new();
+    g_ptr_array_add(dummyConns, wiredConn);
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<const GPtrArray*>(dummyConns)));
+
+    // Real NMSettingConnection with connection-type = "802-3-ethernet".
+    // nm_setting_connection_get_connection_type() is called directly (not via LibnmWraps),
+    // so the real libnm function reads the type from this GObject property.
+    NMSettingConnection* wiredSCon = NM_SETTING_CONNECTION(g_object_new(NM_TYPE_SETTING_CONNECTION, NULL));
+    g_object_set(G_OBJECT(wiredSCon), NM_SETTING_CONNECTION_TYPE, NM_SETTING_WIRED_SETTING_NAME, NULL);
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
+        .WillOnce(::testing::Return(wiredSCon));
+
+    // The wired connection must be deleted exactly once
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_remote_connection_delete(wiredConn, nullptr, ::testing::_))
+        .WillOnce(::testing::Return(TRUE));
+
+    // activateKnownConnection: nm_client_get_device_by_iface returning NULL causes early return
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+        .WillRepeatedly(::testing::Return(static_cast<NMDevice*>(NULL)));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetInterfaceState"), _T("{\"interface\":\"eth0\",\"enabled\":true}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+
+    // Production code must have removed /tmp/bootType for idempotency.
+    // Check specifically for ENOENT so the assertion doesn't pass spuriously
+    // on unrelated stat() failures (e.g. permission or SELinux errors).
+    {
+        struct stat bootFileStat;
+        int rc = stat("/tmp/bootType", &bootFileStat);
+        EXPECT_EQ(-1, rc);
+        if (rc == -1)
+            EXPECT_EQ(ENOENT, errno);
+    }
+
+    // Cleanup — wiredConn ref count: 1 (new) +1 (g_object_ref in snapshot) -1 (snapshot unref) = 1
+    g_object_unref(wiredSCon);
+    g_object_unref(wiredConn);
+    g_ptr_array_free(dummyConns, TRUE);
+    g_object_unref(deviceDummy);
+    g_ptr_array_free(fakeDevices, TRUE);
+}
 
 TEST_F(NetworkManagerTest, SetIPSettings_interface_empty)
 {
