@@ -929,7 +929,7 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
+           //  Check the last scanning time and if it exceeds 5 sec do a rescanning
             if(!wifi->isWifiScannedRecently())
             {
                 nmEvent->setwifiScanOptions(false);
@@ -939,7 +939,7 @@ namespace WPEFramework
 
             if(ssid.ssid.empty())
             {
-                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
                 if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                 {
                     rc = Core::ERROR_NONE;

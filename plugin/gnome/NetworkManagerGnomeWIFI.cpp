@@ -434,7 +434,7 @@ namespace WPEFramework
                 else
                 {
                     NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
-                    // continue searching other APs in case of multiple APs with same SSID and matching BSSID or frequency
+                    // continue searching other APs in case of multiple APs with the same SSID (and optionally matching BSSID)
                     continue;
                 }
 
@@ -1067,7 +1067,6 @@ namespace WPEFramework
 
             Exchange::INetworkManager::WiFiSSIDInfo apinfo;
             Exchange::INetworkManager::WiFiSSIDInfo connectedApInfo;
-            std::string activeSSID{};
 
             NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %d, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency, ssidInfoParam.security, ssidInfoParam.persist);
 
@@ -1108,7 +1107,7 @@ namespace WPEFramework
                     }
                 }
                 else
-                    NMLOG_DEBUG("wifi already connected with %s AP", activeSSID.c_str());
+                    NMLOG_DEBUG("wifi already connected with %s AP", connectedApInfo.ssid.c_str());
             }
 
             ApList = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(m_wifidevice));
