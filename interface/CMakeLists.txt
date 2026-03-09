@@ -18,9 +18,15 @@
 #############################################################################
 message("Generate ProxyStub for INetworkManager.h")
 
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
-find_package(CompileSettingsDebug CONFIG REQUIRED)
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
+if(NOT TARGET CompileSettingsDebug::CompileSettingsDebug)
+    find_package(CompileSettingsDebug CONFIG REQUIRED)
+endif()
 find_package(ProxyStubGenerator REQUIRED)
 
 set(PROXYLIB ${NAMESPACE}${PROJECT_NAME}Proxy)

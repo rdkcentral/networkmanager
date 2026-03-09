@@ -18,8 +18,12 @@
 #############################################################################
 message("Build Legacy Plugins")
 
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 
 set(PLUGIN_LEGACY_NETWORK ${NAMESPACE}Network)
 set(PLUGIN_LEGACY_WIFI    ${NAMESPACE}WiFiManager)

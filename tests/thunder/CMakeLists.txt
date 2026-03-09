@@ -28,9 +28,35 @@ set(SECURE_SOCKET OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(Thunder)
 
+# ============================================================================
+# FetchContent: ThunderTools (source only — for ProxyStubGenerator / JsonGenerator)
+# ============================================================================
+
+FetchContent_Declare(ThunderTools
+    GIT_REPOSITORY https://github.com/rdkcentral/ThunderTools.git
+    GIT_TAG ${THUNDER_VERSION}
+)
+FetchContent_Populate(ThunderTools)
+
+# Point the generators at the fetched source tree
+set(PROXYSTUB_GENERATOR "${thundertools_SOURCE_DIR}/ProxyStubGenerator/StubGenerator.py" CACHE STRING "" FORCE)
+set(JSON_GENERATOR "${thundertools_SOURCE_DIR}/JsonGenerator/JsonGenerator.py" CACHE STRING "" FORCE)
+
+# The .cmake.in templates use @ONLY substitution for these options (default OFF)
+set(PROXYSTUB_GENERATOR_ENABLE_SECURITY  OFF)
+set(PROXYSTUB_GENERATOR_ENABLE_COHERENCY OFF)
+set(JSON_GENERATOR_ENABLE_STATS          OFF)
+
+# Generate the Find*.cmake modules from templates so find_package() works
+configure_file("${thundertools_SOURCE_DIR}/cmake/FindProxyStubGenerator.cmake.in"
+               "${thundertools_BINARY_DIR}/FindProxyStubGenerator.cmake" @ONLY)
+configure_file("${thundertools_SOURCE_DIR}/cmake/FindJsonGenerator.cmake.in"
+               "${thundertools_BINARY_DIR}/FindJsonGenerator.cmake" @ONLY)
+
 # Make Thunder's cmake modules (CmakeHelperFunctions, generators, etc.)
 # available to the rest of the build
 set(CMAKE_MODULE_PATH
+    "${thundertools_BINARY_DIR}"
     "${thunder_SOURCE_DIR}/cmake/common"
     "${thunder_SOURCE_DIR}/cmake/modules"
     ${CMAKE_MODULE_PATH}
