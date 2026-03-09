@@ -20,6 +20,10 @@ FetchContent_Populate(ThunderTools)
 set(PROXYSTUB_GENERATOR "${thundertools_SOURCE_DIR}/ProxyStubGenerator/StubGenerator.py" CACHE STRING "" FORCE)
 set(JSON_GENERATOR "${thundertools_SOURCE_DIR}/JsonGenerator/JsonGenerator.py" CACHE STRING "" FORCE)
 
+# R4.4.3 templates use @GENERATOR_INSTALL_PATH@ with unconditional set(), so this
+# MUST be set before configure_file for the paths to resolve correctly.
+set(GENERATOR_INSTALL_PATH "${thundertools_SOURCE_DIR}")
+
 # The .cmake.in templates use @ONLY substitution for these options (default OFF)
 set(PROXYSTUB_GENERATOR_ENABLE_SECURITY  OFF)
 set(PROXYSTUB_GENERATOR_ENABLE_COHERENCY OFF)
@@ -62,6 +66,13 @@ set(SECURE_SOCKET OFF CACHE BOOL "" FORCE)
 # first so that Thunder's CMakeLists.txt can find platform, CmakeHelperFunctions,
 # and ProxyStubGenerator when it runs.
 FetchContent_Populate(Thunder)
+
+# R4.x uses CMAKE_SOURCE_DIR which breaks when Thunder is built as a subdirectory
+# (it points to networkmanager's root instead of Thunder's source). Patch it in-place
+# to use CMAKE_CURRENT_SOURCE_DIR, matching the fix applied upstream in R5.0.0+.
+file(READ "${thunder_SOURCE_DIR}/CMakeLists.txt" _thunder_cmakelists)
+string(REPLACE "CMAKE_SOURCE_DIR}" "CMAKE_CURRENT_SOURCE_DIR}" _thunder_cmakelists "${_thunder_cmakelists}")
+file(WRITE "${thunder_SOURCE_DIR}/CMakeLists.txt" "${_thunder_cmakelists}")
 
 set(CMAKE_MODULE_PATH
     "${thundertools_BINARY_DIR}"
