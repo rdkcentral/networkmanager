@@ -474,23 +474,60 @@ namespace WPEFramework
 
                     if(file.is_open())
                     {
-                        std::string content;
-                        file >> content; // Direct read (skips leading/trailing whitespace by default)
+                        std::string line, bootTypeValue;
+                        while(std::getline(file, line))
+                        {
+                            const std::string key = "BOOT_TYPE=";
+                            auto pos = line.find(key);
+                            if(pos != std::string::npos)
+                            {
+                                bootTypeValue = line.substr(pos + key.size());
+                                break;
+                            }
+                        }
 
-                        if(content == "BOOT_MIGRATION")
+                        if(bootTypeValue == "BOOT_MIGRATION")
                         {
                             NMLOG_INFO("BOOT_MIGRATION detected, deleting all NM connections");
+
+                            // Remove flag immediately to ensure idempotency
+                            std::remove(bootFile);
 
                             const GPtrArray *connections = nm_client_get_connections(client);
                             if(connections && connections->len > 0)
                             {
+                                /* Snapshot the list before iterating: nm_client_get_connections()
+                                 * returns an internal array that can be mutated as connections
+                                 * are removed, so we must not iterate it while deleting. */
+                                GPtrArray *snapshot = g_ptr_array_new_full(connections->len, g_object_unref);
                                 for(guint i = 0; i < connections->len; ++i)
                                 {
                                     NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
-                                    if(!conn)
+                                    if(!conn) continue;
+                                    NMSettingConnection *sCon = nm_connection_get_setting_connection(NM_CONNECTION(conn));
+                                    if(!sCon) continue;
+                                    const char *connType = nm_setting_connection_get_connection_type(sCon);
+                                    if(g_strcmp0(connType, NM_SETTING_WIRED_SETTING_NAME) != 0)
+                                    {
+                                        NMLOG_DEBUG("Skipping non-wired connection type: %s", connType ? connType : "null");
                                         continue;
-                                    nm_remote_connection_delete_async(conn, nullptr, onConnectionDeletedCb, nullptr);
+                                    }
+                                    g_ptr_array_add(snapshot, g_object_ref(conn));
                                 }
+
+                                for(guint i = 0; i < snapshot->len; ++i)
+                                {
+                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
+                                    GError *error = nullptr;
+                                    if(!nm_remote_connection_delete(conn, nullptr, &error))
+                                    {
+                                        NMLOG_ERROR("Failed to delete connection %s: %s",
+                                                    nm_connection_get_id(NM_CONNECTION(conn)),
+                                                    error ? error->message : "unknown error");
+                                        if(error) g_error_free(error);
+                                    }
+                                }
+                                g_ptr_array_unref(snapshot);
                             }
                         }
                     }
