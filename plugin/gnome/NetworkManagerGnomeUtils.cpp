@@ -22,6 +22,8 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <sstream>
+#include <fstream>
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
 #include "Module.h"
@@ -66,10 +68,10 @@ namespace WPEFramework
         }
 
         // Function to convert percentage (0-100) to dBm string
-        const char* nmUtils::convertPercentageToSignalStrengtStr(int percentage) {
+        int nmUtils::convertPercentageToSignalStrength(int percentage) {
 
             if (percentage <= 0 || percentage > 100) {
-                return "";
+                return 0;
             }
 
            /*
@@ -85,9 +87,7 @@ namespace WPEFramework
             const int max_dBm = -30;
             const int min_dBm = -90;
             int dBm_value = max_dBm + ((min_dBm - max_dBm) * (100 - percentage)) / 100;
-            static char result[8]={0};
-            snprintf(result, sizeof(result), "%d", dBm_value);
-            return result;
+            return dBm_value;
         }
 
         std::string nmUtils::getSecurityModeString(guint32 flag, guint32 wpaFlags, guint32 rsnFlags)
@@ -180,17 +180,17 @@ namespace WPEFramework
             return securityStr;
         }
 
-       std::string nmUtils::wifiFrequencyFromAp(guint32 apFreq)
+       double nmUtils::wifiFrequencyFromAp(guint32 apFreq)
        {
-            std::string freq;
+            double freq;
             if (apFreq >= 2400 && apFreq < 5000)
-                freq = "2.4";
+                freq = 2.4;
             else if (apFreq >= 5000 && apFreq < 6000)
-                freq = "5";
+                freq = 5;
             else if (apFreq >= 6000)
-                freq = "6";
+                freq = 6;
             else
-                freq = "Not available";
+                freq = 0;
 
             return freq;
        }
@@ -389,6 +389,101 @@ namespace WPEFramework
             hostname = "";
             file.close();
             return false;
+        }
+
+        std::string nmUtils::resolveGatewayMac(const std::string& gatewayIp)
+        {
+            std::string mac = "";
+            std::string arpFile = "/proc/net/arp";
+            std::ifstream file(arpFile);
+            std::string line;
+
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open %s", arpFile.c_str());
+                return mac;
+            }
+
+            // Skip header
+            std::getline(file, line);
+
+            while (std::getline(file, line)) {
+                std::istringstream iss(line);
+                std::string ip, hwType, flags, hwAddr;
+
+                if (iss >> ip >> hwType >> flags >> hwAddr) {
+                    if (ip == gatewayIp && hwAddr != "00:00:00:00:00:00") {
+                        mac = hwAddr;
+                        NMLOG_INFO("Resolved gateway IP %s to MAC %s", gatewayIp.c_str(), mac.c_str());
+                        break;
+                    }
+                }
+            }
+
+            if (mac.empty()) {
+                NMLOG_WARNING("Could not resolve gateway IP %s to MAC address", gatewayIp.c_str());
+            }
+
+            return mac;
+        }
+
+        std::string nmUtils::getGatewayMacAddress(NMClient* client, const std::string& interface)
+        {
+            std::string gatewayMac = "";
+
+            if (client == NULL) {
+                NMLOG_ERROR("NMClient is NULL");
+                return gatewayMac;
+            }
+
+            if (interface.empty()) {
+                NMLOG_ERROR("Interface name is empty");
+                return gatewayMac;
+            }
+
+            // Get all active connections and find the one for our interface
+            const GPtrArray *activeConnections = nm_client_get_active_connections(client);
+            if (!activeConnections) {
+                NMLOG_WARNING("No active connections found");
+                return gatewayMac;
+            }
+
+            for (guint i = 0; i < activeConnections->len; i++) {
+                NMActiveConnection *activeConn = NM_ACTIVE_CONNECTION(g_ptr_array_index(activeConnections, i));
+                if (!activeConn) continue;
+
+                // Get devices for this connection
+                const GPtrArray *devices = nm_active_connection_get_devices(activeConn);
+                if (!devices) continue;
+
+                // Check if this connection belongs to our interface
+                for (guint j = 0; j < devices->len; j++) {
+                    NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, j));
+                    if (!device) continue;
+
+                    const char *ifname = nm_device_get_iface(device);
+                    if (ifname && interface == ifname) {
+                        // Found the connection for our interface
+                        NMIPConfig *ip4Config = nm_active_connection_get_ip4_config(activeConn);
+                        if (ip4Config) {
+                            const char *gateway = nm_ip_config_get_gateway(ip4Config);
+                            if (gateway) {
+                                NMLOG_DEBUG("Found gateway IP for %s: %s", interface.c_str(), gateway);
+                                // Use ARP to resolve gateway IP to MAC address
+                                gatewayMac = resolveGatewayMac(gateway);
+                                return gatewayMac;
+                            } else {
+                                NMLOG_WARNING("No gateway found for %s", interface.c_str());
+                            }
+                        } else {
+                            NMLOG_WARNING("No IPv4 configuration found for %s", interface.c_str());
+                        }
+                        return gatewayMac;
+                    }
+                }
+            }
+
+            NMLOG_WARNING("No active connection found for interface %s", interface.c_str());
+            return gatewayMac;
         }
 
     }   // Plugin

@@ -14,6 +14,44 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [2.0.0] - 2026-02-11
+### Changed
+- The onAvailableSSIDs event signature changed to report strength, noise & frequency as Number 
+- Fixed the Activate Connection method to connect given (Ethernet and WiFi) connectionID
+
+## [1.13.0] - 2026-01-30
+### Added
+- Implemented IPv4LL support for both Ethernet and WiFi interfaces
+- Implemented logic to enable WiFi upon migration
+- Fixed crash of Thunder Plugin upon Async WiFiConnect by using GCancellable
+
+## [1.12.0] - 2025-12-23
+### Fixed
+- Fixed the Ethernet interface enablement upon EntOS migration
+
+## [1.11.0] - 2025-12-19
+### Added
+- Added support to build for Thunder R5.x
+
+## [1.10.0] - 2025-12-05
+### Fixed
+- Fixed the GetIPSettings for RDK Backend to return only when all the information like DNS info retrieved
+- Fixed the retrieval of psk to pass it to MfrMgr.
+
+## [1.9.0] - 2025-11-21
+### Added
+- Added shortterm solution to print the AP Info
+
+## [1.8.0] - 2025-11-14
+### Fixed
+- Removed logging of WiFi PII information
+
+## [1.7.0] - 2025-11-13
+### Fixed
+- Fixed bug MfrMgr Integration
+- Subscribed to WiFi Events even when the device boots with wifi disabled
+- Fixed the WiFi signal monitoring as the reporred RSSI was stale data
+
 ## [1.6.0] - 2025-10-31
 ### Added
 - Integrated MfrMgr to persist WiFi Credential for DRI & Rollback to RDK-V Backend

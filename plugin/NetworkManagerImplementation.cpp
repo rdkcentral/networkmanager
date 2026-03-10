@@ -20,13 +20,19 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
+
+#if USE_TELEMETRY
+#include "NetworkManagerJsonEnum.h"
+#include <telemetry_busmessage_sender.h>
+#endif
+
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
 #define SSID_COMMAND        "wpa_cli status"
-#define BSS_COMMAND         "wpa_cli bss"
+#define SIGNAL_POLL_COMMAND "wpa_cli signal_poll"
 
 namespace WPEFramework
 {
@@ -36,7 +42,6 @@ namespace WPEFramework
         SERVICE_REGISTRATION(NetworkManagerImplementation, NETWORKMANAGER_MAJOR_VERSION, NETWORKMANAGER_MINOR_VERSION, NETWORKMANAGER_PATCH_VERSION);
 
         NetworkManagerImplementation::NetworkManagerImplementation()
-            : _notificationCallbacks({})
         {
             /* Initialize STUN Endpoints */
             m_stunEndpoint = "stun.l.google.com";
@@ -57,6 +62,10 @@ namespace WPEFramework
             NetworkManagerLogger::Init();
             NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
+            #if USE_TELEMETRY
+                // Initialize Telemetry T2 for NwMgrPlugin
+                t2_init("NwMgrPlugin");
+            #endif
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -81,7 +90,6 @@ namespace WPEFramework
                 m_processMonThread.join();
             }
         }
-
         /**
          * Register a notification callback
          */
@@ -359,6 +367,13 @@ namespace WPEFramework
                     interface = m_defaultInterface;
 
                 ipaddress = result.public_ip;
+#if USE_TELEMETRY
+                if(ipversion == "IPv4")
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV4", ipaddress);
+                }
+#endif
                 return Core::ERROR_NONE;
             }
             else
@@ -712,6 +727,10 @@ namespace WPEFramework
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
+#if USE_TELEMETRY
+            NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
+            logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -758,9 +777,24 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+#if USE_TELEMETRY
+            // Log error only when ethernet is down and there's no internet
+            if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
+               !m_ethConnected.load() &&
+               prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
+            {
+                NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
+                logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
+            }
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState, interface);
             }
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
+            NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
+            logTelemetry("NM_INTERNET_STATUS", stateStr);
+#endif
             _notificationLock.Unlock();
         }
 
@@ -839,118 +873,161 @@ namespace WPEFramework
         }
 
         /* The below implementation of GetWiFiSignalQuality is a temporary mitigation. Need to be revisited */
-        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */)
+        uint32_t NetworkManagerImplementation::GetWiFiSignalQuality(string& ssid /* @out */, int& strength /* @out */, int& noise /* @out */, int& snr /* @out */, WiFiSignalQuality& quality /* @out */)
         {
-            uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            int16_t readSnr = 0;
-
-            std::string key, value;
-            int16_t readNoise = 0;
-            string bssid{};
+            std::string key{}, value{}, bssid{}, band{};
             char buff[512] = {'\0'};
-
             FILE *fp = NULL;
 
-            /* SSID */
+            /* Get BSSID and SSID from wpa_cli status */
             fp = popen(SSID_COMMAND, "r");
             if (!fp)
             {
-                NMLOG_ERROR("Failed in getting output from command %s",SSID_COMMAND);
-                return Core::ERROR_RPC_CALL_FAILED;
+                NMLOG_ERROR("Failed in getting output from command %s", SSID_COMMAND);
+                return Core::ERROR_GENERAL;
             }
-            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))                                                                     {
-                std::istringstream mystream(buff);
-                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
-                {
-                    if (key == "bssid") {
-                        bssid = value;
-                        break;
-                    }
-                }
-            }
-            pclose(fp);
 
-            /* Noise n RSSI */
-            std::string bssCommand = std::string(BSS_COMMAND) + " " + bssid;
-            fp = popen(bssCommand.c_str(), "r");
-            if (!fp)
-            {
-                NMLOG_ERROR("Failed in getting output from command %s",BSS_COMMAND);
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
             while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
             {
                 std::istringstream mystream(buff);
                 if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
                 {
-                    if (key == "level") {
-                        strength = value;
-                    }
-                    else if (key == "noise") {
-                        noise = value;
-                    }
-                    else if (key == "ssid") {
+                    if (key == "ssid") {
                         ssid = value;
                     }
-                    else if (key == "snr") {
-                        snr = value;
+                    else if (key == "bssid") {
+                        bssid = value;
                     }
-                    if (!strength.empty() && !noise.empty() && !ssid.empty() && !snr.empty())
+                    if (!ssid.empty() && !bssid.empty())
                         break;
                 }
             }
             pclose(fp);
 
-            /* NOTE: The std::stoi() will throw exception if the string input is empty; so set to 0 */
-            if (noise.empty())
-                noise= "0";
-            if (snr.empty())
-                snr = "0";
-            if (strength.empty())
-                strength = "0";
+            /* If BSSID is empty, WiFi is disconnected */
+            if (bssid.empty()) {
+                NMLOG_WARNING("WiFi is disconnected (BSSID is empty)");
+                quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
+                ssid = "";
+                strength = 0;
+                noise = 0;
+                snr = 0;
+                return Core::ERROR_NONE;
+            }
 
-            readNoise = std::stoi(noise);
-            readSnr = std::stoi(snr);
+            /*Get real-time signal data from wpa_cli signal_poll */
+            fp = popen(SIGNAL_POLL_COMMAND, "r");
+            if (!fp)
+            {
+                NMLOG_ERROR("Failed in getting output from command %s", SIGNAL_POLL_COMMAND);
+                return Core::ERROR_GENERAL;
+            }
+
+            // Collect raw values during parsing
+            std::string linkSpeed, rssiValue, noiseValue, avgRssiValue, freqValue;
+            while ((!feof(fp)) && (fgets(buff, sizeof (buff), fp) != NULL))
+            {
+                std::istringstream mystream(buff);
+                if(std::getline(std::getline(mystream, key, '=') >> std::ws, value))
+                {
+                    if (key == "RSSI") {
+                        rssiValue = value;
+                    }
+                    else if (key == "NOISE") {
+                        noiseValue = value;
+                    }
+                    else if (key == "AVG_RSSI") {
+                        avgRssiValue = value;
+                    }
+                    else if (key == "FREQUENCY")
+                    {
+                        freqValue = value;
+                    }
+		    else if (key == "LINKSPEED")
+                    {
+                        linkSpeed = value;
+                    }
+                }
+            }
+            pclose(fp);
+
+            // Helper to safely convert string to int
+            auto toInt = [](const std::string& str, int defaultVal = 0) -> int {
+                return str.empty() ? defaultVal : std::stoi(str);
+            };
+
+            // Perform conversions - use RSSI if available, otherwise fallback to AVG_RSSI
+            strength = toInt(!rssiValue.empty() ? rssiValue : avgRssiValue, 0);
+            noise = toInt(noiseValue, 0);
+
+            // Determine band from frequency
+            if (!freqValue.empty()) {
+                int freq = std::stoi(freqValue);
+                band = (freq >= 2400 && freq < 5000) ? "2.4GHz" :
+                       (freq >= 5000 && freq < 6000) ? "5GHz" :
+                       (freq >= 6000) ? "6GHz" : "not known";
+            }
+
+            int16_t readRssi = strength;
+            int16_t readNoise = noise;
+
+            /* Check the RSSI is within range between -10 and -100 dbm*/
+            if (readRssi >= 0 || readRssi < -100) {
+                NMLOG_WARNING("Received RSSI (%d dBm) is out of valid range (-10 to -100 dBm); Resetting to default", readRssi);
+                if (readRssi >= 0) {
+                    readRssi = -10;
+                }
+                else if (readRssi < -100) {
+                    readRssi = -100;
+                }
+            }
 
             /* Check the Noise is within range between 0 and -96 dbm*/
             if((readNoise >= 0) || (readNoise < DEFAULT_NOISE))
             {
                 NMLOG_DEBUG("Received Noise (%d) from wifi driver is not valid; so clamping it", readNoise);
                 if (readNoise >= 0) {
-                    noise = std::to_string(0);
+                    readNoise = 0;
+                    noise = 0;
                 }
                 else if (readNoise < DEFAULT_NOISE) {
-                    noise = std::to_string(DEFAULT_NOISE);
+                    readNoise = DEFAULT_NOISE;
+                    noise = DEFAULT_NOISE;
                 }
             }
 
-            /* mapping rssi value when the SNR value is not proper */
-            if(!(readSnr > 0 && readSnr <= MAX_SNR_VALUE))
-            {
-                NMLOG_WARNING("Received SNR (%d) from wifi driver is not valid; Lets map with RSSI (%s)", readSnr, strength.c_str());
-                readSnr = std::stoi(strength);
-                /* Take the absolute value */
-                readSnr = (readSnr < 0) ? -readSnr : readSnr;
+            /*Calculate SNR = RSSI - Noise */
+            int16_t calculatedSnr = readRssi - readNoise;
+            snr = calculatedSnr;
 
-                snr = std::to_string(readSnr);
+            /* mapping rssi value when the SNR value is not proper */
+            if(!(calculatedSnr > 0 && calculatedSnr <= MAX_SNR_VALUE))
+            {
+                NMLOG_WARNING("calculated SNR (%d) is not valid; Lets map with RSSI (%d)", calculatedSnr, strength);
+                calculatedSnr = strength;
+                /* Take the absolute value */
+                calculatedSnr = (calculatedSnr < 0) ? -calculatedSnr : calculatedSnr;
+
+                snr = calculatedSnr;
             }
 
-            NMLOG_INFO("RSSI: %s dBm; Noise: %s dBm; SNR: %s dBm", strength.c_str(), noise.c_str(), snr.c_str());
+            NMLOG_INFO("SSID:%s, BSSID:%s, Band:%s, RSSI:%d, Noise:%d, SNR:%d", ssid.c_str(), bssid.c_str(), band.c_str(), strength, noise, snr);
+            NMLOG_INFO("bssid=%s,ssid=%s,rssi=%d,phyrate=%s,noise=%d,Band=%s", bssid.c_str(), ssid.c_str(), strength, linkSpeed.c_str(), noise, band.c_str());
 
-            if (readSnr == 0)
+            if (calculatedSnr == 0)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_DISCONNECTED;
-                strength = "0";
+                strength = 0;
             }
-            else if (readSnr > 0 && readSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
+            else if (calculatedSnr > 0 && calculatedSnr < NM_WIFI_SNR_THRESHOLD_FAIR)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_WEAK;
             }
-            else if (readSnr > NM_WIFI_SNR_THRESHOLD_FAIR && readSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_FAIR && calculatedSnr < NM_WIFI_SNR_THRESHOLD_GOOD)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_FAIR;
             }
-            else if (readSnr > NM_WIFI_SNR_THRESHOLD_GOOD && readSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
+            else if (calculatedSnr >= NM_WIFI_SNR_THRESHOLD_GOOD && calculatedSnr < NM_WIFI_SNR_THRESHOLD_EXCELLENT)
             {
                 quality = WiFiSignalQuality::WIFI_SIGNAL_GOOD;
             }
@@ -959,9 +1036,7 @@ namespace WPEFramework
                 quality = WiFiSignalQuality::WIFI_SIGNAL_EXCELLENT;
             }
 
-            rc = Core::ERROR_NONE;
-
-            return rc;
+            return Core::ERROR_NONE;
         }
 
         void NetworkManagerImplementation::processMonitor(uint16_t interval)
@@ -1022,9 +1097,9 @@ namespace WPEFramework
             while (true)
             {
                 std::string ssid{};
-                std::string strength{};
-                std::string noise{};
-                std::string snr{};
+                int strength = 0;
+                int noise = 0;
+                int snr = 0;
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
@@ -1068,20 +1143,36 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+#if USE_TELEMETRY
+            string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
+            NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
+            logTelemetry("NM_WIFI_STATUS", stateStr);
+#endif
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
             _notificationLock.Unlock();
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onWiFiSignalQualityChange %s", strength.c_str());
+            NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
+        }
+
+        void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
+        {
+#if USE_TELEMETRY
+            T2ERROR t2error = t2_event_s(eventName.c_str(), const_cast<char*>(message.c_str()));
+            if (t2error != T2ERROR_SUCCESS) {
+                NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d",
+                        eventName.c_str(), message.c_str(), t2error);
+            }
+#endif
         }
     }
 }

@@ -94,7 +94,7 @@ namespace WPEFramework
                     _parent.onWiFiStateChange(state);
                 }
 
-                void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
                     _parent.onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
                 }
@@ -131,14 +131,6 @@ namespace WPEFramework
             const string Initialize(PluginHost::IShell *service) override;
             void Deinitialize(PluginHost::IShell *service) override;
             string Information() const override;
-
-            //override Subscribe from IDispatcher
-            uint32_t Subscribe(const uint32_t channel, const string& event, const string& designator) override
-            {
-                NMLOG_DEBUG("Subscription received for %s event from channelID (%u) with designator as %s", event.c_str(), channel, designator.c_str());
-                JSONRPC::Subscribe(channel, event, designator);
-                return Core::ERROR_NONE;
-            }
 
             // Do not allow copy/move constructors
             NetworkManager(const NetworkManager &) = delete;
@@ -270,7 +262,7 @@ namespace WPEFramework
             void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
             void onAvailableSSIDs(const string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
-            void onWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+            void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         private:
             uint32_t _connectionId;

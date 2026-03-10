@@ -266,8 +266,12 @@ namespace WPEFramework
                         {
                             JsonObject object = ssids[i].Object();
                             security = object["security"].Number();
-                            object["security"] = mapToNewSecurityMode(security);
-                            ssidsUpdated.Add(object);
+                            JsonObject newObject;
+                            newObject["ssid"] = object["ssid"];
+                            newObject["security"] = mapToNewSecurityMode(security);
+                            newObject["strength"] = object["signalStrength"];
+                            newObject["frequency"] = object["frequency"];
+                            ssidsUpdated.Add(newObject);
                         }
                         ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
@@ -750,48 +754,55 @@ namespace WPEFramework
 
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call (IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getIPSettings, (void *)&iarmData, sizeof(iarmData)))
             {
-                address.autoconfig     = iarmData.autoconfig;
-                address.dhcpserver     = string(iarmData.dhcpserver);
-                address.ula            = string("");
-                address.ipaddress      = string(iarmData.ipaddress);
-                address.gateway        = string(iarmData.gateway);
-                address.primarydns     = string(iarmData.primarydns);
-                address.secondarydns   = string(iarmData.secondarydns);
-                if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                if(iarmData.errCode == NETWORK_IPADDRESS_ACQUIRED)
                 {
-                    address.ipversion = string ("IPv4");
-                    address.prefix = NetmaskToPrefix(iarmData.netmask);
-                    if("eth0" == interface)
-                        m_ethIPv4Address = address;
-                    else if("wlan0" == interface)
-                        m_wlanIPv4Address = address;
-                }
-                else if (0 == strcasecmp("ipv6", iarmData.ipversion))
-                {
-                    address.ipversion = string ("IPv6");
-                    address.prefix = std::atoi(iarmData.netmask);
-                    if("eth0" == interface)
-                        m_ethIPv6Address = address;
-                    else if("wlan0" == interface)
-                        m_wlanIPv6Address = address;
-                }
+                    address.autoconfig     = iarmData.autoconfig;
+                    address.dhcpserver     = string(iarmData.dhcpserver);
+                    address.ula            = string("");
+                    address.ipaddress      = string(iarmData.ipaddress);
+                    address.gateway        = string(iarmData.gateway);
+                    address.primarydns     = string(iarmData.primarydns);
+                    address.secondarydns   = string(iarmData.secondarydns);
+                    if (0 == strcasecmp("ipv4", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv4");
+                        address.prefix = NetmaskToPrefix(iarmData.netmask);
+                        if("eth0" == interface)
+                            m_ethIPv4Address = address;
+                        else if("wlan0" == interface)
+                            m_wlanIPv4Address = address;
+                    }
+                    else if (0 == strcasecmp("ipv6", iarmData.ipversion))
+                    {
+                        address.ipversion = string ("IPv6");
+                        address.prefix = std::atoi(iarmData.netmask);
+                        if("eth0" == interface)
+                            m_ethIPv6Address = address;
+                        else if("wlan0" == interface)
+                            m_wlanIPv6Address = address;
+                    }
 
-                rc = Core::ERROR_NONE;
-                /* Return the default interface information */
-                if (interface.empty())
+                    rc = Core::ERROR_NONE;
+                    /* Return the default interface information */
+                    if (interface.empty())
+                    {
+                        string tmpInterface = string(iarmData.interface);
+                        if ("ETHERNET" == tmpInterface)
+                            interface = "eth0";
+                        else if ("WIFI" == tmpInterface)
+                            interface = "wlan0";
+                        else
+                            rc = Core::ERROR_BAD_REQUEST;
+                    }
+                }
+                else
                 {
-                    string tmpInterface = string(iarmData.interface);
-                    if ("ETHERNET" == tmpInterface)
-                        interface = "eth0";
-                    else if ("WIFI" == tmpInterface)
-                        interface = "wlan0";
-                    else
-                        rc = Core::ERROR_BAD_REQUEST;
+                    NMLOG_WARNING("IP Address is not ready to use yet; err = %d", iarmData.errCode);
                 }
             }
             else
             {
-                NMLOG_ERROR("NetworkManagerImplementation::GetIPSettings - Calling IARM Failed");
+                NMLOG_ERROR("GetIPSettings - Calling IARM Failed");
             }
 
             return rc;
@@ -1166,24 +1177,23 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 ssidInfo.ssid             = string(connectedSsid.ssid);
                 ssidInfo.bssid            = string(connectedSsid.bssid);
                 ssidInfo.security         = (WIFISecurityMode)mapToNewSecurityMode(connectedSsid.securityMode);
-                ssidInfo.strength         = to_string((int)connectedSsid.signalStrength);
-                ssidInfo.rate             = to_string((int)connectedSsid.rate);
+                ssidInfo.strength         = (int)connectedSsid.signalStrength;
+                ssidInfo.rate             = (int)connectedSsid.rate;
 
                 if(((int) connectedSsid.noise >= 0) || ((int) connectedSsid.noise < DEFAULT_NOISE))
                 {
                     NMLOG_DEBUG ("Received Noise (%f) from wifi driver is not valid; so clamping it", connectedSsid.noise);
                     if (connectedSsid.noise >= 0) {
-                        ssidInfo.noise = std::to_string(0);
+                        ssidInfo.noise = 0;
                     }
                     else if (connectedSsid.noise < DEFAULT_NOISE) {
-                        ssidInfo.noise = std::to_string(DEFAULT_NOISE);
+                        ssidInfo.noise = DEFAULT_NOISE;
                     }
                 }
                 else
-                    ssidInfo.noise = std::to_string((int)connectedSsid.noise);
+                    ssidInfo.noise = (int)connectedSsid.noise;
 
-                std::string freqStr       = to_string((double)connectedSsid.frequency/1000);
-                ssidInfo.frequency        = freqStr.substr(0, 5);
+                ssidInfo.frequency        = ((double)connectedSsid.frequency/1000);
 
                 NMLOG_INFO ("GetConnectedSSID Success");
                 rc = Core::ERROR_NONE;

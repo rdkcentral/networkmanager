@@ -225,7 +225,7 @@ namespace WPEFramework
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;
                 uint32_t StopWPS(void) override;
                 uint32_t GetWifiState(WiFiState &state) override;
-                uint32_t GetWiFiSignalQuality(string& ssid /* @out */, string& strength /* @out */, string& noise /* @out */, string& snr /* @out */, WiFiSignalQuality& quality /* @out */) override;
+                uint32_t GetWiFiSignalQuality(string& ssid /* @out */, int& strength /* @out */, int& noise /* @out */, int& snr /* @out */, WiFiSignalQuality& quality /* @out */) override;
 
                 uint32_t SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */) override;
                 uint32_t GetStunEndpoint (string &endpoint /* @out */, uint32_t& port /* @out */, uint32_t& bindTimeout /* @out */, uint32_t& cacheTimeout /* @out */) const override;
@@ -268,7 +268,8 @@ namespace WPEFramework
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
-                void ReportWiFiSignalQualityChange(const string ssid, const string strength, const string noise, const string snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void logTelemetry(const std::string& eventName, const std::string& message);
 
             private:
                 void platform_init(void);

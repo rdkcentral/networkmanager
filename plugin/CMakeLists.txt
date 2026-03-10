@@ -33,7 +33,9 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
-
+if (USE_TELEMETRY)
+    include_directories(${T2_INCLUDE_DIRS})
+endif (USE_TELEMETRY)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -56,7 +58,7 @@ add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 
-# Build the main plugin that runs inside the WPEFramework daemon
+# Build the main plugin that runs inside the daemon
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
@@ -104,6 +106,8 @@ if(ENABLE_GNOME_NETWORKMANAGER)
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
             gnome/NetworkManagerGnomeMfrMgr.cpp
+            gnome/gdbus/NetworkManagerGdbusMgr.cpp
+            gnome/gdbus/NetworkManagerGdbusUtils.cpp
         )
         endif()
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
@@ -138,6 +142,11 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
+
+if (USE_TELEMETRY)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${T2_LIBRARIES})
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${T2_LIBRARIES})
+endif (USE_TELEMETRY)
 
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)

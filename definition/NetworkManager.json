@@ -5,11 +5,10 @@
         "title": "NetworkManager Plugin",
         "class": "NetworkManager",
         "callsign": "org.rdk.NetworkManager",
-        "locator": "libWPEFrameworkNetworkManager.so",
         "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "1.6.0"
+        "version": "2.0.0"
     },
     "definitions": {
         "success": {
@@ -129,18 +128,18 @@
         },
         "strength":{
             "summary": "The WiFi Signal RSSI value in dBm",
-            "type": "string",
-            "example": "-32"
+            "type": "integer",
+            "example": -32
         },
         "noise":{
             "summary": "The WiFi Signal Noise detected in dBm",
-            "type": "string",
-            "example": "-106"
+            "type": "integer",
+            "example": -96
         },
         "snr":{
             "summary": "Signal to Noise Ratio(SNR) in dBm",
-            "type": "string",
-            "example": "74"
+            "type": "integer",
+            "example": 74
         },
         "quality":{
             "summary": "WiFi Quality based on Signal to Noise Ratio (SNR)",
@@ -149,8 +148,8 @@
         },
         "frequency":{
             "summary": "The supported frequency for this SSID in GHz",
-            "type": "string",
-            "example": "2.4420"
+            "type": "number",
+            "example": 2.4420
         },
         "errors": {
             "summary": "Error string of scan failure",
@@ -1110,8 +1109,8 @@
                     },
                     "rate":{
                         "summary": "The physical data rate in Mbps",
-                        "type": "string",
-                        "example": "144"
+                        "type": "integer",
+                        "example": 144
                     },
                     "noise":{
                         "$ref": "#/definitions/noise"

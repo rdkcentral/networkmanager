@@ -77,7 +77,7 @@ protected:
                         }))
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     m_subsIfaceStateChange = true;
                     m_subsActIfaceChange = true;
                     m_subsIPAddrChange = true;
@@ -128,7 +128,7 @@ TEST_F(NetworkTest, getInterfaces)
         .Times(1)
         .WillOnce(::testing::Invoke(
                 [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
                 }));
     EXPECT_CALL(*mockNetworkManager, GetAvailableInterfaces(::testing::_))
@@ -183,7 +183,7 @@ TEST_F(NetworkTest, setStunEndpoint) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
     EXPECT_CALL(*mockNetworkManager, SetStunEndpoint(::testing::_, ::testing::_, ::testing::_, ::testing::_))
@@ -210,7 +210,7 @@ TEST_F(NetworkTest, setInterfaceEnabled){
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -234,7 +234,7 @@ TEST_F(NetworkTest, getDefaultInterface) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -279,7 +279,7 @@ TEST_F(NetworkTest, setIPSettings) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -309,7 +309,7 @@ TEST_F(NetworkTest, getIPSettings) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -350,7 +350,7 @@ TEST_F(NetworkTest, getIPSettingsIPv6) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -391,7 +391,7 @@ TEST_F(NetworkTest, getIPSettingsErrorEmptyString) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -428,7 +428,7 @@ TEST_F(NetworkTest, getIPSettings2) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -468,7 +468,7 @@ TEST_F(NetworkTest, isConnectedToInternet) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
@@ -501,7 +501,7 @@ TEST_F(NetworkTest, getInternetConnectionState) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -532,7 +532,7 @@ TEST_F(NetworkTest, doPing) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -578,7 +578,7 @@ TEST_F(NetworkTest, doTrace) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -627,7 +627,7 @@ TEST_F(NetworkTest, getPublicIP) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -659,7 +659,7 @@ TEST_F(NetworkTest, isInterfaceEnabled) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -700,7 +700,7 @@ TEST_F(NetworkTest, setConnectivityTestEndpoints) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -773,7 +773,7 @@ TEST_F(NetworkTest, getCaptivePortalURI) {
         .Times(1)
         .WillOnce(::testing::Invoke(
             [&](const uint32_t, const string& name) -> void* {
-                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                 return static_cast<void*>(mockNetworkManager);
             }));
 
@@ -811,7 +811,7 @@ TEST_F(NetworkTest, getStbIp) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
@@ -846,7 +846,7 @@ TEST_F(NetworkTest, getSTBIPFamily) {
         .Times(1)
         .WillOnce(::testing::Invoke(
                     [&](const uint32_t, const string& name) -> void* {
-                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager.1")));
+                    EXPECT_EQ(name, string(_T("org.rdk.NetworkManager")));
                     return static_cast<void*>(mockNetworkManager);
                     }));
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))

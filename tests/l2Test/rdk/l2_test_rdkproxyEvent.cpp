@@ -293,7 +293,7 @@ TEST_F(NetworkManagerEventTest, onWiFiStateChange)
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
                       "bssid=aa:bb:cc:dd:ee:ff\n"
-                      "freq=5462\n"
+                      "freq=2462\n"
                       "ssid=dummySSID\n", tempFile);
                 rewind(tempFile);
             }
@@ -301,14 +301,15 @@ TEST_F(NetworkManagerEventTest, onWiFiStateChange)
         }))
         .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli bss aa:bb:cc:dd:ee:ff"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("wpa_cli signal_poll"));
             FILE* tempFile = tmpfile();
             if (tempFile) {
                 fputs("Selected interface 'wlan0'\n"
-                    "ssid=dummySSID\n"
-                    "noise=-114\n"
-                    "level=-90\n"
-                    "snr=33\n", tempFile);
+                    "RSSI=-30\n"
+                    "LINKSPEED=300\n"
+                    "NOISE=-114\n"
+                    "FREQUENCY=2417\n"
+                    "AVG_RSSI=-30\n", tempFile);
                 rewind(tempFile);
             }
             return tempFile;
