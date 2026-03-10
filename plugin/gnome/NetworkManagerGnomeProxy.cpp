@@ -421,6 +421,22 @@ namespace WPEFramework
             return rc;
         }
 #endif
+
+        static void onConnectionDeletedCb(GObject *source, GAsyncResult *result, gpointer user_data)
+        {
+            (void)user_data;
+            NMRemoteConnection *conn = NM_REMOTE_CONNECTION(source);
+            GError *error = nullptr;
+            nm_remote_connection_delete_finish(conn, result, &error);
+            if(error)
+            {
+                NMLOG_ERROR("Failed to delete %s: %s",
+                            nm_connection_get_id(NM_CONNECTION(conn)),
+                            error->message);
+                g_error_free(error);
+            }
+        }
+
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
@@ -451,6 +467,34 @@ namespace WPEFramework
 
             if(enabled)
             {
+                // Check boot type and delete all NM connections if BOOT_MIGRATION
+                {
+                    const char* bootFile = "/tmp/bootType";
+                    std::ifstream file(bootFile);
+
+                    if(file.is_open())
+                    {
+                        std::string content;
+                        file >> content; // Direct read (skips leading/trailing whitespace by default)
+
+                        if(content == "BOOT_MIGRATION")
+                        {
+                            NMLOG_INFO("BOOT_MIGRATION detected, deleting all NM connections");
+
+                            const GPtrArray *connections = nm_client_get_connections(client);
+                            if(connections && connections->len > 0)
+                            {
+                                for(guint i = 0; i < connections->len; ++i)
+                                {
+                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
+                                    if(!conn)
+                                        continue;
+                                    nm_remote_connection_delete_async(conn, nullptr, onConnectionDeletedCb, nullptr);
+                                }
+                            }
+                        }
+                    }
+                }
                 sleep(1); // wait for 1 sec to change the device state
                 if(interface == nmUtils::wlanIface() && _instance != NULL)
                 {
