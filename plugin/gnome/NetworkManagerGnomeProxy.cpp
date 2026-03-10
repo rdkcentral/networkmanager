@@ -422,21 +422,6 @@ namespace WPEFramework
         }
 #endif
 
-        static void onConnectionDeletedCb(GObject *source, GAsyncResult *result, gpointer user_data)
-        {
-            (void)user_data;
-            NMRemoteConnection *conn = NM_REMOTE_CONNECTION(source);
-            GError *error = nullptr;
-            nm_remote_connection_delete_finish(conn, result, &error);
-            if(error)
-            {
-                NMLOG_ERROR("Failed to delete %s: %s",
-                            nm_connection_get_id(NM_CONNECTION(conn)),
-                            error->message);
-                g_error_free(error);
-            }
-        }
-
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
@@ -488,7 +473,7 @@ namespace WPEFramework
 
                         if(bootTypeValue == "BOOT_MIGRATION")
                         {
-                            NMLOG_INFO("BOOT_MIGRATION detected, deleting all NM connections");
+                            NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
 
                             // Remove flag immediately to ensure idempotency
                             std::remove(bootFile);
