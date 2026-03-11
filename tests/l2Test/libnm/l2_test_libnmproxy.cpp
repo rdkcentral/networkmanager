@@ -1180,6 +1180,13 @@ TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_success)
 
 TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_BOOT_MIGRATION_deletesWiredConnections)
 {
+    // Scope guard: remove /tmp/bootType on exit regardless of test outcome so that
+    // early ASSERT failures or exceptions cannot leave the file behind and pollute
+    // subsequent SetInterfaceState tests that read the same path.
+    struct BootFileGuard {
+        ~BootFileGuard() { std::remove("/tmp/bootType"); }
+    } bootFileGuard;
+
     // Write the boot type indicator file so the production code detects BOOT_MIGRATION
     {
         std::ofstream bootFile("/tmp/bootType");
@@ -1248,9 +1255,16 @@ TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_BOOT_MIGRATION_deletesW
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetInterfaceState"), _T("{\"interface\":\"eth0\",\"enabled\":true}"), response));
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
 
-    // Production code must have removed /tmp/bootType for idempotency
-    struct stat bootFileStat;
-    EXPECT_NE(0, stat("/tmp/bootType", &bootFileStat));
+    // Production code must have removed /tmp/bootType for idempotency.
+    // Check specifically for ENOENT so the assertion doesn't pass spuriously
+    // on unrelated stat() failures (e.g. permission or SELinux errors).
+    {
+        struct stat bootFileStat;
+        int rc = stat("/tmp/bootType", &bootFileStat);
+        EXPECT_EQ(-1, rc);
+        if (rc == -1)
+            EXPECT_EQ(ENOENT, errno);
+    }
 
     // Cleanup — wiredConn ref count: 1 (new) +1 (g_object_ref in snapshot) -1 (snapshot unref) = 1
     g_object_unref(wiredSCon);

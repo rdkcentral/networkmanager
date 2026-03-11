@@ -452,7 +452,7 @@ namespace WPEFramework
 
             if(enabled)
             {
-                // Check boot type and delete all NM connections if BOOT_MIGRATION
+                // Check boot type and delete all ethernet NM connections if BOOT_MIGRATION
                 {
                     const char* bootFile = "/tmp/bootType";
                     std::ifstream file(bootFile);
@@ -474,9 +474,6 @@ namespace WPEFramework
                         if(bootTypeValue == "BOOT_MIGRATION")
                         {
                             NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
-
-                            // Remove flag immediately to ensure idempotency
-                            std::remove(bootFile);
 
                             const GPtrArray *connections = nm_client_get_connections(client);
                             if(connections && connections->len > 0)
@@ -506,8 +503,9 @@ namespace WPEFramework
                                     GError *error = nullptr;
                                     if(!nm_remote_connection_delete(conn, nullptr, &error))
                                     {
+                                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
                                         NMLOG_ERROR("Failed to delete connection %s: %s",
-                                                    nm_connection_get_id(NM_CONNECTION(conn)),
+                                                    connId ? connId : "<unknown>",
                                                     error ? error->message : "unknown error");
                                         if(error) g_error_free(error);
                                     }
