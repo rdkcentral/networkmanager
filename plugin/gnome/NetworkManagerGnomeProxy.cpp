@@ -525,7 +525,7 @@ namespace WPEFramework
                                                     error ? error->message : "unknown error");
                                         if(error) g_error_free(error);
                                     }
-                                    NMLOG_INFO("Deleted the conn %s", connId ? connId : "<unknown>");
+                                    NMLOG_INFO("Deleted the conn %s", nm_connection_get_id(NM_CONNECTION(conn)));
                                 }
                                 g_ptr_array_unref(snapshot);
                             }
