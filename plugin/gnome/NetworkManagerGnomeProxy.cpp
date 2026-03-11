@@ -475,6 +475,28 @@ namespace WPEFramework
                         {
                             NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
 
+                            // Bring down the ethernet interface before wiping its connections
+                            // so NM doesn't immediately re-activate them during deletion.
+                            NMDevice *ethDev = nm_client_get_device_by_iface(client, interface.c_str());
+                            if(ethDev)
+                            {
+                                /* Cancel any in-progress or active connection so NM doesn't
+                                 * re-activate the connection we are about to delete.
+                                 * Skip if already disconnected to avoid a spurious D-Bus error. */
+                                NMDeviceState devState = nm_device_get_state(ethDev);
+                                if(devState > NM_DEVICE_STATE_DISCONNECTED)
+                                {
+                                    GError *discError = nullptr;
+                                    if(!nm_device_disconnect(ethDev, nullptr, &discError))
+                                    {
+                                        NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
+                                                      interface.c_str(),
+                                                      discError ? discError->message : "unknown error");
+                                        if(discError) g_error_free(discError);
+                                    }
+                                }
+                            }
+
                             const GPtrArray *connections = nm_client_get_connections(client);
                             if(connections && connections->len > 0)
                             {
