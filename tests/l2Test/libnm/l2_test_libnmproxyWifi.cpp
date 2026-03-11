@@ -197,6 +197,7 @@ TEST_F(NetworkManagerWifiTest, RegisteredMethods)
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("GetKnownSSIDs")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("AddToKnownSSIDs")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("RemoveKnownSSID")));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("ConnectToKnownSSID")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("WiFiConnect")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("WiFiDisconnect")));
     EXPECT_EQ(Core::ERROR_NONE, handler.Exists(_T("GetConnectedSSID")));
@@ -905,6 +906,27 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_long_ssid)
         .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), _T("{ \"ssid\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA32\",\"passphrase\": \"123454321\",\"security\":1, \"persist\":false }"), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
+
+    g_object_unref(deviceDummy);
+    g_ptr_array_free(fakeDevices, TRUE);
+}
+
+TEST_F(NetworkManagerWifiTest, WiFiConnect_Wrong_bssid)
+{
+    GPtrArray* fakeDevices = g_ptr_array_new();
+    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    g_ptr_array_add(fakeDevices, deviceDummy);
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
+        .WillRepeatedly(::testing::Return(fakeDevices));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("wlan0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), _T("{ \"ssid\":\"TestSSID\", \"bssid\":\"00:11:22:33:44:OO\", \"passphrase\": \"123454321\",\"security\":1, \"persist\":false }"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
 
     g_object_unref(deviceDummy);

@@ -428,13 +428,13 @@ namespace WPEFramework
 
                 if(ssidInfo.ssid == ssidstr)
                 {
-                    NMLOG_INFO("SSID matched: %s", ssidstr.c_str());
+                    NMLOG_DEBUG("SSID matched: %s", ssidstr.c_str());
                     ssidMatch = true;
                 }
                 else
                 {
-                    NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
-                    // continue searching other APs in case of multiple APs with the same SSID (and optionally matching BSSID)
+                    // NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
+                    ssidMatch = true;
                     continue;
                 }
 
@@ -443,7 +443,8 @@ namespace WPEFramework
                     const char* bssid = nm_access_point_get_bssid(ap);
                     if(bssid == nullptr)
                     {
-                        NMLOG_DEBUG("BSSID is NULL for AP, skipping");
+                        NMLOG_WARNING("BSSID is NULL for AP, skipping");
+                        ssidMatch = false;
                         continue;
                     }
 
@@ -463,6 +464,7 @@ namespace WPEFramework
 
                 if(ssidMatch)
                 {
+                    NMLOG_INFO("Matching AP found : %s", ssidstr.c_str());
                     AccessPoint = ap;
                     break;
                 }
@@ -681,10 +683,12 @@ namespace WPEFramework
                 if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
                 {
                     g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "bg", NULL);
+                    NMLOG_INFO("frequency: %s", "bg - 2.4GHz");
                 }
                 else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_5_GHZ)
                 {
                     g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
+                    NMLOG_INFO("frequency: %s", "a - 5GHz");
                 }
                 else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_6_GHZ)
                 {
