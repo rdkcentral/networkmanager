@@ -682,8 +682,8 @@ namespace WPEFramework
                         }
                         g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_PSK, ssidinfo.passphrase.c_str(), NULL);
                     }
-                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
                     break;
+                    nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
                 }
                 case Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_EAP:
                 {
