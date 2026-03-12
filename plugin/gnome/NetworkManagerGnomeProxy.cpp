@@ -551,6 +551,8 @@ namespace WPEFramework
                 // update the interface global cache state
                 if(interface == nmUtils::wlanIface() && _instance != NULL)
                     _instance->m_wlanEnabled.store(enabled);
+                else if(interface == nmUtils::ethIface() && _instance != NULL)
+                    _instance->m_ethEnabled.store(enabled);
 
                 if(enabled && interface == nmUtils::wlanIface() && _instance != NULL)
                 {
