@@ -476,7 +476,6 @@ namespace WPEFramework
                                             discError ? discError->message : "unknown error");
                                     if(discError) g_error_free(discError);
                                 }
-                                NMLOG_INFO("nm_device_disconnect successful");
                             }
 
                             const GPtrArray *connections = nm_client_get_connections(client);
@@ -513,7 +512,6 @@ namespace WPEFramework
                                                     error ? error->message : "unknown error");
                                         if(error) g_error_free(error);
                                     }
-                                    NMLOG_INFO("Deleted the conn %s", nm_connection_get_id(NM_CONNECTION(conn)));
                                 }
                                 g_ptr_array_unref(snapshot);
                             }
