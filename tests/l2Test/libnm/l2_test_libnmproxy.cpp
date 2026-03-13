@@ -1178,7 +1178,6 @@ TEST_F(NetworkManagerTest, SetInterfaceState_eth0_enable_success)
     g_ptr_array_free(fakeDevices, TRUE);
 }
 
-
 TEST_F(NetworkManagerTest, SetIPSettings_interface_empty)
 {
     // Test setting static IP configuration
