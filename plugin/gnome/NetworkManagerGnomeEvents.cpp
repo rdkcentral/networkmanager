@@ -165,14 +165,18 @@ namespace WPEFramework
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
                         NMLOG_INFO("Fetching NM_WIFI_GW_MAC");
                         {
-                            static std::string lastWlanGatewayMac;
+                            //static std::string lastWlanGatewayMac;
                             std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
-                            if (!gatewayMac.empty() && lastWlanGatewayMac != gatewayMac) {
-                                lastWlanGatewayMac = gatewayMac;
+                            //if (!gatewayMac.empty() && lastWlanGatewayMac != gatewayMac) {
+                            //    lastWlanGatewayMac = gatewayMac;
+                            if(!gatewayMac.empty()) {
 #if USE_TELEMETRY
                                 NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
                                 if (_instance != nullptr)
+                                {
+                                    NMLOG_INFO("---- calling logTelemetry ------");
                                     _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                }
 #endif
                             }
                         }
@@ -227,10 +231,11 @@ namespace WPEFramework
                 case NM_DEVICE_STATE_ACTIVATED:
                     {
                         NMLOG_INFO("Fetching NM_ETHERNET_GW_MAC");
-                        static std::string lastEthGatewayMac;
+                        //static std::string lastEthGatewayMac;
                         std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
-                        if (!gatewayMac.empty() && lastEthGatewayMac != gatewayMac) {
-                            lastEthGatewayMac = gatewayMac;
+                        //if (!gatewayMac.empty() && lastEthGatewayMac != gatewayMac) {
+                        //    lastEthGatewayMac = gatewayMac;
+                        if (!gatewayMac.empty()) {
 #if USE_TELEMETRY
                             NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
                             if (_instance != nullptr)
