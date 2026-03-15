@@ -778,7 +778,7 @@ namespace WPEFramework
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
 #if USE_TELEMETRY
-            // Log error only when ethernet is down and there's no internet
+            // Log error only when ethernet is up and there's no internet
             if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
                m_ethConnected.load() &&
                interface == "eth0" &&

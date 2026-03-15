@@ -173,7 +173,6 @@ namespace WPEFramework
                                 NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
                                 if (_instance != nullptr)
                                 {
-                                    NMLOG_INFO("---- calling logTelemetry ------");
                                     _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
                                 }
 #endif
