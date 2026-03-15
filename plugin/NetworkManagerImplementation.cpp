@@ -780,7 +780,8 @@ namespace WPEFramework
 #if USE_TELEMETRY
             // Log error only when ethernet is down and there's no internet
             if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
-               !m_ethConnected.load() &&
+               m_ethConnected.load() &&
+               interface == "eth0" &&
                prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
             {
                 NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
@@ -1166,18 +1167,13 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
         {
-            NMLOG_INFO("---- Inside logTelemetry ------");
 #if USE_TELEMETRY
             T2ERROR t2error = t2_event_s(eventName.c_str(), const_cast<char*>(message.c_str()));
-            NMLOG_INFO("---- called t2_event_s ------");
             if (t2error != T2ERROR_SUCCESS) {
                 NMLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d",
                         eventName.c_str(), message.c_str(), t2error);
             }
-            else
-                NMLOG_INFO("---- t2_event_s called successfully ------");
 #endif
-            NMLOG_INFO("---- End of logTelemetry ------");
         }
     }
 }
