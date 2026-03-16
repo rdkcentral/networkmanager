@@ -1252,6 +1252,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
+| params.security | integer | The security mode is decided based on the highest security mode provided by the SSID |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1282,6 +1283,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
+    "security": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",

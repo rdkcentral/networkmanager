@@ -998,6 +998,11 @@
                     "passphrase": {
                         "$ref": "#/definitions/passphrase"
                     },
+                    "security": {
+                        "summary": "The security mode is decided based on the highest security mode provided by the SSID",
+                        "type": "integer",
+                        "example": 2
+                    },
                     "ca_cert": {
                         "summary": "The ca_cert to be used for EAP",
                         "type": "string",
@@ -1051,7 +1056,8 @@
                 },
                 "required": [
                     "ssid",
-                    "passphrase"
+                    "passphrase",
+                    "security"
                 ]
             },
             "result": {
