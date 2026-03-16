@@ -84,7 +84,7 @@ namespace Plugin {
         void periodicReportingThread();
         
         // NetworkManager event subscription
-        void subscribeToEvents();
+        void subscribeToEvents(bool logErrors = true);
         void subscriptionRetryThread();
         void ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters);

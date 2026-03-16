@@ -512,7 +512,7 @@ namespace Plugin {
     }
 
     /** NetworkManager Event Subscription */
-    void NetworkConnectionStatsImplementation::subscribeToEvents()
+    void NetworkConnectionStatsImplementation::subscribeToEvents(bool logErrors)
     {
         uint32_t errCode = Core::ERROR_GENERAL;
         if (m_provider)
@@ -525,7 +525,7 @@ namespace Plugin {
                     });
                 if (Core::ERROR_NONE == errCode)
                     m_subsIfaceStateChange = true;
-                else
+                else if (logErrors)
                     NSLOG_ERROR("Subscribe to onInterfaceStateChange failed, errCode: %u", errCode);
             }
 
@@ -537,7 +537,7 @@ namespace Plugin {
                     });
                 if (Core::ERROR_NONE == errCode)
                     m_subsActIfaceChange = true;
-                else
+                else if (logErrors)
                     NSLOG_ERROR("Subscribe to onActiveInterfaceChange failed, errCode: %u", errCode);
             }
 
@@ -549,17 +549,21 @@ namespace Plugin {
                     });
                 if (Core::ERROR_NONE == errCode)
                     m_subsIPAddrChange = true;
-                else
+                else if (logErrors)
                     NSLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
             }
         }
-        else
+        else if (logErrors)
             NSLOG_ERROR("m_provider is null");
     }
 
     void NetworkConnectionStatsImplementation::subscriptionRetryThread()
     {
         NSLOG_INFO("Subscription retry thread started");
+        
+        unsigned int retryCount = 0;
+        unsigned int backoffMs = SUBSCRIPTION_RETRY_INTERVAL_MS;
+        constexpr unsigned int maxBackoffMs = 30000; // Cap at 30 seconds
         
         while (!_stopSubscriptionRetry)
         {
@@ -570,15 +574,28 @@ namespace Plugin {
                 break;
             }
             
-            // Wait before retry
-            std::this_thread::sleep_for(std::chrono::milliseconds(SUBSCRIPTION_RETRY_INTERVAL_MS));
+            // Wait before retry with exponential backoff
+            std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
             
             if (_stopSubscriptionRetry)
                 break;
             
-            // Retry subscription
-            NSLOG_INFO("Retrying event subscriptions...");
-            subscribeToEvents();
+            retryCount++;
+            
+            // Rate-limit logging: log on first retry, then every 10th attempt
+            bool shouldLog = (retryCount == 1 || retryCount % 10 == 0);
+            if (shouldLog)
+            {
+                NSLOG_INFO("Retrying event subscriptions (attempt %u, backoff %ums)...", retryCount, backoffMs);
+            }
+            
+            subscribeToEvents(shouldLog);
+            
+            // Exponential backoff: double interval up to the cap
+            if (backoffMs < maxBackoffMs)
+            {
+                backoffMs = std::min(backoffMs * 2, maxBackoffMs);
+            }
         }
         
         NSLOG_INFO("Subscription retry thread stopped");
