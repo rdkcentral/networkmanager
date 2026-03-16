@@ -104,7 +104,7 @@ namespace WPEFramework
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_TIMEOUT:         // supplicant took too long to authenticate
                 case NM_DEVICE_STATE_REASON_NO_SECRETS:
                     wifiState = "WIFI_STATE_AUTHENTICATION_FAILED";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_FAILED:          //  802.1x supplicant failed
                     wifiState = "WIFI_STATE_ERROR";
