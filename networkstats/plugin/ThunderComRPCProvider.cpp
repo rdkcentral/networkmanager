@@ -273,7 +273,7 @@ bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string
     if (result.HasLabel("success")) {
         bool success = result["success"].Boolean();
         
-        // Extract ping statistics
+        // Process ping result status and statistics
         if (result.HasLabel("packetsTransmitted")) {
             NSLOG_INFO("Packets transmitted: %d", static_cast<int>(result["packetsTransmitted"].Number()));
         }

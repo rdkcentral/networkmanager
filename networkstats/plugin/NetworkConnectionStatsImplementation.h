@@ -27,6 +27,7 @@
 #include <thread>
 #include <atomic>
 #include <queue>
+#include <list>
 #include <mutex>
 #include <condition_variable>
 
