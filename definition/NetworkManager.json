@@ -1056,8 +1056,7 @@
                 },
                 "required": [
                     "ssid",
-                    "passphrase",
-                    "security"
+                    "passphrase"
                 ]
             },
             "result": {
