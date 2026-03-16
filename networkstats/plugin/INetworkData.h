@@ -93,6 +93,11 @@ class INetworkData
     virtual uint32_t SubscribeToEvent(const std::string& eventName, 
         std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback) = 0;
 
+    /* @brief Invoke WiFiConnect API on NetworkManager with empty params to reconnect to last SSID
+     * @return Error code (Core::ERROR_NONE on success)
+     */
+    virtual uint32_t invokeWiFiConnect() = 0;
+
   protected:
     INetworkData() {}
 

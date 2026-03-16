@@ -478,15 +478,12 @@ namespace Plugin {
         if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
             ipv4PacketLoss100 && ipv6PacketLoss100) {
             NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
-            NSLOG_WARNING("Triggering WiFi reassociation via wpa_cli");
             
             logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
             
-            int result = system("wpa_cli reassociate");
-            if (result == 0) {
-                NSLOG_INFO("wpa_cli reassociate command executed successfully");
-            } else {
-                NSLOG_ERROR("wpa_cli reassociate command failed with exit code: %d", result);
+            uint32_t rc = m_provider->invokeWiFiConnect();
+            if (rc != Core::ERROR_NONE) {
+                NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
             }
         }
     }
