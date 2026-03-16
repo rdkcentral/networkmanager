@@ -780,6 +780,7 @@ namespace WPEFramework
                             GVariant *scope = nm_ip_address_get_attribute(ipAddr, NM_IP_ROUTE_ATTRIBUTE_SCOPE);
                             if (scope) {
                                 NMLOG_INFO("GVariant type: %s", g_variant_get_type_string(scope));
+                                NMLOG_INFO("GVariant Byte: %u", (unsigned) g_variant_get_byte(scope));
                             }
                         }
                         if(ipAddr)
