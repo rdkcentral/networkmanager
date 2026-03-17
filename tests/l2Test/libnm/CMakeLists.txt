@@ -30,6 +30,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
+    ${CMAKE_SOURCE_DIR}/tests/mocks/CurlWraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/LibnmWraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/GLibWraps.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
@@ -163,6 +164,10 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,nm_remote_connection_delete
     -Wl,-wrap,nm_remote_connection_delete_finish
     -Wl,-wrap,nm_access_point_connection_valid
+    -Wl,-wrap,curl_multi_perform
+    -Wl,-wrap,curl_multi_info_read
+    -Wl,-wrap,curl_multi_poll
+    -Wl,-wrap,nm_device_get_ip4_config
 )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
