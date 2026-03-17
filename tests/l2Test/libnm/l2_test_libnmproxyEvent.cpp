@@ -542,8 +542,6 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_activated)
         .WillOnce(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(nullptr));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
