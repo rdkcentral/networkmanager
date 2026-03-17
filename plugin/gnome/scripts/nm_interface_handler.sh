@@ -82,8 +82,8 @@ fi
 P2P_INTERFACES="wl0.2 p2p-dev-wl0.2"
 for P2P_IF in $P2P_INTERFACES
 do
-echo "`/bin/timestamp` :$0: setting $P2P_IF unmanaged for Miracast" >> /opt/logs/NMMonitor.log
-nmcli device disconnect "$P2P_IF" 2>/dev/null
-nmcli dev set "$P2P_IF" managed no 2>/dev/null
+    echo "`/bin/timestamp` :$0: setting $P2P_IF unmanaged for Miracast" >> /opt/logs/NMMonitor.log
+    nmcli device disconnect "$P2P_IF" 2>/dev/null
+    nmcli dev set "$P2P_IF" managed no 2>/dev/null
 done
 exit 0
