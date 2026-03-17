@@ -440,13 +440,13 @@ namespace WPEFramework
                 return gatewayMac;
             }
 
-            const char *ifname = nm_device_get_iface(device);
             NMIPConfig *ip4Config = nm_device_get_ip4_config(device);
             if (!ip4Config) {
-                NMLOG_WARNING("No IPv4 configuration found for %s", ifname ? ifname : "unknown");
+                NMLOG_WARNING("No IPv4 configuration found");
                 return gatewayMac;
             }
 
+            const char *ifname = nm_device_get_iface(device);
             const char *gateway = nm_ip_config_get_gateway(ip4Config);
             if (!gateway) {
                 NMLOG_WARNING("No gateway found for %s", ifname ? ifname : "unknown");
