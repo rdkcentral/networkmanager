@@ -774,35 +774,6 @@ namespace WPEFramework
                     for (int i = 0; i < ipArray->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
-
-                        if(ipAddr)
-                        {
-                            NMLOG_INFO("Processing IPv6 address #%d for interface %s", i, interface.c_str());
-                            char **attributeNames = nm_ip_address_get_attribute_names(ipAddr);
-                            if (attributeNames)
-                            {
-                                for (guint attrIdx = 0; attributeNames[attrIdx] != NULL; ++attrIdx)
-                                {
-                                    NMLOG_INFO("IPv6 attribute[%u]: %s", attrIdx, attributeNames[attrIdx]);
-                                }
-                                g_strfreev(attributeNames);
-                            }
-                            else
-                            {
-                                NMLOG_WARNING("No attributes found for IPv6 address #%d on interface %s", i, interface.c_str());
-                            }
-
-                            GVariant *scope = nm_ip_address_get_attribute(ipAddr, NM_IP_ROUTE_ATTRIBUTE_SCOPE);
-                            if (scope) {
-                                NMLOG_INFO("GVariant type: %s", g_variant_get_type_string(scope));
-                                NMLOG_INFO("GVariant Byte: %u", (unsigned) g_variant_get_byte(scope));
-                            }
-                            else
-                            {
-                                NMLOG_WARNING("No scope attribute found for IPv6 address #%d on interface %s", i, interface.c_str());
-                            }
-
-                        }
                         if(ipAddr)
                             ipStr = nm_ip_address_get_address(ipAddr);
                         if(!ipStr.empty())
