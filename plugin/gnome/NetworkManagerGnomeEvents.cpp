@@ -163,7 +163,6 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
-                        NMLOG_INFO("Fetching NM_WIFI_GW_MAC");
                         {
                             static std::string lastWlanGatewayMac;
                             std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
@@ -228,7 +227,6 @@ namespace WPEFramework
                 break;
                 case NM_DEVICE_STATE_ACTIVATED:
                     {
-                        NMLOG_INFO("Fetching NM_ETHERNET_GW_MAC");
                         static std::string lastEthGatewayMac;
                         std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
                         if (!gatewayMac.empty() && lastEthGatewayMac != gatewayMac) {

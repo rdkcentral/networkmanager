@@ -430,8 +430,13 @@ namespace WPEFramework
         {
             std::string gatewayMac = "";
 
-            if (!device || !NM_IS_DEVICE(device)) {
+            if (!device) {
                 NMLOG_ERROR("device is NULL");
+                return gatewayMac;
+            }
+
+            if (!NM_IS_DEVICE(device)) {
+                NMLOG_ERROR("device is not an NMDevice");
                 return gatewayMac;
             }
 
