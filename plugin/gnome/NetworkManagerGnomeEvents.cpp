@@ -163,20 +163,20 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+#if USE_TELEMETRY
                         {
                             static std::string lastWlanGatewayMac;
                             std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
                             if (!gatewayMac.empty() && lastWlanGatewayMac != gatewayMac) {
                                 lastWlanGatewayMac = gatewayMac;
-#if USE_TELEMETRY
                                 NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
                                 if (_instance != nullptr)
                                 {
                                     _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
                                 }
-#endif
                             }
                         }
+#endif
                         break;
                     case NM_DEVICE_STATE_DEACTIVATING:
                         wifiState = "WIFI_STATE_CONNECTION_LOST";
@@ -226,18 +226,18 @@ namespace WPEFramework
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::ethIface());
                 break;
                 case NM_DEVICE_STATE_ACTIVATED:
+#if USE_TELEMETRY
                     {
                         static std::string lastEthGatewayMac;
                         std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
                         if (!gatewayMac.empty() && lastEthGatewayMac != gatewayMac) {
                             lastEthGatewayMac = gatewayMac;
-#if USE_TELEMETRY
                             NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
                             if (_instance != nullptr)
                                 _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
-#endif
                         }
                     }
+#endif
                 break;
                 case NM_DEVICE_STATE_NEED_AUTH:
                 case NM_DEVICE_STATE_SECONDARIES:
