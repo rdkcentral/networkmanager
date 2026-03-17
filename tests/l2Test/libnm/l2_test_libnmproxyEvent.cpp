@@ -539,8 +539,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_activated)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .Times(2)
-        .WillRepeatedly(::testing::Return("eth0"));
+        .WillOnce(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_ip4_config(::testing::_))
