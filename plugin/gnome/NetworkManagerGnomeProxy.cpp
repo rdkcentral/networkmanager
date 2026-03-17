@@ -777,6 +777,16 @@ namespace WPEFramework
 
                         if(ipAddr)
                         {
+                            char **attributeNames = nm_ip_address_get_attribute_names(ipAddr);
+                            if (attributeNames)
+                            {
+                                for (guint attrIdx = 0; attributeNames[attrIdx] != NULL; ++attrIdx)
+                                {
+                                    NMLOG_INFO("IPv6 attribute[%u]: %s", attrIdx, attributeNames[attrIdx]);
+                                }
+                                g_strfreev(attributeNames);
+                            }
+
                             GVariant *scope = nm_ip_address_get_attribute(ipAddr, NM_IP_ROUTE_ATTRIBUTE_SCOPE);
                             if (scope) {
                                 NMLOG_INFO("GVariant type: %s", g_variant_get_type_string(scope));
