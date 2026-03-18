@@ -1301,7 +1301,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params | object |  |
 | params?.ssid | string | <sup>*(optional)*</sup> The WiFi SSID Name |
 | params?.passphrase | string | <sup>*(optional)*</sup> The access point password |
-| params?.security | integer | <sup>*(optional)*</sup> The security mode. See `GetSupportedSecurityModes` |
+| params?.security | integer | <sup>*(optional)*</sup> Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values |
 | params?.bssid | string | <sup>*(optional)*</sup> BSSID to connect to. If specified, restricts connection to this BSSID only. Defaults to the best available BSSID for the SSID |
 | params?.frequency | integer | <sup>*(optional)*</sup> Frequency band: `1` - 2.4GHz, `2` - 5GHz. If specified, connects only to SSIDs on the given frequency band. Defaults to best available |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |

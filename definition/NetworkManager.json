@@ -1029,7 +1029,9 @@
                         "$ref": "#/definitions/passphrase"
                     },
                     "security": {
-                        "$ref": "#/definitions/security"
+                        "summary": "Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values.",
+                        "type": "integer",
+                        "example": 2
                     },
                     "bssid": {
                         "summary": "BSSID to connect to. If specified, restricts connection to this BSSID only. Defaults to the best available BSSID for the SSID.",
