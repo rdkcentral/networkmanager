@@ -1697,6 +1697,9 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_connection_update)
     EXPECT_CALL(*p_gLibWrapsImplMock, g_main_loop_is_running(::testing::_))
         .WillRepeatedly(::testing::Return(true));
 
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_object_get_path(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<const char*>("NULL")));
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_remote_connection_update2_finish(::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke([](NMRemoteConnection *connection, GAsyncResult *result, GError **error) -> GVariant* {
             *error = g_error_new(G_IO_ERROR, G_IO_ERROR_CANCELLED, "update connection activation failed");

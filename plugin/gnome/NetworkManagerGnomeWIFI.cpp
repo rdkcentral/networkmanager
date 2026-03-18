@@ -434,7 +434,7 @@ namespace WPEFramework
                 else
                 {
                     // NMLOG_DEBUG("SSID did not match: expected %s, got %s", ssidInfo.ssid.c_str(), ssidstr.c_str());
-                    ssidMatch = true;
+                    ssidMatch = false;
                     continue;
                 }
 
@@ -449,7 +449,7 @@ namespace WPEFramework
                     }
 
                     std::string bssidStr = bssid;
-                    if(ssidInfo.bssid == bssidStr)
+                    if(strcasecmp(ssidInfo.bssid.c_str(), bssidStr.c_str()) == 0)
                     {
                         NMLOG_DEBUG("BSSID matched: %s", bssidStr.c_str());
                         ssidMatch = true;
@@ -676,7 +676,10 @@ namespace WPEFramework
                 g_bytes_unref(ssid);
 
             if(!ssidinfo.bssid.empty())
+            {
+                NMLOG_INFO("bssid: %s", ssidinfo.bssid.c_str());
                 g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
+            }
 
             if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
             {
@@ -1195,6 +1198,13 @@ namespace WPEFramework
 
             if (m_connection != NULL && NM_IS_REMOTE_CONNECTION(m_connection))
             {
+                m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if (m_objectPath == nullptr)
+                {
+                    NMLOG_WARNING("AccessPoint object path is NULL");
+                    m_objectPath = "/";
+                }
+
                 if(!connectionBuilder(ssidInfo, m_connection)) {
                     NMLOG_ERROR("connection builder failed");
                     deleteClientConnection();
@@ -1202,6 +1212,7 @@ namespace WPEFramework
                 }
                 if (ssidInfo.persist)
                 {
+                    NMLOG_INFO("updating connection '%s'", ssidInfo.ssid.c_str());
                     // Save to persistent storage and activate
                     GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
                     nm_remote_connection_update2(NM_REMOTE_CONNECTION(m_connection),
@@ -1216,16 +1227,22 @@ namespace WPEFramework
                 {
                     // Don't persist changes, just activate existing connection
                     // Note: Any changes made by connectionBuilder will be temporary for this session only
-                    NMLOG_DEBUG("activating existing connection without persisting changes '%s'", ssidInfo.ssid.c_str());
+                    NMLOG_INFO("activating existing connection without persisting changes '%s'", ssidInfo.ssid.c_str());
                     m_createNewConnection = false;
                     nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
                 }
             }
             else
             {
-                NMLOG_DEBUG("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
+                NMLOG_INFO("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
                 m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if (m_objectPath == nullptr)
+                {
+                    NMLOG_WARNING("AccessPoint object path is NULL");
+                    m_objectPath = "/";
+                }
+
                 if(!connectionBuilder(ssidInfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
