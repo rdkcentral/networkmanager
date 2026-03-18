@@ -1278,6 +1278,7 @@ TEST_F(NetworkManagerWifiTest, Connect_To_Known_SSID)
     g_object_unref(conn1);
     g_object_unref(conn2);
     g_object_unref(conn3);
+    g_object_unref(dummyActiveConn);
     g_ptr_array_free(dummyConns, TRUE);
     g_ptr_array_free(fakeDevices, TRUE);
 }

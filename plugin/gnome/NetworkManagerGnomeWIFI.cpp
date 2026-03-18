@@ -252,7 +252,6 @@ namespace WPEFramework
 
         bool static getConnectedAPInfo(NMDevice *device, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo)
         {
-            GBytes *ssid = nullptr;
             NMDeviceState deviceState = nm_device_get_state(device);
             if (deviceState == NM_DEVICE_STATE_ACTIVATED)
             {
@@ -1100,7 +1099,7 @@ namespace WPEFramework
                         deleteClientConnection();
                         return true;
                     }
-                    else if (ssidInfo.bssid == connectedApInfo.bssid)
+                    else if (strcasecmp(ssidInfo.bssid.c_str(), connectedApInfo.bssid.c_str()) == 0)
                     {
                         NMLOG_INFO("Already connected to the requested SSID '%s' with matching BSSID", ssidInfo.ssid.c_str());
                         _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
