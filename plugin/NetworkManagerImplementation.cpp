@@ -377,6 +377,11 @@ namespace WPEFramework
                     NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
                 }
+                else
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
+                }
 #endif
                 return Core::ERROR_NONE;
             }
@@ -731,11 +736,11 @@ namespace WPEFramework
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
+            _notificationLock.Unlock();
 #if USE_TELEMETRY
             NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
 #endif
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
@@ -781,25 +786,24 @@ namespace WPEFramework
         {
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+            for (const auto callback : _notificationCallbacks) {
+                callback->onInternetStatusChange(prevState, currState, interface);
+            }
+            _notificationLock.Unlock();
 #if USE_TELEMETRY
-            // Log error only when ethernet is down and there's no internet
+            // Log error only when ethernet is up and there's no internet
             if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
-               !m_ethConnected.load() &&
+               m_ethConnected.load() &&
+               interface == "eth0" &&
                prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
             {
                 NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
                 logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
             }
-#endif
-            for (const auto callback : _notificationCallbacks) {
-                callback->onInternetStatusChange(prevState, currState, interface);
-            }
-#if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
             NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
 #endif
-            _notificationLock.Unlock();
         }
 
         int32_t NetworkManagerImplementation::logSSIDs(Logging level, const JsonArray &ssids)
@@ -1147,15 +1151,15 @@ namespace WPEFramework
 
             _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+            for (const auto callback : _notificationCallbacks) {
+                callback->onWiFiStateChange(state);
+            }
+            _notificationLock.Unlock();
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
-            for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiStateChange(state);
-            }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
