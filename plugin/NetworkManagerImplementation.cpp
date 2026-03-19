@@ -377,6 +377,11 @@ namespace WPEFramework
                     NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
                 }
+                else
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
+                }
 #endif
                 return Core::ERROR_NONE;
             }
@@ -782,9 +787,10 @@ namespace WPEFramework
             _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
 #if USE_TELEMETRY
-            // Log error only when ethernet is down and there's no internet
+            // Log error only when ethernet is up and there's no internet
             if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
-               !m_ethConnected.load() &&
+               m_ethConnected.load() &&
+               interface == "eth0" &&
                prevState != Exchange::INetworkManager::INTERNET_NOT_AVAILABLE)
             {
                 NMLOG_INFO("NM_ETHERNET_CONNECTIVITY = Ethernet connectivity failed");
