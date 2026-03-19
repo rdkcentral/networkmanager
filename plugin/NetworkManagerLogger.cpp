@@ -125,7 +125,7 @@ namespace NetworkManagerLogger {
         gDefaultLogLevel = level;
         NMLOG_INFO("NetworkManager logLevel:%d", level);
 #ifdef USE_RDK_LOGGER
-        // TODO : Inform RDKLogger to change the log level
+        rdk_logger_set_logLevel("LOG.RDK.NWMGR", mapTordkLogLevel(level));
 #endif
     }
 
@@ -133,7 +133,18 @@ namespace NetworkManagerLogger {
     {
         level = gDefaultLogLevel;
 #ifdef USE_RDK_LOGGER
-        // TODO : Inform RDKLogger to change the log level
+        // Query RDK Logger for the current effective level by probing from most to least verbose
+        if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_DEBUG))
+            level = DEBUG_LEVEL;
+        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_INFO))
+            level = INFO_LEVEL;
+        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_WARN))
+            level = WARNING_LEVEL;
+        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_ERROR))
+            level = ERROR_LEVEL;
+        else
+            level = FATAL_LEVEL;
+        gDefaultLogLevel = level;
 #endif
     }
 } // namespace NetworkManagerLogger
