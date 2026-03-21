@@ -14,6 +14,11 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [2.1.0] - 2026-03-20
+### Added
+- Added T2 eventing from NetworkManager
+- Updated documentation of the plugin
+
 ## [2.0.0] - 2026-02-11
 ### Changed
 - The onAvailableSSIDs event signature changed to report strength, noise & frequency as Number 
