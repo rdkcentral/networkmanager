@@ -102,7 +102,7 @@ namespace NetworkManagerLogger {
         }
         formattedLog[kFormatMessageSize - 1] = '\0';
 #ifdef USE_RDK_LOGGER
-        RDK_LOG(mapTordkLogLevel(level), "LOG.RDK.NWMGR", "[%s +%d] %s\n", trimPath(file), line, formattedLog);
+        RDK_LOG(mapTordkLogLevel(level), RDKLOGGER_MODULE_NAME, "[%s +%d] %s\n", trimPath(file), line, formattedLog);
 #else
         const char* levelMap[] = {"Fatal", "Error", "Warn", "Info", "Debug"};
         struct timeval tv;
@@ -125,7 +125,7 @@ namespace NetworkManagerLogger {
         gDefaultLogLevel = level;
         NMLOG_INFO("NetworkManager logLevel:%d", level);
 #ifdef USE_RDK_LOGGER
-        rdk_logger_set_logLevel("LOG.RDK.NWMGR", mapTordkLogLevel(level));
+        rdk_logger_set_logLevel(RDKLOGGER_MODULE_NAME, mapTordkLogLevel(level));
 #endif
     }
 
@@ -134,13 +134,13 @@ namespace NetworkManagerLogger {
         level = gDefaultLogLevel;
 #ifdef USE_RDK_LOGGER
         // Query RDK Logger for the current effective level by probing from most to least verbose
-        if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_DEBUG))
+        if (rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, RDK_LOG_DEBUG))
             level = DEBUG_LEVEL;
-        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_INFO))
+        else if (rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, RDK_LOG_INFO))
             level = INFO_LEVEL;
-        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_WARN))
+        else if (rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, RDK_LOG_WARN))
             level = WARNING_LEVEL;
-        else if (rdk_logger_is_logLevel_enabled("LOG.RDK.NWMGR", RDK_LOG_ERROR))
+        else if (rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, RDK_LOG_ERROR))
             level = ERROR_LEVEL;
         else
             level = FATAL_LEVEL;

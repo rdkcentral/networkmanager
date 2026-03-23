@@ -20,6 +20,10 @@
 #ifndef NM_LOGGER_H
 #define NM_LOGGER_H
 
+#ifdef USE_RDK_LOGGER
+#define RDKLOGGER_MODULE_NAME "LOG.RDK.NWMGR"
+#endif
+
 #include <iostream>
 #include <string>
 #include <stdlib.h>
