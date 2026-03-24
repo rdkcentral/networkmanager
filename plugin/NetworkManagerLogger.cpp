@@ -131,7 +131,6 @@ namespace NetworkManagerLogger {
 
     void GetLevel(LogLevel& level)
     {
-        level = gDefaultLogLevel;
 #ifdef USE_RDK_LOGGER
         // Query RDK Logger for the current effective level by probing from most to least verbose
         if (rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, RDK_LOG_DEBUG))
@@ -145,6 +144,8 @@ namespace NetworkManagerLogger {
         else
             level = FATAL_LEVEL;
         gDefaultLogLevel = level;
+#else
+        level = gDefaultLogLevel;
 #endif
     }
 } // namespace NetworkManagerLogger
