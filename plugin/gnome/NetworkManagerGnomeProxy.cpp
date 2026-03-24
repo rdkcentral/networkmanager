@@ -784,7 +784,6 @@ namespace WPEFramework
 
                         if(!ipStr.empty())
                         {
-                            result.prefix = nm_ip_address_get_prefix(ipAddr);
                             if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
                             {
                                 // ULA - Unique Local Address (fc00::/7, practically fd00::/8) RFC 4193 — private, non-routable address space
@@ -792,8 +791,9 @@ namespace WPEFramework
                                     result.ula = ipStr;
                                 NMLOG_INFO("ula ip: %s/%d", result.ula.c_str(), result.prefix);
                             }
-                            else if(ipStr.compare(0, 4, "fe80") != 0)
+                            else if(ipStr.compare(0, 4, "fe80") != 0) // Skip link-local IPv6 addresses (fe80::/10)
                             {
+                                result.prefix = nm_ip_address_get_prefix(ipAddr);
                                 if(result.ipaddress.empty()) // SLAAC multiple ip not added
                                     result.ipaddress = ipStr;
                                 NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
