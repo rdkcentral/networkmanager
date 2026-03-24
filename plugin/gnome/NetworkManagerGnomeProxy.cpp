@@ -784,17 +784,16 @@ namespace WPEFramework
 
                         if(!ipStr.empty())
                         {
+                            result.prefix = nm_ip_address_get_prefix(ipAddr);
                             if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
                             {
                                 // ULA - Unique Local Address (fc00::/7, practically fd00::/8) RFC 4193 — private, non-routable address space
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                if(result.ula.empty()) // take one ula address
+                                if(result.ula.empty())
                                     result.ula = ipStr;
                                 NMLOG_INFO("ula ip: %s/%d", result.ula.c_str(), result.prefix);
                             }
                             else if(ipStr.compare(0, 4, "fe80") != 0)
                             {
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
                                 if(result.ipaddress.empty()) // SLAAC multiple ip not added
                                     result.ipaddress = ipStr;
                                 NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
