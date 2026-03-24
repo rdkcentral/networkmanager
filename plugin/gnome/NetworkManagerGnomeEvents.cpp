@@ -353,6 +353,11 @@ namespace WPEFramework
                             NMLOG_DEBUG("%s It's link-local ip", ipAddress.c_str());
                             continue; // It's link-local so skiping
                         }
+                        else if (ipAddress.compare(0, 2, "fd") == 0 || ipAddress.compare(0, 2, "fc") == 0)
+                        {
+                            NMLOG_DEBUG("%s It's unique local ip", ipAddress.c_str());
+                            continue; // It's unique local so skipping
+                        }                   
                         GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, true);
                         break; // SLAAC protocol may include multip ipv6 address posting only one Global address
                     }

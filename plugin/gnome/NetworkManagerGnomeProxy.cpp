@@ -778,13 +778,7 @@ namespace WPEFramework
                             ipStr = nm_ip_address_get_address(ipAddr);
                         if(!ipStr.empty())
                         {
-                            if (ipStr.compare(0, 4, "fe80") == 0)
-                            {
-                                // Link-local address (fe80::/10) — valid only on the local link, not routable
-                                // Used for neighbor discovery, router solicitation only
-                                NMLOG_INFO("link-local ip: %s", ipStr.c_str());
-                            }
-                            else if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
+                            if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
                             {
                                 // ULA - Unique Local Address (fc00::/7, practically fd00::/8) RFC 4193 — private, non-routable address space
                                 result.prefix = nm_ip_address_get_prefix(ipAddr);
@@ -792,13 +786,16 @@ namespace WPEFramework
                                     result.ula = ipStr;
                                 NMLOG_INFO("ula ip: %s/%d", result.ula.c_str(), result.prefix);
                             }
-                            else
+                            else if(ipStr.compare(0, 4, "fe80") != 0)
                             {
-                                // Global Unicast Address (2000::/3) — public, internet-routable
                                 result.prefix = nm_ip_address_get_prefix(ipAddr);
                                 if(result.ipaddress.empty()) // SLAAC multiple ip not added
                                     result.ipaddress = ipStr;
                                 NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                            }
+                            else
+                            {
+                                NMLOG_DEBUG("Skipping link-local IPv6 address: %s", ipStr.c_str());
                             }
                         }
                     }
