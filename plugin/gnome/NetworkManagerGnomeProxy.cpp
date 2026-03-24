@@ -771,11 +771,17 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv6 configuration on %s", interface.c_str());
                 if(ipArray)
                 {
-                    for (int i = 0; i < ipArray->len; i++)
+                    for (guint i = 0; i < ipArray->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
-                        if(ipAddr)
-                            ipStr = nm_ip_address_get_address(ipAddr);
+                        if(ipAddr == nullptr)
+                        {
+                            NMLOG_WARNING("Failed to get IP address from NMIPAddress struct");
+                            continue;
+                        }
+
+                        ipStr = nm_ip_address_get_address(ipAddr);
+
                         if(!ipStr.empty())
                         {
                             if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
