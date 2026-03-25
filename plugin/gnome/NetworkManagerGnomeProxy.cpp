@@ -784,15 +784,18 @@ namespace WPEFramework
 
                         if(!ipStr.empty())
                         {
-                            if (ipStr.compare(0, 2, "fd") == 0 || ipStr.compare(0, 2, "fc") == 0)
+                            if(ipStr.compare(0, 2, "fc") == 0 || ipStr.compare(0, 2, "fd") == 0)
                             {
-                                // ULA - Unique Local Address (fc00::/7, practically fd00::/8) RFC 4193 — private, non-routable address space
+                                // ULA - Unique Local Address (RFC 4193, fc00::/7)
+                                // fc00::/7 covers first bytes 0xfc and 0xfd, so the string starts with "fc" or "fd".
                                 if(result.ula.empty())
                                     result.ula = ipStr;
-                                NMLOG_INFO("ula ip: %s/%d", result.ula.c_str(), result.prefix);
+                                NMLOG_INFO("ula ip: %s", result.ula.c_str());
                             }
-                            else if(ipStr.compare(0, 4, "fe80") != 0) // Skip link-local IPv6 addresses (fe80::/10)
+                            else if(ipStr[0] == '2' || ipStr[0] == '3')
                             {
+                                // Global Unicast Address (RFC 4291, 2000::/3)
+                                // 2000::/3 covers first bytes 0x20-0x3f, which in hex string always starts with '2' or '3'.
                                 result.prefix = nm_ip_address_get_prefix(ipAddr);
                                 if(result.ipaddress.empty()) // SLAAC multiple ip not added
                                     result.ipaddress = ipStr;
@@ -800,7 +803,8 @@ namespace WPEFramework
                             }
                             else
                             {
-                                NMLOG_DEBUG("Skipping link-local IPv6 address: %s", ipStr.c_str());
+                                // Skip everything else: link-local (fe80::/10), loopback (::1), multicast (ff00::/8), etc.
+                                NMLOG_DEBUG("Skipping non-global IPv6 address: %s", ipStr.c_str());
                             }
                         }
                     }

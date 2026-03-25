@@ -843,7 +843,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
         .WillOnce(::testing::Return("2001:4860:4860::1"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_prefix(::testing::_))
-        .WillOnce(::testing::Return(64));
+        .WillOnce(::testing::Return(48));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_address(::testing::_))
         .WillOnce(::testing::Return("fe80::1234:5678:abcd:ef01"))
@@ -884,7 +884,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
     EXPECT_TRUE(response.find("\"interface\":\"eth0\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8:1:2:3:4:5:6\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"ula\":\"fd12:3456:789a::1\"") != std::string::npos);
-    EXPECT_TRUE(response.find("\"prefix\":64") != std::string::npos);
+    EXPECT_TRUE(response.find("\"prefix\":48") != std::string::npos);
     EXPECT_TRUE(response.find("\"dhcpserver\":\"2001:db8::1\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"gateway\":\"2001:4860:4860::1\"") != std::string::npos);
 
