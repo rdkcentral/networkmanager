@@ -150,6 +150,7 @@ endif (USE_TELEMETRY)
 
 if (INCLUDE_BREAKPAD)
     find_package(breakpad REQUIRED)
+    target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${BREAKPAD_INCLUDE_DIRS})
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${BREAKPAD_LIBRARIES})
 endif (INCLUDE_BREAKPAD)
 
