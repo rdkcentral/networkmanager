@@ -700,7 +700,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
                 if(ipByte)
                 {
-                    for (int i = 0; i < ipByte->len; i++)
+                    for (guint i = 0; i < ipByte->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
                         if(ipAddr)

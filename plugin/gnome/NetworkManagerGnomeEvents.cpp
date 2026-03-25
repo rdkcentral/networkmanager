@@ -343,16 +343,14 @@ namespace WPEFramework
                     //int prefix = nm_ip_address_get_prefix(address);
                     if(ipaddr != NULL) {
                         std::string ipAddress = ipaddr;
-                        if (ipAddress.compare(0, 5, "fe80:") == 0 || 
-                            ipAddress.compare(0, 6, "fe80::") == 0) {
-                            NMLOG_DEBUG("%s It's link-local ip", ipAddress.c_str());
-                            continue; // It's link-local so skiping
-                        }
-                        else if (ipAddress.compare(0, 2, "fd") == 0 || ipAddress.compare(0, 2, "fc") == 0)
+                        if(ipAddress[0] != '2' && ipAddress[0] != '3')
                         {
-                            NMLOG_DEBUG("%s It's unique local ip", ipAddress.c_str());
-                            continue; // It's unique local so skipping
+                            // Global Unicast Address (RFC 4291, 2000::/3)
+                            // 2000::/3 covers first bytes 0x20-0x3f, which in hex string always starts with '2' or '3'.
+                            NMLOG_DEBUG("%s Not a global unicast address", ipAddress.c_str());
+                            continue;
                         }
+
                         GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, true);
                         break; // SLAAC protocol may include multip ipv6 address posting only one Global address
                     }
