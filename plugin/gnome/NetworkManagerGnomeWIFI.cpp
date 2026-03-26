@@ -632,7 +632,10 @@ namespace WPEFramework
                     g_error_free(error);
                     if (remoteConn)
                         g_object_unref(remoteConn);
-                    return; // timeout already quit the loop; do not alter m_isSuccess
+                    if (_wifiManager->m_loop && g_main_loop_is_running(_wifiManager->m_loop)) {
+                        g_main_loop_quit(_wifiManager->m_loop);
+                    }
+                    return; // do not alter m_isSuccess on cancellation
                 }
                 NMLOG_ERROR("addMinimalEthernetConnection error: %s", error->message);
                 _wifiManager->m_isSuccess = false;
