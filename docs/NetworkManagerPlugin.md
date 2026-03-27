@@ -1241,7 +1241,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 <a name="method.WiFiConnect"></a>
 ## *WiFiConnect [<sup>method</sup>](#head.Methods)*
 
-Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
+Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. By default, the security mode is decided based on the highest security mode provided by the SSID, but it can be explicitly overridden via the optional `params.security` parameter. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
@@ -1252,6 +1252,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | params | object |  |
 | params.ssid | string | The WiFi SSID Name |
 | params.passphrase | string | The access point password |
+| params?.security | integer | <sup>*(optional)*</sup> Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values. |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1282,6 +1283,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
   "params": {
     "ssid": "myHomeSSID",
     "passphrase": "password",
+    "security": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",
