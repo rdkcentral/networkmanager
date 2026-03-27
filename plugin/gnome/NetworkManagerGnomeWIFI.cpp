@@ -736,7 +736,6 @@ namespace WPEFramework
                         }
                         return false;
                     }
-                    
                     sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                     nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
                     g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-eap", NULL);
