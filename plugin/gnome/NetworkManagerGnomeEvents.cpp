@@ -473,6 +473,12 @@ namespace WPEFramework
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
 
+        if(devices == nullptr)
+        {
+            NMLOG_ERROR("Failed to get device list.");
+            return nullptr;
+        }
+
         for (u_int count = 0; count < devices->len; count++)
         {
             NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, count));

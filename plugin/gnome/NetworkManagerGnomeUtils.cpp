@@ -284,7 +284,7 @@ namespace WPEFramework
         bool nmUtils::setNetworkManagerlogLevelToTrace()
         {
             /* set networkmanager daemon log level based on current plugin log level */
-            const char* command = "nmcli general logging level TRACE domains ALL";
+            const char* command = "nmcli general logging level TRACE domains PLATFORM,DEVICE,WIFI,ETHER,DNS,DHCP4,DHCP6,DEVICE,SETTINGS,DISPATCH";
 
             // Execute the command using popen
             FILE *pipe = popen(command, "r");
