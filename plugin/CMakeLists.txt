@@ -135,6 +135,9 @@ target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                         )
 
+target_link_libraries(${MODULE_IMPL_NAME} PRIVATE asan)
+target_compile_options(${MODULE_IMPL_NAME} PRIVATE -fsanitize=address)
+
 target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
 
