@@ -119,13 +119,14 @@ namespace WPEFramework
     
         bool wifiManager::wait(GMainLoop *loop, int timeOutMs)
         {
+            NMLOG_DEBUG("wait started ...");
             if(g_main_loop_is_running(loop)) {
                 NMLOG_WARNING("g_main_loop_is running");
                 return false;
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
             g_source_set_callback(m_source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
-            g_source_attach(m_source, NULL);
+            g_source_attach(m_source, g_main_loop_get_context(loop));
             g_main_loop_run(loop);
             if(m_source != nullptr) {
                 if(g_source_is_destroyed(m_source)) {
@@ -135,7 +136,9 @@ namespace WPEFramework
                     g_source_destroy(m_source);
                 }
                 g_source_unref(m_source);
+                m_source = nullptr;
             }
+            NMLOG_DEBUG("wait exited ...");
             return true;
         }
 
