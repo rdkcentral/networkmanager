@@ -130,8 +130,6 @@ set_target_properties(${MODULE_IMPL_NAME} PROPERTIES
                                           CXX_STANDARD_REQUIRED YES
                                           FRAMEWORK FALSE)
 
-target_compile_options(${MODULE_IMPL_NAME} PRIVATE -fsanitize=address)
-
 target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
