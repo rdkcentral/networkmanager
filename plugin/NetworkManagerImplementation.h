@@ -316,9 +316,24 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;
                 std::atomic<bool> m_wlanEnabled;
-                string m_defaultInterface;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
+
+                string getDefaultInterface() const
+                {
+                    std::lock_guard<std::mutex> lock(m_defaultInterfaceMutex);
+                    return m_defaultInterface;
+                }
+
+                void setDefaultInterface(const string& iface)
+                {
+                    std::lock_guard<std::mutex> lock(m_defaultInterfaceMutex);
+                    m_defaultInterface = iface;
+                }
+
+            protected:
+                string m_defaultInterface;
+                mutable std::mutex m_defaultInterfaceMutex;
         };
     }
 }
