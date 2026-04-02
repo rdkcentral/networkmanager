@@ -473,7 +473,11 @@ namespace WPEFramework
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
 
-        for (u_int count = 0; count < devices->len; count++)
+        if (devices == NULL) {
+            NMLOG_ERROR("nm_client_get_devices returned NULL, no devices to monitor");
+        }
+
+        for (u_int count = 0; devices != NULL && count < devices->len; count++)
         {
             NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, count));
             if( ((device != NULL) && NM_IS_DEVICE(device)) )

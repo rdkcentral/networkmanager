@@ -578,9 +578,10 @@ namespace WPEFramework
             // Connection settings with autoconnect enabled
             NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
             std::string connId = "Wired connection 1";
+            std::string uuid = nm_utils_uuid_generate();
             g_object_set(G_OBJECT(sConnection),
                         NM_SETTING_CONNECTION_ID, connId.c_str(),
-                        NM_SETTING_CONNECTION_UUID, nm_utils_uuid_generate(),
+                        NM_SETTING_CONNECTION_UUID, uuid.c_str(),
                         NM_SETTING_CONNECTION_TYPE, "802-3-ethernet",
                         NM_SETTING_CONNECTION_INTERFACE_NAME, iface.c_str(),
                         NM_SETTING_CONNECTION_AUTOCONNECT, TRUE,  // Enable autoconnect
@@ -1211,6 +1212,8 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                     deleteClientConnection();
                     return false;
                 }
@@ -1231,6 +1234,8 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                     deleteClientConnection();
                     return false;
                 }
@@ -1243,6 +1248,11 @@ namespace WPEFramework
                                         addToKnownSSIDsCb, this);
             }
             wait(m_loop);
+            if(m_connection)
+            {
+                g_object_unref(m_connection);
+                m_connection = NULL;
+            }
             deleteClientConnection();
             return m_isSuccess;
         }
@@ -1484,7 +1494,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             GMainLoop *loop = static_cast<GMainLoop *>(user_data);
-            nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
+            NMActiveConnection *activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
 
             if (error) {
                 NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
@@ -1492,6 +1502,8 @@ namespace WPEFramework
             }
             else
                 NMLOG_INFO("WPS connection added/activated successfully");
+            if(activeConnection)
+                g_object_unref(activeConnection);
             g_main_loop_quit(loop);
         }
 
@@ -1592,6 +1604,8 @@ namespace WPEFramework
                 if(!g_main_context_acquire(wpsContext))
                 {
                     NMLOG_ERROR("acquire wpsContext failed !!");
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1603,9 +1617,14 @@ namespace WPEFramework
                     if(error != NULL) {
                         NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                         g_error_free(error);
+                        error = NULL;
                     }
                     else
                         NMLOG_ERROR("NetworkManager cleint create failed");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1613,6 +1632,10 @@ namespace WPEFramework
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1652,6 +1675,10 @@ namespace WPEFramework
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1744,9 +1771,15 @@ namespace WPEFramework
                 {
                     /* if wps action not triggerd do a scanning request */
                     nm_device_wifi_request_scan(NM_DEVICE_WIFI(wifidevice), NULL, &error);
+                    if(error) {
+                        NMLOG_WARNING("WiFi scan request failed: %s", error->message);
+                        g_error_free(error);
+                        error = NULL;
+                    }
                 }
 
                 g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
                 g_main_context_unref(wpsContext);
                 wpsContext = NULL;
                 if(client != NULL) {
@@ -1774,6 +1807,7 @@ namespace WPEFramework
             if(wpsContext != NULL)
             {
                 g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
                 g_main_context_unref(wpsContext);
             }
 
