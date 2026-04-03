@@ -104,14 +104,14 @@ namespace WPEFramework
             if(_nmGdbusClient->getDeviceInfo(GnomeUtils::getEthIfname(), ethDevInfo))
             {
                 if(ethDevInfo.state > NM_DEVICE_STATE_DISCONNECTED && ethDevInfo.state < NM_DEVICE_STATE_DEACTIVATING)
-                    m_defaultInterface = GnomeUtils::getEthIfname();
+                    setDefaultInterface(GnomeUtils::getEthIfname());
                 else
-                    m_defaultInterface = GnomeUtils::getWifiIfname();
+                    setDefaultInterface(GnomeUtils::getWifiIfname());
             }
             else
-                m_defaultInterface = GnomeUtils::getWifiIfname();
+                setDefaultInterface(GnomeUtils::getWifiIfname());
 
-            NMLOG_INFO("default interface is %s", m_defaultInterface.c_str());
+            NMLOG_INFO("default interface is %s", getDefaultInterface().c_str());
 
             // Start event monitoring
             _nmGdbusEvents->startNetworkMangerEventMonitor();
@@ -148,7 +148,7 @@ namespace WPEFramework
             {
                 if(_nmGdbusClient->getDefaultInterface(interface))
                 {
-                    _instance->m_defaultInterface = interface;
+                    _instance->setDefaultInterface(interface);
                     return Core::ERROR_NONE;
                 }
                 else

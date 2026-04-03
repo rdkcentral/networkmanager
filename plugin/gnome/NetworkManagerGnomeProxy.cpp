@@ -278,11 +278,11 @@ namespace WPEFramework
             modifyDefaultConnConfig(client);
             NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
-                m_defaultInterface = nmUtils::ethIface();
+                setDefaultInterface(nmUtils::ethIface());
             else
-                m_defaultInterface = nmUtils::wlanIface();
+                setDefaultInterface(nmUtils::wlanIface());
 
-            NMLOG_INFO("default interface is %s",  m_defaultInterface.c_str());
+            NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
             // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
