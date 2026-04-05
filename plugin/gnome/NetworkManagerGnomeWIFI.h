@@ -104,7 +104,7 @@ namespace WPEFramework
             GSource *m_source;
             GCancellable *m_cancellable;
             std::mutex m_cancellableMutex;
-            std::mutex m_apiMutex;
+            std::recursive_mutex m_apiMutex;
             bool m_isSuccess = false;
             SecretAgent m_secretAgent;
         };
