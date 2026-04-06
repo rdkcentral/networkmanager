@@ -95,6 +95,13 @@ namespace WPEFramework
                 g_main_context_unref(context);
                 m_client = NULL;
             }
+
+            if(m_objectPath)
+            {
+                NMLOG_DEBUG("Freeing object path");
+                g_free(m_objectPath);
+                m_objectPath = NULL;
+            }
         }
 
         bool wifiManager::quit(NMDevice *wifiNMDevice)
@@ -1200,12 +1207,21 @@ namespace WPEFramework
 
             if (m_connection != NULL && NM_IS_REMOTE_CONNECTION(m_connection))
             {
-                m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
-                if (m_objectPath == nullptr)
+                const char *apPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if (!apPath)
                 {
                     NMLOG_WARNING("AccessPoint object path is NULL");
-                    m_objectPath = "/";
+                    apPath = "/";
                 }
+
+                if(m_objectPath)
+                {
+                    NMLOG_WARNING("Freeing object path");
+                    g_free(m_objectPath);
+                    m_objectPath = NULL;
+                }
+
+                m_objectPath = g_strdup(apPath);
 
                 if(!connectionBuilder(ssidInfo, m_connection)) {
                     NMLOG_ERROR("connection builder failed");
@@ -1238,13 +1254,23 @@ namespace WPEFramework
             {
                 NMLOG_INFO("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
-                m_objectPath = nm_object_get_path(NM_OBJECT(AccessPoint));
-                if (m_objectPath == nullptr)
+
+                const char *apPath = nm_object_get_path(NM_OBJECT(AccessPoint));
+                if (!apPath)
                 {
                     NMLOG_WARNING("AccessPoint object path is NULL");
-                    m_objectPath = "/";
+                    apPath = "/";
                 }
 
+                if(m_objectPath)
+                {
+                    NMLOG_WARNING("Freeing object path");
+                    g_free(m_objectPath);
+                    m_objectPath = NULL;
+                }
+
+                m_objectPath = g_strdup(apPath);
+                NMLOG_DEBUG("Setting object path to '%s'", m_objectPath);
                 if(!connectionBuilder(ssidInfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
