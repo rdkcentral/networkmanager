@@ -283,7 +283,7 @@ namespace WPEFramework
 
         bool wifiManager::getWifiState(Exchange::INetworkManager::WiFiState& state)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             if(!createClientNewConnection())
                 return false;
 
@@ -327,7 +327,7 @@ namespace WPEFramework
 
         bool wifiManager::wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             if(!createClientNewConnection())
                 return false;
 
@@ -389,7 +389,7 @@ namespace WPEFramework
 
         bool wifiManager::wifiDisconnect()
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
             if(!createClientNewConnection())
                 return false;
@@ -796,7 +796,7 @@ namespace WPEFramework
 
         bool wifiManager::activateKnownConnection(std::string iface, std::string knowConnectionID)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             const GPtrArray *devConnections = NULL;
             NMConnection *knownConnection = NULL;
             NMConnection *firstConnection = NULL;
@@ -941,7 +941,7 @@ namespace WPEFramework
 
         bool wifiManager::wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfoParam)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             NMAccessPoint *AccessPoint = NULL;
             const GPtrArray* ApList = NULL;
             NMConnection *m_connection = NULL;
@@ -1183,7 +1183,7 @@ namespace WPEFramework
 
         bool wifiManager::addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             m_isSuccess = false;
             NMConnection *m_connection = NULL;
 
@@ -1265,7 +1265,7 @@ namespace WPEFramework
 
         bool wifiManager::removeKnownSSID(const string& ssid)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             NMConnection *m_connection = NULL;
             bool ssidSpecified = false;
             bool connectionFound = false;
@@ -1356,7 +1356,7 @@ namespace WPEFramework
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             std::string ssidPrint{};
 
             if(!createClientNewConnection())
@@ -1436,7 +1436,7 @@ namespace WPEFramework
 
         bool wifiManager::wifiScanRequest(std::string ssidReq)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             if(!createClientNewConnection())
                 return false;
             NMDeviceWifi *wifiDevice = NM_DEVICE_WIFI(getWifiDevice());
@@ -1472,7 +1472,7 @@ namespace WPEFramework
 
         bool wifiManager::isWifiScannedRecently(int timelimitInSec)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             if (!createClientNewConnection())
                 return false;
 
@@ -1886,7 +1886,7 @@ namespace WPEFramework
 
         bool wifiManager::setInterfaceState(std::string interface, bool enabled)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             m_isSuccess = false;
             NMDevice *device = nullptr;
 
@@ -2039,7 +2039,7 @@ namespace WPEFramework
 
         bool wifiManager::setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress &address)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             m_isSuccess = false;
             NMConnection *connection = NULL;
             NMRemoteConnection *remoteConn = NULL;
@@ -2214,7 +2214,7 @@ namespace WPEFramework
 
         bool wifiManager::setPrimaryInterface(const string interface)
         {
-            std::lock_guard<std::mutex> lock(m_apiMutex);
+            std::lock_guard<std::recursive_mutex> lock(m_apiMutex);
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
             GError *error = NULL;
             std::string otherInterface;
