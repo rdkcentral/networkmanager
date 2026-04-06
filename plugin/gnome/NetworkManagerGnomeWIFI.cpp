@@ -460,11 +460,11 @@ namespace WPEFramework
 
             if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
-                activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
-                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(client), result, &error);
             }
 
             // Check if operation was cancelled - this is expected during cleanup
