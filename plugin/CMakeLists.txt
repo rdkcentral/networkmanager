@@ -70,13 +70,6 @@ target_link_libraries(${MODULE_NAME}  PRIVATE
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                         )
 
-if(ENABLE_ASAN)
-    target_compile_options(${MODULE_NAME} PRIVATE -fsanitize=address)
-    target_link_libraries(${MODULE_NAME} PRIVATE asan)
-    target_compile_options(${MODULE_IMPL_NAME} PRIVATE -fsanitize=address)
-    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE asan)
-endif(ENABLE_ASAN)
-
 set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD 11
                                      CXX_STANDARD_REQUIRED YES
@@ -141,6 +134,13 @@ target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                         )
+
+if(ENABLE_ASAN)
+    target_compile_options(${MODULE_NAME} PRIVATE -fsanitize=address)
+    target_link_libraries(${MODULE_NAME} PRIVATE asan)
+    target_compile_options(${MODULE_IMPL_NAME} PRIVATE -fsanitize=address)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE asan)
+endif(ENABLE_ASAN)
 
 target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
