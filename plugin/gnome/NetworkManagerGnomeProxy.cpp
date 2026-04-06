@@ -930,12 +930,12 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
 
            //  Check the last scanning time and if it exceeds 5 sec do a rescanning
-            if(!wifi->isWifiScannedRecently())
-            {
-                nmEvent->setwifiScanOptions(false);
-                if(!wifi->wifiScanRequest())
-                    NMLOG_WARNING("scanning failed but try to connect");
-            }
+            // if(!wifi->isWifiScannedRecently())
+            // {
+            //     nmEvent->setwifiScanOptions(false);
+            //     if(!wifi->wifiScanRequest())
+            //         NMLOG_WARNING("scanning failed but try to connect");
+            // }
 
             if(ssid.ssid.empty())
             {
