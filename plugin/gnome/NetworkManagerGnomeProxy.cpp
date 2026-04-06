@@ -922,19 +922,16 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-           //  Check the last scanning time and if it exceeds 5 sec do a rescanning
-            if(!wifi->isWifiScannedRecently())
+            if(ssid.ssid.empty())
             {
-                nmEvent->setwifiScanOptions(false);
-                if(!wifi->wifiScanRequest())
-                    NMLOG_WARNING("scanning failed but try to connect");
-            }
-
-            if(ssid.ssid.empty() && _instance != NULL)
-            {
-                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
-                    rc = Core::ERROR_NONE;
+                if(_instance != NULL)
+                {
+                    NMLOG_WARNING("ssid is empty activating last connectd ssid !");
+                    if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
+                        rc = Core::ERROR_NONE;
+                }
+                else
+                    NMLOG_WARNING("ssid is empty and instance is NULL");
             }
             else if(ssid.ssid.size() <= 32)
             {
