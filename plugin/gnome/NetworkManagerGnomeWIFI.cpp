@@ -133,7 +133,7 @@ namespace WPEFramework
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
             g_source_set_callback(m_source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
-            g_source_attach(m_source, g_main_loop_get_context(loop));
+            g_source_attach(m_source, NULL);
             g_main_loop_run(loop);
             if(m_source != nullptr) {
                 if(g_source_is_destroyed(m_source)) {
