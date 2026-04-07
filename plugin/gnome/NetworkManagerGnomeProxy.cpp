@@ -265,8 +265,15 @@ namespace WPEFramework
             GError *error = NULL;
 
             // initialize the NMClient object
-            client = nm_client_new(NULL, &error);
-            if (client == NULL) {
+            // Create an isolated GMainContext so this m_nmClient's D-Bus socket is NOT a
+            // source on the global default context.  The event thread runs the default
+            // context via g_main_loop_run(); without isolation it would own and mutate
+            // this m_nmClient's GObjects concurrently with the RPC thread.
+            m_nmContext = g_main_context_new();
+            g_main_context_push_thread_default(m_nmContext);
+            m_nmClient = nm_client_new(NULL, &error);
+            g_main_context_pop_thread_default(m_nmContext);
+            if (m_nmClient == NULL) {
                 if (error) {
                     NMLOG_FATAL("Error initializing NMClient: %s", error->message);
                     g_error_free(error);
@@ -275,8 +282,8 @@ namespace WPEFramework
             }
 
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
-            modifyDefaultConnConfig(client);
-            NMDeviceState ethState = ifaceState(client, nmUtils::ethIface());
+            modifyDefaultConnConfig(m_nmClient);
+            NMDeviceState ethState = ifaceState(m_nmClient, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 setDefaultInterface(nmUtils::ethIface());
             else
@@ -295,12 +302,14 @@ namespace WPEFramework
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(client == nullptr) {
-                NMLOG_FATAL("client connection null:");
+            if(m_nmClient == nullptr) {
+                NMLOG_FATAL("NMClient is null");
                 return Core::ERROR_GENERAL;
             }
 
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            if(m_nmContext)
+                while(g_main_context_iteration(m_nmContext, FALSE));
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
                 return Core::ERROR_GENERAL;
@@ -426,9 +435,9 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
-            if(client == nullptr)
+            if(m_nmClient == nullptr)
             {
-                NMLOG_WARNING("client connection null:");
+                NMLOG_WARNING("NMClient is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
@@ -476,9 +485,9 @@ namespace WPEFramework
             bool isIfaceFound = false;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(client == nullptr)
+            if(m_nmClient == nullptr)
             {
-                NMLOG_WARNING("client connection null:");
+                NMLOG_WARNING("NMClient is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
@@ -488,7 +497,11 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
+            if(m_nmContext)
+                while(g_main_context_iteration(m_nmContext, FALSE));
+
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
+
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
                 return Core::ERROR_GENERAL;
@@ -560,9 +573,9 @@ namespace WPEFramework
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(client == nullptr)
+            if(m_nmClient == nullptr)
             {
-                NMLOG_WARNING("client connection null:");
+                NMLOG_WARNING("NMClient is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
@@ -627,7 +640,15 @@ namespace WPEFramework
                 }
             }
 
-            device = nm_client_get_device_by_iface(client, interface.c_str());
+            /* Drain any pending D-Bus property-change events queued on m_nmContext
+             * before reading libnm GObject state.  Because m_nmContext is isolated
+             * from the event thread, nobody else can run it — so this loop is
+             * single-threaded and safe.  It ensures m_nmClient reflects the latest state
+             * from NetworkManager before we start iterating connections/addresses. */
+            if(m_nmContext)
+                while(g_main_context_iteration(m_nmContext, FALSE));
+
+            device = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
             if (device == NULL)
             {
                 NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
@@ -645,7 +666,7 @@ namespace WPEFramework
             // if(ipversion.empty())
             //     NMLOG_DEBUG("ipversion is empty default value IPv4");
 
-            const GPtrArray *connections = nm_client_get_active_connections(client);
+            const GPtrArray *connections = nm_client_get_active_connections(m_nmClient);
             if(connections == NULL)
             {
                 NMLOG_WARNING("no active connection; ip is not assigned to interface");
@@ -702,9 +723,14 @@ namespace WPEFramework
                 {
                     for (int i = 0; i < ipByte->len; i++)
                     {
+                        ipStr.clear();
                         ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
                         if(ipAddr)
-                            ipStr = nm_ip_address_get_address(ipAddr);
+                        {
+                            const char* addr = nm_ip_address_get_address(ipAddr);
+                            if(addr)
+                                ipStr = addr;
+                        }
                         if(!ipStr.empty())
                         {
                             // Skip link-local IPv4 addresses (169.254.x.x)
@@ -714,7 +740,7 @@ namespace WPEFramework
                                 NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
                                 continue;
                             }
-                            result.ipaddress = nm_ip_address_get_address(ipAddr);
+                            result.ipaddress = ipStr;
                             result.prefix = nm_ip_address_get_prefix(ipAddr);
                             NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
                         }
@@ -773,9 +799,14 @@ namespace WPEFramework
                 {
                     for (int i = 0; i < ipArray->len; i++)
                     {
+                        ipStr.clear();
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
                         if(ipAddr)
-                            ipStr = nm_ip_address_get_address(ipAddr);
+                        {
+                            const char* addr = nm_ip_address_get_address(ipAddr);
+                            if(addr)
+                                ipStr = addr;
+                        }
                         if(!ipStr.empty())
                         {
                             if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)

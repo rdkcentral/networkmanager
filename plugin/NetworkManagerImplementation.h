@@ -317,6 +317,8 @@ namespace WPEFramework
                 std::atomic<bool> m_ethEnabled;
                 std::atomic<bool> m_wlanEnabled;
                 std::string m_lastConnectedSSID;
+                NMClient *m_nmClient{nullptr};          /* proxy NMClient — bound to m_nmContext */
+                GMainContext *m_nmContext{nullptr};     /* isolated context, not the global default */
                 mutable ConnectivityMonitor connectivityMonitor;
 
                 string getDefaultInterface() const
