@@ -562,6 +562,9 @@ namespace WPEFramework
                 }
                 using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
                 interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
+                if(interfacesItr == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
 
                 rc = Core::ERROR_NONE;
             }
@@ -1038,6 +1041,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 NMLOG_INFO ("GetKnownSSIDs Success");
 
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
+                if(ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
                 rc = Core::ERROR_NONE;
             }
             else

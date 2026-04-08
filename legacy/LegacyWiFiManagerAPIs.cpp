@@ -653,6 +653,9 @@ namespace WPEFramework
                 }
 
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
+                if (ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
             }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);

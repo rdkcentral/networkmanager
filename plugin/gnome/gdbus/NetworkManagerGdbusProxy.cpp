@@ -136,6 +136,9 @@ namespace WPEFramework
                 NMLOG_ERROR("GetAvailableInterfaces failed");
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
+            if(interfacesItr == nullptr){
+                return Core::ERROR_GENERAL;
+            }
 
             return rc;
         }
@@ -234,6 +237,9 @@ namespace WPEFramework
             if(_nmGdbusClient->getKnownSSIDs(ssidList) && !ssidList.empty())
             {
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
+                if(ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
                 rc = Core::ERROR_NONE;
             }
             else

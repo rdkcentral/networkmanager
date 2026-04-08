@@ -772,6 +772,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 }
             }
             endpointsIter = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(endpoints));
+            if (endpointsIter == nullptr) {
+                return Core::ERROR_GENERAL;
+            }
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)

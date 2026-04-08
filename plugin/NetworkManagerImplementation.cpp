@@ -251,6 +251,9 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             std::vector<std::string> tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
+            if(endpoints == nullptr) {
+                return Core::ERROR_GENERAL;
+            }
 
             return Core::ERROR_NONE;
         }
@@ -638,7 +641,9 @@ namespace WPEFramework
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
             security = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
-
+            if (security == nullptr) {
+                return Core::ERROR_GENERAL;
+            }
             return Core::ERROR_NONE;
         }
 
