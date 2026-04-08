@@ -611,13 +611,21 @@ namespace WPEFramework
             // Connection settings with autoconnect enabled
             NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
             std::string connId = "Wired connection 1";
+            char *uuidRawEth = nm_utils_uuid_generate();
+            if(uuidRawEth == nullptr)
+            {
+                NMLOG_ERROR("Failed to generate UUID for ethernet connection");
+                return nullptr;
+            }
+
             g_object_set(G_OBJECT(sConnection),
                         NM_SETTING_CONNECTION_ID, connId.c_str(),
-                        NM_SETTING_CONNECTION_UUID, nm_utils_uuid_generate(),
+                        NM_SETTING_CONNECTION_UUID, uuidRawEth,
                         NM_SETTING_CONNECTION_TYPE, "802-3-ethernet",
                         NM_SETTING_CONNECTION_INTERFACE_NAME, iface.c_str(),
                         NM_SETTING_CONNECTION_AUTOCONNECT, TRUE,  // Enable autoconnect
                         NULL);
+            g_free(uuidRawEth);
             nm_connection_add_setting(connection, NM_SETTING(sConnection));
 
             // Wired ethernet settings
@@ -663,14 +671,14 @@ namespace WPEFramework
             }
             /* Build up the 'connection' Setting */
             NMSettingConnection  *sConnection = (NMSettingConnection *) nm_setting_connection_new();
-            const char *uuid = nm_utils_uuid_generate();
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuid, NULL); // uuid
+            char *uuidRaw = nm_utils_uuid_generate();
+            std::string uuid = uuidRaw ? uuidRaw : "";
+            g_free(uuidRaw);
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuid.c_str(), NULL); // uuid
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_ID, ssidinfo.ssid.c_str(), NULL); // connection id = ssid
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, "wlan0", NULL); // interface name
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-11-wireless", NULL); // type 802.11wireless
             nm_connection_add_setting(m_connection, NM_SETTING(sConnection));
-            if(uuid) 
-                g_free((void *)uuid);
 
             /* Build up the '802-11-wireless-security' settings */
             NMSettingWireless *sWireless = NULL;
@@ -1242,6 +1250,7 @@ namespace WPEFramework
                             NULL,
                             wifiConnectionUpdate,
                             this);
+                    g_variant_unref(connSettings);
                 }
                 else
                 {
@@ -1303,6 +1312,7 @@ namespace WPEFramework
                                             m_cancellable,
                                             wifiConnectTempCb,
                                             this);
+                    g_variant_unref(connSettings);
                 }
                 if(m_connection)
                     g_object_unref(m_connection);
@@ -1404,6 +1414,8 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                     deleteClientConnection();
                     return false;
                 }
@@ -1416,6 +1428,9 @@ namespace WPEFramework
                                             NULL,
                                             addToKnownSSIDsUpdateCb,
                                             this);
+                g_variant_unref(connSettings);
+                g_object_unref(m_connection);
+                m_connection = NULL;
             }
             else
             {
@@ -1424,6 +1439,8 @@ namespace WPEFramework
                 if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                     deleteClientConnection();
                     return false;
                 }
@@ -1434,6 +1451,9 @@ namespace WPEFramework
                                         NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
                                         NULL, TRUE, m_cancellable,
                                         addToKnownSSIDsCb, this);
+                g_variant_unref(connSettings);
+                g_object_unref(m_connection);
+                m_connection = NULL;
             }
             wait(m_loop);
             deleteClientConnection();
