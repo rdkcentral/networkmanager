@@ -34,6 +34,10 @@ using namespace std;
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
 
+/* Forward declarations to avoid pulling GLib/libnm headers into this header */
+typedef struct _NMClient    NMClient;
+typedef struct _GMainContext GMainContext;
+
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
  * for a 20MHz channel,
