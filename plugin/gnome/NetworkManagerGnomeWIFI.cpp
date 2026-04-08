@@ -1225,6 +1225,8 @@ namespace WPEFramework
 
                 if(!connectionBuilder(ssidInfo, m_connection)) {
                     NMLOG_ERROR("connection builder failed");
+                    g_object_unref(m_connection);
+                    m_connection = NULL;
                     deleteClientConnection();
                     return false;
                 }
@@ -1249,6 +1251,8 @@ namespace WPEFramework
                     m_createNewConnection = false;
                     nm_client_activate_connection_async(m_client, NM_CONNECTION(m_connection), m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
                 }
+                g_object_unref(m_connection);
+                m_connection = NULL;
             }
             else
             {
