@@ -251,6 +251,12 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
+        void NetworkManagerImplementation::platform_deinit()
+        {
+            if(m_nmClient) { g_object_unref(m_nmClient); m_nmClient = nullptr; }
+            if(m_nmContext) { g_main_context_unref(m_nmContext); m_nmContext = nullptr; }
+        }
+
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
         {
             /* set networkmanager daemon log level based on current plugin log level */

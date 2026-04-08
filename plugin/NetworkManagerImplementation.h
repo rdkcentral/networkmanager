@@ -277,6 +277,7 @@ namespace WPEFramework
 
             private:
                 void platform_init(void);
+                void platform_deinit(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
