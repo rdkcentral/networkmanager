@@ -73,6 +73,8 @@ namespace WPEFramework
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
+            if(m_nmClient) { g_object_unref(m_nmClient); m_nmClient = nullptr; }
+            if(m_nmContext) { g_main_context_unref(m_nmContext); m_nmContext = nullptr; }
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
