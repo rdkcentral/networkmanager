@@ -716,7 +716,7 @@ namespace WPEFramework
                             }
                             result.ipaddress = nm_ip_address_get_address(ipAddr);
                             result.prefix = nm_ip_address_get_prefix(ipAddr);
-                            NMLOG_INFO("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
+                            NMLOG_DEBUG("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
                         }
                     }
                     gateway = nm_ip_config_get_gateway(ip4_config);
@@ -781,14 +781,14 @@ namespace WPEFramework
                             if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)
                             {
                                 result.ula = ipStr;
-                                NMLOG_INFO("link-local ip: %s", result.ula.c_str());
+                                NMLOG_DEBUG("link-local ip: %s", result.ula.c_str());
                             }
                             else
                             {
                                 result.prefix = nm_ip_address_get_prefix(ipAddr);
                                 if(result.ipaddress.empty()) // SLAAC mutiple ip not added
                                     result.ipaddress = ipStr;
-                                NMLOG_INFO("global ip %s/%d", ipStr.c_str(), result.prefix);
+                                NMLOG_DEBUG("global ip %s/%d", ipStr.c_str(), result.prefix);
                             }
                         }
                     }
