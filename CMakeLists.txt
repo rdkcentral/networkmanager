@@ -62,11 +62,7 @@ if (USE_TELEMETRY)
     message("Telemetry support enabled")
 endif(USE_TELEMETRY)
 
-if (INCLUDE_BREAKPAD)
-    add_definitions(-DINCLUDE_BREAKPAD)
-endif (INCLUDE_BREAKPAD)
-
-    add_subdirectory(interface)
+add_subdirectory(interface)
 add_subdirectory(definition)
 add_subdirectory(plugin)
 
