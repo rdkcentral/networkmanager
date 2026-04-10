@@ -54,7 +54,7 @@ namespace Plugin {
         , m_subsIfaceStateChange(false)
         , m_subsActIfaceChange(false)
         , m_subsIPAddrChange(false)
-        , _lastWifiReassocTime(std::chrono::steady_clock::time_point::min())
+        , m_subsWifiStateChange(false)
     {
         
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -479,21 +479,18 @@ namespace Plugin {
         if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
             ipv4PacketLoss100 && ipv6PacketLoss100) {
             NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
-           
-            auto now = std::chrono::steady_clock::now();
-            int secondsSinceLastReassoc = static_cast<int>(
-                std::chrono::duration_cast<std::chrono::seconds>(now - _lastWifiReassocTime).count());
 
-            if (secondsSinceLastReassoc < WIFI_REASSOC_COOLDOWN_SECONDS) {
-                NSLOG_WARNING("WiFi reassociation suppressed: last attempt was %d seconds ago (cooldown=%d seconds)",
-                    secondsSinceLastReassoc, WIFI_REASSOC_COOLDOWN_SECONDS);
+            if (_wifiAssocState == WifiAssocState::WIFI_ASSOC_INPROGRESS) {
+                NSLOG_WARNING("WiFi reassociation suppressed: reassociation already in progress");
             } else {
-                _lastWifiReassocTime = now;
+                NSLOG_INFO("WiFi reassociation state: IDLE -> INPROGRESS");
+                _wifiAssocState = WifiAssocState::WIFI_ASSOC_INPROGRESS;
                 logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
 
                 uint32_t rc = m_provider->invokeWiFiConnect();
                 if (rc != Core::ERROR_NONE) {
                     NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
+                    _wifiAssocState = WifiAssocState::WIFI_ASSOC_IDLE;
                 }
             } 
         }
@@ -563,6 +560,18 @@ namespace Plugin {
                 else
                     NSLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
             }
+
+            if (!m_subsWifiStateChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onWiFiStateChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportWiFiStateChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsWifiStateChange = true;
+                else
+                    NSLOG_ERROR("Subscribe to onWiFiStateChange failed, errCode: %u", errCode);
+            }
         }
         else
             NSLOG_ERROR("m_provider is null");
@@ -575,7 +584,7 @@ namespace Plugin {
         while (!_stopSubscriptionRetry)
         {
             // Check if all subscriptions are successful
-            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange)
+            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange && m_subsWifiStateChange)
             {
                 NSLOG_INFO("All required events subscribed; Stopping retry thread");
                 break;
@@ -610,7 +619,28 @@ namespace Plugin {
     {
         queueReportGeneration("Event: onIPAddressChange", &parameters);
     }
-    
+
+    void NetworkConnectionStatsImplementation::ReportWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        // WIFI_STATE_CONNECTED = 5 (from Exchange::INetworkManager::WiFiState enum)
+        static constexpr uint32_t WIFI_STATE_CONNECTED = 5;
+
+        uint32_t state = static_cast<uint32_t>(parameters["state"].Number());
+        NSLOG_INFO("ReportWiFiStateChange: state=%u", state);
+
+        if (state == WIFI_STATE_CONNECTED) {
+            if (_wifiAssocState == WifiAssocState::WIFI_ASSOC_INPROGRESS) {
+                NSLOG_INFO("WiFi reassociation state: INPROGRESS -> COMPLETE");
+                _wifiAssocState = WifiAssocState::WIFI_ASSOC_COMPLETE;
+                NSLOG_INFO("WiFi reassociation completed successfully");
+                _wifiAssocState = WifiAssocState::WIFI_ASSOC_IDLE;
+                NSLOG_INFO("WiFi reassociation state: COMPLETE -> IDLE");
+            } else {
+                NSLOG_INFO("WiFi CONNECTED received (no reassociation was in progress)");
+            }
+        }
+    }
+
     void NetworkConnectionStatsImplementation::queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters)
     {
         // Log event parameters if provided

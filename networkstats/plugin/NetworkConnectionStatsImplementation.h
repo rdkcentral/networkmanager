@@ -89,6 +89,7 @@ namespace Plugin {
         void ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
+        void ReportWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters = nullptr);
 
     private:
@@ -122,9 +123,13 @@ namespace Plugin {
         std::mutex _queueMutex;
         std::condition_variable _queueCondition;
 
-        // WiFi reassociation cooldown (avoid feedback loop from triggered events)
-        std::chrono::steady_clock::time_point _lastWifiReassocTime;
-        static constexpr int WIFI_REASSOC_COOLDOWN_SECONDS = 300; // 5 minutes
+        // WiFi reassociation state machine
+        enum class WifiAssocState {
+            WIFI_ASSOC_IDLE,        // Normal state, reassociation can be triggered
+            WIFI_ASSOC_INPROGRESS,  // Reassociation triggered, waiting for connection
+            WIFI_ASSOC_COMPLETE     // WiFi connected after reassociation
+        };
+        std::atomic<WifiAssocState> _wifiAssocState{WifiAssocState::WIFI_ASSOC_IDLE};
         
         // NetworkManager event subscription
         std::thread _subscriptionRetryThread;
@@ -132,6 +137,7 @@ namespace Plugin {
         bool m_subsIfaceStateChange;
         bool m_subsActIfaceChange;
         bool m_subsIPAddrChange;
+        bool m_subsWifiStateChange;
     };
 
 } // namespace Plugin
