@@ -612,12 +612,11 @@ namespace WPEFramework
             NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
             std::string connId = "Wired connection 1";
             char *uuidRawEth = nm_utils_uuid_generate();
-            if(uuidRawEth == nullptr)
+            if (!uuidRawEth)
             {
                 NMLOG_ERROR("Failed to generate UUID for ethernet connection");
                 return nullptr;
             }
-
             g_object_set(G_OBJECT(sConnection),
                         NM_SETTING_CONNECTION_ID, connId.c_str(),
                         NM_SETTING_CONNECTION_UUID, uuidRawEth,
@@ -672,9 +671,13 @@ namespace WPEFramework
             /* Build up the 'connection' Setting */
             NMSettingConnection  *sConnection = (NMSettingConnection *) nm_setting_connection_new();
             char *uuidRaw = nm_utils_uuid_generate();
-            std::string uuid = uuidRaw ? uuidRaw : "";
+            if (!uuidRaw)
+            {
+                NMLOG_ERROR("Failed to generate UUID for WiFi connection");
+                return false;
+            }
+            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuidRaw, NULL); // uuid
             g_free(uuidRaw);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuid.c_str(), NULL); // uuid
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_ID, ssidinfo.ssid.c_str(), NULL); // connection id = ssid
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, "wlan0", NULL); // interface name
             g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-11-wireless", NULL); // type 802.11wireless
@@ -847,7 +850,6 @@ namespace WPEFramework
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
-            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_TIMEOUT, INT32_MAX, NULL); // INT32_MAX(2147483647) = infinite timeout
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
             /* Build up the 'IPv6' Setting */

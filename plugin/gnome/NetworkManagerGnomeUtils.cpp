@@ -199,7 +199,7 @@ namespace WPEFramework
         bool nmUtils::isValidBSSID(const std::string& bssid)
         {
             // Regular expression to match valid BSSID formats (e.g., "00:11:22:33:44:55")
-            const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
+            static const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
             if (!std::regex_match(bssid, bssidRegex))
             {
                 NMLOG_ERROR("Invalid BSSID format: %s. Expected format is XX:XX:XX:XX:XX:XX where X is a hexadecimal digit.", bssid.c_str());

@@ -699,7 +699,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
                 if(ipByte)
                 {
-                    for (int i = 0; i < ipByte->len; i++)
+                    for (guint i = 0; i < ipByte->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
                         if(ipAddr)
@@ -770,7 +770,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
                 if(ipArray)
                 {
-                    for (int i = 0; i < ipArray->len; i++)
+                    for (guint i = 0; i < ipArray->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
                         if(ipAddr)
@@ -929,14 +929,6 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-           //  Check the last scanning time and if it exceeds 5 sec do a rescanning
-            // if(!wifi->isWifiScannedRecently())
-            // {
-            //     nmEvent->setwifiScanOptions(false);
-            //     if(!wifi->wifiScanRequest())
-            //         NMLOG_WARNING("scanning failed but try to connect");
-            // }
-
             if(ssid.ssid.empty())
             {
                 NMLOG_WARNING("ssid is empty activating last connected ssid !");
@@ -947,8 +939,8 @@ namespace WPEFramework
                 else
                 {
                     NMLOG_ERROR("activating last connected ssid failed");
-                    return rc;
                 }
+                return rc;
             }
 
             if(ssid.ssid.size() > 32)

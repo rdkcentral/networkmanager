@@ -262,7 +262,7 @@
             }
         },
         "GetPrimaryInterface": {
-            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. if no active network is available, it returns empty string.",
+            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. If no active network is available, it returns empty string.",
             "result": {
                 "type": "object",
                 "properties": {

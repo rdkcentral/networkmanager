@@ -809,12 +809,12 @@ namespace WPEFramework
                 if (parameters.HasLabel("frequency"))
                 {
                     int freq = parameters["frequency"].Number();
-                    if (freq < 0 || freq > 3) {
-                        NMLOG_WARNING("Invalid frequency value: %d", freq);
+                    if (freq < 1 || freq > 3) {
+                        NMLOG_WARNING("Invalid frequency value: %d (valid: 1=2.4GHz, 2=5GHz, 3=6GHz)", freq);
                         rc = Core::ERROR_BAD_REQUEST;
                         returnJson(rc);
                     }
-                    ssid.frequency =  static_cast <Exchange::INetworkManager::WIFIFrequency> (freq);
+                    ssid.frequency = static_cast <Exchange::INetworkManager::WIFIFrequency> (freq);
                 }
 
                 if (parameters.HasLabel("security"))
