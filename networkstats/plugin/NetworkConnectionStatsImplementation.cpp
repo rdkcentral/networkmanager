@@ -50,6 +50,9 @@ namespace Plugin {
         , _periodicReportingEnabled(true)  // Auto-enabled
         , _reportingIntervalSeconds(600)   // Default 10 minutes (600 seconds)
         , _stopReporting(false)
+        , _deferredReport(false)
+        , _lastReportTime()
+        , _minEventReportIntervalSeconds(60)
         , _stopSubscriptionRetry(false)
         , m_subsIfaceStateChange(false)
         , m_subsActIfaceChange(false)
@@ -169,7 +172,12 @@ namespace Plugin {
             _periodicReportingEnabled = config["autoStart"].Boolean();
             NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
         }
-        
+
+        if (config.HasLabel("minEventReportInterval")) {
+            _minEventReportIntervalSeconds = config["minEventReportInterval"].Number();
+            NSLOG_INFO("Min event report interval set to %u seconds", _minEventReportIntervalSeconds.load());
+        }
+
         // Get provider type from configuration (default: comrpc)
         std::string providerType = "comrpc";
         if (config.HasLabel("providerType")) {
@@ -232,8 +240,8 @@ namespace Plugin {
                 break;
             }
             
-            // Queue report generation
-            queueReportGeneration("Timer");
+            // Queue report generation (timer bypasses rate-limit, it has its own 600s interval)
+            queueReportGeneration("Timer", nullptr, false);
         }
         
         NSLOG_INFO("Timer thread stopped");
@@ -271,7 +279,20 @@ namespace Plugin {
                     NSLOG_INFO("Consumer: Skipping GENERATE_REPORT: WiFi reassociation in progress");
                 } else {
                     NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
+                    _deferredReport = false; // Clear deferred flag; may be set again if a rate-limited event arrives during generateReport()
                     generateReport();
+                    // Update last report time under the queue lock so rate-limit checks are consistent
+                    {
+                        std::lock_guard<std::mutex> lock(_queueMutex);
+                        _lastReportTime = std::chrono::steady_clock::now();
+                        // If an event was rate-limited while we were running, queue one deferred report now
+                        if (_deferredReport) {
+                            _deferredReport = false;
+                            _messageQueue.push({MessageType::GENERATE_REPORT});
+                            NSLOG_INFO("Consumer: Queuing deferred report");
+                            _queueCondition.notify_one();
+                        }
+                    }
                     NSLOG_INFO("Consumer: Periodic report generated");
                 }
             } else if (msg.type == MessageType::STOP) {
@@ -611,17 +632,17 @@ namespace Plugin {
     /** Event Handling - Report methods */
     void NetworkConnectionStatsImplementation::ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        queueReportGeneration("Event: onInterfaceStateChange", &parameters);
+        queueReportGeneration("Event: onInterfaceStateChange", &parameters, true);
     }
 
     void NetworkConnectionStatsImplementation::ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        queueReportGeneration("Event: onActiveInterfaceChange", &parameters);
+        queueReportGeneration("Event: onActiveInterfaceChange", &parameters, true);
     }
 
     void NetworkConnectionStatsImplementation::ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        queueReportGeneration("Event: onIPAddressChange", &parameters);
+        queueReportGeneration("Event: onIPAddressChange", &parameters, true);
     }
 
     void NetworkConnectionStatsImplementation::ReportWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
@@ -645,7 +666,7 @@ namespace Plugin {
         }
     }
 
-    void NetworkConnectionStatsImplementation::queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters)
+    void NetworkConnectionStatsImplementation::queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters, bool applyRateLimit)
     {
         // Log event parameters if provided
         if (parameters != nullptr) {
@@ -654,8 +675,24 @@ namespace Plugin {
             NSLOG_INFO("%s - params: %s", source.c_str(), json.c_str());
         }
         
-        // Queue report generation
+        // Queue report generation (skip if one is already pending or rate-limited)
         std::lock_guard<std::mutex> lock(_queueMutex);
+        if (!_messageQueue.empty()) {
+            // A report is already queued and waiting — it will capture the latest state when it runs
+            NSLOG_INFO("%s: GENERATE_REPORT already pending, skipping", source.c_str());
+            return;
+        }
+        if (applyRateLimit) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - _lastReportTime).count();
+            if (elapsed < static_cast<long long>(_minEventReportIntervalSeconds.load())) {
+                // Don't drop — defer so a report runs once the current one finishes
+                _deferredReport = true;
+                NSLOG_INFO("%s: Rate-limited (%llds since last report, min: %us), deferred",
+                       source.c_str(), (long long)elapsed, _minEventReportIntervalSeconds.load());
+                return;
+            }
+        }
         _messageQueue.push({MessageType::GENERATE_REPORT});
         NSLOG_INFO("%s: Pushed GENERATE_REPORT to queue", source.c_str());
         _queueCondition.notify_one();

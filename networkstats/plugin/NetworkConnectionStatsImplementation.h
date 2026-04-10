@@ -29,6 +29,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #if USE_TELEMETRY
 #include <telemetry_busmessage_sender.h>
@@ -90,7 +91,7 @@ namespace Plugin {
         void ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
-        void queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters = nullptr);
+        void queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters = nullptr, bool applyRateLimit = true);
 
     private:
         mutable Core::CriticalSection _adminLock;
@@ -122,6 +123,14 @@ namespace Plugin {
         std::queue<Message> _messageQueue;
         std::mutex _queueMutex;
         std::condition_variable _queueCondition;
+
+        std::atomic<bool> _deferredReport;
+        std::chrono::steady_clock::time_point _lastReportTime;
+        std::atomic<uint32_t> _minEventReportIntervalSeconds;
+
+        // Timer wakeup (steady clock, NTP-immune)
+        std::mutex _timerMutex;
+        std::condition_variable _timerCv;
 
         // WiFi reassociation state machine
         enum class WifiAssocState {
