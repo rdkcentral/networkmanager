@@ -267,9 +267,13 @@ namespace Plugin {
             
             // Process message
             if (msg.type == MessageType::GENERATE_REPORT) {
-                NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
-                generateReport();
-                NSLOG_INFO("Consumer: Periodic report generated");
+                if (_wifiAssocState == WifiAssocState::WIFI_ASSOC_INPROGRESS) {
+                    NSLOG_INFO("Consumer: Skipping GENERATE_REPORT: WiFi reassociation in progress");
+                } else {
+                    NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
+                    generateReport();
+                    NSLOG_INFO("Consumer: Periodic report generated");
+                }
             } else if (msg.type == MessageType::STOP) {
                 NSLOG_INFO("Consumer: Received STOP message");
                 break;
