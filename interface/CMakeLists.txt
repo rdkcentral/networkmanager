@@ -33,6 +33,17 @@ endif()
 file(GLOB INTERFACE_HEADER ${CMAKE_CURRENT_SOURCE_DIR})
 
 ProxyStubGenerator(INPUT "${INTERFACE_HEADER}" OUTDIR "${CMAKE_CURRENT_BINARY_DIR}/generated" INCLUDE_PATH ${GENERATOR_SEARCH_PATH} SECURE)
+# Workaround for ThunderTools generator emitting bare Channel() inside template proxy classes.
+# C++ requires this->Channel() for dependent name lookup in template base classes.
+file(GLOB _GENERATED_STUBS "${CMAKE_CURRENT_BINARY_DIR}/generated/ProxyStubs*.cpp")
+foreach(_stub ${_GENERATED_STUBS})
+    file(READ "${_stub}" _content)
+    string(REPLACE "IsValid(Channel()" "IsValid(this->Channel()" _content "${_content}")
+    file(WRITE "${_stub}" "${_content}")
+endforeach()
+unset(_GENERATED_STUBS)
+unset(_stub)
+unset(_content)
 
 file(GLOB PROXY_STUB_SOURCES "${CMAKE_CURRENT_BINARY_DIR}/generated/ProxyStubs*.cpp")
 
