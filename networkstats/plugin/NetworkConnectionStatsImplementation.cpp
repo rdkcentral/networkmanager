@@ -54,6 +54,7 @@ namespace Plugin {
         , m_subsIfaceStateChange(false)
         , m_subsActIfaceChange(false)
         , m_subsIPAddrChange(false)
+        , _lastWifiReassocTime(std::chrono::steady_clock::time_point::min())
     {
         
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -478,13 +479,23 @@ namespace Plugin {
         if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
             ipv4PacketLoss100 && ipv6PacketLoss100) {
             NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
-            
-            logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
-            
-            uint32_t rc = m_provider->invokeWiFiConnect();
-            if (rc != Core::ERROR_NONE) {
-                NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
-            }
+           
+            auto now = std::chrono::steady_clock::now();
+            int secondsSinceLastReassoc = static_cast<int>(
+                std::chrono::duration_cast<std::chrono::seconds>(now - _lastWifiReassocTime).count());
+
+            if (secondsSinceLastReassoc < WIFI_REASSOC_COOLDOWN_SECONDS) {
+                NSLOG_WARNING("WiFi reassociation suppressed: last attempt was %d seconds ago (cooldown=%d seconds)",
+                    secondsSinceLastReassoc, WIFI_REASSOC_COOLDOWN_SECONDS);
+            } else {
+                _lastWifiReassocTime = now;
+                logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
+
+                uint32_t rc = m_provider->invokeWiFiConnect();
+                if (rc != Core::ERROR_NONE) {
+                    NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
+                }
+            } 
         }
     }
 

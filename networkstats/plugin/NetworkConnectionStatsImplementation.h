@@ -121,6 +121,10 @@ namespace Plugin {
         std::queue<Message> _messageQueue;
         std::mutex _queueMutex;
         std::condition_variable _queueCondition;
+
+        // WiFi reassociation cooldown (avoid feedback loop from triggered events)
+        std::chrono::steady_clock::time_point _lastWifiReassocTime;
+        static constexpr int WIFI_REASSOC_COOLDOWN_SECONDS = 300; // 5 minutes
         
         // NetworkManager event subscription
         std::thread _subscriptionRetryThread;
