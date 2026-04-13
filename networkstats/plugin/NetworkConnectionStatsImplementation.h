@@ -71,28 +71,30 @@ namespace Plugin {
             WIFI_ASSOC_COMPLETED       // Connected + IP acquired: reports enabled
         };
 
-        // NetworkManager events dispatched through the state machine
+        // Fine-grained events decoded at dispatch time and carried in each Message.
         // Modeled after systimemgr's sysTimeMgrEvent
         enum class NetworkEvent {
             IFACE_STATE_CHANGE = 0,
             ACTIVE_IFACE_CHANGE,
-            IP_ADDR_CHANGE,
-            WIFI_STATE_CHANGE,
-            PERIODIC_TIMER
+            IP_ACQUIRED,             // status ACQUIRED from onIPAddressChange
+            IP_LOST,                 // status LOST (or other) from onIPAddressChange
+            WIFI_STATE_CONNECTED,    // status WIFI_STATE_CONNECTED from onWiFiStateChange
+            WIFI_STATE_OTHER,        // all other onWiFiStateChange statuses
+            PERIODIC_TIMER,
+            WIFI_REASSOC_TRIGGER      // both gateways have packet loss >= threshold
         };
-
-        // Function pointer type for state machine event handlers
-        // Modeled after systimemgr's memfunc typedef
-        typedef void (NetworkConnectionStatsImplementation::*EventHandler)(const WPEFramework::Core::JSON::VariantContainer*);
 
         // Message queue types
         enum class MessageType {
             GENERATE_REPORT,
             STOP
         };
-        
+
         struct Message {
-            MessageType type;
+            MessageType  type;
+            NetworkEvent event;
+            Message() : type(MessageType::GENERATE_REPORT), event(NetworkEvent::PERIODIC_TIMER) {}
+            Message(MessageType t, NetworkEvent e) : type(t), event(e) {}
         };
         
         // Internal diagnostic methods
@@ -115,22 +117,9 @@ namespace Plugin {
         void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
 
-        // State machine initialisation and event dispatch
+        // State machine initialisation and event enqueue
         void initStateMachine();
-        void dispatchEvent(NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params);
-
-        // Handlers registered in the state machine for WIFI_ASSOC_IDLE
-        // All events generate a report; IFACE_STATE_CHANGE with ACQUIRING_IP moves to INPROGRESS
-        // (reuses onAnyEvent_Completed for non-interface events)
-
-        // Handlers registered in the state machine for WIFI_ASSOC_INPROGRESS
-        void onWiFiStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
-        void onIpAddrChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
-        void skipEvent(const WPEFramework::Core::JSON::VariantContainer* params);
-
-        // Handlers registered in the state machine for WIFI_ASSOC_COMPLETED
-        void onIpAddrChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
-        void onAnyEvent_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
+        void enqueueEvent(NetworkEvent event);
 
     private:
         mutable Core::CriticalSection _adminLock;
@@ -163,11 +152,11 @@ namespace Plugin {
         std::mutex _queueMutex;
         std::condition_variable _queueCondition;
 
-        // 2D state machine: AssocState -> NetworkEvent -> EventHandler
+        // 2D state machine: AssocState × NetworkEvent → next AssocState
+        // Only registered transitions change state; unregistered events leave state unchanged.
         // Modeled after systimemgr's map<sysTimeMgrState, map<sysTimeMgrEvent, memfunc>>
-        std::map<AssocState, std::map<NetworkEvent, EventHandler>> _stateMachine;
+        std::map<AssocState, std::map<NetworkEvent, AssocState>> _stateMachine;
         AssocState _currentAssocState;
-        bool _ipAcquired;    // true once IP ACQUIRED seen while in WIFI_ASSOC_INPROGRESS
 
         // Timer wakeup (steady clock, NTP-immune)
         std::mutex _timerMutex;
