@@ -42,7 +42,8 @@ namespace Plugin {
     // Internal implementation - runs network diagnostics automatically
     // No external APIs exposed
     class NetworkConnectionStatsImplementation 
-        : public Exchange::INetworkConnectionStats {
+        : public Exchange::INetworkConnectionStats
+        , public PluginHost::IPlugin{
     
     public:
 
@@ -53,7 +54,14 @@ namespace Plugin {
 
         BEGIN_INTERFACE_MAP(NetworkConnectionStatsImplementation)
         INTERFACE_ENTRY(Exchange::INetworkConnectionStats)
+        INTERFACE_ENTRY(PluginHost::IPlugin)
         END_INTERFACE_MAP
+
+        // PluginHost::IPlugin — receives the IShell pointer so providers can use
+        // QueryInterfaceByCallsign to reach other plugins via COM-RPC.
+        const string Initialize(PluginHost::IShell* service) override;
+        void Deinitialize(PluginHost::IShell* service) override;
+        string Information() const override { return {}; }
 
         // Handle Notification registration/removal
         uint32_t Register(INetworkConnectionStats::INotification* notification) override;
@@ -169,6 +177,9 @@ namespace Plugin {
         bool m_subsActIfaceChange;
         bool m_subsIPAddrChange;
         bool m_subsWiFiStateChange;
+
+         // IShell received via IPlugin::Initialize — used by providers for COM-RPC
+        PluginHost::IShell* _implService;
     };
 
 } // namespace Plugin

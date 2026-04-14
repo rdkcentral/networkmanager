@@ -98,6 +98,15 @@ namespace WPEFramework {
 
         if (nullptr != _networkStats) {
             SYSLOG(Logging::Startup, (_T("Configuring NetworkConnectionStats")));
+
+            // Pass the IShell to the implementation so COM-RPC providers can reach
+            // other plugins via QueryInterfaceByCallsign (e.g., NetworkManager).
+            auto plugin = _networkStats->QueryInterface<PluginHost::IPlugin>();
+            if (plugin != nullptr) {
+                plugin->Initialize(_service);
+                plugin->Release();
+            }
+
             if (_networkStats->Configure(_service->ConfigLine()) != Core::ERROR_NONE)
             {
                 SYSLOG(Logging::Shutdown, (_T("NetworkConnectionStats failed to configure")));

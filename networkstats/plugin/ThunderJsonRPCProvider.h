@@ -32,7 +32,9 @@ class NetworkJsonRPCProvider : public INetworkData
     ~NetworkJsonRPCProvider();
     
     /* @brief Initialize the provider with Thunder connection */
-    bool Initialize();
+    /* @param service PluginHost::IShell pointer (unused for JSON-RPC; JSON-RPC uses THUNDER_ACCESS)
+     */
+    bool Initialize(WPEFramework::PluginHost::IShell* service) override;
     /* @brief Retrieve IPv4 address for specified interface
      * @param interface_name Interface name (e.g., eth0, wlan0)
      * @return IPv4 address string

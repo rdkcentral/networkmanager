@@ -71,6 +71,7 @@ target_include_directories(${MODULE_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/../interface
 )
 
+        
 set_target_properties(${MODULE_NAME} PROPERTIES
     CXX_STANDARD 11
     CXX_STANDARD_REQUIRED YES
@@ -112,6 +113,7 @@ target_include_directories(${MODULE_IMPL_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/../interface
+        ${CMAKE_SOURCE_DIR}/interface
 )
 
 set_target_properties(${MODULE_IMPL_NAME} PROPERTIES

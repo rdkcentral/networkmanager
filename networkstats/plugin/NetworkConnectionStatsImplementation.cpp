@@ -56,6 +56,7 @@ namespace Plugin {
         , m_subsActIfaceChange(false)
         , m_subsIPAddrChange(false)
         , m_subsWiFiStateChange(false)
+        , _implService(nullptr)
     {
         
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -154,6 +155,25 @@ namespace Plugin {
         return Core::ERROR_NONE;
     }
 
+    /* IPlugin::Initialize — store the IShell for use by COM-RPC providers */
+    const string NetworkConnectionStatsImplementation::Initialize(PluginHost::IShell* service)
+    {
+        _implService = service;
+        if (_implService) {
+            _implService->AddRef();
+        }
+        NSLOG_INFO("NetworkConnectionStatsImplementation::Initialize: IShell stored");
+        return {};
+    }
+
+    /* IPlugin::Deinitialize — release the stored IShell */
+    void NetworkConnectionStatsImplementation::Deinitialize(PluginHost::IShell* service)
+    {
+        if (_implService == service) {
+            _implService->Release();
+            _implService = nullptr;
+        }
+    }
 
     uint32_t NetworkConnectionStatsImplementation::Configure(const string configLine)
     {
@@ -175,6 +195,11 @@ namespace Plugin {
             NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
         }
         
+        if (config.HasLabel("minEventReportInterval")) {
+            // minEventReportInterval config key is no longer applicable (rate-limiting removed)
+            NSLOG_INFO("minEventReportInterval config ignored: rate-limiting replaced by state machine");
+        }
+        
         // Get provider type from configuration (default: comrpc)
         std::string providerType = "comrpc";
         if (config.HasLabel("providerType")) {
@@ -182,7 +207,7 @@ namespace Plugin {
         }
         
         // Create network provider using factory
-        m_provider = NetworkDataProviderFactory::CreateProvider(providerType);
+        m_provider = NetworkDataProviderFactory::CreateProvider(providerType, _implService);
         if (m_provider == nullptr) {
             NSLOG_ERROR("Failed to create network provider for type: %s", providerType.c_str());
             result = Core::ERROR_GENERAL;
@@ -192,7 +217,7 @@ namespace Plugin {
             NSLOG_INFO("%s provider created", typeName.c_str());
             
             // Initialize the provider
-            if (m_provider->Initialize()) {
+            if (m_provider->Initialize(_implService)) {
                 NSLOG_INFO("%s provider initialized successfully", typeName.c_str());
                 
                 // Subscribe to NetworkManager events (with automatic retry)
