@@ -202,7 +202,7 @@ namespace WPEFramework
             static const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
             if (!std::regex_match(bssid, bssidRegex))
             {
-                NMLOG_ERROR("Invalid BSSID format: %s. Expected format is XX:XX:XX:XX:XX:XX where X is a hexadecimal digit.", bssid.c_str());
+                NMLOG_ERROR("Invalid BSSID format Expected format is XX:XX:XX:XX:XX:XX where X is a hexadecimal digit.");
                 return false;
             }
 
