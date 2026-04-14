@@ -33,6 +33,7 @@ public:
     virtual const char* nm_setting_ip_config_get_method(NMSettingIPConfig* setting) = 0;
     virtual NMSettingConnection* nm_connection_get_setting_connection(NMConnection* connection) = 0;
     virtual const char* nm_setting_connection_get_interface_name(NMSettingConnection* setting) = 0;
+    virtual NMIPConfig* nm_device_get_ip4_config(NMDevice* device) = 0;
     virtual NMIPConfig* nm_active_connection_get_ip4_config(NMActiveConnection* connection) = 0;
     virtual NMIPConfig* nm_active_connection_get_ip6_config(NMActiveConnection* connection) = 0;
     virtual GPtrArray* nm_ip_config_get_addresses(NMIPConfig* config) = 0;
@@ -220,6 +221,7 @@ public:
     static const char* nm_setting_ip_config_get_method(NMSettingIPConfig* setting);
     static NMSettingConnection* nm_connection_get_setting_connection(NMConnection* connection);
     static const char* nm_setting_connection_get_interface_name(NMSettingConnection* setting);
+    static NMIPConfig* nm_device_get_ip4_config(NMDevice* device);
     static NMIPConfig* nm_active_connection_get_ip4_config(NMActiveConnection* connection);
     static NMIPConfig* nm_active_connection_get_ip6_config(NMActiveConnection* connection);
     static GPtrArray* nm_ip_config_get_addresses(NMIPConfig* config);

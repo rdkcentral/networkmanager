@@ -440,63 +440,35 @@ namespace WPEFramework
             return mac;
         }
 
-        std::string nmUtils::getGatewayMacAddress(NMClient* client, const std::string& interface)
+        std::string nmUtils::getGatewayMacAddress(NMDevice* device)
         {
             std::string gatewayMac = "";
 
-            if (client == NULL) {
-                NMLOG_ERROR("NMClient is NULL");
+            if (!device) {
+                NMLOG_ERROR("device is NULL");
                 return gatewayMac;
             }
 
-            if (interface.empty()) {
-                NMLOG_ERROR("Interface name is empty");
+            if (!NM_IS_DEVICE(device)) {
+                NMLOG_ERROR("device is not an NMDevice");
                 return gatewayMac;
             }
 
-            // Get all active connections and find the one for our interface
-            const GPtrArray *activeConnections = nm_client_get_active_connections(client);
-            if (!activeConnections) {
-                NMLOG_WARNING("No active connections found");
+            NMIPConfig *ip4Config = nm_device_get_ip4_config(device);
+            if (!ip4Config) {
+                NMLOG_WARNING("No IPv4 configuration found");
                 return gatewayMac;
             }
 
-            for (guint i = 0; i < activeConnections->len; i++) {
-                NMActiveConnection *activeConn = NM_ACTIVE_CONNECTION(g_ptr_array_index(activeConnections, i));
-                if (!activeConn) continue;
-
-                // Get devices for this connection
-                const GPtrArray *devices = nm_active_connection_get_devices(activeConn);
-                if (!devices) continue;
-
-                // Check if this connection belongs to our interface
-                for (guint j = 0; j < devices->len; j++) {
-                    NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, j));
-                    if (!device) continue;
-
-                    const char *ifname = nm_device_get_iface(device);
-                    if (ifname && interface == ifname) {
-                        // Found the connection for our interface
-                        NMIPConfig *ip4Config = nm_active_connection_get_ip4_config(activeConn);
-                        if (ip4Config) {
-                            const char *gateway = nm_ip_config_get_gateway(ip4Config);
-                            if (gateway) {
-                                NMLOG_DEBUG("Found gateway IP for %s: %s", interface.c_str(), gateway);
-                                // Use ARP to resolve gateway IP to MAC address
-                                gatewayMac = resolveGatewayMac(gateway);
-                                return gatewayMac;
-                            } else {
-                                NMLOG_WARNING("No gateway found for %s", interface.c_str());
-                            }
-                        } else {
-                            NMLOG_WARNING("No IPv4 configuration found for %s", interface.c_str());
-                        }
-                        return gatewayMac;
-                    }
-                }
+            const char *ifname = nm_device_get_iface(device);
+            const char *gateway = nm_ip_config_get_gateway(ip4Config);
+            if (!gateway) {
+                NMLOG_WARNING("No gateway found for %s", ifname ? ifname : "unknown");
+                return gatewayMac;
             }
 
-            NMLOG_WARNING("No active connection found for interface %s", interface.c_str());
+            NMLOG_DEBUG("Found gateway IP for %s: %s", ifname ? ifname : "unknown", gateway);
+            gatewayMac = resolveGatewayMac(gateway);
             return gatewayMac;
         }
 
