@@ -763,7 +763,7 @@ namespace Plugin {
         uint32_t rc = m_provider->invokeWiFiConnect();
         if (rc != Core::ERROR_NONE) {
             NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
-            _currentAssocState = AssocState::WIFI_ASSOC_IDLE;
+            //_currentAssocState = AssocState::WIFI_ASSOC_IDLE;
         }
     }
 
