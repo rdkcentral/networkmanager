@@ -260,7 +260,7 @@ bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string
     WPEFramework::Core::JSON::VariantContainer result;
     
     uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
-        30000, "Ping", params, result);
+        15000, "Ping", params, result);
     
     if (rc != WPEFramework::Core::ERROR_NONE) {
         NSLOG_ERROR("Ping COM-RPC call failed with error code: %u", rc);
