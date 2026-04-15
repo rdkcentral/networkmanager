@@ -40,7 +40,7 @@ NetworkJsonRPCProvider::~NetworkJsonRPCProvider()
 }
 
 /* @brief Initialize the provider with Thunder connection */
-bool NetworkJsonRPCProvider::Initialize(WPEFramework::PluginHost::IShell* /* service */)
+bool NetworkJsonRPCProvider::Initialize()
 {
     try {
         // Set Thunder access point

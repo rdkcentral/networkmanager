@@ -19,125 +19,14 @@
 
 #include "ThunderComRPCProvider.h"
 #include "NetworkConnectionStatsLogger.h"
-// INetworkManager.h is included here (not in the header) to prevent the
-// WPEFramework::Exchange::myIDs redefinition conflict with INetworkConnectionStats.h.
-#include "INetworkManager.h"
-#include <map>
-#include <mutex>
-#include <atomic>
+#include <cstring>
 
 using namespace std;
-using namespace WPEFramework;
 using namespace NetworkConnectionStatsLogger;
-
-
-// ---------------------------------------------------------------------------
-// NetworkManagerNotification — COM-RPC notification sink
-//
-// Receives typed COM-RPC callbacks from INetworkManager, converts them to
-// VariantContainer parameters, and dispatches to stored std::function handlers.
-//
-// AddRef/Release are intentionally non-deleting (like Core::Sink<T>): lifetime
-// is owned exclusively by NetworkComRPCProvider.
-// ---------------------------------------------------------------------------
-class NetworkManagerNotification
-    : public WPEFramework::Exchange::INetworkManager::INotification {
-public:
-    NetworkManagerNotification() = default;
-    ~NetworkManagerNotification() = default;
-
-    BEGIN_INTERFACE_MAP(NetworkManagerNotification)
-    INTERFACE_ENTRY(WPEFramework::Exchange::INetworkManager::INotification)
-    END_INTERFACE_MAP
-
-    void AddCallback(const std::string& eventName,
-        std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback)
-    {
-        std::lock_guard<std::mutex> lock(m_lock);
-        m_callbacks[eventName] = callback;
-    }
-
-    void onInterfaceStateChange(
-        const WPEFramework::Exchange::INetworkManager::InterfaceState state,
-        const std::string interface) override
-    {
-        std::lock_guard<std::mutex> lock(m_lock);
-        auto it = m_callbacks.find("onInterfaceStateChange");
-        if (it == m_callbacks.end()) return;
-
-        const char* s = "";
-        switch (state) {
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_ADDED:        s = "INTERFACE_ADDED";        break;
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_LINK_UP:      s = "INTERFACE_LINK_UP";      break;
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_LINK_DOWN:    s = "INTERFACE_LINK_DOWN";    break;
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_ACQUIRING_IP: s = "INTERFACE_ACQUIRING_IP"; break;
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_REMOVED:      s = "INTERFACE_REMOVED";      break;
-            case WPEFramework::Exchange::INetworkManager::INTERFACE_DISABLED:     s = "INTERFACE_DISABLED";     break;
-            default: break;
-        }
-        WPEFramework::Core::JSON::VariantContainer params;
-        params["interface"] = interface;
-        params["status"]    = std::string(s);
-        it->second(params);
-    }
-
-    void onActiveInterfaceChange(const std::string prevActiveInterface,
-        const std::string currentActiveInterface) override
-    {
-        std::lock_guard<std::mutex> lock(m_lock);
-        auto it = m_callbacks.find("onActiveInterfaceChange");
-        if (it == m_callbacks.end()) return;
-
-        WPEFramework::Core::JSON::VariantContainer params;
-        params["prevActiveInterface"]    = prevActiveInterface;
-        params["currentActiveInterface"] = currentActiveInterface;
-        it->second(params);
-    }
-
-    void onIPAddressChange(const std::string interface, const std::string ipversion,
-        const std::string ipaddress,
-        const WPEFramework::Exchange::INetworkManager::IPStatus status) override
-    {
-        std::lock_guard<std::mutex> lock(m_lock);
-        auto it = m_callbacks.find("onIPAddressChange");
-        if (it == m_callbacks.end()) return;
-
-        WPEFramework::Core::JSON::VariantContainer params;
-        params["interface"] = interface;
-        params["ipversion"] = ipversion;
-        params["ipaddress"] = ipaddress;
-        params["status"]    = std::string(
-            status == WPEFramework::Exchange::INetworkManager::IP_ACQUIRED
-                ? "ACQUIRED" : "LOST");
-        it->second(params);
-    }
-
-    void onWiFiStateChange(
-        const WPEFramework::Exchange::INetworkManager::WiFiState state) override
-    {
-        std::lock_guard<std::mutex> lock(m_lock);
-        auto it = m_callbacks.find("onWiFiStateChange");
-        if (it == m_callbacks.end()) return;
-
-        WPEFramework::Core::JSON::VariantContainer params;
-        params["status"] = std::string(
-            state == WPEFramework::Exchange::INetworkManager::WIFI_STATE_CONNECTED
-                ? "WIFI_STATE_CONNECTED" : "WIFI_STATE_OTHER");
-        it->second(params);
-    }
-
-private:
-    std::mutex m_lock;
-    std::map<std::string,
-        std::function<void(const WPEFramework::Core::JSON::VariantContainer&)>>
-        m_callbacks;
-};
 
 /* @brief Constructor */
 NetworkComRPCProvider::NetworkComRPCProvider()
-    : m_service(nullptr)
-    , m_notification(new Core::Sink<NetworkManagerNotification>())
-    , m_notificationRegistered(false)
+    : m_networkManagerClient(nullptr)
 {
     NSLOG_INFO("NetworkComRPCProvider constructed");
 }
@@ -145,64 +34,75 @@ NetworkComRPCProvider::NetworkComRPCProvider()
 /* @brief Destructor */
 NetworkComRPCProvider::~NetworkComRPCProvider()
 {
-    if (m_notificationRegistered && m_service) {
-        auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-        if (_nwmgr) {
-            _nwmgr->Unregister(m_notification);
-            _nwmgr->Release();
-        }
-        m_notificationRegistered = false;
-    }
-    delete m_notification;
-    m_notification = nullptr;
-    m_service = nullptr;
+    m_networkManagerClient.reset();
 }
 
-/* @brief Initialize the provider — store the IShell for later QueryInterfaceByCallsign calls */
-bool NetworkComRPCProvider::Initialize(PluginHost::IShell* service)
+/* @brief Initialize the provider with Thunder COM-RPC connection */
+bool NetworkComRPCProvider::Initialize()
 {
-    if (!service) {
-        NSLOG_ERROR("Initialize: service is nullptr");
+    try {
+        NSLOG_INFO("Creating JSON-RPC client for callsign: %s over COM-RPC", NETWORK_MANAGER_CALLSIGN);
+        
+        // For COM-RPC, don't set THUNDER_ACCESS - let it use the default connection
+        // The plugin framework handles the routing automatically
+        m_networkManagerClient = std::make_shared<WPEFramework::JSONRPC::LinkType<WPEFramework::Core::JSON::IElement>>(
+            _T(NETWORK_MANAGER_CALLSIGN)
+        );
+        
+        if (m_networkManagerClient) {
+            NSLOG_INFO("NetworkManager COM-RPC client initialized successfully");
+            return true;
+        } else {
+            NSLOG_ERROR("Failed to create NetworkManager COM-RPC client");
+            return false;
+        }
+    }
+    catch (const std::exception& e) {
+        NSLOG_ERROR("Exception during initialization: %s", e.what());
         return false;
     }
-    m_service = service;
-    NSLOG_INFO("NetworkComRPCProvider initialized with IShell service");
-    return true;
 }
 
 /* @brief Retrieve IPv4 address for specified interface */
 std::string NetworkComRPCProvider::getIpv4Address(std::string interface_name)
 {
     std::string ipv4_address = "";
-    m_ipv4Gateway    = "";
+    
+    // Initialize member variables
+    m_ipv4Gateway = "";
     m_ipv4PrimaryDns = "";
-
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
+    
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        Exchange::INetworkManager::IPAddress address{};
-        string iface = interface_name;
-        uint32_t rc = _nwmgr->GetIPSettings(iface, string("IPv4"), address);
-        _nwmgr->Release();
-
-        if (rc == Core::ERROR_NONE) {
-            ipv4_address     = address.ipaddress;
-            m_ipv4Gateway    = address.gateway;
-            m_ipv4PrimaryDns = address.primarydns;
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    params["interface"] = interface_name;
+    params["ipversion"] = "IPv4";
+    
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetIPSettings", params, result);
+    
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("ipaddress")) {
+            ipv4_address = result["ipaddress"].String();
             NSLOG_INFO("IPv4 address retrieved: %s", ipv4_address.c_str());
+        }
+        if (result.HasLabel("gateway")) {
+            m_ipv4Gateway = result["gateway"].String();
             NSLOG_INFO("IPv4 Route: %s", m_ipv4Gateway.c_str());
+        }
+        if (result.HasLabel("primarydns")) {
+            m_ipv4PrimaryDns = result["primarydns"].String();
             NSLOG_INFO("DNS entry: %s", m_ipv4PrimaryDns.c_str());
-        } else {
-            NSLOG_ERROR("GetIPSettings (IPv4) failed with error code: %u", rc);
         }
     } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface");
+        NSLOG_ERROR("GetIPSettings COM-RPC call failed with error code: %u", rc);
     }
-
+    
     return ipv4_address;
 }
 
@@ -210,35 +110,42 @@ std::string NetworkComRPCProvider::getIpv4Address(std::string interface_name)
 std::string NetworkComRPCProvider::getIpv6Address(std::string interface_name)
 {
     std::string ipv6_address = "";
-    m_ipv6Gateway    = "";
+    
+    // Initialize member variables
+    m_ipv6Gateway = "";
     m_ipv6PrimaryDns = "";
-
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
+    
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        Exchange::INetworkManager::IPAddress address{};
-        string iface = interface_name;
-        uint32_t rc = _nwmgr->GetIPSettings(iface, string("IPv6"), address);
-        _nwmgr->Release();
-
-        if (rc == Core::ERROR_NONE) {
-            ipv6_address     = address.ipaddress;
-            m_ipv6Gateway    = address.gateway;
-            m_ipv6PrimaryDns = address.primarydns;
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    params["interface"] = interface_name;
+    params["ipversion"] = "IPv6";
+    
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetIPSettings", params, result);
+    
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("ipaddress")) {
+            ipv6_address = result["ipaddress"].String();
             NSLOG_INFO("IPv6 address retrieved: %s", ipv6_address.c_str());
+        }
+        if (result.HasLabel("gateway")) {
+            m_ipv6Gateway = result["gateway"].String();
             NSLOG_INFO("IPv6 Route: %s", m_ipv6Gateway.c_str());
+        }
+        if (result.HasLabel("primarydns")) {
+            m_ipv6PrimaryDns = result["primarydns"].String();
             NSLOG_INFO("DNS entry: %s", m_ipv6PrimaryDns.c_str());
-        } else {
-            NSLOG_ERROR("GetIPSettings (IPv6) failed with error code: %u", rc);
         }
     } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface");
+        NSLOG_ERROR("GetIPSettings COM-RPC call failed with error code: %u", rc);
     }
-
+    
     return ipv6_address;
 }
 
@@ -246,41 +153,49 @@ std::string NetworkComRPCProvider::getIpv6Address(std::string interface_name)
 std::string NetworkComRPCProvider::getConnectionType()
 {
     std::string interface = getInterface();
-
+    
     if (interface.empty()) {
         NSLOG_ERROR("Error: Unable to retrieve interface");
         return "";
     }
-
+    
     std::string connectionType;
-
+    
+    // Check if interface starts with "eth" or "eno"
     if (interface.find("eth") == 0 || interface.find("eno") == 0) {
         connectionType = "Ethernet";
-    } else if (interface.find("wlan") == 0) {
-        connectionType = "WiFi";
-    } else {
-        connectionType = "Unknown";
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
     }
-    NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
-
+    // Check if interface starts with "wlan"
+    else if (interface.find("wlan") == 0) {
+        connectionType = "WiFi";
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
+    }
+    else {
+        connectionType = "Unknown";
+        NSLOG_INFO("Connection type: %s (interface: %s)", connectionType.c_str(), interface.c_str());
+    }
+    
     return connectionType;
 }
 
 /* @brief Get DNS server entries */
 std::string NetworkComRPCProvider::getDnsEntries()
 {
+    // Return combined DNS entries from IPv4 and IPv6
     std::string dnsEntries = "";
-
+    
     if (!m_ipv4PrimaryDns.empty()) {
         dnsEntries += m_ipv4PrimaryDns;
     }
+    
     if (!m_ipv6PrimaryDns.empty()) {
         if (!dnsEntries.empty()) {
             dnsEntries += ",";
         }
         dnsEntries += m_ipv6PrimaryDns;
     }
-
+    
     return dnsEntries;
 }
 
@@ -288,7 +203,7 @@ std::string NetworkComRPCProvider::getDnsEntries()
 void NetworkComRPCProvider::populateNetworkData()
 {
     std::string interface = getInterface();
-
+    
     if (!interface.empty()) {
         getIpv4Address(interface);
         getIpv6Address(interface);
@@ -299,94 +214,93 @@ void NetworkComRPCProvider::populateNetworkData()
 /* @brief Get current active interface name */
 std::string NetworkComRPCProvider::getInterface()
 {
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return "";
     }
-
-    string interface = "";
-
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        uint32_t rc = _nwmgr->GetPrimaryInterface(interface);
-        _nwmgr->Release();
-
-        if (rc == Core::ERROR_NONE) {
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "GetPrimaryInterface", params, result);
+    
+    std::string interface = "";
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        if (result.HasLabel("interface")) {
+            interface = result["interface"].String();
             NSLOG_INFO("Primary interface retrieved: %s", interface.c_str());
-        } else {
-            NSLOG_ERROR("GetPrimaryInterface failed with error code: %u", rc);
         }
     } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface");
+        NSLOG_ERROR("GetPrimaryInterface COM-RPC call failed with error code: %u", rc);
     }
-
+    
     return interface;
 }
 
 /* @brief Ping to gateway to check packet loss */
 bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout)
 {
+    // Initialize member variables
     m_packetLoss = "";
-    m_avgRtt     = "";
-
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
+    m_avgRtt = "";
+    
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
         return false;
     }
-
-    string pingResult{};
-    uint32_t rc = Core::ERROR_UNAVAILABLE;
-
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        rc = _nwmgr->Ping(ipversion, endpoint,
-                          static_cast<uint32_t>(count),
-                          static_cast<uint16_t>(timeout),
-                          string("network-stats-ping"),
-                          pingResult);
-        _nwmgr->Release();
-    } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface");
+    
+    WPEFramework::Core::JSON::VariantContainer params;
+    params["endpoint"] = endpoint;
+    params["ipversion"] = ipversion;
+    params["count"] = count;
+    params["timeout"] = timeout;
+    params["guid"] = "network-stats-ping";
+    
+    WPEFramework::Core::JSON::VariantContainer result;
+    
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        30000, "Ping", params, result);
+    
+    if (rc != WPEFramework::Core::ERROR_NONE) {
+        NSLOG_ERROR("Ping COM-RPC call failed with error code: %u", rc);
         return false;
     }
-
-    if (rc != Core::ERROR_NONE) {
-        NSLOG_ERROR("Ping failed with error code: %u", rc);
-        return false;
-    }
-
+    
     NSLOG_INFO("Ping request sent to %s (%s)", endpoint.c_str(), ipversion.c_str());
-
-    // Parse the JSON response string returned by Ping
-    Core::JSON::VariantContainer reply;
-    reply.FromString(pingResult);
-
-    bool success = false;
-    if (reply.HasLabel("success")) {
-        success = reply["success"].Boolean();
+    
+    // Check if ping was successful
+    if (result.HasLabel("success")) {
+        bool success = result["success"].Boolean();
+        
+        // Extract ping statistics
+        if (result.HasLabel("packetsTransmitted")) {
+            NSLOG_INFO("Packets transmitted: %d", static_cast<int>(result["packetsTransmitted"].Number()));
+        }
+        if (result.HasLabel("packetsReceived")) {
+            NSLOG_INFO("Packets received: %d", static_cast<int>(result["packetsReceived"].Number()));
+        }
+        if (result.HasLabel("packetLoss")) {
+            m_packetLoss = result["packetLoss"].String();
+            NSLOG_INFO("Packet loss: %s", m_packetLoss.c_str());
+        }
+        if (result.HasLabel("tripMin")) {
+            NSLOG_INFO("RTT min: %s ms", result["tripMin"].String().c_str());
+        }
+        if (result.HasLabel("tripAvg")) {
+            m_avgRtt = result["tripAvg"].String();
+            NSLOG_INFO("RTT avg: %s ms", m_avgRtt.c_str());
+        }
+        if (result.HasLabel("tripMax")) {
+            NSLOG_INFO("RTT max: %s ms", result["tripMax"].String().c_str());
+        }
+        
+        return success;
     }
-    if (reply.HasLabel("packetsTransmitted")) {
-        NSLOG_INFO("Packets transmitted: %d", static_cast<int>(reply["packetsTransmitted"].Number()));
+    else {
+        NSLOG_ERROR("Error: 'success' field not found in response");
+        return false;
     }
-    if (reply.HasLabel("packetsReceived")) {
-        NSLOG_INFO("Packets received: %d", static_cast<int>(reply["packetsReceived"].Number()));
-    }
-    if (reply.HasLabel("packetLoss")) {
-        m_packetLoss = reply["packetLoss"].String();
-        NSLOG_INFO("Packet loss: %s", m_packetLoss.c_str());
-    }
-    if (reply.HasLabel("tripMin")) {
-        NSLOG_INFO("RTT min: %s ms", reply["tripMin"].String().c_str());
-    }
-    if (reply.HasLabel("tripAvg")) {
-        m_avgRtt = reply["tripAvg"].String();
-        NSLOG_INFO("RTT avg: %s ms", m_avgRtt.c_str());
-    }
-    if (reply.HasLabel("tripMax")) {
-        NSLOG_INFO("RTT max: %s ms", reply["tripMax"].String().c_str());
-    }
-
-    return success;
 }
 
 /* @brief Get IPv4 gateway/route address from last getIpv4Address call */
@@ -425,66 +339,57 @@ std::string NetworkComRPCProvider::getAvgRtt()
     return m_avgRtt;
 }
 
-/* @brief Subscribe to NetworkManager events via COM-RPC INotification */
-uint32_t NetworkComRPCProvider::SubscribeToEvent(const std::string& eventName,
+/* @brief Subscribe to NetworkManager events */
+uint32_t NetworkComRPCProvider::SubscribeToEvent(const std::string& eventName, 
     std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> callback)
 {
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
-        return Core::ERROR_UNAVAILABLE;
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return WPEFramework::Core::ERROR_UNAVAILABLE;
     }
 
-    // Store callback in the notification sink (safe to call multiple times)
-    m_notification->AddCallback(eventName, callback);
+    try {
+        // Subscribe to the event using Thunder's Subscribe API
+        // Note: The callback will be invoked when the event is received
+        uint32_t result = m_networkManagerClient->Subscribe<WPEFramework::Core::JSON::VariantContainer>(
+            5000, // timeout in milliseconds
+            eventName,
+            [callback](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                callback(parameters);
+            }
+        );
 
-    // Register notification with NetworkManager only on the first subscription
-    if (m_notificationRegistered) {
-        NSLOG_INFO("Notification already registered; callback added for event: %s", eventName.c_str());
-        return Core::ERROR_NONE;
-    }
-
-    uint32_t result = Core::ERROR_UNAVAILABLE;
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        result = _nwmgr->Register(m_notification);
-        _nwmgr->Release();
-
-        if (result == Core::ERROR_NONE) {
-            m_notificationRegistered = true;
-            NSLOG_INFO("COM-RPC notification registered for event: %s", eventName.c_str());
+        if (result == WPEFramework::Core::ERROR_NONE) {
+            NSLOG_INFO("Successfully subscribed to event: %s", eventName.c_str());
         } else {
-            NSLOG_ERROR("Failed to register COM-RPC notification, error code: %u", result);
+            NSLOG_ERROR("Failed to subscribe to event %s, error code: %u", eventName.c_str(), result);
         }
-    } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface for notification registration");
-    }
 
-    return result;
+        return result;
+    } catch (const std::exception& e) {
+        NSLOG_ERROR("Exception subscribing to event %s: %s", eventName.c_str(), e.what());
+        return WPEFramework::Core::ERROR_GENERAL;
+    }
 }
 
-/* @brief Invoke WiFiConnect API on NetworkManager to reconnect to last SSID */
+/* @brief Invoke WiFiConnect API on NetworkManager with empty params to reconnect to last SSID */
 uint32_t NetworkComRPCProvider::invokeWiFiConnect()
 {
-    if (!m_service) {
-        NSLOG_ERROR("NetworkManager service not initialized");
-        return Core::ERROR_UNAVAILABLE;
+    if (!m_networkManagerClient) {
+        NSLOG_ERROR("NetworkManager client not initialized");
+        return WPEFramework::Core::ERROR_UNAVAILABLE;
     }
 
-    uint32_t rc = Core::ERROR_UNAVAILABLE;
+    WPEFramework::Core::JSON::VariantContainer params;
+    WPEFramework::Core::JSON::VariantContainer result;
 
-    auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-    if (_nwmgr) {
-        Exchange::INetworkManager::WiFiConnectTo ssid{};
-        rc = _nwmgr->WiFiConnect(ssid);
-        _nwmgr->Release();
+    uint32_t rc = m_networkManagerClient->Invoke<WPEFramework::Core::JSON::VariantContainer, WPEFramework::Core::JSON::VariantContainer>(
+        5000, "WiFiConnect", params, result);
 
-        if (rc == Core::ERROR_NONE) {
-            NSLOG_INFO("WiFiConnect invoked successfully on NetworkManager");
-        } else {
-            NSLOG_ERROR("WiFiConnect invocation failed with error code: %u", rc);
-        }
+    if (rc == WPEFramework::Core::ERROR_NONE) {
+        NSLOG_INFO("WiFiConnect invoked successfully on NetworkManager");
     } else {
-        NSLOG_ERROR("Failed to acquire INetworkManager interface");
+        NSLOG_ERROR("WiFiConnect invocation failed with error code: %u", rc);
     }
 
     return rc;
@@ -502,10 +407,172 @@ int main()
     std::cout << "\n========================================\n";
     std::cout << "NetworkComRPCProvider Test Suite\n";
     std::cout << "========================================\n";
-    std::cout << "Note: TEST_MAIN requires a valid PluginHost::IShell* to run.\n";
-    std::cout << "      Pass nullptr to Initialize() for a dry-run check only.\n";
+
+    // Initialize COM-RPC connection
+    std::cout << "\nInitializing COM-RPC connection to NetworkManager...\n";
+    if (!provider.Initialize()) {
+        std::cout << "Warning: Failed to initialize COM-RPC connection.\n";
+        std::cout << "Tests may fail if NetworkManager plugin is not running.\n";
+    } else {
+        std::cout << "COM-RPC connection initialized successfully.\n";
+    }
+
+    while (running)
+    {
+        std::cout << "\nMenu:\n";
+        std::cout << "1. Test getIpv4Address()\n";
+        std::cout << "2. Test getIpv6Address()\n";
+        std::cout << "3. Test getConnectionType()\n";
+        std::cout << "4. Test getDnsEntries()\n";
+        std::cout << "5. Test populateNetworkData()\n";
+        std::cout << "6. Test getInterface()\n";
+        std::cout << "7. Test pingToGatewayCheck()\n";
+        std::cout << "8. Run all tests\n";
+        std::cout << "0. Exit\n";
+        std::cout << "\nEnter your choice: ";
+        std::cin >> choice;
+
+        switch (choice)
+        {
+            case 1:
+                std::cout << "\nTesting getIpv4Address()...\n";
+                {
+                    interface_name = provider.getInterface();
+                    std::cout << "Using interface: " << (interface_name.empty() ? "(empty)" : interface_name) << "\n";
+                    std::string ipv4 = provider.getIpv4Address(interface_name);
+                    std::cout << "Result: " << (ipv4.empty() ? "(empty)" : ipv4) << "\n";
+                    std::cout << "Gateway: " << (provider.getIpv4Gateway().empty() ? "(empty)" : provider.getIpv4Gateway()) << "\n";
+                    std::cout << "Primary DNS: " << (provider.getIpv4PrimaryDns().empty() ? "(empty)" : provider.getIpv4PrimaryDns()) << "\n";
+                }
+                break;
+
+            case 2:
+                std::cout << "\nTesting getIpv6Address()...\n";
+                {
+                    interface_name = provider.getInterface();
+                    std::cout << "Using interface: " << (interface_name.empty() ? "(empty)" : interface_name) << "\n";
+                    std::string ipv6 = provider.getIpv6Address(interface_name);
+                    std::cout << "Result: " << (ipv6.empty() ? "(empty)" : ipv6) << "\n";
+                    std::cout << "Gateway: " << (provider.getIpv6Gateway().empty() ? "(empty)" : provider.getIpv6Gateway()) << "\n";
+                    std::cout << "Primary DNS: " << (provider.getIpv6PrimaryDns().empty() ? "(empty)" : provider.getIpv6PrimaryDns()) << "\n";
+                }
+                break;
+
+            case 3:
+                std::cout << "\nTesting getConnectionType()...\n";
+                {
+                    std::string connType = provider.getConnectionType();
+                    std::cout << "Result: " << (connType.empty() ? "(empty)" : connType) << "\n";
+                }
+                break;
+
+            case 4:
+                std::cout << "\nTesting getDnsEntries()...\n";
+                {
+                    std::string dns = provider.getDnsEntries();
+                    std::cout << "Result: " << (dns.empty() ? "(empty)" : dns) << "\n";
+                }
+                break;
+
+            case 5:
+                std::cout << "\nTesting populateNetworkData()...\n";
+                provider.populateNetworkData();
+                std::cout << "Network data population completed\n";
+                break;
+
+            case 6:
+                std::cout << "\nTesting getInterface()...\n";
+                {
+                    std::string iface = provider.getInterface();
+                    std::cout << "Result: " << (iface.empty() ? "(empty)" : iface) << "\n";
+                }
+                break;
+
+            case 7:
+                std::cout << "\nTesting pingToGatewayCheck()...\n";
+                {
+                    std::string gateway;
+                    std::string ipver;
+                    std::cout << "Enter gateway IP (default: 8.8.8.8): ";
+                    std::cin.ignore();
+                    std::getline(std::cin, gateway);
+                    if (gateway.empty()) gateway = "8.8.8.8";
+                    
+                    std::cout << "Enter IP version (IPv4/IPv6, default: IPv4): ";
+                    std::getline(std::cin, ipver);
+                    if (ipver.empty()) ipver = "IPv4";
+                    
+                    bool success = provider.pingToGatewayCheck(gateway, ipver, 5, 30);
+                    std::cout << "Ping " << (success ? "successful" : "failed") << "\n";
+                    std::cout << "Packet Loss: " << (provider.getPacketLoss().empty() ? "(empty)" : provider.getPacketLoss()) << "\n";
+                    std::cout << "Average RTT: " << (provider.getAvgRtt().empty() ? "(empty)" : provider.getAvgRtt()) << " ms\n";
+                }
+                break;
+
+            case 8:
+                std::cout << "\n========================================\n";
+                std::cout << "Running All Tests\n";
+                std::cout << "========================================\n";
+                
+                std::cout << "\n--- Test 1/7: getInterface() ---\n";
+                {
+                    std::string iface = provider.getInterface();
+                    std::cout << "Result: " << (iface.empty() ? "(empty)" : iface) << "\n";
+                }
+                
+                std::cout << "\n--- Test 2/7: getIpv4Address() ---\n";
+                {
+                    interface_name = provider.getInterface();
+                    std::string ipv4 = provider.getIpv4Address(interface_name);
+                    std::cout << "Result: " << (ipv4.empty() ? "(empty)" : ipv4) << "\n";
+                }
+                
+                std::cout << "\n--- Test 3/7: getIpv6Address() ---\n";
+                {
+                    interface_name = provider.getInterface();
+                    std::string ipv6 = provider.getIpv6Address(interface_name);
+                    std::cout << "Result: " << (ipv6.empty() ? "(empty)" : ipv6) << "\n";
+                }
+                
+                std::cout << "\n--- Test 4/7: getConnectionType() ---\n";
+                {
+                    std::string connType = provider.getConnectionType();
+                    std::cout << "Result: " << (connType.empty() ? "(empty)" : connType) << "\n";
+                }
+                
+                std::cout << "\n--- Test 5/7: getDnsEntries() ---\n";
+                {
+                    std::string dns = provider.getDnsEntries();
+                    std::cout << "Result: " << (dns.empty() ? "(empty)" : dns) << "\n";
+                }
+                
+                std::cout << "\n--- Test 6/7: populateNetworkData() ---\n";
+                provider.populateNetworkData();
+                std::cout << "Network data population completed\n";
+                
+                std::cout << "\n--- Test 7/7: pingToGatewayCheck() ---\n";
+                {
+                    bool success = provider.pingToGatewayCheck("8.8.8.8", "IPv4", 5, 30);
+                    std::cout << "Ping " << (success ? "successful" : "failed") << "\n";
+                }
+                
+                std::cout << "\n========================================\n";
+                std::cout << "All Tests Completed\n";
+                std::cout << "========================================\n";
+                break;
+
+            case 0:
+                std::cout << "\nExiting test suite...\n";
+                running = false;
+                break;
+
+            default:
+                std::cout << "\nInvalid choice. Please enter a number between 0-8.\n";
+                break;
+        }
+    }
 
     return 0;
 }
-#endif // TEST_MAIN
 
+#endif // TEST_MAIN

@@ -46,21 +46,19 @@ namespace Plugin {
         /**
          * @brief Create a network data provider based on type string
          * @param providerType String identifying the provider type ("comrpc" or "jsonrpc")
-         * @param service PluginHost::IShell pointer forwarded to the provider's Initialize()
          * @return Pointer to INetworkData implementation, or nullptr on failure
          */
-        static INetworkData* CreateProvider(const std::string& providerType, WPEFramework::PluginHost::IShell* service) {
+        static INetworkData* CreateProvider(const std::string& providerType) {
             ProviderType type = ParseProviderType(providerType);
-            return CreateProvider(type, service);
+            return CreateProvider(type);
         }
 
         /**
          * @brief Create a network data provider based on enum type
          * @param type ProviderType enum value
-         * @param service PluginHost::IShell pointer forwarded to the provider's Init
          * @return Pointer to INetworkData implementation, or nullptr on failure
          */
-        static INetworkData* CreateProvider(ProviderType type, WPEFramework::PluginHost::IShell* service) {
+        static INetworkData* CreateProvider(ProviderType type) {
             INetworkData* provider = nullptr;
 
             switch (type) {
@@ -78,7 +76,6 @@ namespace Plugin {
                     break;
             }
 
-            (void)service; // forwarded to Initialize() by the caller
             return provider;
         }
 

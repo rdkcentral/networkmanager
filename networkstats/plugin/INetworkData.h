@@ -23,7 +23,6 @@
 #include <string>
 #include <functional>
 #include <core/JSON.h>
-#include <plugins/plugins.h>
 
 class INetworkData
 {
@@ -31,10 +30,9 @@ class INetworkData
     virtual ~INetworkData() {}
 
     /* @brief Initialize the network data provider
-     * @param service PluginHost::IShell pointer for COM-RPC interface access
      * @return true if initialization successful, false otherwise
      */
-    virtual bool Initialize(WPEFramework::PluginHost::IShell* service) = 0;
+    virtual bool Initialize() = 0;
 
     /* @brief Retrieve IPv4 address for specified interface
      * @param interface_name Interface name (e.g., eth0, wlan0)

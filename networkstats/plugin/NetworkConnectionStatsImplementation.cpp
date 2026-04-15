@@ -56,7 +56,6 @@ namespace Plugin {
         , m_subsActIfaceChange(false)
         , m_subsIPAddrChange(false)
         , m_subsWiFiStateChange(false)
-        , _implService(nullptr)
     {
         
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -88,7 +87,7 @@ namespace Plugin {
         // Push STOP message to unblock consumer thread
         {
             std::lock_guard<std::mutex> lock(_queueMutex);
-            _messageQueue.push(Message(MessageType::STOP, NetworkEvent::PERIODIC_TIMER));
+            _messageQueue.push({MessageType::STOP});
         }
         _queueCondition.notify_one();
         
@@ -155,25 +154,6 @@ namespace Plugin {
         return Core::ERROR_NONE;
     }
 
-    /* IPlugin::Initialize — store the IShell for use by COM-RPC providers */
-    const string NetworkConnectionStatsImplementation::Initialize(PluginHost::IShell* service)
-    {
-        _implService = service;
-        if (_implService) {
-            _implService->AddRef();
-        }
-        NSLOG_INFO("NetworkConnectionStatsImplementation::Initialize: IShell stored");
-        return {};
-    }
-
-    /* IPlugin::Deinitialize — release the stored IShell */
-    void NetworkConnectionStatsImplementation::Deinitialize(PluginHost::IShell* service)
-    {
-        if (_implService == service) {
-            _implService->Release();
-            _implService = nullptr;
-        }
-    }
 
     uint32_t NetworkConnectionStatsImplementation::Configure(const string configLine)
     {
@@ -195,11 +175,6 @@ namespace Plugin {
             NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
         }
         
-        if (config.HasLabel("minEventReportInterval")) {
-            // minEventReportInterval config key is no longer applicable (rate-limiting removed)
-            NSLOG_INFO("minEventReportInterval config ignored: rate-limiting replaced by state machine");
-        }
-        
         // Get provider type from configuration (default: comrpc)
         std::string providerType = "comrpc";
         if (config.HasLabel("providerType")) {
@@ -207,7 +182,7 @@ namespace Plugin {
         }
         
         // Create network provider using factory
-        m_provider = NetworkDataProviderFactory::CreateProvider(providerType, _implService);
+        m_provider = NetworkDataProviderFactory::CreateProvider(providerType);
         if (m_provider == nullptr) {
             NSLOG_ERROR("Failed to create network provider for type: %s", providerType.c_str());
             result = Core::ERROR_GENERAL;
@@ -217,7 +192,7 @@ namespace Plugin {
             NSLOG_INFO("%s provider created", typeName.c_str());
             
             // Initialize the provider
-            if (m_provider->Initialize(_implService)) {
+            if (m_provider->Initialize()) {
                 NSLOG_INFO("%s provider initialized successfully", typeName.c_str());
                 
                 // Subscribe to NetworkManager events (with automatic retry)
@@ -269,7 +244,7 @@ namespace Plugin {
             }
             
             // Queue report generation (timer bypasses rate-limit, it has its own 600s interval)
-            enqueueEvent(NetworkEvent::PERIODIC_TIMER);
+            dispatchEvent(NetworkEvent::PERIODIC_TIMER, nullptr);
         }
         
         NSLOG_INFO("Timer thread stopped");
@@ -301,33 +276,11 @@ namespace Plugin {
                 _messageQueue.pop();
             }
             
-            // Process message: apply state machine transition then generate report only in IDLE
+            // Process message
             if (msg.type == MessageType::GENERATE_REPORT) {
-                bool shouldGenerate = false;
-                {
-                    std::lock_guard<std::mutex> lock(_queueMutex);
-                    // Apply transition if one is registered for this state×event pair
-                    auto stateIt = _stateMachine.find(_currentAssocState);
-                    if (stateIt != _stateMachine.end()) {
-                        auto evtIt = stateIt->second.find(msg.event);
-                        if (evtIt != stateIt->second.end()) {
-                            NSLOG_INFO("Consumer: state transition %d -[event=%d]-> %d",
-                                       static_cast<int>(_currentAssocState),
-                                       static_cast<int>(msg.event),
-                                       static_cast<int>(evtIt->second));
-                            _currentAssocState = evtIt->second;
-                        }
-                    }
-                    shouldGenerate = (_currentAssocState == AssocState::WIFI_ASSOC_IDLE);
-                }
-                if (shouldGenerate) {
-                    NSLOG_INFO("Consumer: WIFI_ASSOC_IDLE — generating report (event=%d)",
-                               static_cast<int>(msg.event));
-                    generateReport();
-                } else {
-                    NSLOG_INFO("Consumer: state=%d (event=%d) — report suppressed (not IDLE)",
-                               static_cast<int>(_currentAssocState), static_cast<int>(msg.event));
-                }
+                NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
+                generateReport();
+                NSLOG_INFO("Consumer: Report generated");
             } else if (msg.type == MessageType::STOP) {
                 NSLOG_INFO("Consumer: Received STOP message");
                 break;
@@ -537,28 +490,7 @@ namespace Plugin {
         if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
             ipv4PacketLoss100 && ipv6PacketLoss100) {
             NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
-
-            std::lock_guard<std::mutex> lock(_queueMutex);
-            auto stateIt = _stateMachine.find(_currentAssocState);
-            if (stateIt != _stateMachine.end()) {
-                auto evtIt = stateIt->second.find(NetworkEvent::WIFI_REASSOC_TRIGGER);
-                if (evtIt != stateIt->second.end()) {
-                    NSLOG_INFO("WiFi reassociation: state %d -[WIFI_REASSOC_TRIGGER]-> %d",
-                               static_cast<int>(_currentAssocState), static_cast<int>(evtIt->second));
-                    _currentAssocState = evtIt->second; // → WIFI_ASSOC_INPROGRESS
-
-                    logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
-
-                    uint32_t rc = m_provider->invokeWiFiConnect();
-                    if (rc != Core::ERROR_NONE) {
-                        NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
-                        _currentAssocState = AssocState::WIFI_ASSOC_IDLE; // revert on failure
-                    }
-                } else {
-                    NSLOG_WARNING("WiFi reassociation suppressed: no transition from state %d on WIFI_REASSOC_TRIGGER (already INPROGRESS)",
-                                  static_cast<int>(_currentAssocState));
-                }
-            }
+            dispatchEvent(NetworkEvent::GATEWAY_PACKET_LOSS, nullptr);
         }
     }
 
@@ -669,35 +601,25 @@ namespace Plugin {
         NSLOG_INFO("Subscription retry thread stopped");
     }
 
-    /** Event Handling — decode fine-grained event and enqueue for consumer thread */
+    /** Event Handling - dispatched through the state machine */
     void NetworkConnectionStatsImplementation::ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        (void)parameters;
-        enqueueEvent(NetworkEvent::IFACE_STATE_CHANGE);
+        dispatchEvent(NetworkEvent::IFACE_STATE_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        (void)parameters;
-        enqueueEvent(NetworkEvent::ACTIVE_IFACE_CHANGE);
+        dispatchEvent(NetworkEvent::ACTIVE_IFACE_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        NetworkEvent event = NetworkEvent::IP_LOST;
-        if (parameters.HasLabel("status") && parameters["status"].String() == "ACQUIRED") {
-            event = NetworkEvent::IP_ACQUIRED;
-        }
-        enqueueEvent(event);
+        dispatchEvent(NetworkEvent::IP_ADDR_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        NetworkEvent event = NetworkEvent::WIFI_STATE_OTHER;
-        if (parameters.HasLabel("status") && parameters["status"].String() == "WIFI_STATE_CONNECTED") {
-            event = NetworkEvent::WIFI_STATE_CONNECTED;
-        }
-        enqueueEvent(event);
+        dispatchEvent(NetworkEvent::WIFI_STATE_CHANGE, &parameters);
     }
 
     // ---------------------------------------------------------------------------
@@ -706,37 +628,144 @@ namespace Plugin {
 
     void NetworkConnectionStatsImplementation::initStateMachine()
     {
-        // Transition table: AssocState × NetworkEvent → next AssocState
-        // Only state-changing transitions are registered.
-        // Events with no registered entry leave _currentAssocState unchanged.
-        //
-        // INPROGRESS → COMPLETED on WIFI_STATE_CONNECTED (association succeeded)
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::WIFI_STATE_CONNECTED] =
-            AssocState::WIFI_ASSOC_COMPLETED;
+        // WIFI_ASSOC_IDLE: all events generate a report; GATEWAY_PACKET_LOSS triggers reassociation
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::IFACE_STATE_CHANGE]  =
+            &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::ACTIVE_IFACE_CHANGE] =
+            &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::IP_ADDR_CHANGE]      =
+            &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::WIFI_STATE_CHANGE]   =
+            &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::PERIODIC_TIMER]      =
+            &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::GATEWAY_PACKET_LOSS] =
+            &NetworkConnectionStatsImplementation::onGatewayPacketLoss;
 
-        // COMPLETED → IDLE on IP_ACQUIRED (IP assigned; full connectivity restored)
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IP_ACQUIRED] =
-            AssocState::WIFI_ASSOC_IDLE;
+        // WIFI_ASSOC_INPROGRESS: all reports suppressed; WIFI_STATE_CONNECTED transitions to COMPLETED
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IFACE_STATE_CHANGE]  =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::ACTIVE_IFACE_CHANGE] =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IP_ADDR_CHANGE]      =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::WIFI_STATE_CHANGE]   =
+            &NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::PERIODIC_TIMER]      =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::GATEWAY_PACKET_LOSS] =
+            &NetworkConnectionStatsImplementation::skipEvent;
 
-        // IDLE/COMPLETED → INPROGRESS on WIFI_REASSOC_TRIGGER (packet loss detected)
-        // INPROGRESS has no entry: reassociation is suppressed if one is already in flight
-        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::WIFI_REASSOC_TRIGGER] =
-            AssocState::WIFI_ASSOC_INPROGRESS;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::WIFI_REASSOC_TRIGGER] =
-            AssocState::WIFI_ASSOC_INPROGRESS;
+        // WIFI_ASSOC_COMPLETED: all reports suppressed; IP ACQUIRED transitions back to IDLE
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IFACE_STATE_CHANGE]   =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::ACTIVE_IFACE_CHANGE]  =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IP_ADDR_CHANGE]       =
+            &NetworkConnectionStatsImplementation::onIpAddrChange_Completed;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::WIFI_STATE_CHANGE]    =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::PERIODIC_TIMER]       =
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::GATEWAY_PACKET_LOSS]  =
+            &NetworkConnectionStatsImplementation::skipEvent;
 
         NSLOG_INFO("State machine initialised; starting in WIFI_ASSOC_IDLE");
     }
 
-    void NetworkConnectionStatsImplementation::enqueueEvent(NetworkEvent event)
+    void NetworkConnectionStatsImplementation::dispatchEvent(
+        NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params)
     {
+        if (params != nullptr) {
+            string json;
+            params->ToString(json);
+            NSLOG_INFO("dispatchEvent: event=%d state=%d params=%s",
+                       static_cast<int>(event), static_cast<int>(_currentAssocState), json.c_str());
+        }
+
         std::lock_guard<std::mutex> lock(_queueMutex);
-        _messageQueue.push(Message(MessageType::GENERATE_REPORT, event));
-        _queueCondition.notify_one();
-        NSLOG_INFO("enqueueEvent: event=%d queued (state=%d)",
-                   static_cast<int>(event), static_cast<int>(_currentAssocState));
+        auto stateIt = _stateMachine.find(_currentAssocState);
+        if (stateIt == _stateMachine.end()) {
+            NSLOG_WARNING("dispatchEvent: no handlers for state %d", static_cast<int>(_currentAssocState));
+            return;
+        }
+        auto evtIt = stateIt->second.find(event);
+        if (evtIt == stateIt->second.end()) {
+            NSLOG_WARNING("dispatchEvent: no handler for event %d in state %d",
+                          static_cast<int>(event), static_cast<int>(_currentAssocState));
+            return;
+        }
+        (this->*(evtIt->second))(params);
+    }
+
+    // --- WIFI_ASSOC_INPROGRESS handlers ---
+
+    // onWiFiStateChange_InProgress: WIFI_STATE_CONNECTED → COMPLETED
+    void NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress(
+        const WPEFramework::Core::JSON::VariantContainer* params)
+    {
+        if (params && params->HasLabel("status")) {
+            std::string status = (*params)["status"].String();
+            if (status == "WIFI_STATE_CONNECTED") {
+                NSLOG_INFO("INPROGRESS: WIFI_STATE_CONNECTED — transitioning to WIFI_ASSOC_COMPLETED");
+                _currentAssocState = AssocState::WIFI_ASSOC_COMPLETED;
+            } else {
+                NSLOG_INFO("INPROGRESS: WiFi status=%s, suppressing report", status.c_str());
+            }
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::skipEvent(
+        const WPEFramework::Core::JSON::VariantContainer* /*params*/)
+    {
+        NSLOG_INFO("WIFI_ASSOC_INPROGRESS: event suppressed — association in progress, report blocked");
+    }
+
+    // --- WIFI_ASSOC_IDLE handler ---
+
+    void NetworkConnectionStatsImplementation::onAnyEvent_Idle(
+        const WPEFramework::Core::JSON::VariantContainer* /*params*/)
+    {
+        if (_messageQueue.empty()) {
+            _messageQueue.push({MessageType::GENERATE_REPORT});
+            _queueCondition.notify_one();
+            NSLOG_INFO("WIFI_ASSOC_IDLE: GENERATE_REPORT queued");
+        } else {
+            NSLOG_INFO("WIFI_ASSOC_IDLE: report already pending");
+        }
+    }
+
+    // --- WIFI_ASSOC_COMPLETED handlers ---
+
+    void NetworkConnectionStatsImplementation::onIpAddrChange_Completed(
+        const WPEFramework::Core::JSON::VariantContainer* params)
+    {
+        if (params && params->HasLabel("status")) {
+            std::string status = (*params)["status"].String();
+            if (status == "ACQUIRED") {
+                NSLOG_INFO("COMPLETED: IP ACQUIRED — transitioning back to WIFI_ASSOC_IDLE");
+                _currentAssocState = AssocState::WIFI_ASSOC_IDLE;
+            } else {
+                NSLOG_INFO("COMPLETED: IP status=%s, suppressing report", status.c_str());
+            }
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::onGatewayPacketLoss(
+        const WPEFramework::Core::JSON::VariantContainer* /*params*/)
+    {
+        NSLOG_INFO("WiFi reassociation: %s -> WIFI_ASSOC_INPROGRESS",
+                   _currentAssocState == AssocState::WIFI_ASSOC_IDLE ? "WIFI_ASSOC_IDLE" : "WIFI_ASSOC_COMPLETED");
+        _currentAssocState = AssocState::WIFI_ASSOC_INPROGRESS;
+
+        logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
+
+        uint32_t rc = m_provider->invokeWiFiConnect();
+        if (rc != Core::ERROR_NONE) {
+            NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
+            _currentAssocState = AssocState::WIFI_ASSOC_IDLE;
+        }
     }
 
 } // namespace Plugin
 } // namespace WPEFramework
-

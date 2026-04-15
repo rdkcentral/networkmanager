@@ -42,8 +42,7 @@ namespace Plugin {
     // Internal implementation - runs network diagnostics automatically
     // No external APIs exposed
     class NetworkConnectionStatsImplementation 
-        : public Exchange::INetworkConnectionStats
-        , public PluginHost::IPlugin{
+        : public Exchange::INetworkConnectionStats {
     
     public:
 
@@ -54,14 +53,7 @@ namespace Plugin {
 
         BEGIN_INTERFACE_MAP(NetworkConnectionStatsImplementation)
         INTERFACE_ENTRY(Exchange::INetworkConnectionStats)
-        INTERFACE_ENTRY(PluginHost::IPlugin)
         END_INTERFACE_MAP
-
-        // PluginHost::IPlugin — receives the IShell pointer so providers can use
-        // QueryInterfaceByCallsign to reach other plugins via COM-RPC.
-        const string Initialize(PluginHost::IShell* service) override;
-        void Deinitialize(PluginHost::IShell* service) override;
-        string Information() const override { return {}; }
 
         // Handle Notification registration/removal
         uint32_t Register(INetworkConnectionStats::INotification* notification) override;
@@ -79,30 +71,29 @@ namespace Plugin {
             WIFI_ASSOC_COMPLETED       // Connected + IP acquired: reports enabled
         };
 
-        // Fine-grained events decoded at dispatch time and carried in each Message.
+        // NetworkManager events dispatched through the state machine
         // Modeled after systimemgr's sysTimeMgrEvent
         enum class NetworkEvent {
             IFACE_STATE_CHANGE = 0,
             ACTIVE_IFACE_CHANGE,
-            IP_ACQUIRED,             // status ACQUIRED from onIPAddressChange
-            IP_LOST,                 // status LOST (or other) from onIPAddressChange
-            WIFI_STATE_CONNECTED,    // status WIFI_STATE_CONNECTED from onWiFiStateChange
-            WIFI_STATE_OTHER,        // all other onWiFiStateChange statuses
+            IP_ADDR_CHANGE,
+            WIFI_STATE_CHANGE,
             PERIODIC_TIMER,
-            WIFI_REASSOC_TRIGGER      // both gateways have packet loss >= threshold
+            GATEWAY_PACKET_LOSS
         };
+
+        // Function pointer type for state machine event handlers
+        // Modeled after systimemgr's memfunc typedef
+        typedef void (NetworkConnectionStatsImplementation::*EventHandler)(const WPEFramework::Core::JSON::VariantContainer*);
 
         // Message queue types
         enum class MessageType {
             GENERATE_REPORT,
             STOP
         };
-
+        
         struct Message {
-            MessageType  type;
-            NetworkEvent event;
-            Message() : type(MessageType::GENERATE_REPORT), event(NetworkEvent::PERIODIC_TIMER) {}
-            Message(MessageType t, NetworkEvent e) : type(t), event(e) {}
+            MessageType type;
         };
         
         // Internal diagnostic methods
@@ -125,9 +116,26 @@ namespace Plugin {
         void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
 
-        // State machine initialisation and event enqueue
+        // State machine initialisation and event dispatch
         void initStateMachine();
-        void enqueueEvent(NetworkEvent event);
+        void dispatchEvent(NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params);
+
+        // Handlers registered in the state machine for WIFI_ASSOC_IDLE
+        // All events generate a report; IFACE_STATE_CHANGE with ACQUIRING_IP moves to INPROGRESS
+        // (reuses onAnyEvent_Completed for non-interface events)
+
+        // Handlers registered in the state machine for WIFI_ASSOC_IDLE
+        void onAnyEvent_Idle(const WPEFramework::Core::JSON::VariantContainer* params);
+
+        // Handlers registered in the state machine for WIFI_ASSOC_INPROGRESS
+        void onWiFiStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
+        void skipEvent(const WPEFramework::Core::JSON::VariantContainer* params);
+
+        // Handler for GATEWAY_PACKET_LOSS event: IDLE → INPROGRESS
+        void onGatewayPacketLoss(const WPEFramework::Core::JSON::VariantContainer* params);
+
+        // Handlers registered in the state machine for WIFI_ASSOC_COMPLETED
+        void onIpAddrChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
 
     private:
         mutable Core::CriticalSection _adminLock;
@@ -160,10 +168,9 @@ namespace Plugin {
         std::mutex _queueMutex;
         std::condition_variable _queueCondition;
 
-        // 2D state machine: AssocState × NetworkEvent → next AssocState
-        // Only registered transitions change state; unregistered events leave state unchanged.
+        // 2D state machine: AssocState -> NetworkEvent -> EventHandler
         // Modeled after systimemgr's map<sysTimeMgrState, map<sysTimeMgrEvent, memfunc>>
-        std::map<AssocState, std::map<NetworkEvent, AssocState>> _stateMachine;
+        std::map<AssocState, std::map<NetworkEvent, EventHandler>> _stateMachine;
         AssocState _currentAssocState;
 
         // Timer wakeup (steady clock, NTP-immune)
@@ -177,9 +184,6 @@ namespace Plugin {
         bool m_subsActIfaceChange;
         bool m_subsIPAddrChange;
         bool m_subsWiFiStateChange;
-
-         // IShell received via IPlugin::Initialize — used by providers for COM-RPC
-        PluginHost::IShell* _implService;
     };
 
 } // namespace Plugin
