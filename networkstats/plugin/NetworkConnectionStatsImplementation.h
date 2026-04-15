@@ -77,6 +77,7 @@ namespace Plugin {
             IFACE_STATE_CHANGE = 0,
             ACTIVE_IFACE_CHANGE,
             IP_ADDR_CHANGE,
+            WIFI_STATE_CHANGE,
             PERIODIC_TIMER,
             GATEWAY_PACKET_LOSS
         };
@@ -113,6 +114,7 @@ namespace Plugin {
         void ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
         void ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
+        void ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters);
 
         // State machine initialisation and event dispatch
         void initStateMachine();
@@ -126,14 +128,14 @@ namespace Plugin {
         void onAnyEvent_Idle(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handlers registered in the state machine for WIFI_ASSOC_INPROGRESS
-        void onIfaceStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onWiFiStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
         void skipEvent(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handler for GATEWAY_PACKET_LOSS event: IDLE → INPROGRESS
         void onGatewayPacketLoss(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handlers registered in the state machine for WIFI_ASSOC_COMPLETED
-        void onIpAddrChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onIfaceStateChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
 
     private:
         mutable Core::CriticalSection _adminLock;
@@ -181,7 +183,10 @@ namespace Plugin {
         bool m_subsIfaceStateChange;
         bool m_subsActIfaceChange;
         bool m_subsIPAddrChange;
+        bool m_subsWiFiStateChange;
     };
 
 } // namespace Plugin
 } // namespace WPEFramework
+
+

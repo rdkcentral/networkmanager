@@ -55,6 +55,7 @@ namespace Plugin {
         , m_subsIfaceStateChange(false)
         , m_subsActIfaceChange(false)
         , m_subsIPAddrChange(false)
+        , m_subsWiFiStateChange(false)
     {
         
         NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
@@ -557,6 +558,17 @@ namespace Plugin {
                 else
                     NSLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
             }
+            if (!m_subsWiFiStateChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onWiFiStateChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonWiFiStateChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsWiFiStateChange = true;
+                else
+                    NSLOG_ERROR("Subscribe to onWiFiStateChange failed, errCode: %u", errCode);
+            }
         }
         else
             NSLOG_ERROR("m_provider is null");
@@ -569,7 +581,7 @@ namespace Plugin {
         while (!_stopSubscriptionRetry)
         {
             // Check if all subscriptions are successful
-            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange)
+            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange && m_subsWiFiStateChange)
             {
                 NSLOG_INFO("All required events subscribed; Stopping retry thread");
                 break;
@@ -605,6 +617,11 @@ namespace Plugin {
         dispatchEvent(NetworkEvent::IP_ADDR_CHANGE, &parameters);
     }
 
+    void NetworkConnectionStatsImplementation::ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        dispatchEvent(NetworkEvent::WIFI_STATE_CHANGE, &parameters);
+    }
+
     // ---------------------------------------------------------------------------
     // State machine
     // ---------------------------------------------------------------------------
@@ -618,30 +635,36 @@ namespace Plugin {
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::IP_ADDR_CHANGE]      =
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
+        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::WIFI_STATE_CHANGE]   =
+            &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::PERIODIC_TIMER]      =
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::GATEWAY_PACKET_LOSS] =
             &NetworkConnectionStatsImplementation::onGatewayPacketLoss;
 
-        // WIFI_ASSOC_INPROGRESS: all reports suppressed; IFACE_STATE_CHANGE with ACQUIRING_IP transitions to COMPLETED
+        // WIFI_ASSOC_INPROGRESS: all reports suppressed; WIFI_STATE_CONNECTED transitions to COMPLETED
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IFACE_STATE_CHANGE]  =
-            &NetworkConnectionStatsImplementation::onIfaceStateChange_InProgress;
+            &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::ACTIVE_IFACE_CHANGE] =
             &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IP_ADDR_CHANGE]      =
             &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::WIFI_STATE_CHANGE]   =
+            &NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress;
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::PERIODIC_TIMER]      =
             &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::GATEWAY_PACKET_LOSS] =
             &NetworkConnectionStatsImplementation::skipEvent;
 
-        // WIFI_ASSOC_COMPLETED: all reports suppressed; IP ACQUIRED transitions back to IDLE
+        // WIFI_ASSOC_COMPLETED: all reports suppressed; INTERFACE_ACQUIRING_IP transitions back to IDLE
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IFACE_STATE_CHANGE]   =
-            &NetworkConnectionStatsImplementation::skipEvent;
+            &NetworkConnectionStatsImplementation::onIfaceStateChange_Completed;
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::ACTIVE_IFACE_CHANGE]  =
             &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IP_ADDR_CHANGE]       =
-            &NetworkConnectionStatsImplementation::onIpAddrChange_Completed;
+            &NetworkConnectionStatsImplementation::skipEvent;
+        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::WIFI_STATE_CHANGE]    =
+            &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::PERIODIC_TIMER]       =
             &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::GATEWAY_PACKET_LOSS]  =
@@ -677,17 +700,17 @@ namespace Plugin {
 
     // --- WIFI_ASSOC_INPROGRESS handlers ---
 
-    // onIfaceStateChange_InProgress: ACQUIRING_IP → COMPLETED
-    void NetworkConnectionStatsImplementation::onIfaceStateChange_InProgress(
+    // onWiFiStateChange_InProgress: WIFI_STATE_CONNECTED → COMPLETED
+    void NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress(
         const WPEFramework::Core::JSON::VariantContainer* params)
     {
         if (params && params->HasLabel("status")) {
             std::string status = (*params)["status"].String();
-            if (status == "INTERFACE_ACQUIRING_IP") {
-                NSLOG_INFO("INPROGRESS: INTERFACE_ACQUIRING_IP — transitioning to WIFI_ASSOC_COMPLETED");
+            if (status == "WIFI_STATE_CONNECTED") {
+                NSLOG_INFO("INPROGRESS: WIFI_STATE_CONNECTED — transitioning to WIFI_ASSOC_COMPLETED");
                 _currentAssocState = AssocState::WIFI_ASSOC_COMPLETED;
             } else {
-                NSLOG_INFO("INPROGRESS: interface status=%s, suppressing report", status.c_str());
+                NSLOG_INFO("INPROGRESS: WiFi status=%s, suppressing report", status.c_str());
             }
         }
     }
@@ -714,16 +737,17 @@ namespace Plugin {
 
     // --- WIFI_ASSOC_COMPLETED handlers ---
 
-    void NetworkConnectionStatsImplementation::onIpAddrChange_Completed(
+    // onIfaceStateChange_Completed: INTERFACE_ACQUIRING_IP → IDLE
+    void NetworkConnectionStatsImplementation::onIfaceStateChange_Completed(
         const WPEFramework::Core::JSON::VariantContainer* params)
     {
         if (params && params->HasLabel("status")) {
             std::string status = (*params)["status"].String();
-            if (status == "ACQUIRED") {
-                NSLOG_INFO("COMPLETED: IP ACQUIRED — transitioning back to WIFI_ASSOC_IDLE");
+            if (status == "INTERFACE_ACQUIRING_IP") {
+                NSLOG_INFO("COMPLETED: INTERFACE_ACQUIRING_IP — transitioning back to WIFI_ASSOC_IDLE");
                 _currentAssocState = AssocState::WIFI_ASSOC_IDLE;
             } else {
-                NSLOG_INFO("COMPLETED: IP status=%s, suppressing report", status.c_str());
+                NSLOG_INFO("COMPLETED: interface status=%s, suppressing report", status.c_str());
             }
         }
     }
@@ -746,3 +770,4 @@ namespace Plugin {
 
 } // namespace Plugin
 } // namespace WPEFramework
+
