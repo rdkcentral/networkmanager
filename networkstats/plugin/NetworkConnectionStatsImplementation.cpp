@@ -425,7 +425,7 @@ namespace Plugin {
         // Check IPv4 gateway packet loss
         if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
             NSLOG_INFO("Pinging IPv4 gateway: %s", m_ipv4Route.c_str());
-            bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 10, 30);
+            bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 10);
             std::string packetLoss = m_provider->getPacketLoss();
             std::string avgRtt = m_provider->getAvgRtt();
             
@@ -457,7 +457,7 @@ namespace Plugin {
                 ipv6Gateway += "%" + m_interface;
             }
             NSLOG_INFO("Pinging IPv6 gateway: %s", ipv6Gateway.c_str());
-            bool success = m_provider->pingToGatewayCheck(ipv6Gateway, "IPv6", 10, 30);
+            bool success = m_provider->pingToGatewayCheck(ipv6Gateway, "IPv6", 10);
             std::string packetLoss = m_provider->getPacketLoss();
             std::string avgRtt = m_provider->getAvgRtt();
             

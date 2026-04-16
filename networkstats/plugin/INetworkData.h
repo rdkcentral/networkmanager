@@ -77,7 +77,7 @@ class INetworkData
      * @param timeout Timeout in seconds
      * @return true if ping successful, false otherwise
      */
-    virtual bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout) = 0;
+    virtual bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count) = 0;
 
     /* @brief Get packet loss from last ping call */
     virtual std::string getPacketLoss() = 0;

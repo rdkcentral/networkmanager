@@ -239,7 +239,7 @@ std::string NetworkComRPCProvider::getInterface()
 }
 
 /* @brief Ping to gateway to check packet loss */
-bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout)
+bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count)
 {
     // Initialize member variables
     m_packetLoss = "";
@@ -254,7 +254,6 @@ bool NetworkComRPCProvider::pingToGatewayCheck(std::string endpoint, std::string
     params["endpoint"] = endpoint;
     params["ipversion"] = ipversion;
     params["count"] = count;
-    params["timeout"] = timeout;
     params["guid"] = "network-stats-ping";
     
     WPEFramework::Core::JSON::VariantContainer result;
