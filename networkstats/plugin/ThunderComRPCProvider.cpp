@@ -501,7 +501,7 @@ int main()
                     std::getline(std::cin, ipver);
                     if (ipver.empty()) ipver = "IPv4";
                     
-                    bool success = provider.pingToGatewayCheck(gateway, ipver, 5, 30);
+                    bool success = provider.pingToGatewayCheck(gateway, ipver, 5);
                     std::cout << "Ping " << (success ? "successful" : "failed") << "\n";
                     std::cout << "Packet Loss: " << (provider.getPacketLoss().empty() ? "(empty)" : provider.getPacketLoss()) << "\n";
                     std::cout << "Average RTT: " << (provider.getAvgRtt().empty() ? "(empty)" : provider.getAvgRtt()) << " ms\n";
@@ -551,7 +551,7 @@ int main()
                 
                 std::cout << "\n--- Test 7/7: pingToGatewayCheck() ---\n";
                 {
-                    bool success = provider.pingToGatewayCheck("8.8.8.8", "IPv4", 5, 30);
+                    bool success = provider.pingToGatewayCheck("8.8.8.8", "IPv4", 5);
                     std::cout << "Ping " << (success ? "successful" : "failed") << "\n";
                 }
                 
