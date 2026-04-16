@@ -35,7 +35,7 @@ if (USE_TELEMETRY)
 endif()
 
 # Optional RFC API support (for reading TR-181 RFC feature flags)
-option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" ON)
+option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" OFF)
 if (USE_RFCAPI)
     find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
     find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
