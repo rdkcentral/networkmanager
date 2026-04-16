@@ -239,7 +239,6 @@ bool NetworkJsonRPCProvider::pingToGatewayCheck(std::string endpoint, std::strin
     params["endpoint"] = endpoint;
     params["ipversion"] = ipversion;
     params["count"] = count;
-    params["timeout"] = timeout;
     params["guid"] = "network-stats-ping";
     
     WPEFramework::Core::JSON::VariantContainer result;
