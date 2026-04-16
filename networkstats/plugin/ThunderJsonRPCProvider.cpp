@@ -224,7 +224,7 @@ std::string NetworkJsonRPCProvider::getInterface()
 }
 
 /* @brief Ping to gateway to check packet loss */
-bool NetworkJsonRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout)
+bool NetworkJsonRPCProvider::pingToGatewayCheck(std::string endpoint, std::string ipversion, int count)
 {
     // Initialize member variables
     m_packetLoss = "";
@@ -488,7 +488,7 @@ int main()
                         ipver = "IPv4";
                     }
                     
-                    bool result = provider.pingToGatewayCheck(gateway, ipver, 5, 30);
+                    bool result = provider.pingToGatewayCheck(gateway, ipver, 5);
                     std::cout << "Ping result: " << (result ? "SUCCESS" : "FAILED") << "\n";
                     std::string packetLoss = provider.getPacketLoss();
                     std::string avgRtt = provider.getAvgRtt();
@@ -549,7 +549,7 @@ int main()
 
                 std::cout << "\n[Test 7/7] pingToGatewayCheck()\n";
                 {
-                    bool pingResult = provider.pingToGatewayCheck("8.8.8.8", "IPv4", 5, 30);
+                    bool pingResult = provider.pingToGatewayCheck("8.8.8.8", "IPv4", 5);
                     std::cout << "Result: " << (pingResult ? "SUCCESS" : "FAILED") << "\n";
                     std::string packetLoss = provider.getPacketLoss();
                     std::string avgRtt = provider.getAvgRtt();

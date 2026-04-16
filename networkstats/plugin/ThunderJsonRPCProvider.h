@@ -76,7 +76,7 @@ class NetworkJsonRPCProvider : public INetworkData
      * @param timeout Timeout in seconds
      * @return true if ping successful, false otherwise
      */
-    bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count, int timeout) override;
+    bool pingToGatewayCheck(std::string endpoint, std::string ipversion, int count) override;
 
     /* @brief Get packet loss from last ping call */
     std::string getPacketLoss() override;
