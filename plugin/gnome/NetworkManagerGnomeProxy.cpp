@@ -492,16 +492,16 @@ namespace WPEFramework
             bool isIfaceFound = false;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(m_nmClient == nullptr)
-            {
-                NMLOG_WARNING("NMClient is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
             if(interface.empty() || (wifiname != interface && ethname != interface))
             {
                 NMLOG_ERROR("interface: %s; not valied", interface.c_str()!=nullptr? interface.c_str():"empty");
                 return Core::ERROR_GENERAL;
+            }
+
+            if(m_nmClient == nullptr)
+            {
+                NMLOG_WARNING("NMClient is null");
+                return Core::ERROR_RPC_CALL_FAILED;
             }
 
             if(m_nmContext)
@@ -580,12 +580,6 @@ namespace WPEFramework
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(m_nmClient == nullptr)
-            {
-                NMLOG_WARNING("NMClient is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
             if(interface.empty())
             {
                 if(Core::ERROR_NONE != GetPrimaryInterface(interface))
@@ -645,6 +639,12 @@ namespace WPEFramework
                     result = m_ethIPv6Address;
                     return Core::ERROR_NONE;
                 }
+            }
+
+            if(m_nmClient == nullptr)
+            {
+                NMLOG_WARNING("NMClient is null");
+                return Core::ERROR_RPC_CALL_FAILED;
             }
 
             /* Drain any pending D-Bus property-change events queued on m_nmContext
