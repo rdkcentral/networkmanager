@@ -235,7 +235,18 @@ TEST_F(NetworkManagerEventTest, onAddressChangeCb)
 
 TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
 {
-    NMDeviceWifi *deviceDummy = static_cast<NMDeviceWifi*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    GPtrArray* fakeDevices = g_ptr_array_new();
+    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    g_ptr_array_add(fakeDevices, deviceDummy);
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
+        .WillRepeatedly(::testing::Return(fakeDevices));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("wlan0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWiFiScan"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
 
     GPtrArray* fakeAccessPoints = g_ptr_array_new();
     g_ptr_array_add(fakeAccessPoints, reinterpret_cast<NMAccessPoint*>(0x833332));
@@ -258,16 +269,24 @@ TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
     
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
         .WillOnce(::testing::Return(fake_ssid));
-    
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
+        .WillOnce(::testing::Return("00:11:22:33:44:55"));
+
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
         .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
         .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
 
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(nullptr, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(deviceDummy, nullptr, nullptr);
+    g_ptr_array_free(fakeDevices, TRUE);
 
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(nullptr, nullptr, nullptr);
+    NMDeviceWifi *deviceWifiDummy = static_cast<NMDeviceWifi*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(deviceWifiDummy, nullptr, nullptr);
+
+    g_object_unref(deviceDummy);
+    g_object_unref(deviceWifiDummy);
     g_ptr_array_free(fakeAccessPoints, TRUE);
 }
 

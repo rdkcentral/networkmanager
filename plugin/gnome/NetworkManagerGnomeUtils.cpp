@@ -22,6 +22,7 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <fstream>
 #include <NetworkManager.h>
@@ -195,6 +196,19 @@ namespace WPEFramework
             return freq;
        }
 
+        bool nmUtils::isValidBSSID(const std::string& bssid)
+        {
+            // Regular expression to match valid BSSID formats (e.g., "00:11:22:33:44:55")
+            static const std::regex bssidRegex("^([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})$");
+            if (!std::regex_match(bssid, bssidRegex))
+            {
+                NMLOG_ERROR("Invalid BSSID format Expected format is XX:XX:XX:XX:XX:XX where X is a hexadecimal digit.");
+                return false;
+            }
+
+            return true;
+        }
+
        bool nmUtils::caseInsensitiveCompare(const std::string& str1, const std::string& str2)
        {
             std::string upperStr1 = str1;
@@ -270,7 +284,7 @@ namespace WPEFramework
         bool nmUtils::setNetworkManagerlogLevelToTrace()
         {
             /* set networkmanager daemon log level based on current plugin log level */
-            const char* command = "nmcli general logging level TRACE domains ALL";
+            const char* command = "nmcli general logging level TRACE domains PLATFORM,DEVICE,WIFI,ETHER,DNS,DHCP4,DHCP6,DEVICE,SETTINGS,DISPATCH";
 
             // Execute the command using popen
             FILE *pipe = popen(command, "r");
