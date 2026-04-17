@@ -468,11 +468,13 @@ namespace WPEFramework
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_ADDED, G_CALLBACK(deviceAddedCB), nmEvents);
         g_signal_connect(nmEvents->client, NM_CLIENT_DEVICE_REMOVED, G_CALLBACK(deviceRemovedCB), nmEvents);
 
-        if (devices == NULL) {
-            NMLOG_ERROR("nm_client_get_devices returned NULL, no devices to monitor");
+        if(devices == nullptr)
+        {
+            NMLOG_ERROR("Failed to get device list.");
+            return nullptr;
         }
 
-        for (u_int count = 0; devices != NULL && count < devices->len; count++)
+        for (u_int count = 0; count < devices->len; count++)
         {
             NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, count));
             if( ((device != NULL) && NM_IS_DEVICE(device)) )
@@ -780,6 +782,16 @@ namespace WPEFramework
                 free(ssidStr);
              }
              ssidObj["ssid"] = ssidString;
+             const char *bssidPtr = nm_access_point_get_bssid(ap);
+             std::string bssid = bssidPtr ? bssidPtr : "";
+             if (!bssid.empty()) {
+                 ssidObj["bssid"] = bssid;
+             }
+             else
+             {
+                NMLOG_WARNING("BSSID is null for SSID: %s", ssidString.c_str());
+                ssidObj["bssid"] = "";
+             }
              strength = nm_access_point_get_strength(ap);
              apFreq   = nm_access_point_get_frequency(ap);
              flags    = nm_access_point_get_flags(ap);
@@ -805,20 +817,33 @@ namespace WPEFramework
             NMLOG_ERROR("Not a wifi object ");
             return;
         }
-        JsonArray ssidList = JsonArray();
-        NMAccessPoint *ap = nullptr;
+
         const GPtrArray *accessPoints = nm_device_wifi_get_access_points(wifiDevice);
+
+        if (accessPoints == nullptr) {
+            NMLOG_ERROR("scanning result No access points found !");
+            _nmEventInstance->doScanNotify = false;
+            return;
+        }
+
+        if(!_nmEventInstance->doScanNotify)
+        {
+            NMLOG_DEBUG("scan result received; notify disabled, skipping");
+            return;
+        }
+        
+        NMLOG_INFO("No of AP Available = %d", static_cast<int>(accessPoints->len));
+
+        JsonArray ssidList = JsonArray();
         for (guint i = 0; i < accessPoints->len; i++)
         {
-            JsonObject ssidObj;
-            ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
+            JsonObject ssidObj{};
+            NMAccessPoint *ap = static_cast<NMAccessPoint*>(accessPoints->pdata[i]);
             if(GnomeNetworkManagerEvents::apToJsonObject(ap, ssidObj))
                 ssidList.Add(ssidObj);
         }
 
-        NMLOG_DEBUG("No of AP Available = %d", static_cast<int>(accessPoints->len));
-
-        if(_nmEventInstance->doScanNotify) {
+        if(_instance != nullptr) {
             _nmEventInstance->doScanNotify = false;
             _instance->ReportAvailableSSIDs(ssidList);
         }

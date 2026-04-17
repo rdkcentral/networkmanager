@@ -59,6 +59,7 @@ namespace WPEFramework
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo);
             bool removeKnownSSID(const string& ssid);
+            bool connectToKnownSSID(const std::string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
             bool startWPS();

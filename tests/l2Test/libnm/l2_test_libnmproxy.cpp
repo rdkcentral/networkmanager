@@ -213,7 +213,7 @@ TEST_F(NetworkManagerTest, SetLogLevel)
     .Times(1)
     .WillOnce(::testing::Invoke(
             [&](const char* command, const char* type) -> FILE* {
-            EXPECT_THAT(string(command), ::testing::MatchesRegex("nmcli general logging level TRACE domains ALL"));
+            EXPECT_THAT(string(command), ::testing::MatchesRegex("nmcli general logging level TRACE domains PLATFORM,DEVICE,WIFI,ETHER,DNS,DHCP4,DHCP6,DEVICE,SETTINGS,DISPATCH"));
                         // Create a temporary file with the mock output
             FILE* tempFile = tmpfile();
             return tempFile;
