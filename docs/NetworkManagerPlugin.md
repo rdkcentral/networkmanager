@@ -94,6 +94,7 @@ NetworkManager interface methods:
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
 | [RemoveKnownSSID](#method.RemoveKnownSSID) | Remove given SSID from saved SSIDs |
+| [ConnectToKnownSSID](#method.ConnectToKnownSSID) | Connects to a saved SSID |
 | [WiFiConnect](#method.WiFiConnect) | Initiates request to connect to the specified SSID with the given passphrase |
 | [WiFiDisconnect](#method.WiFiDisconnect) | Disconnects from the currently connected SSID |
 | [GetConnectedSSID](#method.GetConnectedSSID) | Returns the connected SSID information |
@@ -257,7 +258,7 @@ This method takes no parameters.
 <a name="method.GetPrimaryInterface"></a>
 ## *GetPrimaryInterface [<sup>method</sup>](#head.Methods)*
 
-Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`.
+Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. If no active network is available, it returns empty string.
 
 ### Parameters
 
@@ -1238,10 +1239,58 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 }
 ```
 
+<a name="method.ConnectToKnownSSID"></a>
+## *ConnectToKnownSSID [<sup>method</sup>](#head.Methods)*
+
+Connects to a saved SSID. The `ssid` parameter is mandatory. Returns failure if `ssid` is not specified or not found in the saved SSIDs list.
+
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.ssid | string | The WiFi SSID Name |
+
+### Result
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| result | object |  |
+| result.success | boolean | Whether the request succeeded |
+
+### Example
+
+#### Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "method": "org.rdk.NetworkManager.1.ConnectToKnownSSID",
+  "params": {
+    "ssid": "myHomeSSID"
+  }
+}
+```
+
+#### Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 42,
+  "result": {
+    "success": true
+  }
+}
+```
+
 <a name="method.WiFiConnect"></a>
 ## *WiFiConnect [<sup>method</sup>](#head.Methods)*
 
-Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. By default, the security mode is decided based on the highest security mode provided by the SSID, but it can be explicitly overridden via the optional `params.security` parameter. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
+Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
@@ -1250,9 +1299,11 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.ssid | string | The WiFi SSID Name |
-| params.passphrase | string | The access point password |
-| params?.security | integer | <sup>*(optional)*</sup> Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values. |
+| params?.ssid | string | <sup>*(optional)*</sup> The WiFi SSID Name |
+| params?.passphrase | string | <sup>*(optional)*</sup> The access point password |
+| params?.security | integer | <sup>*(optional)*</sup> Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values |
+| params?.bssid | string | <sup>*(optional)*</sup> BSSID to connect to. If specified, restricts connection to this BSSID only. Defaults to the best available BSSID for the SSID |
+| params?.frequency | integer | <sup>*(optional)*</sup> Frequency band: `1` - 2.4GHz, `2` - 5GHz. If specified, connects only to SSIDs on the given frequency band. Defaults to best available |
 | params?.ca_cert | string | <sup>*(optional)*</sup> The ca_cert to be used for EAP |
 | params?.client_cert | string | <sup>*(optional)*</sup> The client_cert to be used for EAP |
 | params?.private_key | string | <sup>*(optional)*</sup> The private_key to be used for EAP |
@@ -1284,6 +1335,8 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
     "ssid": "myHomeSSID",
     "passphrase": "password",
     "security": 2,
+    "bssid": "00:11:22:33:44:55",
+    "frequency": 2,
     "ca_cert": "...",
     "client_cert": "...",
     "private_key": "...",
@@ -1873,6 +1926,7 @@ Triggered when scan completes or when scan cancelled.
 | params.ssids | array | On Available SSID's |
 | params.ssids[#] | object |  |
 | params.ssids[#].ssid | string | Discovered SSID |
+| params.ssids[#].bssid | string | Discovered BSSID |
 | params.ssids[#].security | integer | The security mode. See `GetSupportedSecurityModes` |
 | params.ssids[#].strength | integer | The WiFi Signal RSSI value in dBm |
 | params.ssids[#].frequency | number | The supported frequency for this SSID in GHz |
@@ -1887,6 +1941,7 @@ Triggered when scan completes or when scan cancelled.
     "ssids": [
       {
         "ssid": "myAP-2.4",
+        "bssid": "00:11:22:33:44:55",
         "security": 2,
         "strength": -32,
         "frequency": 2.442

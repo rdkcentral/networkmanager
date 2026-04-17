@@ -262,7 +262,7 @@
             }
         },
         "GetPrimaryInterface": {
-            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`.",
+            "summary": "Gets the primary/default network interface for the device. The active network interface is defined as the one that can make requests to the external network. Returns one of the supported interfaces as per `GetAvailableInterfaces`. If no active network is available, it returns empty string.",
             "result": {
                 "type": "object",
                 "properties": {
@@ -984,6 +984,36 @@
                 ]
             }
         },
+        "ConnectToKnownSSID":{
+            "summary": "Connects to a saved SSID. The `ssid` parameter is mandatory. Returns failure if `ssid` is not specified or not found in the saved SSIDs list.",
+            "events":{
+                "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED .",
+                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onInternetStatusChange" : "Triggered when internet connection state changed"
+            },
+            "params": {
+                "type": "object",
+                "properties": {
+                    "ssid": {
+                        "$ref": "#/definitions/ssid"
+                    }
+                },
+                "required": [
+                    "ssid"
+                ]
+            },
+            "result": {
+                "type": "object",
+                "properties": {
+                    "success":{
+                        "$ref": "#/definitions/success"
+                    }
+                },
+                "required": [
+                    "success"
+                ]
+            }
+        },
         "WiFiConnect":{
             "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.",
             "events":{
@@ -1000,6 +1030,16 @@
                     },
                     "security": {
                         "summary": "Optional override to explicitly select the security mode; if omitted, the mode is decided based on the highest security mode provided by the SSID. See `GetSupportedSecurityModes` for valid values.",
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "bssid": {
+                        "summary": "BSSID to connect to. If specified, restricts connection to this BSSID only. Defaults to the best available BSSID for the SSID.",
+                        "type": "string",
+                        "example": "00:11:22:33:44:55"
+                    },
+                    "frequency": {
+                        "summary": "Frequency band: `1` - 2.4GHz, `2` - 5GHz. If specified, connects only to SSIDs on the given frequency band. Defaults to best available.",
                         "type": "integer",
                         "example": 2
                     },
@@ -1053,11 +1093,7 @@
                         "type": "boolean",
                         "example": true
                     }
-                },
-                "required": [
-                    "ssid",
-                    "passphrase"
-                ]
+                }
             },
             "result": {
                 "type": "object",
@@ -1469,6 +1505,11 @@
                                     "type": "string",
                                     "example": "myAP-2.4"
                                 },
+                                "bssid":{
+                                    "summary": "Discovered BSSID",
+                                    "type": "string",
+                                    "example": "00:11:22:33:44:55"
+                                },
                                 "security":{
                                     "$ref": "#/definitions/security"
                                 },
@@ -1481,6 +1522,7 @@
                             },
                             "required": [
                                 "ssid",
+                                "bssid",
                                 "security",
                                 "strength",
                                 "frequency"
