@@ -133,7 +133,7 @@ namespace WPEFramework
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
             g_source_set_callback(m_source, (GSourceFunc)gmainLoopTimoutCB, this, NULL);
-            g_source_attach(m_source, NULL);
+            g_source_attach(m_source, g_main_loop_get_context(loop));
             g_main_loop_run(loop);
             if(m_source != nullptr) {
                 if(g_source_is_destroyed(m_source)) {
@@ -1693,7 +1693,7 @@ namespace WPEFramework
         {
             GError *error = NULL;
             GMainLoop *loop = static_cast<GMainLoop *>(user_data);
-            nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
+            NMActiveConnection *activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
 
             if (error) {
                 NMLOG_ERROR("Failed to add/activate new connection: %s", error->message);
@@ -1701,6 +1701,8 @@ namespace WPEFramework
             }
             else
                 NMLOG_INFO("WPS connection added/activated successfully");
+            if(activeConnection)
+                g_object_unref(activeConnection);
             g_main_loop_quit(loop);
         }
 
@@ -1801,6 +1803,8 @@ namespace WPEFramework
                 if(!g_main_context_acquire(wpsContext))
                 {
                     NMLOG_ERROR("acquire wpsContext failed !!");
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1812,6 +1816,7 @@ namespace WPEFramework
                     if(error != NULL) {
                         NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                         g_error_free(error);
+                        error = NULL;
                     }
                     else
                         NMLOG_ERROR("NetworkManager cleint create failed");
@@ -1927,7 +1932,7 @@ namespace WPEFramework
                     GSource *source = g_timeout_source_new(10000);  // 10000ms interval
                     if(source != nullptr) {
                         g_source_set_callback(source, (GSourceFunc)wpsGmainLoopTimoutCB, loop, NULL);
-                        g_source_attach(source, NULL);
+                        g_source_attach(source, wpsContext);
                         g_main_loop_run(loop);
                         if(g_source_is_destroyed(source)) {
                             NMLOG_WARNING("Source has been destroyed");
@@ -1956,6 +1961,7 @@ namespace WPEFramework
                 }
 
                 g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
                 g_main_context_unref(wpsContext);
                 wpsContext = NULL;
                 if(client != NULL) {
@@ -1983,6 +1989,7 @@ namespace WPEFramework
             if(wpsContext != NULL)
             {
                 g_main_context_pop_thread_default(wpsContext);
+                g_main_context_release(wpsContext);
                 g_main_context_unref(wpsContext);
             }
 
