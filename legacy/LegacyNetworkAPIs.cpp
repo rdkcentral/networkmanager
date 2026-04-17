@@ -31,6 +31,8 @@ using namespace WPEFramework::Plugin;
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
+#define DEBUGLOG_INPARAM() { string json; parameters.ToString(json); NMLOG_DEBUG("params=%s", json.c_str() ); }
+#define DEBUGLOG_OUTPARAM() { string json; response.ToString(json); NMLOG_DEBUG("response=%s", json.c_str() ); }
 
 #define returnJson(rc) \
     { \
@@ -516,7 +518,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             uint32_t rc = Core::ERROR_GENERAL;
             JsonObject tmpResponse;
 
-            LOG_INPARAM();
+            DEBUGLOG_INPARAM();
             rc = internalGetIPSettings(parameters, tmpResponse);
 
             if (tmpResponse.HasLabel("ipaddr") && (!tmpResponse["ipaddr"].String().empty()))
@@ -526,17 +528,26 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 NMLOG_INFO("IP Address not assigned to the given interface yet");
                 rc = Core::ERROR_GENERAL;
             }
-            returnJson(rc);
+            if (Core::ERROR_NONE == rc)
+                response["success"] = true;
+            else
+                response["success"] = false;
+            DEBUGLOG_OUTPARAM();
+            return Core::ERROR_NONE;
         }
 
         uint32_t Network::getIPSettings2 (const JsonObject& parameters, JsonObject& response)
         {
-            LOG_INPARAM();
+            DEBUGLOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
             rc = internalGetIPSettings(parameters, response);
-
-            returnJson(rc);
+            if (Core::ERROR_NONE == rc)
+                response["success"] = true;
+            else
+                response["success"] = false;
+            DEBUGLOG_OUTPARAM();
+            return Core::ERROR_NONE;
         }
 
         uint32_t Network::isConnectedToInternet(const JsonObject& parameters, JsonObject& response)

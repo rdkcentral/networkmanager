@@ -134,6 +134,10 @@ extern "C" const char* __wrap_nm_setting_connection_get_interface_name(NMSetting
     return LibnmWraps::getInstance().nm_setting_connection_get_interface_name(setting);
 }
 
+extern "C" NMIPConfig* __wrap_nm_device_get_ip4_config(NMDevice* device) {
+    return LibnmWraps::getInstance().nm_device_get_ip4_config(device);
+}
+
 extern "C" NMIPConfig* __wrap_nm_active_connection_get_ip4_config(NMActiveConnection* connection) {
     return LibnmWraps::getInstance().nm_active_connection_get_ip4_config(connection);
 }
@@ -433,6 +437,11 @@ NMSettingConnection* LibnmWraps::nm_connection_get_setting_connection(NMConnecti
 const char* LibnmWraps::nm_setting_connection_get_interface_name(NMSettingConnection* setting) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_setting_connection_get_interface_name(setting);
+}
+
+NMIPConfig* LibnmWraps::nm_device_get_ip4_config(NMDevice* device) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_device_get_ip4_config(device);
 }
 
 NMIPConfig* LibnmWraps::nm_active_connection_get_ip4_config(NMActiveConnection* connection) {
