@@ -25,7 +25,6 @@
 #include <arpa/inet.h>
 
 #define IN_IS_ADDR_LINKLOCAL(a)     ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
-static NMClient *client = NULL;
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace std;
@@ -196,7 +195,7 @@ namespace WPEFramework
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
 
-            if (client == nullptr) {
+            if (m_nmClient == nullptr) {
                 NMLOG_ERROR("NMClient is NULL");
                 return Core::ERROR_GENERAL;
             }
@@ -207,7 +206,7 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
-            connections = nm_client_get_connections(client);
+            connections = nm_client_get_connections(m_nmClient);
             if (connections == NULL || connections->len == 0)
             {
                 NMLOG_ERROR("Could not get nm connections");
