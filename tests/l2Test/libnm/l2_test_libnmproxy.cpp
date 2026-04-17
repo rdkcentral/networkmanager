@@ -770,7 +770,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config_valid)
         .WillOnce(::testing::Return("192.168.1.0"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_address(::testing::_))
-        .WillOnce(::testing::Return("192.168.1.2"))
+        .WillOnce(::testing::Return("192.168.1.2"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_addresses(::testing::_))
         .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(ipvAddr)));
