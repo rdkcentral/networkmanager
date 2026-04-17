@@ -52,6 +52,7 @@ namespace WPEFramework
                static bool readPersistentHostname(std::string& hostname);
                static std::string resolveGatewayMac(const std::string& gatewayIp);
                static std::string getGatewayMacAddress(NMDevice* device);
+               static bool isValidBSSID(const std::string& bssid);
         };
     }
 }

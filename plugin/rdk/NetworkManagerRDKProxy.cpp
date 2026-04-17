@@ -1082,6 +1082,13 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ConnectToKnownSSID(const string& ssid /* @in */)
+        {
+            LOG_ENTRY_FUNCTION();
+            NMLOG_INFO ("netsrvmgr does not support multiple known SSIDs; ConnectToKnownSSID is unavailable.");
+            return Core::ERROR_UNAVAILABLE;
+        }
+
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
             LOG_ENTRY_FUNCTION();

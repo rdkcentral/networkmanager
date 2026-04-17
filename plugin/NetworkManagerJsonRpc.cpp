@@ -75,6 +75,7 @@ namespace WPEFramework
             Register("GetKnownSSIDs",                     &NetworkManager::GetKnownSSIDs, this);
             Register("AddToKnownSSIDs",                   &NetworkManager::AddToKnownSSIDs, this);
             Register("RemoveKnownSSID",                   &NetworkManager::RemoveKnownSSID, this);
+            Register("ConnectToKnownSSID",                &NetworkManager::ConnectToKnownSSID, this);
             Register("WiFiConnect",                       &NetworkManager::WiFiConnect, this);
             Register("WiFiDisconnect",                    &NetworkManager::WiFiDisconnect, this);
             Register("GetConnectedSSID",                  &NetworkManager::GetConnectedSSID, this);
@@ -112,6 +113,7 @@ namespace WPEFramework
             Unregister("GetKnownSSIDs");
             Unregister("AddToKnownSSIDs");
             Unregister("RemoveKnownSSID");
+            Unregister("ConnectToKnownSSID");
             Unregister("WiFiConnect");
             Unregister("WiFiDisconnect");
             Unregister("GetConnectedSSID");
@@ -772,6 +774,29 @@ namespace WPEFramework
             returnJson(rc);
         }
 
+        uint32_t NetworkManager::ConnectToKnownSSID(const JsonObject& parameters, JsonObject& response)
+        {
+            LOG_INPARAM();
+            uint32_t rc = Core::ERROR_GENERAL;
+            string ssid{};
+
+            if (parameters.HasLabel("ssid"))
+                ssid = parameters["ssid"].String();
+
+            if (ssid.empty()) {
+                NMLOG_WARNING("ssid not provided or empty in ConnectToKnownSSID request!");
+                rc = Core::ERROR_BAD_REQUEST;
+            }
+            else if (_networkManager) {
+                rc = _networkManager->ConnectToKnownSSID(ssid);
+            }
+            else {
+                rc = Core::ERROR_UNAVAILABLE;
+            }
+
+            returnJson(rc);
+        }
+
         uint32_t NetworkManager::WiFiConnect(const JsonObject& parameters, JsonObject& response)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -784,7 +809,20 @@ namespace WPEFramework
 
                 if (parameters.HasLabel("passphrase"))
                     ssid.passphrase = parameters["passphrase"].String();
-    
+
+                if (parameters.HasLabel("bssid"))
+                    ssid.bssid = parameters["bssid"].String();
+                if (parameters.HasLabel("frequency"))
+                {
+                    int freq = parameters["frequency"].Number();
+                    if (freq < 1 || freq > 3) {
+                        NMLOG_WARNING("Invalid frequency value: %d (valid: 1=2.4GHz, 2=5GHz, 3=6GHz)", freq);
+                        rc = Core::ERROR_BAD_REQUEST;
+                        returnJson(rc);
+                    }
+                    ssid.frequency = static_cast <Exchange::INetworkManager::WIFIFrequency> (freq);
+                }
+
                 if (parameters.HasLabel("security"))
                     ssid.security= static_cast <Exchange::INetworkManager::WIFISecurityMode> (parameters["security"].Number());
 

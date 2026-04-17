@@ -139,7 +139,6 @@ namespace WPEFramework
 
         static bool modifyDefaultConnConfig(NMClient *client)
         {
-            GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
             std::string hostname{};
@@ -668,7 +667,7 @@ namespace WPEFramework
             deviceState = nm_device_get_state(device);
             if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
             {
-                NMLOG_WARNING("Device state is not a valid state: (%d)", deviceState);
+                NMLOG_WARNING("%s state is not a valid state: (%d)", interface.c_str(), deviceState);
                 return Core::ERROR_GENERAL;
             }
 
@@ -730,7 +729,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
                 if(ipByte)
                 {
-                    for (int i = 0; i < ipByte->len; i++)
+                    for (guint i = 0; i < ipByte->len; i++)
                     {
                         ipStr.clear();
                         ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
@@ -806,7 +805,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
                 if(ipArray)
                 {
-                    for (int i = 0; i < ipArray->len; i++)
+                    for (guint i = 0; i < ipArray->len; i++)
                     {
                         ipStr.clear();
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
@@ -953,6 +952,14 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ConnectToKnownSSID(const string& ssid /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->connectToKnownSSID(ssid))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -967,22 +974,31 @@ namespace WPEFramework
 
             if(ssid.ssid.empty())
             {
-                if(_instance != NULL)
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
                 {
-                    NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                    if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
-                        rc = Core::ERROR_NONE;
+                    rc = Core::ERROR_NONE;
                 }
                 else
-                    NMLOG_WARNING("ssid is empty and instance is NULL");
+                {
+                    NMLOG_ERROR("activating last connected ssid failed");
+                }
+                return rc;
             }
-            else if(ssid.ssid.size() <= 32)
+
+            if(ssid.ssid.size() > 32)
             {
-                if(wifi->wifiConnect(ssid))
-                    rc = Core::ERROR_NONE;
-            }
-            else
                 NMLOG_WARNING("SSID is invalid");
+                return rc;
+            }
+
+            if(!ssid.bssid.empty() && !nmUtils::isValidBSSID(ssid.bssid))
+            {
+                return Core::ERROR_GENERAL;
+            }
+
+            if(wifi->wifiConnect(ssid))
+                rc = Core::ERROR_NONE;
 
             return rc;
         }
