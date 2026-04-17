@@ -231,8 +231,9 @@ TEST_F(NetworkManagerTest, SetHostName_null)
 
 TEST_F(NetworkManagerTest, SetHostName_ClientCon_Null)
 {
-    // SetHostname uses a global NMClient* that is always NULL in the test environment,
-    // so it returns ERROR_GENERAL immediately without calling nm_client_get_connections.
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(NULL)));
+
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test_host\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
 }
@@ -243,10 +244,14 @@ TEST_F(NetworkManagerTest, SetHostName_iface_null)
     NMConnection *conn = static_cast<NMConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
     g_ptr_array_add(dummyConns, conn);
 
-    // SetHostname uses a global NMClient* that is always NULL in the test environment,
-    // so it returns ERROR_GENERAL immediately — nm_client_get_connections is never reached.
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
+        .WillOnce(::testing::Return(nullptr));
+
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test_host\"}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
     //g_object_unref(conn);
     g_ptr_array_free(dummyConns, TRUE);
 }
@@ -257,10 +262,14 @@ TEST_F(NetworkManagerTest, SetHostName_iface_unknown)
     NMConnection *conn = static_cast<NMConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
     g_ptr_array_add(dummyConns, conn);
 
-    // SetHostname uses a global NMClient* that is always NULL in the test environment,
-    // so it returns ERROR_GENERAL immediately — nm_client_get_connections is never reached.
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
+        .WillOnce(::testing::Return("unknown"));
+
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test_host\"}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
     g_object_unref(conn);
     g_ptr_array_free(dummyConns, TRUE);
 }
@@ -271,10 +280,27 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0_alradyset)
     NMConnection *conn = static_cast<NMConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
     g_ptr_array_add(dummyConns, conn);
 
-    // SetHostname uses a global NMClient* that is always NULL in the test environment,
-    // so it returns ERROR_GENERAL immediately — no libnm connection calls are reached.
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
+        .WillOnce(::testing::Return("wlan0"));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip4_config(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(0x100173)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip6_config(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(0x100174)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_ip_config_get_dhcp_hostname(::testing::_))
+        .WillOnce(::testing::Return("test_host"))
+        .WillOnce(::testing::Return("test_host"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_ip_config_get_dhcp_send_hostname(::testing::_))
+        .WillOnce(::testing::Return(TRUE))
+        .WillOnce(::testing::Return(TRUE));
+
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test_host\"}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
     g_object_unref(conn);
     g_ptr_array_free(dummyConns, TRUE);
 }
@@ -285,10 +311,29 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
     NMConnection *conn = static_cast<NMConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
     g_ptr_array_add(dummyConns, conn);
 
-    // SetHostname uses a global NMClient* that is always NULL in the test environment,
-    // so it returns ERROR_GENERAL immediately — no libnm connection calls are reached.
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
+        .WillOnce(::testing::Return("wlan0"));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip4_config(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(NULL)));
+    
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip6_config(::testing::_))
+        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(NULL)));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_id(::testing::_))
+        .WillOnce(::testing::Return("test_wlan"));
+
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_remote_connection_commit_changes(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Invoke(
+            [](NMRemoteConnection *connection, gboolean save_to_disk, GCancellable *cancellable, GError **error) -> gboolean {
+                return TRUE;
+            }));
+
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("SetHostname"), _T("{\"hostname\":\"test_host\"}"), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
+    EXPECT_EQ(response, _T("{\"success\":true}"));
     g_object_unref(conn);
     g_ptr_array_free(dummyConns, TRUE);
 }
@@ -370,9 +415,7 @@ TEST_F(NetworkManagerTest, GetInterfaceState_unknown)
     bool isEnabled;
     std::string ifaceName = "wlan1";
     uint32_t result = interface->GetInterfaceState(ifaceName, isEnabled);
-    // m_nmClient is NULL (nm_client_new fails without D-Bus in test env), so
-    // GetInterfaceState returns ERROR_RPC_CALL_FAILED before checking the interface name.
-    EXPECT_EQ(result, Core::ERROR_RPC_CALL_FAILED);
+    EXPECT_EQ(result, Core::ERROR_GENERAL);
     EXPECT_EQ(isEnabled, false);
 }
 
@@ -502,9 +545,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_GetPrimary_failed)
 {
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     string interface; const string ipversion; Exchange::INetworkManager::IPAddress address;
-    // m_nmClient is NULL (nm_client_new fails without D-Bus in test env), so
-    // GetIPSettings returns ERROR_RPC_CALL_FAILED before the empty-interface/GetPrimary check.
-    EXPECT_EQ(Core::ERROR_RPC_CALL_FAILED, NetworkManagerImpl2->GetIPSettings(interface, ipversion, address));
+    EXPECT_EQ(Core::ERROR_GENERAL, NetworkManagerImpl2->GetIPSettings(interface, ipversion, address));
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_Invalid_ActiveConnection)
@@ -729,6 +770,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config_valid)
         .WillOnce(::testing::Return("192.168.1.0"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_address(::testing::_))
+        .WillOnce(::testing::Return("192.168.1.2"))
         .WillOnce(::testing::Return("192.168.1.2"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_addresses(::testing::_))

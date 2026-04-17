@@ -905,13 +905,11 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_Wrong_bssid)
 
 TEST_F(NetworkManagerWifiTest, WiFiConnect_activateKnownConnection_failed_device_null)
 {
-
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_,::testing::_))
         .WillRepeatedly(::testing::Return(static_cast<NMDevice*>(NULL)));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("WiFiConnect"), _T(""), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
-
 }
 
 TEST_F(NetworkManagerWifiTest, WiFiConnect_activateKnownConnection_failed_noconnection)
