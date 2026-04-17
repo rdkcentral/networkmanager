@@ -31,7 +31,7 @@ namespace NetworkConnectionStatsLogger {
 /**
  * Logging level with an increasing order of refinement
  * (DEBUG_LEVEL = Finest logging)
- * It is essental to start with 0 and increase w/o gaps as the value
+ * It is essential to start with 0 and increase w/o gaps as the value
  * can be used for indexing in a mapping table.
  */
 enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL};

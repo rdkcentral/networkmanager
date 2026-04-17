@@ -339,7 +339,7 @@ namespace WPEFramework
                     m_defaultInterface = iface;
                 }
 
-            protected:
+            private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
         };

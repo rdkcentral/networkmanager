@@ -1819,7 +1819,7 @@ namespace WPEFramework
                         error = NULL;
                     }
                     else
-                        NMLOG_ERROR("NetworkManager cleint create failed");
+                        NMLOG_ERROR("NetworkManager client create failed");
                     g_main_context_pop_thread_default(wpsContext);
                     g_main_context_release(wpsContext);
                     g_main_context_unref(wpsContext);
