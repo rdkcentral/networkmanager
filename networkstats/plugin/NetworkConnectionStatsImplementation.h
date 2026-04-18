@@ -84,18 +84,19 @@ namespace Plugin {
         };
 
         // Function pointer type for state machine event handlers.
-        // Returns a std::function<void()> post-action to be executed AFTER the
-        // queue lock is released (use for blocking I/O; return {} if none).
-        typedef std::function<void()> (NetworkConnectionStatsImplementation::*EventHandler)(const WPEFramework::Core::JSON::VariantContainer*);
+        // Mirrors systimemgr's memfunc: handlers are void and do all work inline.
+        typedef void (NetworkConnectionStatsImplementation::*EventHandler)(const WPEFramework::Core::JSON::VariantContainer*);
 
         // Message queue types
         enum class MessageType {
-            GENERATE_REPORT,
+            EVENT,
             STOP
         };
         
         struct Message {
-            MessageType type;
+            MessageType type = MessageType::EVENT;
+            NetworkEvent event = NetworkEvent::IFACE_STATE_CHANGE;
+            std::shared_ptr<WPEFramework::Core::JSON::VariantContainer> params;
         };
         
         // Internal diagnostic methods
@@ -120,24 +121,25 @@ namespace Plugin {
 
         // State machine initialisation and event dispatch
         void initStateMachine();
-        void dispatchEvent(NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params);
+        void sendMessage(NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params);
+        void runStateMachine(NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handlers registered in the state machine for WIFI_ASSOC_IDLE
         // All events generate a report; IFACE_STATE_CHANGE with ACQUIRING_IP moves to INPROGRESS
         // (reuses onAnyEvent_Completed for non-interface events)
 
         // Handlers registered in the state machine for WIFI_ASSOC_IDLE
-        std::function<void()> onAnyEvent_Idle(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onAnyEvent_Idle(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handlers registered in the state machine for WIFI_ASSOC_INPROGRESS
-        std::function<void()> onWiFiStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
-        std::function<void()> skipEvent(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onWiFiStateChange_InProgress(const WPEFramework::Core::JSON::VariantContainer* params);
+        void skipEvent(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handler for GATEWAY_PACKET_LOSS event: IDLE → INPROGRESS
-        std::function<void()> onGatewayPacketLoss(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onGatewayPacketLoss(const WPEFramework::Core::JSON::VariantContainer* params);
 
         // Handlers registered in the state machine for WIFI_ASSOC_COMPLETED
-        std::function<void()> onIfaceStateChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
+        void onIfaceStateChange_Completed(const WPEFramework::Core::JSON::VariantContainer* params);
 
     private:
         mutable Core::CriticalSection _adminLock;

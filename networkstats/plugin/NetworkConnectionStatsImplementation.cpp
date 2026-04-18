@@ -87,7 +87,9 @@ namespace Plugin {
         // Push STOP message to unblock consumer thread
         {
             std::lock_guard<std::mutex> lock(_queueMutex);
-            _messageQueue.push({MessageType::STOP});
+            Message stopMsg;
+            stopMsg.type = MessageType::STOP;
+            _messageQueue.push(std::move(stopMsg));
         }
         _queueCondition.notify_one();
         
@@ -244,7 +246,7 @@ namespace Plugin {
             }
             
             // Queue report generation (timer bypasses rate-limit, it has its own 600s interval)
-            dispatchEvent(NetworkEvent::PERIODIC_TIMER, nullptr);
+            sendMessage(NetworkEvent::PERIODIC_TIMER, nullptr);
         }
         
         NSLOG_INFO("Timer thread stopped");
@@ -255,36 +257,28 @@ namespace Plugin {
         NSLOG_INFO("Periodic reporting thread (consumer) started");
         
         while (!_stopReporting && _periodicReportingEnabled) {
-            Message msg;
-            
-            // Wait for message in queue
-            {
-                std::unique_lock<std::mutex> lock(_queueMutex);
-                _queueCondition.wait(lock, [this] { 
-                    return !_messageQueue.empty() || _stopReporting; 
-                });
-                
-                if (_stopReporting) {
-                    break;
-                }
-                
-                if (_messageQueue.empty()) {
-                    continue;
-                }
-                
-                msg = _messageQueue.front();
-                _messageQueue.pop();
+            std::unique_lock<std::mutex> lock(_queueMutex);
+            _queueCondition.wait(lock, [this] {
+                return !_messageQueue.empty() || _stopReporting;
+            });
+
+            if (_stopReporting) {
+                break;
             }
-            
-            // Process message
-            if (msg.type == MessageType::GENERATE_REPORT) {
-                NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
-                generateReport();
-                NSLOG_INFO("Consumer: Report generated");
-            } else if (msg.type == MessageType::STOP) {
+            if (_messageQueue.empty()) {
+                continue;
+            }
+
+            Message msg = std::move(_messageQueue.front());
+            _messageQueue.pop();
+            lock.unlock();
+
+            if (msg.type == MessageType::STOP) {
                 NSLOG_INFO("Consumer: Received STOP message");
                 break;
             }
+
+            runStateMachine(msg.event, msg.params.get());
         }
         
         NSLOG_INFO("Periodic reporting thread (consumer) stopped");
@@ -490,7 +484,7 @@ namespace Plugin {
         if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
             ipv4PacketLoss100 && ipv6PacketLoss100) {
             NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
-            dispatchEvent(NetworkEvent::GATEWAY_PACKET_LOSS, nullptr);
+            sendMessage(NetworkEvent::GATEWAY_PACKET_LOSS, nullptr);
         }
     }
 
@@ -604,22 +598,22 @@ namespace Plugin {
     /** Event Handling - dispatched through the state machine */
     void NetworkConnectionStatsImplementation::ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        dispatchEvent(NetworkEvent::IFACE_STATE_CHANGE, &parameters);
+        sendMessage(NetworkEvent::IFACE_STATE_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        dispatchEvent(NetworkEvent::ACTIVE_IFACE_CHANGE, &parameters);
+        sendMessage(NetworkEvent::ACTIVE_IFACE_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        dispatchEvent(NetworkEvent::IP_ADDR_CHANGE, &parameters);
+        sendMessage(NetworkEvent::IP_ADDR_CHANGE, &parameters);
     }
 
     void NetworkConnectionStatsImplementation::ReportonWiFiStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
     {
-        dispatchEvent(NetworkEvent::WIFI_STATE_CHANGE, &parameters);
+        sendMessage(NetworkEvent::WIFI_STATE_CHANGE, &parameters);
     }
 
     // ---------------------------------------------------------------------------
@@ -673,47 +667,53 @@ namespace Plugin {
         NSLOG_INFO("State machine initialised; starting in WIFI_ASSOC_IDLE");
     }
 
-    void NetworkConnectionStatsImplementation::dispatchEvent(
+    void NetworkConnectionStatsImplementation::sendMessage(
         NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params)
     {
         if (params != nullptr) {
             string json;
             params->ToString(json);
-            NSLOG_INFO("dispatchEvent: event=%d state=%d params=%s",
-                       static_cast<int>(event), static_cast<int>(_currentAssocState), json.c_str());
+            NSLOG_INFO("sendMessage: event=%d params=%s",
+                       static_cast<int>(event), json.c_str());
         }
 
-        // Run the handler under the lock so that state transitions and queue
-        // pushes remain atomic.  The handler may return a post-action lambda
-        // for work that must NOT run under the lock (e.g. blocking RPC calls).
-        std::function<void()> postAction;
+        Message msg;
+        msg.event = event;
+        if (params) {
+            msg.params = std::make_shared<WPEFramework::Core::JSON::VariantContainer>(*params);
+        }
+
         {
             std::lock_guard<std::mutex> lock(_queueMutex);
-            auto stateIt = _stateMachine.find(_currentAssocState);
-            if (stateIt == _stateMachine.end()) {
-                NSLOG_WARNING("dispatchEvent: no handlers for state %d", static_cast<int>(_currentAssocState));
-                return;
-            }
-            auto evtIt = stateIt->second.find(event);
-            if (evtIt == stateIt->second.end()) {
-                NSLOG_WARNING("dispatchEvent: no handler for event %d in state %d",
-                              static_cast<int>(event), static_cast<int>(_currentAssocState));
-                return;
-            }
-            postAction = (this->*(evtIt->second))(params);
+            _messageQueue.push(std::move(msg));
         }
+        _queueCondition.notify_one();
+    }
 
-        // Execute post-action (if any) outside the queue lock to avoid
-        // blocking other dispatches and prevent potential lock inversion.
-        if (postAction) {
-            postAction();
+    void NetworkConnectionStatsImplementation::runStateMachine(
+        NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params)
+    {
+        NSLOG_INFO("runStateMachine: event=%d state=%d",
+                   static_cast<int>(event), static_cast<int>(_currentAssocState));
+
+        auto stateIt = _stateMachine.find(_currentAssocState);
+        if (stateIt == _stateMachine.end()) {
+            NSLOG_WARNING("runStateMachine: no handlers for state %d", static_cast<int>(_currentAssocState));
+            return;
         }
+        auto evtIt = stateIt->second.find(event);
+        if (evtIt == stateIt->second.end()) {
+            NSLOG_WARNING("runStateMachine: no handler for event %d in state %d",
+                          static_cast<int>(event), static_cast<int>(_currentAssocState));
+            return;
+        }
+        (this->*(evtIt->second))(params);
     }
 
     // --- WIFI_ASSOC_INPROGRESS handlers ---
 
     // onWiFiStateChange_InProgress: WIFI_STATE_CONNECTED → COMPLETED
-    std::function<void()> NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress(
+    void NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress(
         const WPEFramework::Core::JSON::VariantContainer* params)
     {
         if (params && params->HasLabel("status")) {
@@ -725,35 +725,27 @@ namespace Plugin {
                 NSLOG_INFO("INPROGRESS: WiFi status=%s, suppressing report", status.c_str());
             }
         }
-        return {};
     }
 
-    std::function<void()> NetworkConnectionStatsImplementation::skipEvent(
+    void NetworkConnectionStatsImplementation::skipEvent(
         const WPEFramework::Core::JSON::VariantContainer* /*params*/)
     {
-        NSLOG_INFO("WIFI_ASSOC_INPROGRESS: event suppressed — association in progress, report blocked");
-        return {};
+        NSLOG_INFO("event suppressed — association in progress, report blocked");
     }
 
     // --- WIFI_ASSOC_IDLE handler ---
 
-    std::function<void()> NetworkConnectionStatsImplementation::onAnyEvent_Idle(
+    void NetworkConnectionStatsImplementation::onAnyEvent_Idle(
         const WPEFramework::Core::JSON::VariantContainer* /*params*/)
     {
-        if (_messageQueue.empty()) {
-            _messageQueue.push({MessageType::GENERATE_REPORT});
-            _queueCondition.notify_one();
-            NSLOG_INFO("WIFI_ASSOC_IDLE: GENERATE_REPORT queued");
-        } else {
-            NSLOG_INFO("WIFI_ASSOC_IDLE: report already pending");
-        }
-        return {};
+        NSLOG_INFO("WIFI_ASSOC_IDLE: generating report");
+        generateReport();
     }
 
     // --- WIFI_ASSOC_COMPLETED handlers ---
 
     // onIfaceStateChange_Completed: INTERFACE_ACQUIRING_IP → IDLE
-    std::function<void()> NetworkConnectionStatsImplementation::onIfaceStateChange_Completed(
+    void NetworkConnectionStatsImplementation::onIfaceStateChange_Completed(
         const WPEFramework::Core::JSON::VariantContainer* params)
     {
         if (params && params->HasLabel("status")) {
@@ -765,27 +757,20 @@ namespace Plugin {
                 NSLOG_INFO("COMPLETED: interface status=%s, suppressing report", status.c_str());
             }
         }
-        return {};
     }
 
-    std::function<void()> NetworkConnectionStatsImplementation::onGatewayPacketLoss(
+    void NetworkConnectionStatsImplementation::onGatewayPacketLoss(
         const WPEFramework::Core::JSON::VariantContainer* /*params*/)
     {
         NSLOG_INFO("WiFi reassociation: %s -> WIFI_ASSOC_INPROGRESS",
                    _currentAssocState == AssocState::WIFI_ASSOC_IDLE ? "WIFI_ASSOC_IDLE" : "WIFI_ASSOC_COMPLETED");
         _currentAssocState = AssocState::WIFI_ASSOC_INPROGRESS;
 
-        // Return the blocking RPC work as a post-action so it executes
-        // outside _queueMutex, preventing other dispatches from stalling
-        // and eliminating potential lock-inversion if the callback
-        // re-enters dispatchEvent.
-        return [this]() {
-            logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
-            uint32_t rc = m_provider->invokeWiFiConnect();
-            if (rc != Core::ERROR_NONE) {
-                NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
-            }
-        };
+        logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
+        uint32_t rc = m_provider->invokeWiFiConnect();
+        if (rc != Core::ERROR_NONE) {
+            NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
+        }
     }
 
 } // namespace Plugin
