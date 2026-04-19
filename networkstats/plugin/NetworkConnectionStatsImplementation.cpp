@@ -629,40 +629,18 @@ namespace Plugin {
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::IP_ADDR_CHANGE]      =
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
-        _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::WIFI_STATE_CHANGE]   =
-            &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::PERIODIC_TIMER]      =
             &NetworkConnectionStatsImplementation::onAnyEvent_Idle;
         _stateMachine[AssocState::WIFI_ASSOC_IDLE][NetworkEvent::GATEWAY_PACKET_LOSS] =
             &NetworkConnectionStatsImplementation::onGatewayPacketLoss;
 
         // WIFI_ASSOC_INPROGRESS: all reports suppressed; WIFI_STATE_CONNECTED transitions to COMPLETED
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IFACE_STATE_CHANGE]  =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::ACTIVE_IFACE_CHANGE] =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::IP_ADDR_CHANGE]      =
-            &NetworkConnectionStatsImplementation::skipEvent;
         _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::WIFI_STATE_CHANGE]   =
             &NetworkConnectionStatsImplementation::onWiFiStateChange_InProgress;
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::PERIODIC_TIMER]      =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_INPROGRESS][NetworkEvent::GATEWAY_PACKET_LOSS] =
-            &NetworkConnectionStatsImplementation::skipEvent;
 
         // WIFI_ASSOC_COMPLETED: all reports suppressed; INTERFACE_ACQUIRING_IP transitions back to IDLE
         _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IFACE_STATE_CHANGE]   =
             &NetworkConnectionStatsImplementation::onIfaceStateChange_Completed;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::ACTIVE_IFACE_CHANGE]  =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::IP_ADDR_CHANGE]       =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::WIFI_STATE_CHANGE]    =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::PERIODIC_TIMER]       =
-            &NetworkConnectionStatsImplementation::skipEvent;
-        _stateMachine[AssocState::WIFI_ASSOC_COMPLETED][NetworkEvent::GATEWAY_PACKET_LOSS]  =
-            &NetworkConnectionStatsImplementation::skipEvent;
 
         NSLOG_INFO("State machine initialised; starting in WIFI_ASSOC_IDLE");
     }
@@ -693,7 +671,7 @@ namespace Plugin {
     void NetworkConnectionStatsImplementation::runStateMachine(
         NetworkEvent event, const WPEFramework::Core::JSON::VariantContainer* params)
     {
-        NSLOG_INFO("runStateMachine: event=%d state=%d",
+        NSLOG_DEBUG("runStateMachine: event=%d state=%d",
                    static_cast<int>(event), static_cast<int>(_currentAssocState));
 
         auto stateIt = _stateMachine.find(_currentAssocState);
@@ -725,12 +703,6 @@ namespace Plugin {
                 NSLOG_INFO("INPROGRESS: WiFi status=%s, suppressing report", status.c_str());
             }
         }
-    }
-
-    void NetworkConnectionStatsImplementation::skipEvent(
-        const WPEFramework::Core::JSON::VariantContainer* /*params*/)
-    {
-        NSLOG_INFO("event suppressed — association in progress, report blocked");
     }
 
     // --- WIFI_ASSOC_IDLE handler ---
