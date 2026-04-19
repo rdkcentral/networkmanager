@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
 #include <atomic>
+#include <mutex>
 
 using namespace std;
 

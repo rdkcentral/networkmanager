@@ -311,8 +311,9 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(m_nmContext)
-                while(g_main_context_iteration(m_nmContext, FALSE));
+            if (m_nmContext) {
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+            }
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
@@ -504,8 +505,9 @@ namespace WPEFramework
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            if(m_nmContext)
-                while(g_main_context_iteration(m_nmContext, FALSE));
+            if (m_nmContext) {
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+            }
 
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
 
@@ -652,8 +654,9 @@ namespace WPEFramework
              * from the event thread, nobody else can run it — so this loop is
              * single-threaded and safe.  It ensures m_nmClient reflects the latest state
              * from NetworkManager before we start iterating connections/addresses. */
-            if(m_nmContext)
-                while(g_main_context_iteration(m_nmContext, FALSE));
+            if (m_nmContext) {
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+            }
 
             device = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
             if (device == NULL)
