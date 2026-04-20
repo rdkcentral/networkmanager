@@ -16,20 +16,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #############################################################################
-message("building tools")
+cmake_minimum_required(VERSION 3.3)
 
-option(ENABLE_PLUGIN_CLI "Enable Plugin cli" OFF)
-option(ENABLE_ROUTER_DISCOVERY_TOOL "Enable UPNP based Router Details discovery tool" OFF)
-option(ENABLE_NFLOG_LISTENER "Enable NFLOG listener tool" OFF)
+set(MODULE_NAME nflog_listener)
+find_package(PkgConfig REQUIRED)
 
-if(ENABLE_PLUGIN_CLI)
-    add_subdirectory(plugincli)
-endif(ENABLE_PLUGIN_CLI)
+pkg_check_modules(LIBNETFILTER_LOG REQUIRED libnetfilter_log)
+pkg_check_modules(LIBNFNETLINK     REQUIRED libnfnetlink)
 
-if(ENABLE_ROUTER_DISCOVERY_TOOL)
-    add_subdirectory(upnp)
-endif(ENABLE_ROUTER_DISCOVERY_TOOL)
+add_executable(${MODULE_NAME} src/main.c)
 
-if(ENABLE_NFLOG_LISTENER)
-    add_subdirectory(nflog)
-endif(ENABLE_NFLOG_LISTENER)
+target_include_directories(${MODULE_NAME} PRIVATE
+    ${LIBNETFILTER_LOG_INCLUDE_DIRS}
+    ${LIBNFNETLINK_INCLUDE_DIRS}
+)
+
+target_link_libraries(${MODULE_NAME} PRIVATE
+    ${LIBNETFILTER_LOG_LIBRARIES}
+    ${LIBNFNETLINK_LIBRARIES}
+)
+
+install(TARGETS ${MODULE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
