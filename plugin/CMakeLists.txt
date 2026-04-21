@@ -75,6 +75,7 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
+                                     
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
                             NetworkManagerConnectivity.cpp
@@ -134,6 +135,7 @@ target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
                                         ${NAMESPACE}Core::${NAMESPACE}Core
                                         ${NAMESPACE}Plugins::${NAMESPACE}Plugins
                                         )
+
 
 target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
