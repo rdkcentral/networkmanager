@@ -604,117 +604,6 @@ namespace WPEFramework
                 _wifiManager->m_client, NM_CONNECTION(remote_con), _wifiManager->m_wifidevice, _wifiManager->m_objectPath, _wifiManager->m_cancellable, wifiConnectCb, _wifiManager);
         }
 
-        static NMConnection* createMinimalEthernetConnection(const std::string& iface)
-        {
-            NMConnection *connection = nm_simple_connection_new();
-
-            // Connection settings with autoconnect enabled
-            NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
-            std::string connId = "Wired connection 1";
-            char *uuidRawEth = nm_utils_uuid_generate();
-            if (!uuidRawEth)
-            {
-                NMLOG_ERROR("Failed to generate UUID for ethernet connection");
-                return nullptr;
-            }
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_ID, connId.c_str(), NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuidRawEth, NULL);
-            g_free(uuidRawEth);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-3-ethernet", NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, iface.c_str(), NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_AUTOCONNECT, TRUE, NULL);  // Enable autoconnect
-            nm_connection_add_setting(connection, NM_SETTING(sConnection));
-
-            // Wired ethernet settings
-            NMSettingWired *sWired = (NMSettingWired *)nm_setting_wired_new();
-            nm_connection_add_setting(connection, NM_SETTING(sWired));
-
-            // Get hostname for DHCP
-            std::string hostname;
-            if(!nmUtils::readPersistentHostname(hostname))
-            {
-                hostname = nmUtils::deviceHostname();
-                NMLOG_DEBUG("No persistent hostname found, using device hostname");
-            }
-
-            // IPv4 settings with DHCP
-            NMSettingIP4Config *sIpv4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
-            nm_connection_add_setting(connection, NM_SETTING(sIpv4));
-
-            // IPv6 settings with DHCP
-            NMSettingIP6Config *sIpv6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
-            nm_connection_add_setting(connection, NM_SETTING(sIpv6));
-
-            NMLOG_DEBUG("Created minimal ethernet connection with autoconnect=true");
-            return connection;
-        }
-
-        static void addMinimalEthernetConnectionCb(GObject *client, GAsyncResult *result, gpointer user_data)
-        {
-            GError *error = NULL;
-            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
-            NMRemoteConnection *remoteConn = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
-            if (error) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-                    NMLOG_DEBUG("addMinimalEthernetConnection operation was cancelled");
-                    g_error_free(error);
-                    if (remoteConn)
-                        g_object_unref(remoteConn);
-                    if (_wifiManager->m_loop && g_main_loop_is_running(_wifiManager->m_loop)) {
-                        g_main_loop_quit(_wifiManager->m_loop);
-                    }
-                    return; // do not alter m_isSuccess on cancellation
-                }
-                NMLOG_ERROR("addMinimalEthernetConnection error: %s", error->message);
-                _wifiManager->m_isSuccess = false;
-                g_error_free(error);
-            }
-            else if (!remoteConn) {
-                NMLOG_ERROR("addMinimalEthernetConnection failed");
-                _wifiManager->m_isSuccess = false;
-            }
-            else {
-                NMLOG_INFO("addMinimalEthernetConnection success");
-                _wifiManager->m_isSuccess = true;
-                g_object_unref(remoteConn);
-            }
-            g_main_loop_quit(_wifiManager->m_loop);
-        }
-
-        bool wifiManager::addMinimalEthernetConnection(std::string iface)
-        {
-            if (!createClientNewConnection())
-                return false;
-
-            NMConnection *ethConn = createMinimalEthernetConnection(iface);
-            if (ethConn == NULL)
-            {
-                NMLOG_ERROR("Failed to create minimal ethernet connection");
-                deleteClientConnection();
-                return false;
-            }
-
-            GVariant *connSettings = nm_connection_to_dbus(ethConn, NM_CONNECTION_SERIALIZE_ALL);
-            g_object_unref(ethConn);
-
-            m_isSuccess = false;
-            nm_client_add_connection2(m_client,
-                                      connSettings,
-                                      NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
-                                      NULL, TRUE, m_cancellable,
-                                      addMinimalEthernetConnectionCb, this);
-            g_variant_unref(connSettings);
-            wait(m_loop);
-            deleteClientConnection();
-            return m_isSuccess;
-        }
-
         static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false)
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
@@ -1016,30 +905,9 @@ namespace WPEFramework
             devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL || devConnections->len == 0)
             {
-                if(iface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
-                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
-                    if(ethConn == NULL)
-                    {
-                        NMLOG_ERROR("Failed to create ethernet connection");
-                        deleteClientConnection();
-                        return false;
-                    }
-                    m_isSuccess = false;
-                    m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
-                    g_object_unref(ethConn);
-                    wait(m_loop);
-                    deleteClientConnection();
-                    return m_isSuccess;
-                }
-                else
-                {
-                    NMLOG_ERROR("No connections found !");
-                    deleteClientConnection();
-                    return false;
-                }
+                NMLOG_ERROR("No connections found !");
+                deleteClientConnection();
+                return false;
             }
 
             for (guint i = 0; i < devConnections->len; i++)
@@ -1109,26 +977,6 @@ namespace WPEFramework
             else
             {
                 NMLOG_WARNING("'%s' connection not found", knowConnectionID.empty() ? iface.c_str() : knowConnectionID.c_str());
-                // For ethernet, create minimal connection and activate
-                if(iface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
-                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
-                    if(ethConn == NULL)
-                    {
-                        NMLOG_ERROR("Failed to create ethernet connection");
-                        m_isSuccess = false;
-                    }
-                    else
-                    {
-                        m_createNewConnection = true;
-                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
-                        g_object_unref(ethConn);
-                        wait(m_loop);
-                    }
-                }
-                else
-                    NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
             }
 
             if(knownConnection != NULL)

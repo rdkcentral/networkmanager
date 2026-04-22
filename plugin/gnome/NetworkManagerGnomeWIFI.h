@@ -67,7 +67,6 @@ namespace WPEFramework
             bool setInterfaceState(std::string interface, bool enabled);
             bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress &address);
             bool setPrimaryInterface(const string interface);
-            bool addMinimalEthernetConnection(std::string iface);
         private:
             NMDevice *getWifiDevice();
 
