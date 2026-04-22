@@ -426,9 +426,9 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
-            if(client == nullptr)
+            if(m_nmClient == nullptr)
             {
-                NMLOG_WARNING("client connection null:");
+                NMLOG_WARNING("NMClient is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
@@ -462,11 +462,55 @@ namespace WPEFramework
 
                         if(bootTypeValue == "BOOT_MIGRATION")
                         {
-                            NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
+                            NMLOG_INFO("BOOT_MIGRATION detected, checking for externally managed wired NM connections");
+
+                            /* Single pass over the connection list:
+                             * - build the wired-connection snapshot for deletion
+                             * - simultaneously detect if any is externally managed
+                             * This avoids calling nm_client_get_connections() and
+                             * nm_connection_get_setting_connection() twice. */
+                            bool hasExternalWiredConn = false;
+                            GPtrArray *snapshot = nullptr;
+                            {
+                                const GPtrArray *allConns = nm_client_get_connections(m_nmClient);
+                                if(allConns && allConns->len > 0)
+                                {
+                                    snapshot = g_ptr_array_new_full(allConns->len, g_object_unref);
+                                    for(guint k = 0; k < allConns->len; ++k)
+                                    {
+                                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(allConns->pdata[k]);
+                                        if(!conn) continue;
+                                        NMSettingConnection *sc = nm_connection_get_setting_connection(NM_CONNECTION(conn));
+                                        if(!sc) continue;
+                                        const char *ctPtr = nm_setting_connection_get_connection_type(sc);
+                                        if(!ctPtr) continue;
+                                        std::string ct = ctPtr;
+                                        if(ct != NM_SETTING_WIRED_SETTING_NAME) continue;
+                                        // Wired connection — add to snapshot
+                                        g_ptr_array_add(snapshot, g_object_ref(conn));
+                                        // Check external flag (only until first hit)
+                                        if(!hasExternalWiredConn)
+                                        {
+                                            NMSettingsConnectionFlags flags = nm_remote_connection_get_flags(conn);
+                                            if(flags & NM_SETTINGS_CONNECTION_FLAG_EXTERNAL)
+                                                hasExternalWiredConn = true;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if(!hasExternalWiredConn)
+                            {
+                                NMLOG_INFO("No externally managed wired connections found, skipping BOOT_MIGRATION cleanup");
+                                if(snapshot) g_ptr_array_unref(snapshot);
+                            }
+                            else
+                            {
+                            NMLOG_INFO("Externally managed wired connections found, deleting all wired NM connections");
 
                             // Bring down the ethernet interface before wiping its connections
                             // so NM doesn't immediately re-activate them during deletion.
-                            NMDevice *ethDev = nm_client_get_device_by_iface(client, interface.c_str());
+                            NMDevice *ethDev = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
                             if(ethDev)
                             {
                                 GError *discError = nullptr;
@@ -479,28 +523,8 @@ namespace WPEFramework
                                 }
                             }
 
-                            const GPtrArray *connections = nm_client_get_connections(client);
-                            if(connections && connections->len > 0)
+                            if(snapshot && snapshot->len > 0)
                             {
-                                /* Snapshot the list before iterating: nm_client_get_connections()
-                                 * returns an internal array that can be mutated as connections
-                                 * are removed, so we must not iterate it while deleting. */
-                                GPtrArray *snapshot = g_ptr_array_new_full(connections->len, g_object_unref);
-                                for(guint i = 0; i < connections->len; ++i)
-                                {
-                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
-                                    if(!conn) continue;
-                                    NMSettingConnection *sCon = nm_connection_get_setting_connection(NM_CONNECTION(conn));
-                                    if(!sCon) continue;
-                                    const char *connType = nm_setting_connection_get_connection_type(sCon);
-                                    if(g_strcmp0(connType, NM_SETTING_WIRED_SETTING_NAME) != 0)
-                                    {
-                                        NMLOG_DEBUG("Skipping non-wired connection type: %s", connType ? connType : "null");
-                                        continue;
-                                    }
-                                    g_ptr_array_add(snapshot, g_object_ref(conn));
-                                }
-
                                 for(guint i = 0; i < snapshot->len; ++i)
                                 {
                                     NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
@@ -514,8 +538,9 @@ namespace WPEFramework
                                         if(error) g_error_free(error);
                                     }
                                 }
-                                g_ptr_array_unref(snapshot);
                             }
+                            if(snapshot) g_ptr_array_unref(snapshot);
+                            } // end else (hasExternalWiredConn)
                         }
                     }
                 }
