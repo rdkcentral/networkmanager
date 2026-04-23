@@ -59,6 +59,7 @@ namespace WPEFramework
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo);
             bool removeKnownSSID(const string& ssid);
+            bool connectToKnownSSID(const std::string& ssid);
             bool quit(NMDevice *wifiNMDevice);
             bool wait(GMainLoop *loop, int timeOutMs = 10000); // default maximium set as 10 sec
             bool startWPS();
@@ -66,6 +67,7 @@ namespace WPEFramework
             bool setInterfaceState(std::string interface, bool enabled);
             bool setIpSettings(const string interface, const Exchange::INetworkManager::IPAddress &address);
             bool setPrimaryInterface(const string interface);
+            bool addMinimalEthernetConnection(std::string iface);
         private:
             NMDevice *getWifiDevice();
 
@@ -99,7 +101,7 @@ namespace WPEFramework
             GMainLoop *m_loop;
             gboolean m_createNewConnection;
             GMainContext *m_nmContext = nullptr;
-            const char* m_objectPath;
+            char* m_objectPath = nullptr;
             NMDevice *m_wifidevice;
             GSource *m_source;
             GCancellable *m_cancellable;

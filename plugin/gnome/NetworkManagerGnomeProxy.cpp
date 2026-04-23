@@ -139,7 +139,6 @@ namespace WPEFramework
 
         static bool modifyDefaultConnConfig(NMClient *client)
         {
-            GError *error = NULL;
             const GPtrArray *connections = NULL;
             NMConnection *connection = NULL;
             std::string hostname{};
@@ -423,6 +422,7 @@ namespace WPEFramework
             return rc;
         }
 #endif
+
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
@@ -438,32 +438,126 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(!wifi->setInterfaceState(interface, enabled))
+            // For ethernet enable: run BOOT_MIGRATION cleanup first, then setInterfaceState
+            if(enabled && interface == nmUtils::ethIface())
             {
-                NMLOG_ERROR("interface state change failed");
-                return Core::ERROR_GENERAL;
-            }
-
-            NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
-            // update the interface global cache state
-            if(interface == nmUtils::wlanIface() && _instance != NULL)
-                _instance->m_wlanEnabled.store(enabled);
-            else if(interface == nmUtils::ethIface() && _instance != NULL)
-                _instance->m_ethEnabled.store(enabled);
-
-            if(enabled)
-            {
-                sleep(1); // wait for 1 sec to change the device state
-                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                // Check boot type and delete all ethernet NM connections if BOOT_MIGRATION
                 {
+                    const char* bootFile = "/tmp/bootType";
+                    std::ifstream file(bootFile);
+
+                    if(file.is_open())
+                    {
+                        std::string line, bootTypeValue;
+                        while(std::getline(file, line))
+                        {
+                            const std::string key = "BOOT_TYPE=";
+                            auto pos = line.find(key);
+                            if(pos != std::string::npos)
+                            {
+                                bootTypeValue = line.substr(pos + key.size());
+                                break;
+                            }
+                        }
+
+                        if(bootTypeValue == "BOOT_MIGRATION")
+                        {
+                            NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
+
+                            // Bring down the ethernet interface before wiping its connections
+                            // so NM doesn't immediately re-activate them during deletion.
+                            NMDevice *ethDev = nm_client_get_device_by_iface(client, interface.c_str());
+                            if(ethDev)
+                            {
+                                GError *discError = nullptr;
+                                if(!nm_device_disconnect(ethDev, nullptr, &discError))
+                                {
+                                    NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
+                                            interface.c_str(),
+                                            discError ? discError->message : "unknown error");
+                                    if(discError) g_error_free(discError);
+                                }
+                            }
+
+                            const GPtrArray *connections = nm_client_get_connections(client);
+                            if(connections && connections->len > 0)
+                            {
+                                /* Snapshot the list before iterating: nm_client_get_connections()
+                                 * returns an internal array that can be mutated as connections
+                                 * are removed, so we must not iterate it while deleting. */
+                                GPtrArray *snapshot = g_ptr_array_new_full(connections->len, g_object_unref);
+                                for(guint i = 0; i < connections->len; ++i)
+                                {
+                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
+                                    if(!conn) continue;
+                                    NMSettingConnection *sCon = nm_connection_get_setting_connection(NM_CONNECTION(conn));
+                                    if(!sCon) continue;
+                                    const char *connType = nm_setting_connection_get_connection_type(sCon);
+                                    if(g_strcmp0(connType, NM_SETTING_WIRED_SETTING_NAME) != 0)
+                                    {
+                                        NMLOG_DEBUG("Skipping non-wired connection type: %s", connType ? connType : "null");
+                                        continue;
+                                    }
+                                    g_ptr_array_add(snapshot, g_object_ref(conn));
+                                }
+
+                                for(guint i = 0; i < snapshot->len; ++i)
+                                {
+                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
+                                    GError *error = nullptr;
+                                    if(!nm_remote_connection_delete(conn, nullptr, &error))
+                                    {
+                                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                                        NMLOG_ERROR("Failed to delete connection %s: %s",
+                                                    connId ? connId : "<unknown>",
+                                                    error ? error->message : "unknown error");
+                                        if(error) g_error_free(error);
+                                    }
+                                }
+                                g_ptr_array_unref(snapshot);
+                            }
+                        }
+                    }
+                }
+
+                NMLOG_INFO("Adding minimal ethernet connection profile ...");
+                wifi->addMinimalEthernetConnection(nmUtils::ethIface());
+
+                if(!wifi->setInterfaceState(interface, enabled))
+                {
+                    NMLOG_ERROR("interface state change failed");
+                    return Core::ERROR_GENERAL;
+                }
+
+                NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+                if(_instance != NULL)
+                    _instance->m_ethEnabled.store(enabled);
+
+                sleep(1); // wait for 1 sec to change the device state
+                NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+                // default wired connection name is 'Wired connection 1'
+                wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
+            }
+            else
+            {
+                if(!wifi->setInterfaceState(interface, enabled))
+                {
+                    NMLOG_ERROR("interface state change failed");
+                    return Core::ERROR_GENERAL;
+                }
+
+                NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+                // update the interface global cache state
+                if(interface == nmUtils::wlanIface() && _instance != NULL)
+                    _instance->m_wlanEnabled.store(enabled);
+                else if(interface == nmUtils::ethIface() && _instance != NULL)
+                    _instance->m_ethEnabled.store(enabled);
+
+                if(enabled && interface == nmUtils::wlanIface() && _instance != NULL)
+                {
+                    sleep(1); // wait for 1 sec to change the device state
                     NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
                     wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
-                }
-                else if(interface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Activating connection 'Wired connection 1' ...");
-                    // default wired connection name is 'Wired connection 1'
-                    wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
                 }
             }
 
@@ -638,7 +732,7 @@ namespace WPEFramework
             deviceState = nm_device_get_state(device);
             if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
             {
-                NMLOG_WARNING("Device state is not a valid state: (%d)", deviceState);
+                NMLOG_WARNING("%s state is not a valid state: (%d)", interface.c_str(), deviceState);
                 return Core::ERROR_GENERAL;
             }
 
@@ -700,7 +794,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
                 if(ipByte)
                 {
-                    for (int i = 0; i < ipByte->len; i++)
+                    for (guint i = 0; i < ipByte->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
                         if(ipAddr)
@@ -771,7 +865,7 @@ namespace WPEFramework
                     NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
                 if(ipArray)
                 {
-                    for (int i = 0; i < ipArray->len; i++)
+                    for (guint i = 0; i < ipArray->len; i++)
                     {
                         ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
                         if(ipAddr)
@@ -910,6 +1004,14 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ConnectToKnownSSID(const string& ssid /* @in */)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->connectToKnownSSID(ssid))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::RemoveKnownSSID(const string& ssid /* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -922,27 +1024,33 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
 
-           //  Check the last scanning time and if it exceeds 5 sec do a rescanning
-            if(!wifi->isWifiScannedRecently())
+            if(ssid.ssid.empty())
             {
-                nmEvent->setwifiScanOptions(false);
-                if(!wifi->wifiScanRequest())
-                    NMLOG_WARNING("scanning failed but try to connect");
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
+                {
+                    rc = Core::ERROR_NONE;
+                }
+                else
+                {
+                    NMLOG_ERROR("activating last connected ssid failed");
+                }
+                return rc;
             }
 
-            if(ssid.ssid.empty() && _instance != NULL)
+            if(ssid.ssid.size() > 32)
             {
-                NMLOG_WARNING("ssid is empty activating last connectd ssid !");
-                if(wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID))
-                    rc = Core::ERROR_NONE;
-            }
-            else if(ssid.ssid.size() <= 32)
-            {
-                if(wifi->wifiConnect(ssid))
-                    rc = Core::ERROR_NONE;
-            }
-            else
                 NMLOG_WARNING("SSID is invalid");
+                return rc;
+            }
+
+            if(!ssid.bssid.empty() && !nmUtils::isValidBSSID(ssid.bssid))
+            {
+                return Core::ERROR_GENERAL;
+            }
+
+            if(wifi->wifiConnect(ssid))
+                rc = Core::ERROR_NONE;
 
             return rc;
         }
