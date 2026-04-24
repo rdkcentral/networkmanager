@@ -316,7 +316,9 @@ namespace WPEFramework
             }
 
             if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
+                    // Intentional empty body: just flushing the event queue
+                }
             }
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
             if (devices == NULL) {
@@ -605,7 +607,9 @@ namespace WPEFramework
             }
 
             if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
+                    // Intentional empty body: just flushing the event queue
+                }
             }
 
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
@@ -754,7 +758,9 @@ namespace WPEFramework
              * single-threaded and safe.  It ensures m_nmClient reflects the latest state
              * from NetworkManager before we start iterating connections/addresses. */
             if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i);
+                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
+                    // Intentional empty body: just flushing the event queue
+                }
             }
 
             device = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
