@@ -654,7 +654,7 @@ namespace WPEFramework
 
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
                 if (ssids == nullptr) {
-                    return Core::ERROR_GENERAL;
+                    returnJson(rc);
                 }
             }
 
