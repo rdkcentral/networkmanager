@@ -430,7 +430,7 @@ namespace WPEFramework
             }
             endpointsIter = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(endpoints));
             if(endpointsIter == nullptr){
-                return Core::ERROR_GENERAL;
+                returnJson(Core::ERROR_GENERAL);
             }
 
             if (_networkManager)
@@ -668,7 +668,7 @@ namespace WPEFramework
                 }
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidslist));
                 if(ssids == nullptr){
-                    return Core::ERROR_GENERAL;
+                    returnJson(Core::ERROR_GENERAL);
                 }
             }
 
