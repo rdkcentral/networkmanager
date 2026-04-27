@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <memory>
 #include <set>
@@ -68,9 +69,8 @@ namespace WPEFramework
         /* Per-interface, per-address-family cache populated by libnm events. */
         struct IpFamilyCache {
             bool valid = false;
-            std::set<std::string> globalAddresses;  // all non-link-local addresses
+            std::map<std::string, uint32_t> globalAddresses;  // key=address, value=prefix length
             std::string linkLocalAddress;           // fe80:: for IPv6 (ula field), or 169.254.x.x for IPv4
-            uint32_t prefix = 0;                    // prefix of the first global address
             std::string gateway;
             std::string primarydns;
             std::string secondarydns;
@@ -83,12 +83,14 @@ namespace WPEFramework
                 addr.autoconfig   = autoconfig;
                 addr.dhcpserver   = dhcpserver;
                 addr.ula          = linkLocalAddress;
-                addr.prefix       = prefix;
                 addr.gateway      = gateway;
                 addr.primarydns   = primarydns;
                 addr.secondarydns = secondarydns;
-                if (!globalAddresses.empty())
-                    addr.ipaddress = *globalAddresses.begin();
+                if (!globalAddresses.empty()) {
+                    const auto& first = *globalAddresses.begin();
+                    addr.ipaddress = first.first;
+                    addr.prefix    = first.second;
+                }
                 return addr;
             }
             void clear() { *this = IpFamilyCache{}; }
