@@ -35,6 +35,15 @@ static const char *port_to_service(unsigned short port, const char *proto)
     }
 }
 
+static int get_http_response_code(const char *data, int len)
+{
+    if (len < 12)                        /* "HTTP/1.1 200" = 12 bytes minimum */
+        return -1;
+    if (strncmp(data, "HTTP/", 5) != 0)  /* must start with HTTP/             */
+        return -1;
+    return atoi(data + 9);               /* code starts at position 9         */
+}
+
 static int callback(struct nflog_g_handle *gh,
                     struct nfgenmsg *nfmsg,
                     struct nflog_data *nfa,
@@ -89,6 +98,8 @@ static int callback(struct nflog_g_handle *gh,
     const char *proto_str  = "???";
     const char *ip_ver_str = "???";
     const char *service    = "???";
+    const char *http_data  = NULL;   /* points to TCP payload when proto=TCP */
+    int http_data_len      = 0;
 
     /* ---- Parse IPv4 ---- */
     if (ntohs(ph->hw_protocol) == 0x0800) {
@@ -108,6 +119,11 @@ static int callback(struct nflog_g_handle *gh,
             struct tcphdr *tcp = (struct tcphdr *)transport;
             src_port = ntohs(tcp->source);
             dst_port = ntohs(tcp->dest);
+            int tcp_hdr_len = tcp->doff * 4;
+            if (remaining > tcp_hdr_len) {
+                http_data     = transport + tcp_hdr_len;
+                http_data_len = remaining  - tcp_hdr_len;
+            }
         }
         else if (ip->protocol == IPPROTO_UDP && remaining >= (int)sizeof(struct udphdr)) {
             proto_str = "UDP";
@@ -136,6 +152,11 @@ static int callback(struct nflog_g_handle *gh,
             struct tcphdr *tcp = (struct tcphdr *)transport;
             src_port = ntohs(tcp->source);
             dst_port = ntohs(tcp->dest);
+            int tcp_hdr_len = tcp->doff * 4;
+            if (remaining > tcp_hdr_len) {
+                http_data     = transport + tcp_hdr_len;
+                http_data_len = remaining  - tcp_hdr_len;
+            }
         }
         else if (ip6->ip6_nxt == IPPROTO_UDP && remaining >= (int)sizeof(struct udphdr)) {
             proto_str = "UDP";
@@ -170,6 +191,32 @@ static int callback(struct nflog_g_handle *gh,
     printf("│  In Iface : %s (index %u)\n", indev_name, indev);
     printf("│  Out Iface: %s (index %u)\n", outdev_name, outdev);
     printf("│  Size     : %d bytes\n", payload_len);
+
+    /* ---- HTTP response code (only when service=HTTP and TCP payload exists) ---- */
+    if (strcmp(service, "HTTP") == 0 && http_data != NULL) {
+        int http_code = get_http_response_code(http_data, http_data_len);
+        if (http_code > 0) {
+            printf("│  ────────────────────────────────────────────────\n");
+            printf("│  HTTP Code: %d  ", http_code);
+            switch (http_code) {
+                case 200: printf("OK\n");                    break;
+                case 201: printf("Created\n");               break;
+                case 301: printf("Moved Permanently\n");     break;
+                case 302: printf("Found (Redirect)\n");      break;
+                case 304: printf("Not Modified\n");          break;
+                case 400: printf("Bad Request\n");           break;
+                case 401: printf("Unauthorized\n");          break;
+                case 403: printf("Forbidden\n");             break;
+                case 404: printf("Not Found\n");             break;
+                case 500: printf("Internal Server Error\n"); break;
+                case 502: printf("Bad Gateway\n");           break;
+                case 503: printf("Service Unavailable\n");   break;
+                default:  printf("Unknown\n");               break;
+            }
+            printf("│  ────────────────────────────────────────────────\n");
+        }
+    }
+
     printf("└──────────────────────────────────────────────────\n\n");
 
     return 0;
