@@ -313,7 +313,7 @@ namespace WPEFramework
                         if (!addrStr) continue;
                         std::string addrString = addrStr;
                         if (isIPv6) {
-                            if (addrString.compare(0, 5, "fe80:") == 0) {
+                            if (isIPv6LinkLocal(addrString)) {
                                 newCache.linkLocalAddress = addrString;
                             } else {
                                 newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));

@@ -943,7 +943,7 @@ namespace WPEFramework
                         }
                         if(!ipStr.empty())
                         {
-                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)
+                            if (isIPv6LinkLocal(ipStr))
                             {
                                 result.ula = ipStr;
                                 NMLOG_DEBUG("link-local ip: %s", result.ula.c_str());

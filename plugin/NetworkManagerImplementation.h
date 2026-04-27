@@ -29,7 +29,6 @@
 #include <map>
 #include <mutex>
 #include <memory>
-#include <set>
 
 using namespace std;
 
@@ -66,6 +65,15 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        /* Returns true if the given string is an IPv6 link-local address (fe80::/10):
+           first byte 0xfe, second byte with top two bits == 10 (0x80..0xbf). */
+        inline bool isIPv6LinkLocal(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   sa6.s6_addr[0] == 0xfe && (sa6.s6_addr[1] & 0xc0) == 0x80;
+        }
+
         /* Per-interface, per-address-family cache populated by libnm events. */
         struct IpFamilyCache {
             bool valid = false;
