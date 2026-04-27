@@ -10,6 +10,7 @@
 #include <netinet/udp.h>
 #include <net/if.h>
 #include <time.h>
+#include <errno.h>
 
 #include <libnetfilter_log/libnetfilter_log.h>
 
@@ -259,7 +260,14 @@ int main(void)
     while (running) {
         rv = recv(fd, buf, sizeof(buf), 0);
         if (rv > 0)       nflog_handle_packet(h, buf, rv);
-        else if (rv < 0)  { if (running) perror("recv()"); break; }
+        else if (rv < 0) {
+            if (errno == ENOBUFS) {
+                fprintf(stderr, "WARN: recv() ENOBUFS – kernel dropped packets, continuing\n");
+                continue;
+            }
+            if (running) perror("recv()");
+            break;
+        }
         else              break;
     }
 
