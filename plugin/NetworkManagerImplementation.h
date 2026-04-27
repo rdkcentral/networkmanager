@@ -28,6 +28,7 @@
 #include <atomic>
 #include <mutex>
 #include <memory>
+#include <set>
 
 using namespace std;
 
@@ -64,6 +65,35 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        /* Per-interface, per-address-family cache populated by libnm events. */
+        struct IpFamilyCache {
+            bool valid = false;
+            std::set<std::string> globalAddresses;  // all non-link-local addresses
+            std::string linkLocalAddress;           // fe80:: for IPv6 (ula field), or 169.254.x.x for IPv4
+            uint32_t prefix = 0;                    // prefix of the first global address
+            std::string gateway;
+            std::string primarydns;
+            std::string secondarydns;
+            std::string dhcpserver;
+            bool autoconfig = false;
+
+            Exchange::INetworkManager::IPAddress toIPAddress(bool isIPv6) const {
+                Exchange::INetworkManager::IPAddress addr{};
+                addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
+                addr.autoconfig   = autoconfig;
+                addr.dhcpserver   = dhcpserver;
+                addr.ula          = linkLocalAddress;
+                addr.prefix       = prefix;
+                addr.gateway      = gateway;
+                addr.primarydns   = primarydns;
+                addr.secondarydns = secondarydns;
+                if (!globalAddresses.empty())
+                    addr.ipaddress = *globalAddresses.begin();
+                return addr;
+            }
+            void clear() { *this = IpFamilyCache{}; }
+        };
+
         class NetworkManagerImplementation : public Exchange::INetworkManager
                                            , public INetworkPowerCallback
         {
@@ -328,10 +358,11 @@ namespace WPEFramework
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
-                IPAddress m_ethIPv4Address;
-                IPAddress m_wlanIPv4Address;
-                IPAddress m_ethIPv6Address;
-                IPAddress m_wlanIPv6Address;
+                IpFamilyCache m_ethIPv4Cache;
+                IpFamilyCache m_wlanIPv4Cache;
+                IpFamilyCache m_ethIPv6Cache;
+                IpFamilyCache m_wlanIPv6Cache;
+                mutable std::mutex m_ipCacheMutex;
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;

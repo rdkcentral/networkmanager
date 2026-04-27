@@ -671,8 +671,11 @@ namespace WPEFramework
             {
                 if(interface == "eth0")
                 {
-                    m_ethIPv4Address = {};
-                    m_ethIPv6Address = {};
+                    {
+                        std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+                        m_ethIPv4Cache.clear();
+                        m_ethIPv6Cache.clear();
+                    }
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
@@ -680,8 +683,11 @@ namespace WPEFramework
                 }
                 else if(interface == "wlan0")
                 {
-                    m_wlanIPv4Address = {};
-                    m_wlanIPv6Address = {};
+                    {
+                        std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+                        m_wlanIPv4Cache.clear();
+                        m_wlanIPv6Cache.clear();
+                    }
                     m_wlanConnected.store(false);
                     bool triggerConnectivityCheck;
                     if(m_ethConnected.load())
