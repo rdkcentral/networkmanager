@@ -63,6 +63,7 @@ namespace WPEFramework
             {
                 NETMGR_PING,
                 NETMGR_TRACE,
+                NETMGR_GENERIC,
             };
 
             class ConnectivityConf : public Core::JSON::Container {
