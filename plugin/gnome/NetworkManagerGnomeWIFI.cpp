@@ -2182,9 +2182,31 @@ namespace WPEFramework
                     // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
+                    // Wait until device is truly disconnected
+                    int retry = 6; // 2 seconds
+                    NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
+                    while (retry-- > 0) {
+                        /* Force glib event processing to update state
+                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 3 seconds.
+                         */
+                        // while (g_main_context_iteration(NULL, FALSE));
+                        g_usleep(500 * 1000);  // give some time to NM to process the request
+                        deviceState = nm_device_get_state(device);
+                        if(oldDevState != deviceState)
+                        {
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d", deviceState);
+                        }
+
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
+                            break;
+                    }
                 }
             }
-
+            if(deviceState > NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device not fully disconnected (state: %d), setting to unmanaged state", deviceState);
+            }
             // Set the "Managed" property to enable/disable the device
             m_isSuccess = false;
             const char *objectPath = nm_object_get_path(NM_OBJECT(device));
