@@ -26,6 +26,7 @@
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
 #include <atomic>
+#include <mutex>
 
 using namespace std;
 
@@ -33,6 +34,10 @@ using namespace std;
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+
+/* Forward declarations to avoid pulling GLib/libnm headers into this header */
+typedef struct _NMClient    NMClient;
+typedef struct _GMainContext GMainContext;
 
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
@@ -274,6 +279,7 @@ namespace WPEFramework
 
             private:
                 void platform_init(void);
+                void platform_deinit(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
@@ -317,9 +323,26 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;
                 std::atomic<bool> m_wlanEnabled;
-                string m_defaultInterface;
                 std::string m_lastConnectedSSID;
+                NMClient *m_nmClient{nullptr};          /* proxy NMClient — bound to m_nmContext */
+                GMainContext *m_nmContext{nullptr};     /* isolated context, not the global default */
                 mutable ConnectivityMonitor connectivityMonitor;
+
+                string getDefaultInterface() const
+                {
+                    std::lock_guard<std::mutex> lock(m_defaultInterfaceMutex);
+                    return m_defaultInterface;
+                }
+
+                void setDefaultInterface(const string& iface)
+                {
+                    std::lock_guard<std::mutex> lock(m_defaultInterfaceMutex);
+                    m_defaultInterface = iface;
+                }
+
+            private:
+                string m_defaultInterface;
+                mutable std::mutex m_defaultInterfaceMutex;
         };
     }
 }
