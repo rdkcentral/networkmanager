@@ -63,6 +63,7 @@ namespace WPEFramework
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
+            platform_deinit();
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();
@@ -240,6 +241,9 @@ namespace WPEFramework
             LOG_ENTRY_FUNCTION();
             std::vector<std::string> tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
+            if(endpoints == nullptr) {
+                return Core::ERROR_GENERAL;
+            }
 
             return Core::ERROR_NONE;
         }
@@ -301,7 +305,7 @@ namespace WPEFramework
                 ipversion = "IPv4";
 
             if(interface.empty())
-                interface = m_defaultInterface;
+                interface = getDefaultInterface();
 
             return Core::ERROR_NONE;
         }
@@ -327,7 +331,7 @@ namespace WPEFramework
             NMLOG_DEBUG("Primary interface: %s, eth0: [enabled=%d, connected=%d], wlan0: [enabled=%d, connected=%d]", 
                         interface.c_str(), m_ethEnabled.load(), m_ethConnected.load(), m_wlanEnabled.load(), m_wlanConnected.load());
 
-            m_defaultInterface = interface;
+            setDefaultInterface(interface);
             return Core::ERROR_NONE;
         }
 
@@ -354,7 +358,7 @@ namespace WPEFramework
                     ipversion = "IPv4";
 
                 if (interface.empty())
-                    interface = m_defaultInterface;
+                    interface = getDefaultInterface();
 
                 ipaddress = result.public_ip;
                 return Core::ERROR_NONE;
@@ -620,7 +624,9 @@ namespace WPEFramework
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::ISecurityModeIterator>;
             security = Core::Service<Implementation>::Create<Exchange::INetworkManager::ISecurityModeIterator>(modeInfo);
-
+            if (security == nullptr) {
+                return Core::ERROR_GENERAL;
+            }
             return Core::ERROR_NONE;
         }
 
@@ -634,7 +640,7 @@ namespace WPEFramework
                     m_ethIPv4Address = {};
                     m_ethIPv6Address = {};
                     m_ethConnected.store(false);
-                    m_defaultInterface = "wlan0"; // If WiFi is connected, make it the default interface
+                    setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
                     connectivityMonitor.switchToInitialCheck();
                 }
@@ -643,10 +649,11 @@ namespace WPEFramework
                     m_wlanIPv4Address = {};
                     m_wlanIPv6Address = {};
                     m_wlanConnected.store(false);
+                    bool triggerConnectivityCheck;
                     if(m_ethConnected.load())
-                        m_defaultInterface = "eth0"; // If Ethernet is connected, make it the default interface
-
-                    if(m_defaultInterface == interface)
+                        setDefaultInterface("eth0"); // If Ethernet is connected, make it the default interface
+                    triggerConnectivityCheck = (getDefaultInterface() == interface);
+                    if(triggerConnectivityCheck)
                     {
                         // When WiFi is disconnected while Ethernet is connected, we don't need to trigger connectivity monitor.
                         // For WiFi-only state and WiFi disconnected, we should trigger connectivity monitor.
@@ -731,12 +738,14 @@ namespace WPEFramework
                 }
 
                 // FIXME : Availability of ip address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
+                bool isDefaultIface;
                 if (m_ethConnected.load() && m_wlanConnected.load())
-                    m_defaultInterface = "eth0";
+                    setDefaultInterface("eth0");
                 else
-                    m_defaultInterface = interface;
+                    setDefaultInterface(interface);
+                isDefaultIface = (getDefaultInterface() == interface);
 
-                if(m_defaultInterface == interface) {
+                if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
                     connectivityMonitor.switchToInitialCheck();
                 }

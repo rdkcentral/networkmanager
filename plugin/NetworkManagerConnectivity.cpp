@@ -575,7 +575,7 @@ namespace WPEFramework
                 NMCONNECTIVITY_CURL_HEAD_REQUEST, ipversionLocal, interface);
 
         if (interface.empty())
-            interface = _instance->m_defaultInterface;
+            interface = _instance->getDefaultInterface();
 
         return testInternet.getInternetState();
     }
@@ -634,7 +634,9 @@ namespace WPEFramework
             return false;
         }
 
-        if(_instance->m_defaultInterface.empty())
+        string defaultIface = _instance->getDefaultInterface();
+
+        if(defaultIface.empty())
         {
             NMLOG_WARNING("default interface not set");
             return false;
@@ -646,7 +648,7 @@ namespace WPEFramework
         m_cmCv.notify_one();
 
         NMLOG_INFO("switching to initial check - eth %s - wlan %s - default interface %s",
-                    _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", _instance->m_defaultInterface.c_str());
+                    _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", defaultIface.c_str());
 
         return true;
     }
@@ -658,7 +660,8 @@ namespace WPEFramework
         {
             NMLOG_INFO("notifying internet state %s", getInternetStateString(newInternetState));
             Exchange::INetworkManager::InternetStatus newState = newInternetState;
-            _instance->ReportInternetStatusChange(oldState , newState, _instance->m_defaultInterface);
+            string defaultIface = _instance->getDefaultInterface();
+            _instance->ReportInternetStatusChange(oldState, newState, defaultIface);
             m_InternetState = newInternetState;
             oldState = newState; // 'm_InternetState' not exactly previous state, it may change to unknow when interface changed
         }
@@ -694,68 +697,73 @@ namespace WPEFramework
                     m_notify = true;
                 InitialRetryCount = 1;
             }
-            else if(_instance->m_defaultInterface.empty())
-            {
-                NMLOG_WARNING("default interface not set");
-                if (InitialRetryCount == 0)
-                    m_notify = true;
-                InitialRetryCount = 1;
-            }
-            else if (m_switchToInitial)
-            {
-                if (InitialRetryCount == 0)
-                    m_notify = true;
-                NMLOG_INFO("Initial connectivity check - index:%d, current state:%s, interface:%s", InitialRetryCount, getInternetStateString(currentInternetState), _instance->m_defaultInterface.c_str());
-                timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
-                TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                                NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, _instance->m_defaultInterface);
-                currentInternetState = testInternet.getInternetState();
-
-                if (currentInternetState == INTERNET_NOT_AVAILABLE) {
-                    NMLOG_DEBUG("interface connected but no internet");
-                    InitialRetryCount = 1; // continue same check for 5 sec
-                }
-                else {
-                    if(currentInternetState == INTERNET_CAPTIVE_PORTAL)
-                        m_captiveURI = testInternet.getCaptivePortal();
-
-                    if (currentInternetState != m_InternetState) {
-                        NMLOG_DEBUG("initial connectivity state change from %s to %s", getInternetStateString(m_InternetState), getInternetStateString(currentInternetState));
-                        m_InternetState = currentInternetState;
-                        InitialRetryCount = 1; // reset retry count to get continuous 3 same state
-                        m_notify = true;
-                    }
-                    InitialRetryCount++;
-                }
-
-                if (InitialRetryCount > NM_CONNECTIVITY_MONITOR_RETRY_COUNT) {
-                    m_switchToInitial = false;
-                    m_notify = true;
-                    NMLOG_INFO("switching to ideal ccm check interface: %s", _instance->m_defaultInterface.c_str());
-                }
-            }
             else
             {
-                // ideal case check every 30 sec happenses when captive portal or limited internet
-                timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
-                InitialRetryCount = 0;
+                string defaultIface = _instance->getDefaultInterface();
 
-                if(m_InternetState != INTERNET_FULLY_CONNECTED)
+                if(defaultIface.empty())
                 {
+                    NMLOG_WARNING("default interface not set");
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+                    InitialRetryCount = 1;
+                }
+                else if (m_switchToInitial)
+                {
+                    if (InitialRetryCount == 0)
+                        m_notify = true;
+                    NMLOG_INFO("Initial connectivity check - index:%d, current state:%s, interface:%s", InitialRetryCount, getInternetStateString(currentInternetState), defaultIface.c_str());
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL;
                     TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                            NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, _instance->m_defaultInterface); // check both IP versions
+                                                    NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, defaultIface);
                     currentInternetState = testInternet.getInternetState();
 
-                    if (currentInternetState == INTERNET_CAPTIVE_PORTAL) // if captive portal found copy the URL
-                        m_captiveURI = testInternet.getCaptivePortal();
+                    if (currentInternetState == INTERNET_NOT_AVAILABLE) {
+                        NMLOG_DEBUG("interface connected but no internet");
+                        InitialRetryCount = 1; // continue same check for 5 sec
+                    }
+                    else {
+                        if(currentInternetState == INTERNET_CAPTIVE_PORTAL)
+                            m_captiveURI = testInternet.getCaptivePortal();
 
-                    if (currentInternetState != m_InternetState)
-                    {
-                        NMLOG_INFO("ideal connectivity state change from %s to %s", getInternetStateString(m_InternetState), getInternetStateString(currentInternetState));
-                        m_switchToInitial = true;
+                        if (currentInternetState != m_InternetState) {
+                            NMLOG_DEBUG("initial connectivity state change from %s to %s", getInternetStateString(m_InternetState), getInternetStateString(currentInternetState));
+                            m_InternetState = currentInternetState;
+                            InitialRetryCount = 1; // reset retry count to get continuous 3 same state
+                            m_notify = true;
+                        }
+                        InitialRetryCount++;
+                    }
+
+                    if (InitialRetryCount > NM_CONNECTIVITY_MONITOR_RETRY_COUNT) {
+                        m_switchToInitial = false;
                         m_notify = true;
-                        InitialRetryCount = 1;
-                        timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
+                        NMLOG_INFO("switching to ideal ccm check interface: %s", defaultIface.c_str());
+                    }
+                }
+                else
+                {
+                    // ideal case check every 30 sec happenses when captive portal or limited internet
+                    timeoutInSec = NMCONNECTIVITY_MONITOR_RETRY_INTERVAL;
+                    InitialRetryCount = 0;
+
+                    if(m_InternetState != INTERNET_FULLY_CONNECTED)
+                    {
+                        TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
+                                NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, defaultIface); // check both IP versions
+                        currentInternetState = testInternet.getInternetState();
+
+                        if (currentInternetState == INTERNET_CAPTIVE_PORTAL) // if captive portal found copy the URL
+                            m_captiveURI = testInternet.getCaptivePortal();
+
+                        if (currentInternetState != m_InternetState)
+                        {
+                            NMLOG_INFO("ideal connectivity state change from %s to %s", getInternetStateString(m_InternetState), getInternetStateString(currentInternetState));
+                            m_switchToInitial = true;
+                            m_notify = true;
+                            InitialRetryCount = 1;
+                            timeoutInSec = NMCONNECTIVITY_MONITOR_MIN_INTERVAL; // retry in 5 sec
+                        }
                     }
                 }
             }

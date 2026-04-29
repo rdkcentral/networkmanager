@@ -90,6 +90,11 @@ namespace WPEFramework
             nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
+        void NetworkManagerImplementation::platform_deinit()
+        {
+            return;
+        }
+
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
@@ -104,14 +109,14 @@ namespace WPEFramework
             if(_nmGdbusClient->getDeviceInfo(GnomeUtils::getEthIfname(), ethDevInfo))
             {
                 if(ethDevInfo.state > NM_DEVICE_STATE_DISCONNECTED && ethDevInfo.state < NM_DEVICE_STATE_DEACTIVATING)
-                    m_defaultInterface = GnomeUtils::getEthIfname();
+                    setDefaultInterface(GnomeUtils::getEthIfname());
                 else
-                    m_defaultInterface = GnomeUtils::getWifiIfname();
+                    setDefaultInterface(GnomeUtils::getWifiIfname());
             }
             else
-                m_defaultInterface = GnomeUtils::getWifiIfname();
+                setDefaultInterface(GnomeUtils::getWifiIfname());
 
-            NMLOG_INFO("default interface is %s", m_defaultInterface.c_str());
+            NMLOG_INFO("default interface is %s", getDefaultInterface().c_str());
 
             // Start event monitoring
             _nmGdbusEvents->startNetworkMangerEventMonitor();
@@ -136,6 +141,9 @@ namespace WPEFramework
                 NMLOG_ERROR("GetAvailableInterfaces failed");
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
+            if(interfacesItr == nullptr){
+                return Core::ERROR_GENERAL;
+            }
 
             return rc;
         }
@@ -148,7 +156,7 @@ namespace WPEFramework
             {
                 if(_nmGdbusClient->getDefaultInterface(interface))
                 {
-                    _instance->m_defaultInterface = interface;
+                    _instance->setDefaultInterface(interface);
                     return Core::ERROR_NONE;
                 }
                 else
@@ -234,6 +242,9 @@ namespace WPEFramework
             if(_nmGdbusClient->getKnownSSIDs(ssidList) && !ssidList.empty())
             {
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
+                if(ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
                 rc = Core::ERROR_NONE;
             }
             else
