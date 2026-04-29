@@ -1778,7 +1778,11 @@ namespace WPEFramework
                         error = NULL;
                     }
                     else
-                        NMLOG_ERROR("NetworkManager cleint create failed");
+                        NMLOG_ERROR("NetworkManager client create failed");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1786,6 +1790,10 @@ namespace WPEFramework
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1825,6 +1833,10 @@ namespace WPEFramework
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1917,6 +1929,11 @@ namespace WPEFramework
                 {
                     /* if wps action not triggerd do a scanning request */
                     nm_device_wifi_request_scan(NM_DEVICE_WIFI(wifidevice), NULL, &error);
+                    if(error) {
+                        NMLOG_WARNING("WiFi scan request failed: %s", error->message);
+                        g_error_free(error);
+                        error = NULL;
+                    }
                 }
 
                 g_main_context_pop_thread_default(wpsContext);
