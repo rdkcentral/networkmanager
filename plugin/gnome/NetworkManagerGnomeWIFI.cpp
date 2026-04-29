@@ -2179,7 +2179,7 @@ namespace WPEFramework
                     string tempResult = "";
                     snprintf (cmd, sizeof(cmd), "ip link set dev %s %s", interface.c_str(), enabled ? "up" : "down");
                     string commandToExecute(cmd);
-                    _instance->executeExternally(NETMGR_GENERIC, commandToExecute, tempResult);
+                    _instance->executeExternally(NetworkManagerImplementation::NETMGR_GENERIC, commandToExecute, tempResult);
                 }
             }
             // Set the "Managed" property to enable/disable the device
