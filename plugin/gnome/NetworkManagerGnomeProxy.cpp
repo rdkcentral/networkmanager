@@ -438,8 +438,8 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            // For ethernet enable: run BOOT_MIGRATION cleanup first, then setInterfaceState
-            if(enabled && interface == nmUtils::ethIface())
+            if(!wifi->setInterfaceState(interface, enabled))
+
             {
                 // Check boot type and delete all ethernet NM connections if BOOT_MIGRATION
                 {
@@ -563,26 +563,27 @@ namespace WPEFramework
                 // default wired connection name is 'Wired connection 1'
                 wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
             }
-            else
+
+            NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
+            // update the interface global cache state
+            if(interface == nmUtils::wlanIface() && _instance != NULL)
+                _instance->m_wlanEnabled.store(enabled);
+            else if(interface == nmUtils::ethIface() && _instance != NULL)
+                _instance->m_ethEnabled.store(enabled);
+            if(enabled)
             {
-                if(!wifi->setInterfaceState(interface, enabled))
-                {
-                    NMLOG_ERROR("interface state change failed");
-                    return Core::ERROR_GENERAL;
-                }
-
-                NMLOG_INFO("interface %s state: %s", interface.c_str(), enabled ? "enabled" : "disabled");
-                // update the interface global cache state
+                sleep(1); // wait for 1 sec to change the device state
                 if(interface == nmUtils::wlanIface() && _instance != NULL)
-                    _instance->m_wlanEnabled.store(enabled);
-                else if(interface == nmUtils::ethIface() && _instance != NULL)
-                    _instance->m_ethEnabled.store(enabled);
-
-                if(enabled && interface == nmUtils::wlanIface() && _instance != NULL)
                 {
-                    sleep(1); // wait for 1 sec to change the device state
+
                     NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
                     wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->m_lastConnectedSSID);
+                }
+                else if(interface == nmUtils::ethIface())
+                {
+                    NMLOG_INFO("Activating connection 'Wired connection 1' ...");
+                    // default wired connection name is 'Wired connection 1'
+                    wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1");
                 }
             }
 

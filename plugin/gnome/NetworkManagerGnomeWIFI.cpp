@@ -956,30 +956,9 @@ namespace WPEFramework
             devConnections = nm_client_get_connections(m_client);
             if(devConnections == NULL || devConnections->len == 0)
             {
-                if(iface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
-                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
-                    if(ethConn == NULL)
-                    {
-                        NMLOG_ERROR("Failed to create ethernet connection");
-                        deleteClientConnection();
-                        return false;
-                    }
-                    m_isSuccess = false;
-                    m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
-                    g_object_unref(ethConn);
-                    wait(m_loop);
-                    deleteClientConnection();
-                    return m_isSuccess;
-                }
-                else
-                {
-                    NMLOG_ERROR("No connections found !");
-                    deleteClientConnection();
-                    return false;
-                }
+                NMLOG_ERROR("No connections found !");
+                deleteClientConnection();
+                return false;
             }
 
             for (guint i = 0; i < devConnections->len; i++)
@@ -1049,26 +1028,6 @@ namespace WPEFramework
             else
             {
                 NMLOG_WARNING("'%s' connection not found", knowConnectionID.empty() ? iface.c_str() : knowConnectionID.c_str());
-                // For ethernet, create minimal connection and activate
-                if(iface == nmUtils::ethIface())
-                {
-                    NMLOG_INFO("Creating and activating ethernet connection with autoconnect=true");
-                    NMConnection *ethConn = createMinimalEthernetConnection(iface);
-                    if(ethConn == NULL)
-                    {
-                        NMLOG_ERROR("Failed to create ethernet connection");
-                        m_isSuccess = false;
-                    }
-                    else
-                    {
-                        m_createNewConnection = true;
-                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
-                        g_object_unref(ethConn);
-                        wait(m_loop);
-                    }
-                }
-                else
-                    NMLOG_ERROR("'%s' connection not found !",  knowConnectionID.c_str());
             }
 
             if(knownConnection != NULL)
