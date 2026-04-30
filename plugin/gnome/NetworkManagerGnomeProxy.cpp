@@ -465,6 +465,12 @@ namespace WPEFramework
             // For ethernet enable: run BOOT_MIGRATION cleanup first, then setInterfaceState
             if(enabled && interface == nmUtils::ethIface())
             {
+                /* Fetch the connection list once; reused for both BOOT_MIGRATION cleanup
+                 * and the 'Wired connection 1' existence check below. */
+                bool wiredConn1Exists = false;
+                bool bootMigrationRan = false;
+                const GPtrArray *allConns = nm_client_get_connections(m_nmClient);
+
                 // Check boot type and delete all ethernet NM connections if BOOT_MIGRATION
                 {
                     const char* bootFile = "/tmp/bootType";
@@ -486,39 +492,44 @@ namespace WPEFramework
 
                         if(bootTypeValue == "BOOT_MIGRATION")
                         {
+                            bootMigrationRan = true;
                             NMLOG_INFO("BOOT_MIGRATION detected, checking for externally managed wired NM connections");
 
                             /* Single pass over the connection list:
                              * - build the wired-connection snapshot for deletion
                              * - simultaneously detect if any is externally managed
-                             * This avoids calling nm_client_get_connections() and
-                             * nm_connection_get_setting_connection() twice. */
+                             * - also detect if 'Wired connection 1' already exists
+                             * This avoids calling nm_client_get_connections() multiple times. */
                             bool hasExternalWiredConn = false;
                             GPtrArray *snapshot = nullptr;
+                            if(allConns && allConns->len > 0)
                             {
-                                const GPtrArray *allConns = nm_client_get_connections(m_nmClient);
-                                if(allConns && allConns->len > 0)
+                                snapshot = g_ptr_array_new_full(allConns->len, g_object_unref);
+                                for(guint k = 0; k < allConns->len; ++k)
                                 {
-                                    snapshot = g_ptr_array_new_full(allConns->len, g_object_unref);
-                                    for(guint k = 0; k < allConns->len; ++k)
+                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(allConns->pdata[k]);
+                                    if(!conn) continue;
+                                    NMSettingConnection *sc = nm_connection_get_setting_connection(NM_CONNECTION(conn));
+                                    if(!sc) continue;
+                                    const char *ctPtr = nm_setting_connection_get_connection_type(sc);
+                                    if(!ctPtr) continue;
+                                    std::string ct = ctPtr;
+                                    if(ct != NM_SETTING_WIRED_SETTING_NAME) continue;
+                                    // Wired connection — add to snapshot
+                                    g_ptr_array_add(snapshot, g_object_ref(conn));
+                                    // Check external flag (only until first hit)
+                                    if(!hasExternalWiredConn)
                                     {
-                                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(allConns->pdata[k]);
-                                        if(!conn) continue;
-                                        NMSettingConnection *sc = nm_connection_get_setting_connection(NM_CONNECTION(conn));
-                                        if(!sc) continue;
-                                        const char *ctPtr = nm_setting_connection_get_connection_type(sc);
-                                        if(!ctPtr) continue;
-                                        std::string ct = ctPtr;
-                                        if(ct != NM_SETTING_WIRED_SETTING_NAME) continue;
-                                        // Wired connection — add to snapshot
-                                        g_ptr_array_add(snapshot, g_object_ref(conn));
-                                        // Check external flag (only until first hit)
-                                        if(!hasExternalWiredConn)
-                                        {
-                                            NMSettingsConnectionFlags flags = nm_remote_connection_get_flags(conn);
-                                            if(flags & NM_SETTINGS_CONNECTION_FLAG_EXTERNAL)
-                                                hasExternalWiredConn = true;
-                                        }
+                                        NMSettingsConnectionFlags flags = nm_remote_connection_get_flags(conn);
+                                        if(flags & NM_SETTINGS_CONNECTION_FLAG_EXTERNAL)
+                                            hasExternalWiredConn = true;
+                                    }
+                                    // Check for 'Wired connection 1' (only until first hit)
+                                    if(!wiredConn1Exists)
+                                    {
+                                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                                        if(connId && std::string(connId) == "Wired connection 1")
+                                            wiredConn1Exists = true;
                                     }
                                 }
                             }
@@ -530,47 +541,72 @@ namespace WPEFramework
                             }
                             else
                             {
-                            NMLOG_INFO("Externally managed wired connections found, deleting all wired NM connections");
+                                NMLOG_INFO("Externally managed wired connections found, deleting all wired NM connections");
+                                // All wired connections will be deleted, so 'Wired connection 1' won't exist afterwards
+                                wiredConn1Exists = false;
 
-                            // Bring down the ethernet interface before wiping its connections
-                            // so NM doesn't immediately re-activate them during deletion.
-                            NMDevice *ethDev = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
-                            if(ethDev)
-                            {
-                                GError *discError = nullptr;
-                                if(!nm_device_disconnect(ethDev, nullptr, &discError))
+                                // Bring down the ethernet interface before wiping its connections
+                                // so NM doesn't immediately re-activate them during deletion.
+                                NMDevice *ethDev = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
+                                if(ethDev)
                                 {
-                                    NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
-                                            interface.c_str(),
-                                            discError ? discError->message : "unknown error");
-                                    if(discError) g_error_free(discError);
-                                }
-                            }
-
-                            if(snapshot && snapshot->len > 0)
-                            {
-                                for(guint i = 0; i < snapshot->len; ++i)
-                                {
-                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
-                                    GError *error = nullptr;
-                                    if(!nm_remote_connection_delete(conn, nullptr, &error))
+                                    GError *discError = nullptr;
+                                    if(!nm_device_disconnect(ethDev, nullptr, &discError))
                                     {
-                                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
-                                        NMLOG_ERROR("Failed to delete connection %s: %s",
-                                                    connId ? connId : "<unknown>",
-                                                    error ? error->message : "unknown error");
-                                        if(error) g_error_free(error);
+                                        NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
+                                                interface.c_str(),
+                                                discError ? discError->message : "unknown error");
+                                        if(discError) g_error_free(discError);
                                     }
                                 }
-                            }
-                            if(snapshot) g_ptr_array_unref(snapshot);
+
+                                if(snapshot && snapshot->len > 0)
+                                {
+                                    for(guint i = 0; i < snapshot->len; ++i)
+                                    {
+                                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
+                                        GError *error = nullptr;
+                                        if(!nm_remote_connection_delete(conn, nullptr, &error))
+                                        {
+                                            const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                                            NMLOG_ERROR("Failed to delete connection %s: %s",
+                                                        connId ? connId : "<unknown>",
+                                                        error ? error->message : "unknown error");
+                                            if(error) g_error_free(error);
+                                        }
+                                    }
+                                }
+                                if(snapshot) g_ptr_array_unref(snapshot);
                             } // end else (hasExternalWiredConn)
                         }
                     }
                 }
 
-                NMLOG_INFO("Adding minimal ethernet connection profile ...");
-                wifi->addMinimalEthernetConnection(nmUtils::ethIface());
+                // For non-BOOT_MIGRATION paths, check 'Wired connection 1' from the
+                // already-fetched connection list (no second nm_client_get_connections call).
+                if(!bootMigrationRan && allConns)
+                {
+                    for(guint k = 0; k < allConns->len; ++k)
+                    {
+                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(allConns->pdata[k]);
+                        if(!conn) continue;
+                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                        if(connId && std::string(connId) == "Wired connection 1")
+                        {
+                            wiredConn1Exists = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Only add minimal ethernet connection if 'Wired connection 1' doesn't already exist
+                if(!wiredConn1Exists)
+                {
+                    NMLOG_INFO("Adding minimal ethernet connection profile ...");
+                    wifi->addMinimalEthernetConnection(nmUtils::ethIface());
+                }
+                else
+                    NMLOG_INFO("'Wired connection 1' already exists, skipping addMinimalEthernetConnection");
 
                 if(!wifi->setInterfaceState(interface, enabled))
                 {
