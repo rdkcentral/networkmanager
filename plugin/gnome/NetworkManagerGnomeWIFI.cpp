@@ -655,57 +655,6 @@ namespace WPEFramework
             return connection;
         }
 
-        static NMConnection* createMinimalEthernetConnection(const std::string& iface)
-        {
-            NMConnection *connection = nm_simple_connection_new();
-
-            // Connection settings with autoconnect enabled
-            NMSettingConnection *sConnection = (NMSettingConnection *)nm_setting_connection_new();
-            std::string connId = "Wired connection 1";
-            char *uuidRawEth = nm_utils_uuid_generate();
-            if (!uuidRawEth)
-            {
-                NMLOG_ERROR("Failed to generate UUID for ethernet connection");
-                return nullptr;
-            }
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_ID, connId.c_str(), NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_UUID, uuidRawEth, NULL);
-            g_free(uuidRawEth);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_TYPE, "802-3-ethernet", NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_INTERFACE_NAME, iface.c_str(), NULL);
-            g_object_set(G_OBJECT(sConnection), NM_SETTING_CONNECTION_AUTOCONNECT, TRUE, NULL);  // Enable autoconnect
-            nm_connection_add_setting(connection, NM_SETTING(sConnection));
-
-            // Wired ethernet settings
-            NMSettingWired *sWired = (NMSettingWired *)nm_setting_wired_new();
-            nm_connection_add_setting(connection, NM_SETTING(sWired));
-
-            // Get hostname for DHCP
-            std::string hostname;
-            if(!nmUtils::readPersistentHostname(hostname))
-            {
-                hostname = nmUtils::deviceHostname();
-                NMLOG_DEBUG("No persistent hostname found, using device hostname");
-            }
-
-            // IPv4 settings with DHCP
-            NMSettingIP4Config *sIpv4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
-            nm_connection_add_setting(connection, NM_SETTING(sIpv4));
-
-            // IPv6 settings with DHCP
-            NMSettingIP6Config *sIpv6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
-            nm_connection_add_setting(connection, NM_SETTING(sIpv6));
-
-            NMLOG_DEBUG("Created minimal ethernet connection with autoconnect=true");
-            return connection;
-        }
-
         static void addMinimalEthernetConnectionCb(GObject *client, GAsyncResult *result, gpointer user_data)
         {
             GError *error = NULL;
