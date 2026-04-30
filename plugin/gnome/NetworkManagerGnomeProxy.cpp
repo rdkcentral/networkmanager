@@ -907,8 +907,7 @@ namespace WPEFramework
                         std::lock_guard<std::mutex> lock(m_ipCacheMutex);
                         IpFamilyCache* c = (ethname == interface) ? &m_ethIPv4Cache : &m_wlanIPv4Cache;
                         c->clear();
-                        c->globalAddresses.insert(result.ipaddress);
-                        c->prefix       = result.prefix;
+                        c->globalAddresses.insert({result.ipaddress, result.prefix});
                         c->gateway      = result.gateway;
                         c->primarydns   = result.primarydns;
                         c->secondarydns = result.secondarydns;
@@ -982,9 +981,8 @@ namespace WPEFramework
                         IpFamilyCache* c = (ethname == interface) ? &m_ethIPv6Cache : &m_wlanIPv6Cache;
                         c->clear();
                         if (!result.ipaddress.empty())
-                            c->globalAddresses.insert(result.ipaddress);
+                            c->globalAddresses.insert({result.ipaddress, result.prefix});
                         c->linkLocalAddress = result.ula;
-                        c->prefix       = result.prefix;
                         c->gateway      = result.gateway;
                         c->primarydns   = result.primarydns;
                         c->secondarydns = result.secondarydns;
