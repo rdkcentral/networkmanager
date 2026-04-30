@@ -2220,6 +2220,11 @@ namespace WPEFramework
                     }
                 }
             }
+            
+            if(deviceState > NM_DEVICE_STATE_DISCONNECTED)
+            {
+                NMLOG_WARNING("Device not fully disconnected (state: %d), setting to unmanaged state", deviceState);
+            }
             // Set the "Managed" property to enable/disable the device
             m_isSuccess = false;
             const char *objectPath = nm_object_get_path(NM_OBJECT(device));
