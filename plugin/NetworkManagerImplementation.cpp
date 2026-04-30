@@ -587,10 +587,6 @@ namespace WPEFramework
                 list.ToString(response);
                 NMLOG_INFO("Response is, %s", response.c_str());
             }
-			else if (NETMGR_GENERIC == event)
-			{
-				pclose(pipe);
-			}
             return;
         }
 
