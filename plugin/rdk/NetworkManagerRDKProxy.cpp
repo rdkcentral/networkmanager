@@ -399,8 +399,8 @@ namespace WPEFramework
                                 if(iface.connected)
                                 {
                                     NMLOG_INFO("'%s' interface is connected", iface.name.c_str());
-                                    if(m_defaultInterface != iface.name)
-                                        ReportActiveInterfaceChange(m_defaultInterface, iface.name);
+                                    if(getDefaultInterface() != iface.name)
+                                        ReportActiveInterfaceChange(getDefaultInterface(), iface.name);
                                     Exchange::INetworkManager::IPAddress addrv4;
                                     Exchange::INetworkManager::IPAddress addrv6;
                                     std::string ipversion = "IPv4";
@@ -442,6 +442,11 @@ namespace WPEFramework
         {
             // TODO: Implement setting the DHCP hostname for netsrvmgr
             return Core::ERROR_NONE;
+        }
+
+        void NetworkManagerImplementation::platform_deinit()
+        {
+            return;
         }
 
         void NetworkManagerImplementation::platform_init()
@@ -562,6 +567,9 @@ namespace WPEFramework
                 }
                 using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
                 interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
+                if(interfacesItr == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
 
                 rc = Core::ERROR_NONE;
             }
@@ -583,7 +591,8 @@ namespace WPEFramework
             if (IARM_RESULT_SUCCESS == IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, (void*)&defaultRoute, sizeof(defaultRoute)))
             {
                 NMLOG_INFO ("Call to %s for %s returned interface = %s, gateway = %s", IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETSRVMGR_API_getDefaultInterface, defaultRoute.interface, defaultRoute.gateway);
-                interface = m_defaultInterface = defaultRoute.interface;
+                interface = defaultRoute.interface;
+                setDefaultInterface(defaultRoute.interface);
                 rc = Core::ERROR_NONE;
             }
             else
@@ -699,7 +708,7 @@ namespace WPEFramework
 
             if(interface.empty())
             {
-                interface = m_defaultInterface;
+                interface = getDefaultInterface();
             }
             if(ipversion.empty())
             {
@@ -1037,6 +1046,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 NMLOG_INFO ("GetKnownSSIDs Success");
 
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
+                if(ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
+                }
                 rc = Core::ERROR_NONE;
             }
             else
