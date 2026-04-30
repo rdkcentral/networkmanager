@@ -2191,7 +2191,7 @@ namespace WPEFramework
                     return true;
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
-                    NMLOG_DEBUG("Disconnecting device...");
+                    NMLOG_DEBUG("MYTEST Disconnecting device...");
                     // Disconnect the device before setting it to unmanaged.
                     // This ensures that NetworkManager cleanly removes any IP addresses, routes,
                     // and DNS configuration associated with the interface. Setting an interface
