@@ -2191,7 +2191,7 @@ namespace WPEFramework
                     return true;
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
-                    NMLOG_DEBUG(" Disconnecting device...");
+                    NMLOG_ERROR("MYTEST Disconnecting device...");
                     // Disconnect the device before setting it to unmanaged.
                     // This ensures that NetworkManager cleanly removes any IP addresses, routes,
                     // and DNS configuration associated with the interface. Setting an interface
@@ -2206,14 +2206,14 @@ namespace WPEFramework
                         /* Force glib event processing to update state
                          * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
                          */
-                        //while (g_main_context_iteration(NULL, FALSE));
+                        while (g_main_context_iteration(NULL, FALSE));
                         deviceState = nm_device_get_state(device);
+                        NMLOG_ERROR("MYTEST:Current Device state: %d", deviceState);
                         if(oldDevState != deviceState)
                         {
                             oldDevState = deviceState;
-                            NMLOG_WARNING("MYTEST: Device state: %d", deviceState);
+                            NMLOG_ERROR("MYTEST: Device state: %d", deviceState);
                         }
-                        NMLOG_WARNING("MYTEST:Current Device state: %d", deviceState);
                         if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
                             break;
 
