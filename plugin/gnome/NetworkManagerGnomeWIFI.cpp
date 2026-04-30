@@ -2206,7 +2206,7 @@ namespace WPEFramework
                         /* Force glib event processing to update state
                          * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
                          */
-                        while (g_main_context_iteration(NULL, FALSE));
+                        //while (g_main_context_iteration(NULL, FALSE));
                         deviceState = nm_device_get_state(device);
                         if(oldDevState != deviceState)
                         {
