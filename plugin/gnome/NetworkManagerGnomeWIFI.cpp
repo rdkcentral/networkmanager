@@ -2199,7 +2199,12 @@ namespace WPEFramework
                     // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
-
+                    // 1. Identify the correct context (Crucial for multi-threaded RDK apps)
+                    GMainContext *device_context = g_main_context_get_thread_default();
+                    if (!device_context) device_context = g_main_context_default();
+                    
+                    int retry = 24; // 12 seconds
+                    NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
                         /* 
                          * 2. PUMP THE CONTEXT (The Fix)
