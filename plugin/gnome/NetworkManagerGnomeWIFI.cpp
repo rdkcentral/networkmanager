@@ -2203,11 +2203,15 @@ namespace WPEFramework
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        /* Force glib event processing to update state
-                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
-                         */
-                        while (g_main_context_iteration(NULL, FALSE));
-                        deviceState = nm_device_get_state(device);
+                        // Force a synchronous D-Bus property fetch
+                        GVariant *v = g_dbus_proxy_get_cached_property(G_DBUS_PROXY(device), "State");
+                        if (v) {
+                            deviceState = (NMDeviceState)g_variant_get_uint32(v);
+                            g_variant_unref(v);
+                        } else {
+                            // Fallback to the local cache if D-Bus fails
+                            deviceState = nm_device_get_state(device);
+                        }
                         NMLOG_ERROR("MYTEST:Current Device state: %d", deviceState);
                         if(oldDevState != deviceState)
                         {
