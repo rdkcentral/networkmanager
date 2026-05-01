@@ -2191,7 +2191,7 @@ namespace WPEFramework
                     return true;
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
-                    NMLOG_ERROR("MYTEST1 Disconnecting device...");
+                    NMLOG_DEBUG("Disconnecting device...");
                     // Disconnect the device before setting it to unmanaged.
                     // This ensures that NetworkManager cleanly removes any IP addresses, routes,
                     // and DNS configuration associated with the interface. Setting an interface
@@ -2199,40 +2199,30 @@ namespace WPEFramework
                     // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
-                    // 1. Identify the correct context (Crucial for multi-threaded RDK apps)
+                    
+                    // Identify the correct context 
                     GMainContext *device_context = g_main_context_get_thread_default();
                     if (!device_context) device_context = g_main_context_default();
                     
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        /* 
-                         * 2. PUMP THE CONTEXT (The Fix)
-                         * This drains the D-Bus socket and updates the internal 'device' struct.
-                         * We run it in a loop to process all pending state-change messages.
-                         */
+                        //if there are multiple messages backed up, 
+                        // clears all of them until the queue is completely empty
                         while (g_main_context_iteration(device_context, FALSE));
                     
-                        // 3. Fetch the updated state
+                        // Fetch the updated state
                         deviceState = nm_device_get_state(device);
                         
                         if(oldDevState != deviceState) {
                             oldDevState = deviceState;
-                            NMLOG_ERROR("MYTEST: Device state changed to: %d (Retry: %d)", deviceState, retry);
+                            NMLOG_WARNING("Device state: %d Retry: %d", deviceState, retry);
                         }
                     
-                        // 4. Check for completion (Disconnected = 30, Unmanaged = 10, Unavailable = 20)
                         if (deviceState <= NM_DEVICE_STATE_DISCONNECTED) {
-                            NMLOG_INFO("MYTEST: Target state reached. Proceeding to flush.");
                             break;
                         }
-                    
-                        /* 
-                         * 5. SMART SLEEP
-                         * Instead of a blind usleep, we tell the context to wait for 500ms
-                         * OR until a new D-Bus message arrives. This is much more efficient.
-                         */
-                        g_main_context_iteration(device_context, TRUE); 
+                        g_usleep(500 * 1000);  // give some time to NM to process the request
                     }
                 }
             }
