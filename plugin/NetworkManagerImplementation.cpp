@@ -20,6 +20,9 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
+#ifdef ENABLE_POWERMANAGER
+#include "NetworkManagerPowerClient.h"
+#endif
 
 #if USE_TELEMETRY
 #include "NetworkManagerJsonEnum.h"
@@ -71,6 +74,9 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+#ifdef ENABLE_POWERMANAGER
+            _powerClient.reset();
+#endif
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
             platform_deinit();
@@ -199,6 +205,9 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
+#ifdef ENABLE_POWERMANAGER
+            _powerClient.reset(new NetworkManagerPowerClient(*this));
+#endif
             return(Core::ERROR_NONE);
         }
 
@@ -1197,5 +1206,57 @@ namespace WPEFramework
             }
 #endif
         }
+
+#ifdef ENABLE_POWERMANAGER
+        void NetworkManagerImplementation::OnPowerModePreChange(
+            const Exchange::IPowerManager::PowerState currentState,
+            const Exchange::IPowerManager::PowerState newState,
+            std::function<void()> sendAck)
+        {
+            NMLOG_INFO("OnPowerModePreChange: current=%d new=%d",
+                       static_cast<int>(currentState), static_cast<int>(newState));
+
+            using PowerState = Exchange::IPowerManager::PowerState;
+
+            if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
+                // Transitioning TO DeepSleep
+                bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
+                if (!standbyMode) {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby OFF — disconnecting WiFi");
+                    // WiFiDisconnect();
+                } else {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby ON — WiFi left connected");
+                }
+                sendAck();
+            } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
+                // Waking FROM DeepSleep
+                bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
+                if (!standbyMode) {
+                    if (!m_lastConnectedSSID.empty()) {
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — reconnecting to '%s'",
+                                   m_lastConnectedSSID.c_str());
+                        // ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
+                    } else {
+                        NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — no last SSID, skipping reconnect");
+                    }
+                } else {
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby ON — no reconnect needed");
+                }
+                sendAck();
+            } else {
+                // All other transitions: fast-path ack
+                sendAck();
+            }
+        }
+
+        void NetworkManagerImplementation::OnPowerModeChanged(
+            const Exchange::IPowerManager::PowerState currentState,
+            const Exchange::IPowerManager::PowerState newState)
+        {
+            NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
+                       static_cast<int>(currentState), static_cast<int>(newState));
+            // Reserved for future use (e.g., suppress connectivity checks during deep sleep)
+        }
+#endif // ENABLE_POWERMANAGER
     }
 }

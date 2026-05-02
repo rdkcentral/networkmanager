@@ -26,6 +26,13 @@ find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CURL)
 
+option(ENABLE_POWERMANAGER "Enable PowerManager COMRPC integration for DeepSleep WiFi management" ON)
+if(ENABLE_POWERMANAGER)
+    find_package(${NAMESPACE}Definitions REQUIRED)
+    add_definitions(-DENABLE_POWERMANAGER)
+    message("NetworkManager: PowerManager integration enabled")
+endif()
+
 if (USE_RDK_LOGGER)
     find_package(rdklogger REQUIRED)
     add_definitions(-DUSE_RDK_LOGGER)
@@ -82,6 +89,11 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
                             Module.cpp)
+
+if(ENABLE_POWERMANAGER)
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerPowerClient.cpp)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${NAMESPACE}Definitions::${NAMESPACE}Definitions)
+endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
