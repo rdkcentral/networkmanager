@@ -2201,8 +2201,7 @@ namespace WPEFramework
                     wait(m_loop);
                     
                     // Identify the correct context 
-                    GMainContext *device_context = g_main_context_get_thread_default();
-                    if (!device_context) device_context = g_main_context_default();
+                    GMainContext *device_context = g_main_loop_get_context(m_loop);
                     
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
