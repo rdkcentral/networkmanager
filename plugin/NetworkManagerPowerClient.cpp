@@ -105,6 +105,8 @@ void NetworkManagerPowerClient::registerEvents()
     }
     if (auto r = mPowerManager->AddPowerModePreChangeClient("org.rdk.NetworkManager", mClientId); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: AddPowerModePreChangeClient failed (%u)", r);
+    } else {
+        NMLOG_INFO("NetworkManagerPowerClient: registered as pre-change client, mClientId=%u, sink=%p", mClientId, static_cast<void*>(&mPreChangeNotification));
     }
     if (auto r = mPowerManager->Register(&mPreChangeNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: Register(preChange) failed (%u)", r);
