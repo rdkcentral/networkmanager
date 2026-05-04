@@ -2207,9 +2207,11 @@ namespace WPEFramework
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        //if there are multiple messages backed up, 
-                        // clears all of them until the queue is completely empty
-                        while (g_main_context_iteration(device_context, FALSE));
+                        // If there are multiple messages backed up, process a bounded number
+                        // of pending iterations so this path cannot stall indefinitely if the
+                        // context keeps receiving new work.
+                        for (int i = 0; i < 100 && g_main_context_iteration(device_context, FALSE); ++i) {
+                        }
                     
                         // Fetch the updated state
                         deviceState = nm_device_get_state(device);
