@@ -2192,7 +2192,7 @@ namespace WPEFramework
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
                     NMLOG_DEBUG("Disconnecting device...");
-                    NMLOG_WARNING("MYTEST1: Disconnecting device...);
+                    NMLOG_WARNING("MYTEST1: Disconnecting device...");
                     // Disconnect the device before setting it to unmanaged.
                     // This ensures that NetworkManager cleanly removes any IP addresses, routes,
                     // and DNS configuration associated with the interface. Setting an interface
@@ -2214,7 +2214,6 @@ namespace WPEFramework
                         // Fetch the updated state
                         NMLOG_WARNING("MYTEST1: Device state: %d Retry: %d", deviceState, retry);
                         deviceState = nm_device_get_state(device);
-                        NMLOG_WARNING("MYTEST2: Device state: %d Retry: %d", deviceState, retry);
                         if(oldDevState != deviceState) {
                             oldDevState = deviceState;
                             NMLOG_WARNING("MYTEST3: Device state: %d Retry: %d", deviceState, retry);
@@ -2249,7 +2248,7 @@ namespace WPEFramework
                 else // wifi
                     nmUtils::setMarkerFile(WiFiDisableMarker, enabled);
             }
-            NMLOG_WARNING("MYTEST1: Disconnected device...);
+            NMLOG_WARNING("MYTEST1: Disconnected device...");
             return m_isSuccess;
         }
 
