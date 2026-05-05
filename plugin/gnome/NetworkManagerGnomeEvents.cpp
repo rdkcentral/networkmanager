@@ -300,8 +300,8 @@ namespace WPEFramework
             }
 
             NMIPConfig* ipConfig = isIPv6
-                ? nm_active_connection_get_ip6_config(conn)
-                : nm_active_connection_get_ip4_config(conn);
+                ? nm_device_get_ip6_config(device)
+                : nm_device_get_ip4_config(device);
 
             if (ipConfig) {
                 GPtrArray* addresses = nm_ip_config_get_addresses(ipConfig);
