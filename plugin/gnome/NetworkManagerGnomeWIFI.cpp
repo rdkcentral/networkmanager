@@ -2198,24 +2198,19 @@ namespace WPEFramework
                     // and DNS configuration associated with the interface. Setting an interface
                     // to unmanaged without disconnecting first may leave residual configuration
                     // that can cause networking issues.
-                    nm_device_disconnect_async(device, nullptr, nullptr, nullptr);
+                    nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
                     
                     // Identify the correct context 
-                    //GMainContext *device_context = g_main_loop_get_context(m_loop);
+                    GMainContext *device_context = g_main_loop_get_context(m_loop);
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
                         // If there are multiple messages backed up, process a bounded number
                         // of pending iterations so this path cannot stall indefinitely if the
                         // context keeps receiving new work.
-                        #if 0
-                        if (device_context)
-                        {
-                            for (int i = 0; i < 100 && g_main_context_iteration(device_context, FALSE); ++i) {
-                            }
-                        }
-                        #endif
+                        while (g_main_context_iteration(device_context, FALSE));
+
                         // Fetch the updated state
                         NMLOG_WARNING("MYTEST1: Device state: %d Retry: %d", deviceState, retry);
                         deviceState = nm_device_get_state(device);
