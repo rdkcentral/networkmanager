@@ -2246,7 +2246,7 @@ namespace WPEFramework
                 else // wifi
                     nmUtils::setMarkerFile(WiFiDisableMarker, enabled);
             }
-            NMLOG_WARNING("MYTEST1: Disconnected device...");
+
             return m_isSuccess;
         }
 
