@@ -107,6 +107,7 @@ namespace WPEFramework
             GSource *m_source;
             GCancellable *m_cancellable;
             std::mutex m_cancellableMutex;
+            std::mutex m_opMutex; // serializes concurrent wifi operations from different threads
             bool m_isSuccess = false;
             SecretAgent m_secretAgent;
         };

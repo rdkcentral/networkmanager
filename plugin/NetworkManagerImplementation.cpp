@@ -1217,34 +1217,39 @@ namespace WPEFramework
                        static_cast<int>(currentState), static_cast<int>(newState));
 
             using PowerState = Exchange::IPowerManager::PowerState;
+            bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
+
+
+            if (newState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP &&
+                currentState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
+                // Fast path for non-deep-sleep transitions
+                NMLOG_INFO("OnPowerModePreChange: non-deep-sleep transition, fast-path ack");
+                sendAck();
+                return;
+            }
 
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
                 // Transitioning TO DeepSleep
-                bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
                 if (!standbyMode) {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby OFF — disconnecting WiFi");
-                    // WiFiDisconnect();
+                    WiFiDisconnect();
                 } else {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby ON — WiFi left connected");
                 }
                 sendAck();
             } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
                 // Waking FROM DeepSleep
-                bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
                 if (!standbyMode) {
                     if (!m_lastConnectedSSID.empty()) {
                         NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — reconnecting to '%s'",
                                    m_lastConnectedSSID.c_str());
-                        // ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
+                        //  ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
                     } else {
                         NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — no last SSID, skipping reconnect");
                     }
                 } else {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby ON — no reconnect needed");
                 }
-                sendAck();
-            } else {
-                // All other transitions: fast-path ack
                 sendAck();
             }
         }
