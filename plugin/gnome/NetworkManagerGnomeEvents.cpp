@@ -333,9 +333,9 @@ namespace WPEFramework
                 const char* gw = nm_ip_config_get_gateway(ipConfig);
                 if (gw) newCache.gateway = gw;
 
-                char** dnsArr = (char**)nm_ip_config_get_nameservers(ipConfig);
-                if (dnsArr) {
-                    if (dnsArr[0]) newCache.primarydns   = dnsArr[0];
+                const char* const* dnsArr = nm_ip_config_get_nameservers(ipConfig);
+                if (dnsArr && dnsArr[0]) {
+                    newCache.primarydns = dnsArr[0];
                     if (dnsArr[1]) newCache.secondarydns = dnsArr[1];
                 }
 
