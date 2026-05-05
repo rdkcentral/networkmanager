@@ -2192,14 +2192,12 @@ namespace WPEFramework
                 }
                 else if (deviceState > NM_DEVICE_STATE_DISCONNECTED) {
                     NMLOG_DEBUG("Disconnecting device...");
-                    NMLOG_WARNING("MYTEST1: Disconnecting device...");
                     // Disconnect the device before setting it to unmanaged.
                     // This ensures that NetworkManager cleanly removes any IP addresses, routes,
                     // and DNS configuration associated with the interface. Setting an interface
                     // to unmanaged without disconnecting first may leave residual configuration
                     // that can cause networking issues.
-                    nm_device_disconnect_async(device, nullptr, nullptr, nullptr);
-                    NMLOG_WARNING("MYTEST1: No callback");
+                    nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
                     
                     // Identify the correct context 
@@ -2210,14 +2208,13 @@ namespace WPEFramework
                         // If there are multiple messages backed up, process a bounded number
                         // of pending iterations so this path cannot stall indefinitely if the
                         // context keeps receiving new work.
-                        //while (g_main_context_iteration(device_context, FALSE));
+                        while (g_main_context_iteration(device_context, FALSE));
 
                         // Fetch the updated state
-                        NMLOG_WARNING("MYTEST1: Device state: %d Retry: %d", deviceState, retry);
                         deviceState = nm_device_get_state(device);
                         if(oldDevState != deviceState) {
                             oldDevState = deviceState;
-                            NMLOG_WARNING("MYTEST3: Device state: %d Retry: %d", deviceState, retry);
+                            NMLOG_WARNING("Device state: %d Retry: %d", deviceState, retry);
                         }
                         if (deviceState <= NM_DEVICE_STATE_DISCONNECTED) {
                             break;
