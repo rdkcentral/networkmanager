@@ -2198,7 +2198,7 @@ namespace WPEFramework
                     // and DNS configuration associated with the interface. Setting an interface
                     // to unmanaged without disconnecting first may leave residual configuration
                     // that can cause networking issues.
-                    nm_device_disconnect_async(device, nullptr, nullptr, nullptr, nullptr);
+                    nm_device_disconnect_async(device, nullptr, nullptr, nullptr);
                     NMLOG_WARNING("MYTEST1: No callback");
                     wait(m_loop);
                     
