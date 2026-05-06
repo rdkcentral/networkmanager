@@ -1228,7 +1228,7 @@ namespace WPEFramework
                 if (!m_lastConnectedSSID.empty()) {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
-                    //  ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
+                      ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
                 } else {
                     NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
                 }
