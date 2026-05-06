@@ -1213,45 +1213,27 @@ namespace WPEFramework
             const Exchange::IPowerManager::PowerState newState,
             std::function<void()> sendAck)
         {
+            // Called from NetworkManagerPowerClient's power thread.
+            // Policy (standbyMode check, DeepSleep filter) has already been
+            // applied by the power thread before calling here.
             NMLOG_INFO("OnPowerModePreChange: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
 
             using PowerState = Exchange::IPowerManager::PowerState;
-            bool standbyMode = _powerClient ? _powerClient->getNetworkStandbyMode() : false;
-
-
-            if (newState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP &&
-                currentState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                // Fast path for non-deep-sleep transitions
-                NMLOG_INFO("OnPowerModePreChange: non-deep-sleep transition, fast-path ack");
-                sendAck();
-                return;
-            }
 
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                // Transitioning TO DeepSleep
-                if (!standbyMode) {
-                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby OFF — disconnecting WiFi");
-                    WiFiDisconnect();
-                } else {
-                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep, Network Standby ON — WiFi left connected");
-                }
-                sendAck();
+                NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
+                WiFiDisconnect();
             } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                // Waking FROM DeepSleep
-                if (!standbyMode) {
-                    if (!m_lastConnectedSSID.empty()) {
-                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — reconnecting to '%s'",
-                                   m_lastConnectedSSID.c_str());
-                        //  ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
-                    } else {
-                        NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep, Network Standby OFF — no last SSID, skipping reconnect");
-                    }
+                if (!m_lastConnectedSSID.empty()) {
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
+                               m_lastConnectedSSID.c_str());
+                    //  ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
                 } else {
-                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep, Network Standby ON — no reconnect needed");
+                    NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
                 }
-                sendAck();
             }
+            sendAck();
         }
 
         void NetworkManagerImplementation::OnPowerModeChanged(

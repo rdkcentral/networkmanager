@@ -23,7 +23,13 @@
 
 #include "Module.h"
 #include <interfaces/IPowerManager.h>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
+#include <queue>
+#include <thread>
+#include <vector>
 
 namespace WPEFramework {
 namespace Plugin {
@@ -99,8 +105,8 @@ private:
     // -----------------------------------------------------------------------
     class PreChangeNotification : public Exchange::IPowerManager::IModePreChangeNotification {
     public:
-        PreChangeNotification(INetworkPowerCallback& callback, NetworkManagerPowerClient& client)
-            : mCallback(callback), mClient(client) {}
+        explicit PreChangeNotification(NetworkManagerPowerClient& client)
+            : mClient(client) {}
 
         void OnPowerModePreChange(const PowerState currentState, const PowerState newState,
                                   const int transactionId, const int stateChangeAfter) override;
@@ -110,7 +116,6 @@ private:
         END_INTERFACE_MAP
 
     private:
-        INetworkPowerCallback& mCallback;
         NetworkManagerPowerClient& mClient;
     };
 
@@ -143,10 +148,29 @@ private:
     // -----------------------------------------------------------------------
     // Members
     // -----------------------------------------------------------------------
+    INetworkPowerCallback&            mCallback;
     Exchange::IPowerManager*          mPowerManager{nullptr};
     Core::Sink<PreChangeNotification> mPreChangeNotification;
     Core::Sink<ChangedNotification>   mChangedNotification;
     uint32_t                          mClientId{0};
+
+    // Power-event thread: receives events enqueued by the COM-RPC dispatcher
+    // thread and processes them (WiFiDisconnect etc.) without blocking the
+    // dispatcher.
+    struct PowerEvent {
+        PowerState currentState;
+        PowerState newState;
+        bool       standbyMode;
+        int        transactionId;
+    };
+
+    std::thread                       mPowerThread;
+    std::queue<PowerEvent>            mEventQueue;
+    std::mutex                        mQueueMutex;
+    std::condition_variable           mQueueCv;
+    std::atomic<bool>                 mStopThread{false};
+
+    void powerThreadLoop();
 };
 
 } // namespace Plugin
