@@ -1685,7 +1685,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::wifiScanRequest(std::string ssidReq)
+        bool wifiManager::wifiScanRequest(std::vector<std::string> ssidsToFilter)
         {
             if(!createClientNewConnection())
                 return false;
@@ -1696,23 +1696,29 @@ namespace WPEFramework
                 return false;
             }
             m_isSuccess = false;
-            if(!ssidReq.empty())
+            if(!ssidsToFilter.empty())
             {
-                NMLOG_INFO("starting wifi scanning .. %s", ssidReq.c_str());
+                NMLOG_INFO("Starting wifi scanning for %d SSIDs:", ssidsToFilter.size());
+                for (size_t i = 0; i < ssidsToFilter.size(); ++i)
+                {
+                    NMLOG_INFO("SSID-%d:%s", i+1, ssidsToFilter[i].c_str()");
+                }
                 GVariantBuilder builder, array_builder;
                 GVariant *options;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
                 g_variant_builder_init(&array_builder, G_VARIANT_TYPE("aay"));
-                g_variant_builder_add(&array_builder, "@ay",
-                                    g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssidReq.c_str(), ssidReq.length(), 1)
-                                    );
+                for (const auto& ssid : ssidsToFilter) {
+                    g_variant_builder_add(&array_builder, "@ay",
+                                        g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssid.c_str(), ssid.length(), 1)
+                                        );
+                }
                 g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
                 options = g_variant_builder_end(&builder);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, m_cancellable, wifiScanCb, this);
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
-                NMLOG_INFO("staring normal wifi scanning ..");
+                NMLOG_INFO("Starting normal wifi scanning ..");
                 nm_device_wifi_request_scan_async(wifiDevice, m_cancellable, wifiScanCb, this);
             }
             wait(m_loop);
