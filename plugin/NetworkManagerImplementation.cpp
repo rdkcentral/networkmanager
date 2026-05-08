@@ -607,12 +607,7 @@ namespace WPEFramework
             if (!m_filterfrequency.empty())
             {
                 filterFreq = std::stod(m_filterfrequency);
-				NMLOG_INFO("MYTEST: filterFreq =%f", filterFreq);
             }
-			else
-			{
-				NMLOG_INFO("MYTEST: filterFreq is empty);
-			}
             
             for (int i = 0; i < ssids.Length(); i++)
             {
@@ -624,7 +619,6 @@ namespace WPEFramework
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
                 bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
-				NMLOG_INFO("MYTEST: freqMatches =%d frequencyValue=%s", freqMatches , frequencyValue.c_str());
                 if (ssidMatches && freqMatches)
                     result.Add(object);
             }
