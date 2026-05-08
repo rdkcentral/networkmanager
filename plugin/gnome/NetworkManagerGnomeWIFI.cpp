@@ -1698,7 +1698,7 @@ namespace WPEFramework
             m_isSuccess = false;
             if(!ssidsToFilter.empty())
             {
-                NMLOG_INFO("Starting wifi scanning for %d SSIDs:", ssidsToFilter.size());
+                NMLOG_INFO("Starting wifi scanning for %d SSIDs:",static_cast<int>(ssidsToFilter.size()));
                 GVariantBuilder builder, array_builder;
                 GVariant *options;
                 g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
