@@ -608,7 +608,7 @@ namespace WPEFramework
             {
                 filterFreq = std::stod(m_filterfrequency);
             }
-            
+
             for (int i = 0; i < ssids.Length(); i++)
             {
                 JsonObject object = ssids[i].Object();
@@ -619,7 +619,7 @@ namespace WPEFramework
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
                 bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
-				
+
                 if (ssidMatches && freqMatches)
                     result.Add(object);
             }
