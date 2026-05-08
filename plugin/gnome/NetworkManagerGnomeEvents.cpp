@@ -130,11 +130,15 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_UNKNOWN:
                         wifiState = "WIFI_STATE_UNINSTALLED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_UNMANAGED:
                         wifiState = "WIFI_STATE_DISABLED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISABLED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                         isWlanDisabled = true;
                         break;
@@ -142,6 +146,8 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_PREPARE:
@@ -217,11 +223,15 @@ namespace WPEFramework
             {
                 case NM_DEVICE_STATE_UNKNOWN:
                 case NM_DEVICE_STATE_UNMANAGED:
+                    refreshIpFamilyCache(device, false);
+                    refreshIpFamilyCache(device, true);
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
                     isEthDisabled = true;
                     break;
                 case NM_DEVICE_STATE_UNAVAILABLE:
                 case NM_DEVICE_STATE_DISCONNECTED:
+                    refreshIpFamilyCache(device, false);
+                    refreshIpFamilyCache(device, true);
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::ethIface());
                 break;
                 case NM_DEVICE_STATE_PREPARE:
@@ -298,47 +308,50 @@ namespace WPEFramework
                         (g_strcmp0(method, "auto") == 0 || g_strcmp0(method, "dhcp") == 0);
                 }
             }
+        }
 
-            NMIPConfig* ipConfig = isIPv6
-                ? nm_device_get_ip6_config(device)
-                : nm_device_get_ip4_config(device);
+        /* IP config read is device-level and does not require an active connection. */
+        NMIPConfig* ipConfig = isIPv6
+            ? nm_device_get_ip6_config(device)
+            : nm_device_get_ip4_config(device);
 
-            if (ipConfig) {
-                GPtrArray* addresses = nm_ip_config_get_addresses(ipConfig);
-                if (addresses) {
-                    for (guint i = 0; i < addresses->len; i++) {
-                        NMIPAddress* addr = (NMIPAddress*)g_ptr_array_index(addresses, i);
-                        if (!addr) continue;
-                        const char* addrStr = nm_ip_address_get_address(addr);
-                        if (!addrStr) continue;
-                        std::string addrString = addrStr;
-                        if (isIPv6) {
-                            if (isIPv6LinkLocal(addrString)) {
-                                newCache.linkLocalAddress = addrString;
-                            } else {
-                                newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
-                            }
+        if (ipConfig) {
+            GPtrArray* addresses = nm_ip_config_get_addresses(ipConfig);
+            if (addresses) {
+                for (guint i = 0; i < addresses->len; i++) {
+                    NMIPAddress* addr = (NMIPAddress*)g_ptr_array_index(addresses, i);
+                    if (!addr) continue;
+                    const char* addrStr = nm_ip_address_get_address(addr);
+                    if (!addrStr) continue;
+                    std::string addrString = addrStr;
+                    if (isIPv6) {
+                        if (isIPv6LinkLocal(addrString)) {
+                            newCache.linkLocalAddress = addrString;
                         } else {
-                            struct sockaddr_in sa{};
-                            if (inet_pton(AF_INET, addrString.c_str(), &sa.sin_addr) == 1 &&
-                                IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr)) {
-                                newCache.linkLocalAddress = addrString;
-                            } else {
-                                newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
-                            }
+                            newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
+                        }
+                    } else {
+                        struct sockaddr_in sa{};
+                        if (inet_pton(AF_INET, addrString.c_str(), &sa.sin_addr) == 1 &&
+                            IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr)) {
+                            newCache.linkLocalAddress = addrString;
+                        } else {
+                            newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
                         }
                     }
                 }
+            }
 
-                const char* gw = nm_ip_config_get_gateway(ipConfig);
-                if (gw) newCache.gateway = gw;
+            const char* gw = nm_ip_config_get_gateway(ipConfig);
+            if (gw) newCache.gateway = gw;
 
-                const char* const* dnsArr = nm_ip_config_get_nameservers(ipConfig);
-                if (dnsArr && dnsArr[0]) {
-                    newCache.primarydns = dnsArr[0];
-                    if (dnsArr[1]) newCache.secondarydns = dnsArr[1];
-                }
+            const char* const* dnsArr = nm_ip_config_get_nameservers(ipConfig);
+            if (dnsArr && dnsArr[0]) {
+                newCache.primarydns = dnsArr[0];
+                if (dnsArr[1]) newCache.secondarydns = dnsArr[1];
+            }
 
+            if (conn) {
                 NMDhcpConfig* dhcpConfig = isIPv6
                     ? nm_active_connection_get_dhcp6_config(conn)
                     : nm_active_connection_get_dhcp4_config(conn);
@@ -346,9 +359,9 @@ namespace WPEFramework
                     const char* server = nm_dhcp_config_get_one_option(dhcpConfig, "dhcp_server_identifier");
                     if (server) newCache.dhcpserver = server;
                 }
-
-                newCache.valid = true;
             }
+
+            newCache.valid = true;
         }
 
         /* Swap new snapshot into instance cache under mutex; collect old address keys. */
