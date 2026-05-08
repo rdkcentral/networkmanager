@@ -619,6 +619,7 @@ namespace WPEFramework
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
                 bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
+				
                 if (ssidMatches && freqMatches)
                     result.Add(object);
             }
