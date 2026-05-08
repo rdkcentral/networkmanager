@@ -220,7 +220,8 @@ int main()
 
                 NMLOG_INFO("Sending WiFi scan request%s", ssid.empty() ? " (all SSIDs)" : (" for SSID: " + ssid).c_str());
 
-                if (wifiMgr->wifiScanRequest({ssid})) {
+                bool scanRequestSent = ssid.empty() ? wifiMgr->wifiScanRequest() : wifiMgr->wifiScanRequest({ssid});
+                if (scanRequestSent) {
                     NMLOG_INFO("WiFi scan request sent successfully.");
                 } else {
                     NMLOG_ERROR("Failed to send WiFi scan request.");
