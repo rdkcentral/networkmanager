@@ -1685,7 +1685,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::wifiScanRequest(std::vector<std::string> ssidsToFilter)
+        bool wifiManager::wifiScanRequest(const std::vector<std::string>& ssidsToFilter)
         {
             if(!createClientNewConnection())
                 return false;
