@@ -999,8 +999,15 @@ namespace WPEFramework
                 string tmpssidlist{};
                 while (ssids->Next(tmpssidlist) == true)
                 {
-                    m_filterSsidslist.push_back(tmpssidlist.c_str());
-                    NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
+                    if (!tmpssidlist.empty())
+                    {
+                        m_filterSsidslist.push_back(tmpssidlist.c_str());
+                        NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
+                    }
+                    else 
+                    {
+                        NMLOG_DEBUG("Empty SSID encountered in input list; skipping.");
+                    }
                 }
             }
 
