@@ -655,6 +655,66 @@ namespace WPEFramework
             return connection;
         }
 
+        static void addMinimalEthernetConnectionCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
+            NMRemoteConnection *remoteConn = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+            if (error) {
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("addMinimalEthernetConnection operation was cancelled");
+                    g_error_free(error);
+                    if (remoteConn)
+                        g_object_unref(remoteConn);
+                    if (_wifiManager->m_loop && g_main_loop_is_running(_wifiManager->m_loop)) {
+                        g_main_loop_quit(_wifiManager->m_loop);
+                    }
+                    return; // do not alter m_isSuccess on cancellation
+                }
+                NMLOG_ERROR("addMinimalEthernetConnection error: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                g_error_free(error);
+            }
+            else if (!remoteConn) {
+                NMLOG_ERROR("addMinimalEthernetConnection failed");
+                _wifiManager->m_isSuccess = false;
+            }
+            else {
+                NMLOG_INFO("addMinimalEthernetConnection success");
+                _wifiManager->m_isSuccess = true;
+                g_object_unref(remoteConn);
+            }
+            g_main_loop_quit(_wifiManager->m_loop);
+        }
+
+        bool wifiManager::addMinimalEthernetConnection(std::string iface)
+        {
+            if (!createClientNewConnection())
+                return false;
+
+            NMConnection *ethConn = createMinimalEthernetConnection(iface);
+            if (ethConn == NULL)
+            {
+                NMLOG_ERROR("Failed to create minimal ethernet connection");
+                deleteClientConnection();
+                return false;
+            }
+
+            GVariant *connSettings = nm_connection_to_dbus(ethConn, NM_CONNECTION_SERIALIZE_ALL);
+            g_object_unref(ethConn);
+
+            m_isSuccess = false;
+            nm_client_add_connection2(m_client,
+                                      connSettings,
+                                      NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
+                                      NULL, TRUE, m_cancellable,
+                                      addMinimalEthernetConnectionCb, this);
+            g_variant_unref(connSettings);
+            wait(m_loop);
+            deleteClientConnection();
+            return m_isSuccess;
+        }
+
         static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false)
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
@@ -1819,7 +1879,11 @@ namespace WPEFramework
                         error = NULL;
                     }
                     else
-                        NMLOG_ERROR("NetworkManager cleint create failed");
+                        NMLOG_ERROR("NetworkManager client create failed");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1827,6 +1891,10 @@ namespace WPEFramework
                 if(wifidevice == NULL)
                 {
                     NMLOG_ERROR("Failed to get device list.");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1866,6 +1934,10 @@ namespace WPEFramework
                 if(ApList == NULL)
                 {
                     NMLOG_ERROR("Aplist Error !");
+                    g_main_context_pop_thread_default(wpsContext);
+                    g_main_context_release(wpsContext);
+                    g_main_context_unref(wpsContext);
+                    wpsContext = NULL;
                     break;
                 }
 
@@ -1958,6 +2030,11 @@ namespace WPEFramework
                 {
                     /* if wps action not triggerd do a scanning request */
                     nm_device_wifi_request_scan(NM_DEVICE_WIFI(wifidevice), NULL, &error);
+                    if(error) {
+                        NMLOG_WARNING("WiFi scan request failed: %s", error->message);
+                        g_error_free(error);
+                        error = NULL;
+                    }
                 }
 
                 g_main_context_pop_thread_default(wpsContext);
@@ -2122,24 +2199,27 @@ namespace WPEFramework
                     // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
-                    // Wait until device is truly disconnected
+                    
+                    // Identify the correct context 
+                    GMainContext *device_context = g_main_loop_get_context(m_loop);
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        /* Force glib event processing to update state
-                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
-                         */
-                        // while (g_main_context_iteration(NULL, FALSE));
-                        g_usleep(500 * 1000);  // give some time to NM to process the request
-                        deviceState = nm_device_get_state(device);
-                        if(oldDevState != deviceState)
-                        {
-                            oldDevState = deviceState;
-                            NMLOG_WARNING("Device state: %d", deviceState);
-                        }
+                        // If there are multiple messages backed up, process a bounded number
+                        // of pending iterations so this path cannot stall indefinitely if the
+                        // context keeps receiving new work.
+                        while (g_main_context_iteration(device_context, FALSE));
 
-                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
+                        // Fetch the updated state
+                        deviceState = nm_device_get_state(device);
+                        if(oldDevState != deviceState) {
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d Retry: %d", deviceState, retry);
+                        }
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED) {
                             break;
+                        }
+                        g_usleep(500 * 1000);  // give some time to NM to process the request
                     }
                 }
             }
