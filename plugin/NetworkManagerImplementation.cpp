@@ -1222,10 +1222,16 @@ namespace WPEFramework
             using PowerState = Exchange::IPowerManager::PowerState;
 
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
-                WiFiDisconnect();
+                if (m_wlanEnabled.load() && m_wlanConnected.load()) {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
+                    WiFiDisconnect();
+                }
+                else
+                {
+                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
+                }
             } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                if (!m_lastConnectedSSID.empty()) {
+                if (m_wlanEnabled.load() && !m_lastConnectedSSID.empty()) {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
                       ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
