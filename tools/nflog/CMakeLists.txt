@@ -19,12 +19,14 @@
 cmake_minimum_required(VERSION 3.3)
 
 set(MODULE_NAME nflog_listener)
+set(CHECK_NEIGHBOR_MODULE_NAME check_neighbor)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(LIBNETFILTER_LOG REQUIRED libnetfilter_log)
 pkg_check_modules(LIBNFNETLINK     REQUIRED libnfnetlink)
 
-add_executable(${MODULE_NAME} src/main.c)
+add_executable(${MODULE_NAME} src/nflog.c)
+add_executable(${CHECK_NEIGHBOR_MODULE_NAME} src/check_neighbor.c)
 
 target_include_directories(${MODULE_NAME} PRIVATE
     ${LIBNETFILTER_LOG_INCLUDE_DIRS}
@@ -36,4 +38,4 @@ target_link_libraries(${MODULE_NAME} PRIVATE
     ${LIBNFNETLINK_LIBRARIES}
 )
 
-install(TARGETS ${MODULE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS ${MODULE_NAME} ${CHECK_NEIGHBOR_MODULE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
