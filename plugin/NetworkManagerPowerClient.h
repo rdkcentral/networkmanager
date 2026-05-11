@@ -37,8 +37,7 @@ namespace Plugin {
 /**
  * Callback interface that decouples NetworkManagerPowerClient from
  * NetworkManagerImplementation.  The implementation receives power state
- * transitions and must call sendAck() exactly once per OnPowerModePreChange
- * invocation to release the PowerManager pre-change lock.
+ * transitions and must call sendAck() exactly once per OnPowerModePreChange.
  */
 struct INetworkPowerCallback {
     virtual ~INetworkPowerCallback() = default;
@@ -124,7 +123,7 @@ private:
     // -----------------------------------------------------------------------
     class ChangedNotification : public Exchange::IPowerManager::IModeChangedNotification {
     public:
-        explicit ChangedNotification(INetworkPowerCallback& callback) : mCallback(callback) {}
+        explicit ChangedNotification(NetworkManagerPowerClient& client) : mClient(client) {}
 
         void OnPowerModeChanged(const PowerState currentState, const PowerState newState) override;
 
@@ -133,7 +132,7 @@ private:
         END_INTERFACE_MAP
 
     private:
-        INetworkPowerCallback& mCallback;
+        NetworkManagerPowerClient& mClient;
     };
 
     // -----------------------------------------------------------------------
@@ -158,6 +157,9 @@ private:
     // thread and processes them (WiFiDisconnect etc.) without blocking the
     // dispatcher.
     struct PowerEvent {
+        enum class EventType { PRE_CHANGE, CHANGED };
+
+        EventType  type;
         PowerState currentState;
         PowerState newState;
         bool       standbyMode;
@@ -169,6 +171,9 @@ private:
     std::mutex                        mQueueMutex;
     std::condition_variable           mQueueCv;
     std::atomic<bool>                 mStopThread{false};
+
+    // Cached standby mode from the last PRE_CHANGE event.
+    bool                              mLastChangeStandbyMode{false};
 
     void powerThreadLoop();
 };

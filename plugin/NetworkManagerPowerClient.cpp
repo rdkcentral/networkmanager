@@ -34,7 +34,7 @@ using namespace WPEFramework::Plugin;
 NetworkManagerPowerClient::NetworkManagerPowerClient(INetworkPowerCallback& callback)
     : mCallback(callback)
     , mPreChangeNotification(*this)
-    , mChangedNotification(callback)
+    , mChangedNotification(*this)
 {
     NMLOG_INFO("NetworkManagerPowerClient: connecting to PowerManager");
     if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.PowerManager"); r == Core::ERROR_NONE) {
@@ -180,14 +180,17 @@ void NetworkManagerPowerClient::powerThreadLoop()
             if (mStopThread) {
                 // Drain remaining events with fast acks before exiting so
                 // PowerManager is never left waiting on a stale transaction.
-                std::vector<int> pending;
+                // CHANGED events have no ack protocol — skip them.
+                std::vector<PowerEvent> pending;
                 while (!mEventQueue.empty()) {
-                    pending.push_back(mEventQueue.front().transactionId);
+                    pending.push_back(mEventQueue.front());
                     mEventQueue.pop();
                 }
                 lock.unlock();
-                for (int txId : pending) {
-                    sendPowerModePreChangeComplete(txId);
+                for (const auto& e : pending) {
+                    if (e.type == PowerEvent::EventType::PRE_CHANGE) {
+                        sendPowerModePreChangeComplete(e.transactionId);
+                    }
                 }
                 break;
             }
@@ -197,6 +200,20 @@ void NetworkManagerPowerClient::powerThreadLoop()
         }
         // Lock released — process event on this thread (blocking is fine here)
 
+        if (event.type == PowerEvent::EventType::CHANGED) {
+            // Wakeup notification — no ack required.
+            const bool fromDeepSleep = (event.currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
+            if (fromDeepSleep && event.standbyMode) {
+                NMLOG_INFO("NetworkManagerPowerClient: power thread — wakeup from DeepSleep standby ON, triggering WiFi scan");
+                mCallback.OnPowerModeChanged(event.currentState, event.newState);
+            } else {
+                NMLOG_INFO("NetworkManagerPowerClient: power thread — CHANGED event, no action (fromDeepSleep=%d standbyMode=%d)",
+                           fromDeepSleep, event.standbyMode);
+            }
+            continue;
+        }
+
+        // PRE_CHANGE event processing below
         auto sendAck = [transactionId = event.transactionId, this]() {
             sendPowerModePreChangeComplete(transactionId);
         };
@@ -236,6 +253,9 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
     // COM-RPC call and must not be made from the power thread.
     const bool standbyMode = mClient.getNetworkStandbyMode();
 
+    // Cache for use by ChangedNotification
+    mClient.mLastChangeStandbyMode = standbyMode;
+
     // Reserve a delay window now (before returning) so PowerManager knows to
     // wait at least 5 s.  Only needed when we will actually disconnect WiFi.
     if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP && !standbyMode) {
@@ -245,7 +265,8 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
     // Enqueue and return immediately — the power thread does the real work.
     {
         std::lock_guard<std::mutex> lock(mClient.mQueueMutex);
-        mClient.mEventQueue.push(PowerEvent{currentState, newState, standbyMode, transactionId});
+        mClient.mEventQueue.push(PowerEvent{PowerEvent::EventType::PRE_CHANGE,
+                                            currentState, newState, standbyMode, transactionId});
     }
     mClient.mQueueCv.notify_one();
 }
@@ -259,7 +280,17 @@ void NetworkManagerPowerClient::ChangedNotification::OnPowerModeChanged(
 {
     NMLOG_INFO("NetworkManagerPowerClient::OnPowerModeChanged current=%d new=%d",
                static_cast<int>(currentState), static_cast<int>(newState));
-    mCallback.OnPowerModeChanged(currentState, newState);
+
+    // Use the standby mode cached
+    const bool standbyMode = mClient.mLastChangeStandbyMode;
+
+    // Enqueue and return immediately so the COM-RPC dispatcher thread is freed.
+    {
+        std::lock_guard<std::mutex> lock(mClient.mQueueMutex);
+        mClient.mEventQueue.push(PowerEvent{PowerEvent::EventType::CHANGED,
+                                            currentState, newState, standbyMode, 0});
+    }
+    mClient.mQueueCv.notify_one();
 }
 
 #endif // ENABLE_POWERMANAGER

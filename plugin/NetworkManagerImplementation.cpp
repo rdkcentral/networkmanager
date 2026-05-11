@@ -1242,7 +1242,13 @@ namespace WPEFramework
         {
             NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
-            // Reserved for future use (e.g., suppress connectivity checks during deep sleep)
+            if (currentState == Exchange::IPowerManager::POWER_STATE_STANDBY_DEEP_SLEEP) {
+                // Waking from DeepSleep with Network Standby ON: the AP may have
+                // changed channel while the device slept (802.11 CSA).  Trigger an
+                // active scan so the driver discovers the AP on its new channel.
+                NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
+                StartWiFiScan("", nullptr);
+            }
         }
 #endif // ENABLE_POWERMANAGER
     }
