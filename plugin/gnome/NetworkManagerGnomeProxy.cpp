@@ -986,13 +986,13 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(IWIFIFrequencyIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
             //Cleared the Existing Store filterred SSID list
             m_filterSsidslist.clear();
-            m_filterfrequency.clear();
+            m_filterFrequencies.clear();
 
             if(ssids)
             {
@@ -1011,10 +1011,17 @@ namespace WPEFramework
                 }
             }
 
-            if (!frequency.empty())
+            if (frequencies)
             {
-                m_filterfrequency = frequency;
-                NMLOG_DEBUG("Scan SSIDs of frequency %s", m_filterfrequency.c_str());
+                Exchange::INetworkManager::WIFIFrequency frequency = Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
+                while (frequencies->Next(frequency) == true)
+                {
+                    if (frequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
+                    {
+                        m_filterFrequencies.push_back(frequency);
+                        NMLOG_DEBUG("Frequency %u added to scan filtering", static_cast<uint32_t>(frequency));
+                    }
+                }
             }
 
             nmEvent->setwifiScanOptions(true);
