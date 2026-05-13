@@ -662,12 +662,7 @@ namespace WPEFramework
 							return Core::ERROR_BAD_REQUEST;
 							returnJson(rc);
 						}
-	
-						const auto parsedFrequency = static_cast<Exchange::INetworkManager::WIFIFrequency>(freq);
-						if (parsedFrequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
-						{
-							frequencyList.push_back(parsedFrequency);
-						}
+						frequencyList.push_back(static_cast<Exchange::INetworkManager::WIFIFrequency>(freq));
 					}
 					else
 					{
