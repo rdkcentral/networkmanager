@@ -854,7 +854,7 @@
                 "type": "object",
                 "properties": {
                     "frequency": {
-                        "summary": "Frequency bands to scan. Array values: 1=2.4GHz, 2=5GHz, 3=6GHz. An empty or `null` or 0 value scans all frequencies.",",
+                        "summary": "Frequency bands to scan. Array values: 1=2.4GHz, 2=5GHz, 3=6GHz. An empty or 0 value scans all frequencies.",",
                         "type": "array",
                         "items": {
                             "type": "integer",
