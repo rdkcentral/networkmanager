@@ -42,6 +42,16 @@ static bool is_router_reachable_by_state(unsigned short state) {
             state == NUD_PERMANENT);
 }
 
+static bool is_monitored_interface(int ifindex) {
+    char ifname[IF_NAMESIZE] = {0};
+
+    if (if_indextoname(ifindex, ifname) == NULL) {
+        return false;
+    }
+
+    return (strcmp(ifname, "eth0") == 0 || strcmp(ifname, "wlan0") == 0);
+}
+
 static void print_neighbor_row(const struct nlmsghdr *nlh) {
     const struct ndmsg *ndm = (const struct ndmsg *)NLMSG_DATA(nlh);
     int attrlen = nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm));
@@ -175,6 +185,10 @@ static int dump_neighbors(int sock, unsigned int seq) {
                 continue;
             }
 
+            if (!is_monitored_interface(ndm->ndm_ifindex)) {
+                continue;
+            }
+
             print_neighbor_row(nlh);
         }
     }
@@ -238,6 +252,10 @@ int monitor_neighbors(void) {
 
             struct ndmsg *ndm = (struct ndmsg *)NLMSG_DATA(nlh);
             if (ndm->ndm_family != AF_INET) {
+                continue;
+            }
+
+            if (!is_monitored_interface(ndm->ndm_ifindex)) {
                 continue;
             }
 
