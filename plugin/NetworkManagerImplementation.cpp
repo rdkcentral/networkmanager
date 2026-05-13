@@ -58,6 +58,7 @@ namespace WPEFramework
             m_ethEnabled.store(false);
             m_wlanEnabled.store(false);
             m_ethDisconnectedForSleep.store(false);
+            m_wlanDisconnectedForSleep.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
@@ -1222,19 +1223,32 @@ namespace WPEFramework
 
             using PowerState = Exchange::IPowerManager::PowerState;
 
+            if (newState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP &&
+                currentState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
+                NMLOG_INFO("OnPowerModePreChange: not entering or exiting DeepSleep, no action needed");
+                sendAck();
+                return;
+            }
+
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
                 if (m_wlanEnabled.load() && m_wlanConnected.load()) {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
+
                     uint32_t rcWifiDown = WiFiDisconnect();
-                    if (rcWifiDown != Core::ERROR_NONE)
-                        NMLOG_WARNING("OnPowerModePreChange: WiFiDisconnect failed (rc=%u)", rcWifiDown);
+                    if (rcWifiDown == Core::ERROR_NONE) {
+                        m_wlanDisconnectedForSleep.store(true);
+                    } else {
+                        NMLOG_WARNING("OnPowerModePreChange: WiFiDisconnect failed (rc=%u), will not reconnect on wakeup", rcWifiDown);
+                    }
                 }
                 else
                 {
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
                 }
+
                 if (m_ethEnabled.load() && m_ethConnected.load()) {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting Ethernet");
+
                     uint32_t rcEthDown = EthernetDisconnect();
                     if (rcEthDown == Core::ERROR_NONE) {
                         m_ethDisconnectedForSleep.store(true);
@@ -1245,9 +1259,10 @@ namespace WPEFramework
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not connected, skipping disconnect");
                 }
             } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                if (m_wlanEnabled.load() && !m_lastConnectedSSID.empty()) {
+                if (m_wlanDisconnectedForSleep.load() && !m_lastConnectedSSID.empty()) {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
+                    m_wlanDisconnectedForSleep.store(false);
                     uint32_t rcWifiUp = ConnectToKnownSSID(m_lastConnectedSSID);
                     if (rcWifiUp != Core::ERROR_NONE)
                         NMLOG_WARNING("OnPowerModePreChange: ConnectToKnownSSID failed (rc=%u)", rcWifiUp);
