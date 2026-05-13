@@ -1006,7 +1006,7 @@ Traces the specified endpoint with the specified number of packets using `tracer
 <a name="method.StartWiFiScan"></a>
 ## *StartWiFiScan [<sup>method</sup>](#head.Methods)*
 
-Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
+Initiates WiFi scaning. This method supports scanning specific frequencies (2.4GHz, 5GHz, 6GHz). When no input is passed for frequency, it scans all supported frequencies. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
 
 Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 
@@ -1015,7 +1015,8 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params?.frequency | string | <sup>*(optional)*</sup> The frequency to scan. An empty or `null` value scans all frequencies |
+| params?.frequency | array | <sup>*(optional)*</sup> The frequency list to scan. Supported values are `1` (2.4GHz), `2` (5GHz), `3` (6GHz) |
+| params?.frequency[#] | integer | <sup>*(optional)*</sup> Frequency enum value |
 | params?.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to be scanned |
 | params?.ssids[#] | string | <sup>*(optional)*</sup> The SSID to scan |
 
@@ -1036,7 +1037,9 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
   "id": 42,
   "method": "org.rdk.NetworkManager.1.StartWiFiScan",
   "params": {
-    "frequency": "5",
+    "frequency": [
+      2
+    ],
     "ssids": [
       "Xfinity Mobile"
     ]
