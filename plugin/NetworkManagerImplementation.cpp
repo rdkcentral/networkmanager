@@ -671,18 +671,6 @@ namespace WPEFramework
             {
                 if(interface == "eth0")
                 {
-                    std::map<std::string, uint32_t> lostIPv4, lostIPv6;
-                    {
-                        std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                        lostIPv4 = m_ethIPv4Cache.globalAddresses;
-                        lostIPv6 = m_ethIPv6Cache.globalAddresses;
-                        m_ethIPv4Cache.clear();
-                        m_ethIPv6Cache.clear();
-                    }
-                    for (const auto& kv : lostIPv4)
-                        ReportIPAddressChange(interface, "IPv4", kv.first, Exchange::INetworkManager::IP_LOST);
-                    for (const auto& kv : lostIPv6)
-                        ReportIPAddressChange(interface, "IPv6", kv.first, Exchange::INetworkManager::IP_LOST);
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
@@ -690,18 +678,6 @@ namespace WPEFramework
                 }
                 else if(interface == "wlan0")
                 {
-                    std::map<std::string, uint32_t> lostIPv4, lostIPv6;
-                    {
-                        std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                        lostIPv4 = m_wlanIPv4Cache.globalAddresses;
-                        lostIPv6 = m_wlanIPv6Cache.globalAddresses;
-                        m_wlanIPv4Cache.clear();
-                        m_wlanIPv6Cache.clear();
-                    }
-                    for (const auto& kv : lostIPv4)
-                        ReportIPAddressChange(interface, "IPv4", kv.first, Exchange::INetworkManager::IP_LOST);
-                    for (const auto& kv : lostIPv6)
-                        ReportIPAddressChange(interface, "IPv6", kv.first, Exchange::INetworkManager::IP_LOST);
                     m_wlanConnected.store(false);
                     bool triggerConnectivityCheck;
                     if(m_ethConnected.load())
@@ -812,7 +788,9 @@ namespace WPEFramework
             }
 
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onIPAddressChange %s - %s", ipaddress.c_str(), interface.c_str());
+            NMLOG_INFO("Posting onIPAddressChange %s: %s %s %s",
+                (Exchange::INetworkManager::IP_ACQUIRED == status) ? "IP acquired" : "IP lost",
+                interface.c_str(), ipversion.c_str(), ipaddress.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }

@@ -292,9 +292,17 @@ namespace WPEFramework
         bool isWlan = (ifname == nmUtils::wlanIface());
         if (!isEth && !isWlan) return;
 
-        /* Build the new snapshot locally (no locks held during NM calls). */
+        /* Build the new snapshot locally (no locks held during NM calls).
+         * Skip the NM read when the device is in a disconnected/down state
+         * so that newCache stays empty and the diff emits IP_LOST for every
+         * address still in the cache.  This also prevents spurious
+         * "IP acquired" events from intermediate NM signals (nameserver,
+         * gateway clearing) that fire after the cache has been emptied
+         * but before NM clears addresses on the config object. */
+        NMDeviceState devState = nm_device_get_state(device);
+        bool skipRead = (devState <= NM_DEVICE_STATE_DISCONNECTED);
         IpFamilyCache newCache;
-        NMActiveConnection* conn = nm_device_get_active_connection(device);
+        NMActiveConnection* conn = skipRead ? nullptr : nm_device_get_active_connection(device);
         if (conn) {
             /* autoconfig: method "auto" or "dhcp" → true */
             NMConnection* nmConn = NM_CONNECTION(nm_active_connection_get_connection(conn));
@@ -311,9 +319,9 @@ namespace WPEFramework
         }
 
         /* IP config read is device-level and does not require an active connection. */
-        NMIPConfig* ipConfig = isIPv6
-            ? nm_device_get_ip6_config(device)
-            : nm_device_get_ip4_config(device);
+        NMIPConfig* ipConfig = skipRead ? nullptr
+            : (isIPv6 ? nm_device_get_ip6_config(device)
+                      : nm_device_get_ip4_config(device));
 
         if (ipConfig) {
             GPtrArray* addresses = nm_ip_config_get_addresses(ipConfig);
@@ -381,13 +389,11 @@ namespace WPEFramework
         std::string family = isIPv6 ? "IPv6" : "IPv4";
         for (const auto& kv : newCache.globalAddresses) {
             if (oldKeys.find(kv.first) == oldKeys.end()) {
-                NMLOG_INFO("IP acquired: %s %s %s", ifname.c_str(), family.c_str(), kv.first.c_str());
                 _instance->ReportIPAddressChange(ifname, family, kv.first, Exchange::INetworkManager::IP_ACQUIRED);
             }
         }
         for (const auto& key : oldKeys) {
             if (newCache.globalAddresses.find(key) == newCache.globalAddresses.end()) {
-                NMLOG_INFO("IP lost: %s %s %s", ifname.c_str(), family.c_str(), key.c_str());
                 _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
             }
         }
