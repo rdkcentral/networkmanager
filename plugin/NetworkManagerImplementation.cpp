@@ -1224,19 +1224,37 @@ namespace WPEFramework
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
                 if (m_wlanEnabled.load() && m_wlanConnected.load()) {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
-                    WiFiDisconnect();
+                    uint32_t rcWifiDown = WiFiDisconnect();
+                    if (rcWifiDown != Core::ERROR_NONE)
+                        NMLOG_WARNING("OnPowerModePreChange: WiFiDisconnect failed (rc=%u)", rcWifiDown);
                 }
                 else
                 {
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
                 }
+                if (m_ethEnabled.load() && m_ethConnected.load()) {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting Ethernet");
+                    uint32_t rcEthDown = EthernetDisconnect();
+                    if (rcEthDown != Core::ERROR_NONE)
+                        NMLOG_WARNING("OnPowerModePreChange: EthernetDisconnect failed (rc=%u)", rcEthDown);
+                } else {
+                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not connected, skipping disconnect");
+                }
             } else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
                 if (m_wlanEnabled.load() && !m_lastConnectedSSID.empty()) {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
-                      ConnectToKnownSSID(m_lastConnectedSSID); // fire-and-forget
+                    uint32_t rcWifiUp = ConnectToKnownSSID(m_lastConnectedSSID);
+                    if (rcWifiUp != Core::ERROR_NONE)
+                        NMLOG_WARNING("OnPowerModePreChange: ConnectToKnownSSID failed (rc=%u)", rcWifiUp);
                 } else {
                     NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
+                }
+                if (m_ethEnabled.load()) {
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting Ethernet");
+                    uint32_t rcEthUp = EthernetConnect();
+                    if (rcEthUp != Core::ERROR_NONE)
+                        NMLOG_WARNING("OnPowerModePreChange: EthernetConnect failed (rc=%u)", rcEthUp);
                 }
             }
             sendAck();

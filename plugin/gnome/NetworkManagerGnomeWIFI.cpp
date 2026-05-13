@@ -425,6 +425,34 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
+        bool wifiManager::ethernetDisconnect()
+        {
+            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *ethDevice = nm_client_get_device_by_iface(m_client, nmUtils::ethIface());
+            if(ethDevice == NULL) {
+                NMLOG_WARNING("ethernet device not found !");
+                deleteClientConnection();
+                return true;
+            }
+
+            deviceState = nm_device_get_state(ethDevice);
+            NMLOG_DEBUG("ethernet device current state is %d !", deviceState);
+            if (deviceState <= NM_DEVICE_STATE_DISCONNECTED || deviceState == NM_DEVICE_STATE_FAILED || deviceState == NM_DEVICE_STATE_DEACTIVATING)
+            {
+                NMLOG_WARNING("ethernet already disconnected !");
+                deleteClientConnection();
+                return true;
+            }
+
+            nm_device_disconnect_async(ethDevice, m_cancellable, disconnectCb, this);
+            wait(m_loop);
+            deleteClientConnection();
+            return m_isSuccess;
+        }
+
         static NMAccessPoint* findMatchingSSID(const GPtrArray* ApList, Exchange::INetworkManager::WiFiConnectTo& ssidInfo)
         {
             NMAccessPoint *AccessPoint = nullptr;

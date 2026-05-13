@@ -1147,6 +1147,22 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::EthernetDisconnect(void)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->ethernetDisconnect())
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
+        uint32_t NetworkManagerImplementation::EthernetConnect(void)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1"))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
