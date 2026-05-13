@@ -854,9 +854,13 @@
                 "type": "object",
                 "properties": {
                     "frequency": {
-                        "summary": "The frequency to scan. An empty or `null` value scans all frequencies.",
-                        "type": "string",
-                        "example": "5"
+                        "summary": "Frequency bands to scan. Array values: 1=2.4GHz, 2=5GHz, 3=6GHz. An empty or `null` or 0 value scans all frequencies.",",
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "enum": [1, 2, 3]
+                        },
+                        "example": [1, 2]
                     },
                     "ssids": {
                         "summary": "The list of SSIDs to be scanned.",
