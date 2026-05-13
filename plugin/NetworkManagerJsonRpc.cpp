@@ -642,19 +642,55 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-	    string frequency{};
-	    Exchange::INetworkManager::IStringIterator* ssids = NULL;
+	    	Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
+	    	Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
-	    if (parameters.HasLabel("frequency"))
-                frequency = parameters["frequency"].String();
+		    if (parameters.HasLabel("frequency"))
+			{
+				std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
+				JsonArray array = parameters["frequency"].Array();
+	            JsonArray::Iterator index(array.Elements());
+				while (index.Next() == true)
+				{
+					if (Core::JSON::Variant::type::NUMBER == index.Current().Content())
+					{
+						const int freq = index.Current().Number();
+						if (freq < static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
+							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
+						{
+							NMLOG_ERROR("Invalid frequency value in array");
+							return Core::ERROR_BAD_REQUEST;
+							returnJson(rc);
+						}
+	
+						const auto parsedFrequency = static_cast<Exchange::INetworkManager::WIFIFrequency>(freq);
+						if (parsedFrequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
+						{
+							frequencyList.push_back(parsedFrequency);
+						}
+					}
+					else
+					{
+						NMLOG_ERROR("Unexpected variant type in frequency array.");
+	                    returnJson(rc);
+					}
+				}
+			}
+			if (!frequencyList.empty()) {
+				using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
+				frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
+				if (frequencies == nullptr) {
+					returnJson(rc);
+				}
+			}
 
-            if (parameters.HasLabel("ssids"))
+        	if (parameters.HasLabel("ssids"))
             {
                 JsonArray array = parameters["ssids"].Array();
                 std::vector<std::string> ssidslist;
-	        JsonArray::Iterator index(array.Elements());
+	        	JsonArray::Iterator index(array.Elements());
 
-		while (index.Next() == true)
+				while (index.Next() == true)
                 {
                     if (Core::JSON::Variant::type::STRING == index.Current().Content())
                     {
@@ -673,9 +709,12 @@ namespace WPEFramework
             }
 
             if (_networkManager)
-                rc = _networkManager->StartWiFiScan(frequency, ssids);
+                rc = _networkManager->StartWiFiScan(frequencies, ssids);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+			if (frequencies)
+                frequencies->Release();
 
             if (ssids)
                 ssids->Release();
