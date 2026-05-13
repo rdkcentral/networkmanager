@@ -30,7 +30,8 @@ namespace WPEFramework
             ID_NETWORKMANAGER                               = 0x800004E0,
             ID_NETWORKMANAGER_NOTIFICATION                  = ID_NETWORKMANAGER + 1,
             ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 2,
-            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3
+            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3,
+            ID_NETWORKMANAGER_WIFI_FREQUENCY_ITERATOR       = ID_NETWORKMANAGER + 4
         };
 
         /* @json @text:keep */
@@ -202,6 +203,7 @@ namespace WPEFramework
             using IInterfaceDetailsIterator = RPC::IIteratorType<InterfaceDetails,     ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR>;
             using ISecurityModeIterator     = RPC::IIteratorType<WIFISecurityModeInfo, ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR>;
             using IStringIterator           = RPC::IIteratorType<string,               RPC::ID_STRINGITERATOR>;
+            using IWIFIFrequencyIterator    = RPC::IIteratorType<WIFIFrequency,        ID_NETWORKMANAGER_WIFI_FREQUENCY_ITERATOR>;
 
             /* @brief Get all the Available Interfaces */
             virtual uint32_t GetAvailableInterfaces (IInterfaceDetailsIterator*& interfaces/* @out */) = 0;
@@ -248,7 +250,7 @@ namespace WPEFramework
 
             // WiFi Specific Methods
             /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-            virtual uint32_t StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */) = 0;
+            virtual uint32_t StartWiFiScan(IWIFIFrequencyIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */) = 0;
             virtual uint32_t StopWiFiScan(void) = 0;
 
             virtual uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) = 0;
