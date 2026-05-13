@@ -57,6 +57,7 @@ namespace WPEFramework
             m_wlanConnected.store(false);
             m_ethEnabled.store(false);
             m_wlanEnabled.store(false);
+            m_ethDisconnectedForSleep.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
@@ -1235,8 +1236,11 @@ namespace WPEFramework
                 if (m_ethEnabled.load() && m_ethConnected.load()) {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting Ethernet");
                     uint32_t rcEthDown = EthernetDisconnect();
-                    if (rcEthDown != Core::ERROR_NONE)
-                        NMLOG_WARNING("OnPowerModePreChange: EthernetDisconnect failed (rc=%u)", rcEthDown);
+                    if (rcEthDown == Core::ERROR_NONE) {
+                        m_ethDisconnectedForSleep.store(true);
+                    } else {
+                        NMLOG_WARNING("OnPowerModePreChange: EthernetDisconnect failed (rc=%u), will not reconnect on wakeup", rcEthDown);
+                    }
                 } else {
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not connected, skipping disconnect");
                 }
@@ -1250,11 +1254,14 @@ namespace WPEFramework
                 } else {
                     NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
                 }
-                if (m_ethEnabled.load()) {
+                if (m_ethDisconnectedForSleep.load()) {
+                    m_ethDisconnectedForSleep.store(false);
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting Ethernet");
                     uint32_t rcEthUp = EthernetConnect();
                     if (rcEthUp != Core::ERROR_NONE)
                         NMLOG_WARNING("OnPowerModePreChange: EthernetConnect failed (rc=%u)", rcEthUp);
+                } else {
+                    NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — Ethernet was not disconnected for sleep, skipping reconnect");
                 }
             }
             sendAck();
