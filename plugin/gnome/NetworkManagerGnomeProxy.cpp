@@ -1011,7 +1011,7 @@ namespace WPEFramework
                 }
             }
 
-            if (frequencies)
+            if (frequencies && frequencies->Count() > 0)
             {
                 NMLOG_ERROR("MYTEST Frequency present");
                 Exchange::INetworkManager::WIFIFrequency frequency = Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
