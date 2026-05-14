@@ -1011,18 +1011,35 @@ namespace WPEFramework
                 }
             }
 
-            if (frequencies && frequencies->Count() > 0)
+            uint32_t frequencyCount = 0;
+            if (frequencies)
             {
-                NMLOG_ERROR("MYTEST Frequency present");
+                frequencyCount = frequencies->Count();
+                NMLOG_ERROR("MYTEST: backend frequenciesPtr=%p count=%u", static_cast<void*>(frequencies), frequencyCount);
+            }
+
+            if (frequencies && frequencyCount > 0)
+            {
                 Exchange::INetworkManager::WIFIFrequency frequency = Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
+                bool hasValidFrequency = false;
                 while (frequencies->Next(frequency) == true)
                 {
-                    NMLOG_ERROR("MYTEST Frequency present %u", static_cast<uint32_t>(frequency));
                     if (frequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
                     {
+                        hasValidFrequency = true;
+                        NMLOG_ERROR("MYTEST Frequency present %u", static_cast<uint32_t>(frequency));
                         m_filterFrequencies.push_back(frequency);
                         NMLOG_DEBUG("Frequency %u added to scan filtering", static_cast<uint32_t>(frequency));
                     }
+                }
+
+                if (hasValidFrequency)
+                {
+                    NMLOG_ERROR("MYTEST Frequency present");
+                }
+                else
+                {
+                    NMLOG_ERROR("MYTEST: backend iterator had %u entries but all were NONE", frequencyCount);
                 }
             }
 
