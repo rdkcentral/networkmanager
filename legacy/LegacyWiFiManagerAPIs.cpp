@@ -692,7 +692,7 @@ namespace WPEFramework
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _networkManager->StartWiFiScan(frequency, ssids);
+                rc = _nwmgr->StartWiFiScan(frequencies, ssids);
                 _nwmgr->Release();
             }
             else
