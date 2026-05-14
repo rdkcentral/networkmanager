@@ -645,9 +645,9 @@ namespace WPEFramework
 	    	Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
 	    	Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
+			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
 		    if (parameters.HasLabel("frequency"))
 			{
-				std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
 				JsonArray array = parameters["frequency"].Array();
 	            JsonArray::Iterator index(array.Elements());
 				while (index.Next() == true)
