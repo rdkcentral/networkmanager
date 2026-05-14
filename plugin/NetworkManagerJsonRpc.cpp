@@ -648,12 +648,15 @@ namespace WPEFramework
 			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
 		    if (parameters.HasLabel("frequency"))
 			{
+				NMLOG_ERROR("MYTEST: HAS frequency field");
 				JsonArray array = parameters["frequency"].Array();
 	            JsonArray::Iterator index(array.Elements());
 				while (index.Next() == true)
 				{
+					NMLOG_ERROR("MYTEST: HAS frequency field In while");
 					if (Core::JSON::Variant::type::NUMBER == index.Current().Content())
 					{
+						NMLOG_ERROR("MYTEST: HAS frequency field In If");
 						const int freq = index.Current().Number();
 						if (freq < static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
 							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
@@ -670,14 +673,16 @@ namespace WPEFramework
 	                    returnJson(rc);
 					}
 				}
-			}
-			if (!frequencyList.empty()) {
-				using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
-				frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
-				if (frequencies == nullptr) {
-					returnJson(rc);
+				if (!frequencyList.empty()) {
+					NMLOG_ERROR("MYTEST: HAS frequency field and not empty");
+					using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
+					frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
+					if (frequencies == nullptr) {
+						returnJson(rc);
+					}
 				}
 			}
+
 
         	if (parameters.HasLabel("ssids"))
             {
