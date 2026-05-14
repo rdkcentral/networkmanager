@@ -645,8 +645,11 @@ namespace WPEFramework
 	    	Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
 	    	Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
+			const bool hasFrequencyLabel = parameters.HasLabel("frequency");
+            NMLOG_ERROR("MYTEST: StartWiFiScan hasFrequencyLabel=%s", hasFrequencyLabel ? "true" : "false");
+
 			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
-		    if (parameters.HasLabel("frequency"))
+            if (hasFrequencyLabel)
 			{
 				NMLOG_ERROR("MYTEST: HAS frequency field");
 				JsonArray array = parameters["frequency"].Array();
@@ -682,6 +685,7 @@ namespace WPEFramework
 					}
 				}
 			}
+			NMLOG_ERROR("MYTEST: frequencyListSize=%zu frequenciesPtr=%p", frequencyList.size(), static_cast<void*>(frequencies));
 
 
         	if (parameters.HasLabel("ssids"))
