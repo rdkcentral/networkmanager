@@ -1013,9 +1013,11 @@ namespace WPEFramework
 
             if (frequencies)
             {
+                NMLOG_ERROR("MYTEST Frequency present");
                 Exchange::INetworkManager::WIFIFrequency frequency = Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
                 while (frequencies->Next(frequency) == true)
                 {
+                    NMLOG_ERROR("MYTEST Frequency present %u", static_cast<uint32_t>(frequency));
                     if (frequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
                     {
                         m_filterFrequencies.push_back(frequency);
