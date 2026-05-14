@@ -634,12 +634,43 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency{};
+            Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
+			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
 
 
             if (parameters.HasLabel("frequency"))
-                frequency = parameters["frequency"].String();
+			{
+				JsonArray array = parameters["frequency"].Array();
+	            JsonArray::Iterator index(array.Elements());
+				while (index.Next() == true)
+				{
+					if (Core::JSON::Variant::type::NUMBER == index.Current().Content())
+					{
+						const int freq = index.Current().Number();
+						if (freq < static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
+							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
+						{
+							NMLOG_ERROR("Invalid frequency value in array");
+							return Core::ERROR_BAD_REQUEST;
+							returnJson(rc);
+						}
+						frequencyList.push_back(static_cast<Exchange::INetworkManager::WIFIFrequency>(freq));
+					}
+					else
+					{
+						NMLOG_ERROR("Unexpected variant type in frequency array.");
+	                    returnJson(rc);
+					}
+				}
+			}
+			if (!frequencyList.empty()) {
+				using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
+				frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
+				if (frequencies == nullptr) {
+					returnJson(rc);
+				}
+			}
 
             if (parameters.HasLabel("ssid"))
             {
@@ -661,12 +692,15 @@ namespace WPEFramework
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _nwmgr->StartWiFiScan(frequency, ssids);
+                rc = _networkManager->StartWiFiScan(frequency, ssids);
                 _nwmgr->Release();
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+			if (frequencies)
+                frequencies->Release();
+			
             if (ssids)
                 ssids->Release();
 
