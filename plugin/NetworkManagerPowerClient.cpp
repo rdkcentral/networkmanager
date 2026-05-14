@@ -77,6 +77,7 @@ bool NetworkManagerPowerClient::getNetworkStandbyMode() const
 void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId)
 {
     if (IsValid()) {
+        NMLOG_INFO("NetworkManagerPowerClient: sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
         // Return value intentionally ignored; a stale transactionId is harmless
         mPowerManager->PowerModePreChangeComplete(mClientId, transactionId);
     }
