@@ -232,8 +232,10 @@ namespace WPEFramework
 
                 uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t WiFiDisconnect(void) override;
+#ifdef ENABLE_POWERMANAGER
                 uint32_t EthernetDisconnect(void);
                 uint32_t EthernetConnect(void);
+#endif //ENABLE_POWERMANAGER
                 uint32_t GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */) override;
 
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;

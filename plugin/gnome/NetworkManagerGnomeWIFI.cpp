@@ -48,7 +48,7 @@ namespace WPEFramework
             // g_main_context_push_thread_default(m_nmContext);
             // Do NOT push m_nmContext here. Pushing here permanently locks ownership
             // to the constructor thread (owner_count stays at 1, never released).
-            // All callers — including power-event threads — must push/pop around
+            // All callers — must push/pop around
             // each createClientNewConnection()/deleteClientConnection() pair instead.
             m_loop = g_main_loop_new(m_nmContext, FALSE);
         }
@@ -59,9 +59,7 @@ namespace WPEFramework
 
             // Serialize concurrent wifi operations from different threads
             m_opMutex.lock();
-            // Push our private context as thread-default so nm_client_new (and any
-            // internal g_dbus_proxy_new_sync it calls) uses m_nmContext instead of
-            // the global default context, which is owned by nm_event_thrd.
+
             g_main_context_push_thread_default(m_nmContext);
 
             m_client = nm_client_new(NULL, &error);

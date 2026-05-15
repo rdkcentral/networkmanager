@@ -1320,8 +1320,11 @@ namespace WPEFramework
                 // Waking from DeepSleep with Network Standby ON: the AP may have
                 // changed channel while the device slept (802.11 CSA).  Trigger an
                 // active scan so the driver discovers the AP on its new channel.
-                NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
-                StartWiFiScan("", nullptr);
+                if (m_wlanEnabled.load() && m_wlanConnected.load())
+                {
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
+                    StartWiFiScan("", nullptr);
+                }
             }
         }
 #endif // ENABLE_POWERMANAGER

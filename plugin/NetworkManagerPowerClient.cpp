@@ -78,7 +78,6 @@ void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId
 {
     if (IsValid()) {
         NMLOG_INFO("NetworkManagerPowerClient: sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
-        // Return value intentionally ignored; a stale transactionId is harmless
         mPowerManager->PowerModePreChangeComplete(mClientId, transactionId);
     }
 }
@@ -205,7 +204,7 @@ void NetworkManagerPowerClient::powerThreadLoop()
             // Wakeup notification — no ack required.
             const bool fromDeepSleep = (event.currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
             if (fromDeepSleep && event.standbyMode) {
-                NMLOG_INFO("NetworkManagerPowerClient: power thread — wakeup from DeepSleep standby ON, triggering WiFi scan");
+                NMLOG_INFO("NetworkManagerPowerClient: power thread — wakeup from DeepSleep standby ON");
                 mCallback.OnPowerModeChanged(event.currentState, event.newState);
             } else {
                 NMLOG_INFO("NetworkManagerPowerClient: power thread — CHANGED event, no action (fromDeepSleep=%d standbyMode=%d)",
@@ -258,7 +257,7 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
     mClient.mLastChangeStandbyMode = standbyMode;
 
     // Reserve a delay window now (before returning) so PowerManager knows to
-    // wait at least 5 s.  Only needed when we will actually disconnect WiFi.
+    // wait at least 5 s.
     if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP && !standbyMode) {
         mClient.sendDelayPowerModeChange(transactionId, 5);
     }
