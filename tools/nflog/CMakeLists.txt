@@ -26,12 +26,7 @@ pkg_check_modules(LIBNETFILTER_LOG REQUIRED libnetfilter_log)
 pkg_check_modules(LIBNFNETLINK     REQUIRED libnfnetlink)
 
 add_executable(${MODULE_NAME} src/nflog.c)
-add_executable(${CHECK_NEIGHBOR_MODULE_NAME} src/check_neighbor.cpp)
-
-set_target_properties(${CHECK_NEIGHBOR_MODULE_NAME} PROPERTIES
-    CXX_STANDARD 11
-    CXX_STANDARD_REQUIRED ON
-)
+add_executable(${CHECK_NEIGHBOR_MODULE_NAME} src/check_neighbor.c)
 
 target_include_directories(${MODULE_NAME} PRIVATE
     ${LIBNETFILTER_LOG_INCLUDE_DIRS}
@@ -42,8 +37,5 @@ target_link_libraries(${MODULE_NAME} PRIVATE
     ${LIBNETFILTER_LOG_LIBRARIES}
     ${LIBNFNETLINK_LIBRARIES}
 )
-
-find_package(Threads REQUIRED)
-target_link_libraries(${CHECK_NEIGHBOR_MODULE_NAME} PRIVATE Threads::Threads)
 
 install(TARGETS ${MODULE_NAME} ${CHECK_NEIGHBOR_MODULE_NAME} RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
