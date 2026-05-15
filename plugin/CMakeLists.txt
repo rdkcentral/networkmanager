@@ -158,10 +158,6 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
     install(FILES gnome/systemd/gnome-networkmanager-migration.conf
             DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
-    if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
-        install(FILES gnome/systemd/gnome-networkmanager-mfrmgr-migration.conf
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
-    endif(ENABLE_MIGRATION_MFRMGR_SUPPORT)
 endif(ENABLE_GNOME_NETWORKMANAGER)
 
 #Generate Plugin configuration file
