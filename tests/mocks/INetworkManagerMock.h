@@ -36,7 +36,7 @@ public:
     MOCK_METHOD(uint32_t, GetPublicIP, (string& interface, string& ipversion, string& ipaddress), (override));
     MOCK_METHOD(uint32_t, Ping, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, string& response), (override));
     MOCK_METHOD(uint32_t, Trace, (const string ipversion, const string endpoint, const uint32_t nqueries, const string guid, string& response), (override));
-    MOCK_METHOD(uint32_t, StartWiFiScan, (const string& frequency, IStringIterator* const ssids), (override));
+    MOCK_METHOD(uint32_t, StartWiFiScan, (IWIFIFrequencyIterator* const frequencies, IStringIterator* const ssids), (override));
     MOCK_METHOD(uint32_t, StopWiFiScan, (), (override));
     MOCK_METHOD(uint32_t, GetKnownSSIDs, (IStringIterator*& ssids), (override));
     MOCK_METHOD(uint32_t, AddToKnownSSIDs, (const WiFiConnectTo& ssid), (override));
