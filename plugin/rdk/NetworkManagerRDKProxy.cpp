@@ -974,7 +974,6 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             //Cleared the Existing Store filterred SSID list
             m_filterSsidslist.clear();
-            m_filterfrequency.clear();
 
             if(ssids)
             {
