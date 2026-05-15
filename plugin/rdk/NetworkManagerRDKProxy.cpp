@@ -965,7 +965,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(IWIFIFrequencyIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
         {
             LOG_ENTRY_FUNCTION();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
@@ -986,10 +986,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 }
             }
 
-            if (!frequency.empty())
+            if (frequencies && frequencies->Count() > 0)
             {
-                m_filterfrequency = frequency;
-                NMLOG_DEBUG("Scan SSIDs of frequency %s", m_filterfrequency.c_str());
+                NMLOG_DEBUG("Scan SSIDs of frequency not supported");
             }
 
             memset(&param, 0, sizeof(param));
