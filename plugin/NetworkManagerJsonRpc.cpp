@@ -695,11 +695,15 @@ namespace WPEFramework
                     else
                     {
                         NMLOG_ERROR("Unexpected variant type in SSID array.");
+						if (frequencies)
+                			frequencies->Release();
                         returnJson(rc);
                     }
                 }
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidslist));
                 if(ssids == nullptr){
+					if (frequencies)
+                		frequencies->Release();
                     returnJson(rc);
                 }
             }
