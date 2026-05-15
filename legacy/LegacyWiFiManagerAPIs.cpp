@@ -684,6 +684,8 @@ namespace WPEFramework
 
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
                 if (ssids == nullptr) {
+					if (frequencies)
+                		frequencies->Release();
                     returnJson(rc);
                 }
             }
