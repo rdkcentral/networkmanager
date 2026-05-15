@@ -660,7 +660,7 @@ namespace WPEFramework
 							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
 						{
 							NMLOG_ERROR("Invalid frequency value in array");
-							return Core::ERROR_BAD_REQUEST;
+							rc = Core::ERROR_BAD_REQUEST;
 							returnJson(rc);
 						}
 						frequencyList.push_back(static_cast<Exchange::INetworkManager::WIFIFrequency>(freq));
