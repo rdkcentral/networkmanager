@@ -376,13 +376,9 @@ namespace WPEFramework
         std::set<std::string> oldKeys;
         {
             std::lock_guard<std::mutex> lock(_instance->m_ipCacheMutex);
-            IpFamilyCache* cache = nullptr;
-            if (isEth)
-                cache = isIPv6 ? &_instance->m_ethIPv6Cache : &_instance->m_ethIPv4Cache;
-            else
-                cache = isIPv6 ? &_instance->m_wlanIPv6Cache : &_instance->m_wlanIPv4Cache;
-            for (const auto& kv : cache->globalAddresses) oldKeys.insert(kv.first);
-            *cache = newCache;
+            IpFamilyCache& cache = _instance->getIpCache(ifname, isIPv6 ? "IPv6" : "IPv4");
+            for (const auto& kv : cache.globalAddresses) oldKeys.insert(kv.first);
+            cache = newCache;
         }
 
         /* Emit address acquired/lost events from map-key diff (outside the lock). */

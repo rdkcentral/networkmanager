@@ -85,8 +85,17 @@ namespace WPEFramework
             std::string dhcpserver;
             bool autoconfig = false;
 
-            Exchange::INetworkManager::IPAddress toIPAddress(bool isIPv6) const {
+            Exchange::INetworkManager::IPAddress toIPAddress() const {
                 Exchange::INetworkManager::IPAddress addr{};
+                /* Auto-detect IP version: check global addresses first, then link-local. */
+                bool isIPv6 = false;
+                if (!globalAddresses.empty()) {
+                    struct in6_addr sa6{};
+                    isIPv6 = (inet_pton(AF_INET6, globalAddresses.begin()->first.c_str(), &sa6) == 1);
+                } else if (!linkLocalAddress.empty()) {
+                    struct in6_addr sa6{};
+                    isIPv6 = (inet_pton(AF_INET6, linkLocalAddress.c_str(), &sa6) == 1);
+                }
                 addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
                 addr.autoconfig   = autoconfig;
                 addr.dhcpserver   = dhcpserver;
@@ -368,11 +377,16 @@ namespace WPEFramework
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
-                IpFamilyCache m_ethIPv4Cache;
-                IpFamilyCache m_wlanIPv4Cache;
-                IpFamilyCache m_ethIPv6Cache;
-                IpFamilyCache m_wlanIPv6Cache;
+                std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;
+
+                /* Convenience accessor — returns a reference to the cache entry for the
+                   given interface + address-family pair, inserting a default-constructed
+                   entry if none exists yet.  Caller MUST hold m_ipCacheMutex. */
+                IpFamilyCache& getIpCache(const std::string& iface, const std::string& ipFamily)
+                {
+                    return m_ipCacheMap[{iface, ipFamily}];
+                }
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;

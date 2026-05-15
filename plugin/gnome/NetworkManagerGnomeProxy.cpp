@@ -688,7 +688,6 @@ namespace WPEFramework
             const char* dhcpserver;
             NMSettingConnection *settings = NULL;
             NMDevice *device = NULL;
-            string ipversionStr;
 
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
@@ -712,47 +711,18 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty())
-            {
-                ipversionStr = "IPV4";
-            }
-            else
-            {
-                ipversionStr = ipversion;
-            }
+            string ipversionStr = ipversion.empty() ? "IPv4" : ipversion;
 
             // Serve from event-driven cache when available
             {
                 std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                if (wifiname == interface)
+                std::string family = nmUtils::caseInsensitiveCompare(ipversionStr, "IPv6") ? "IPv6" : "IPv4";
+                auto it = m_ipCacheMap.find({interface, family});
+                if (it != m_ipCacheMap.end() && it->second.valid)
                 {
-                    if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && m_wlanIPv4Cache.valid)
-                    {
-                        NMLOG_DEBUG("%s IPv4 address from cache", wifiname.c_str());
-                        result = m_wlanIPv4Cache.toIPAddress(false);
-                        return Core::ERROR_NONE;
-                    }
-                    else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && m_wlanIPv6Cache.valid)
-                    {
-                        NMLOG_DEBUG("%s IPv6 address from cache", wifiname.c_str());
-                        result = m_wlanIPv6Cache.toIPAddress(true);
-                        return Core::ERROR_NONE;
-                    }
-                }
-                else if (ethname == interface)
-                {
-                    if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && m_ethIPv4Cache.valid)
-                    {
-                        NMLOG_DEBUG("%s IPv4 address from cache", ethname.c_str());
-                        result = m_ethIPv4Cache.toIPAddress(false);
-                        return Core::ERROR_NONE;
-                    }
-                    else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && m_ethIPv6Cache.valid)
-                    {
-                        NMLOG_DEBUG("%s IPv6 address from cache", ethname.c_str());
-                        result = m_ethIPv6Cache.toIPAddress(true);
-                        return Core::ERROR_NONE;
-                    }
+                    NMLOG_DEBUG("%s %s address from cache", interface.c_str(), family.c_str());
+                    result = it->second.toIPAddress();
+                    return Core::ERROR_NONE;
                 }
             }
 
@@ -832,7 +802,7 @@ namespace WPEFramework
 
             result.autoconfig = isAutoConnectEnabled(conn);
 
-            if(ipversion.empty() || nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))
+            if (nmUtils::caseInsensitiveCompare(ipversionStr, "IPv4"))
             {
                 const GPtrArray *ipByte = nullptr;
                 result.ipversion = "IPv4";
@@ -895,29 +865,27 @@ namespace WPEFramework
                     {
                         NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
                         std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                        if(ethname == interface)
-                            m_ethIPv4Cache.clear();
-                        else if(wifiname == interface)
-                            m_wlanIPv4Cache.clear();
+                        getIpCache(interface, "IPv4").clear();
                         return Core::ERROR_GENERAL;
                     }
 
                     // Cache the IPv4 result (fallback — event-driven cache not yet populated)
                     {
                         std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                        IpFamilyCache* c = (ethname == interface) ? &m_ethIPv4Cache : &m_wlanIPv4Cache;
-                        c->clear();
-                        c->globalAddresses.insert({result.ipaddress, result.prefix});
-                        c->gateway      = result.gateway;
-                        c->primarydns   = result.primarydns;
-                        c->secondarydns = result.secondarydns;
-                        c->dhcpserver   = result.dhcpserver;
-                        c->autoconfig   = result.autoconfig;
-                        c->valid        = true;
+                        IpFamilyCache& c = getIpCache(interface, "IPv4");
+                        c.clear();
+                        c.globalAddresses.insert({result.ipaddress, result.prefix});
+                        c.gateway      = result.gateway;
+                        c.primarydns   = result.primarydns;
+                        c.secondarydns = result.secondarydns;
+                        c.dhcpserver   = result.dhcpserver;
+                        c.autoconfig   = result.autoconfig;
+                        c.valid        = true;
                     }
                 }
             }
-            if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
+            if ((result.ipaddress.empty() && !nmUtils::caseInsensitiveCompare(ipversionStr, "IPv4"))
+                || nmUtils::caseInsensitiveCompare(ipversionStr, "IPv6"))
             {
                 std::string ipStr;
                 const GPtrArray *ipArray = nullptr;
@@ -978,17 +946,17 @@ namespace WPEFramework
                     // Cache the IPv6 result (fallback — event-driven cache not yet populated)
                     {
                         std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                        IpFamilyCache* c = (ethname == interface) ? &m_ethIPv6Cache : &m_wlanIPv6Cache;
-                        c->clear();
+                        IpFamilyCache& c = getIpCache(interface, "IPv6");
+                        c.clear();
                         if (!result.ipaddress.empty())
-                            c->globalAddresses.insert({result.ipaddress, result.prefix});
-                        c->linkLocalAddress = result.ula;
-                        c->gateway      = result.gateway;
-                        c->primarydns   = result.primarydns;
-                        c->secondarydns = result.secondarydns;
-                        c->dhcpserver   = result.dhcpserver;
-                        c->autoconfig   = result.autoconfig;
-                        c->valid        = true;
+                            c.globalAddresses.insert({result.ipaddress, result.prefix});
+                        c.linkLocalAddress = result.ula;
+                        c.gateway      = result.gateway;
+                        c.primarydns   = result.primarydns;
+                        c.secondarydns = result.secondarydns;
+                        c.dhcpserver   = result.dhcpserver;
+                        c.autoconfig   = result.autoconfig;
+                        c.valid        = true;
                     }
                 }
             }
