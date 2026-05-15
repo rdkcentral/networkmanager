@@ -2199,24 +2199,27 @@ namespace WPEFramework
                     // that can cause networking issues.
                     nm_device_disconnect_async(device, nullptr, disconnectCb, this);
                     wait(m_loop);
-                    // Wait until device is truly disconnected
+                    
+                    // Identify the correct context 
+                    GMainContext *device_context = g_main_loop_get_context(m_loop);
                     int retry = 24; // 12 seconds
                     NMDeviceState oldDevState = NM_DEVICE_STATE_UNKNOWN;
                     while (retry-- > 0) {
-                        /* Force glib event processing to update state
-                         * This below line will create an uncertain time wait. We are taking a fixed time interval of 12 seconds.
-                         */
-                        // while (g_main_context_iteration(NULL, FALSE));
-                        g_usleep(500 * 1000);  // give some time to NM to process the request
-                        deviceState = nm_device_get_state(device);
-                        if(oldDevState != deviceState)
-                        {
-                            oldDevState = deviceState;
-                            NMLOG_WARNING("Device state: %d", deviceState);
-                        }
+                        // If there are multiple messages backed up, process a bounded number
+                        // of pending iterations so this path cannot stall indefinitely if the
+                        // context keeps receiving new work.
+                        while (g_main_context_iteration(device_context, FALSE));
 
-                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED)
+                        // Fetch the updated state
+                        deviceState = nm_device_get_state(device);
+                        if(oldDevState != deviceState) {
+                            oldDevState = deviceState;
+                            NMLOG_WARNING("Device state: %d Retry: %d", deviceState, retry);
+                        }
+                        if (deviceState <= NM_DEVICE_STATE_DISCONNECTED) {
                             break;
+                        }
+                        g_usleep(500 * 1000);  // give some time to NM to process the request
                     }
                 }
             }
