@@ -89,7 +89,7 @@ NetworkManager interface methods:
 | [GetPublicIP](#method.GetPublicIP) | Gets the internet/public IP Address of the device |
 | [Ping](#method.Ping) | Pings the specified endpoint with the specified number of packets |
 | [Trace](#method.Trace) | Traces the specified endpoint with the specified number of packets using `traceroute` |
-| [StartWiFiScan](#method.StartWiFiScan) | Initiates WiFi scaning |
+| [StartWiFiScan](#method.StartWiFiScan) | Initiates WiFi scanning |
 | [StopWiFiScan](#method.StopWiFiScan) | Stops WiFi scanning |
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
@@ -1006,7 +1006,7 @@ Traces the specified endpoint with the specified number of packets using `tracer
 <a name="method.StartWiFiScan"></a>
 ## *StartWiFiScan [<sup>method</sup>](#head.Methods)*
 
-Initiates WiFi scaning. This method supports scanning specific frequencies (2.4GHz, 5GHz, 6GHz). When no input is passed for frequency, it scans all supported frequencies. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
+Initiates WiFi scanning. This method supports scanning specific frequencies (2.4GHz, 5GHz, 6GHz). When no input is passed for frequency, it scans all supported frequencies. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
 
 Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 
