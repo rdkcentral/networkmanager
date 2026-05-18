@@ -22,9 +22,6 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
-#include <arpa/inet.h>
-
-#define IN_IS_ADDR_LINKLOCAL(a)     ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace std;
@@ -809,7 +806,6 @@ namespace WPEFramework
                 ip4_config = nm_active_connection_get_ip4_config(conn);
                 NMIPAddress *ipAddr = NULL;
                 std::string ipStr;
-                struct sockaddr_in sa;
                 if (ip4_config)
                     ipByte = nm_ip_config_get_addresses(ip4_config);
                 else
@@ -829,8 +825,7 @@ namespace WPEFramework
                         if(!ipStr.empty())
                         {
                             // Skip link-local IPv4 addresses (169.254.x.x)
-                            inet_pton(AF_INET, ipStr.c_str(), &(sa.sin_addr));
-                            if(IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr))
+                            if(isIPv4LinkLocal(ipStr))
                             {
                                 NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
                                 continue;
@@ -912,8 +907,12 @@ namespace WPEFramework
                         {
                             if (isIPv6LinkLocal(ipStr))
                             {
+                                NMLOG_DEBUG("link-local ip: %s", ipStr.c_str());
+                            }
+                            else if (isIPv6ULA(ipStr))
+                            {
                                 result.ula = ipStr;
-                                NMLOG_DEBUG("link-local ip: %s", result.ula.c_str());
+                                NMLOG_DEBUG("ULA ip: %s", ipStr.c_str());
                             }
                             else
                             {
@@ -950,7 +949,7 @@ namespace WPEFramework
                         c.clear();
                         if (!result.ipaddress.empty())
                             c.globalAddresses.insert({result.ipaddress, result.prefix});
-                        c.linkLocalAddress = result.ula;
+                        c.ulaAddress   = result.ula;
                         c.gateway      = result.gateway;
                         c.primarydns   = result.primarydns;
                         c.secondarydns = result.secondarydns;

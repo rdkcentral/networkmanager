@@ -65,6 +65,14 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        /* Returns true if the given string is an IPv4 link-local address (169.254.0.0/16). */
+        inline bool isIPv4LinkLocal(const std::string& addr)
+        {
+            struct in_addr sa{};
+            return inet_pton(AF_INET, addr.c_str(), &sa) == 1 &&
+                   (ntohl(sa.s_addr) & 0xffff0000u) == 0xa9fe0000u;
+        }
+
         /* Returns true if the given string is an IPv6 link-local address (fe80::/10):
            first byte 0xfe, second byte with top two bits == 10 (0x80..0xbf). */
         inline bool isIPv6LinkLocal(const std::string& addr)
@@ -74,11 +82,20 @@ namespace WPEFramework
                    sa6.s6_addr[0] == 0xfe && (sa6.s6_addr[1] & 0xc0) == 0x80;
         }
 
+        /* Returns true if the given string is an IPv6 Unique Local Address (ULA, fc00::/7). */
+        inline bool isIPv6ULA(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   (ntohl(sa6.s6_addr32[0]) & 0xfe000000u) == 0xfc000000u;
+        }
+
         /* Per-interface, per-address-family cache populated by libnm events. */
         struct IpFamilyCache {
             bool valid = false;
             std::map<std::string, uint32_t> globalAddresses;  // key=address, value=prefix length
-            std::string linkLocalAddress;           // fe80:: for IPv6 (ula field), or 169.254.x.x for IPv4
+            std::string linkLocalAddress;           // fe80:: for IPv6, or 169.254.x.x for IPv4
+            std::string ulaAddress;                 // fc00::/7 — IPv6 Unique Local Address
             std::string gateway;
             std::string primarydns;
             std::string secondarydns;
@@ -99,7 +116,7 @@ namespace WPEFramework
                 addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
                 addr.autoconfig   = autoconfig;
                 addr.dhcpserver   = dhcpserver;
-                addr.ula          = linkLocalAddress;
+                addr.ula          = ulaAddress;
                 addr.gateway      = gateway;
                 addr.primarydns   = primarydns;
                 addr.secondarydns = secondarydns;

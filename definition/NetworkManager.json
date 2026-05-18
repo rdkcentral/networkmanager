@@ -47,9 +47,9 @@
             "example": 24
         },
         "ula": {
-            "summary": "The IPv6 Unified Local Address",
+            "summary": "The IPv6 Unique Local Address",
             "type": "string",
-            "example": "d00:410:2016::"
+            "example": "fd00:410:2016::"
         },
         "gateway": {
             "summary": "The gateway address",

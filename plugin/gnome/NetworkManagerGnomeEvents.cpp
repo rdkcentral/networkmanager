@@ -31,10 +31,7 @@
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
 #include <set>
-#include <arpa/inet.h>
-#ifndef IN_IS_ADDR_LINKLOCAL
-#define IN_IS_ADDR_LINKLOCAL(a) ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
-#endif
+
 #ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
 #include "NetworkManagerGnomeMfrMgr.h"
 #endif
@@ -335,13 +332,13 @@ namespace WPEFramework
                     if (isIPv6) {
                         if (isIPv6LinkLocal(addrString)) {
                             newCache.linkLocalAddress = addrString;
+                        } else if (isIPv6ULA(addrString)) {
+                            newCache.ulaAddress = addrString;
                         } else {
                             newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
                         }
                     } else {
-                        struct sockaddr_in sa{};
-                        if (inet_pton(AF_INET, addrString.c_str(), &sa.sin_addr) == 1 &&
-                            IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr)) {
+                        if (isIPv4LinkLocal(addrString)) {
                             newCache.linkLocalAddress = addrString;
                         } else {
                             newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
