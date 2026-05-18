@@ -768,7 +768,7 @@ TEST_F(NetworkManagerWifiTest, StartWiFiScan_with_Frequency)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWiFiScan"), _T("{\"frequency\":\"5\", \"ssids\":[\"Testssid_1\", \"Testssid_2\"]}"), response));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWiFiScan"), _T("{\"frequency\":[1,2,3], \"ssids\":[\"Testssid_1\", \"Testssid_2\"]}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
 
     g_object_unref(deviceDummy);
