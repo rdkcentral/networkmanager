@@ -559,7 +559,11 @@ TEST_F(WiFiManagerTest, startScan) {
 
     // Create a sample parameters object
     JsonObject jsonParameters;
-    jsonParameters["frequency"] = {1, 2, 3};
+    JsonArray frequencyArray;
+    frequencyArray.Add(1);
+    frequencyArray.Add(2);
+    frequencyArray.Add(3);
+    jsonParameters["frequency"] = frequencyArray;
     jsonParameters["ssid"]  = "test";
 
     // Call the startScan method
