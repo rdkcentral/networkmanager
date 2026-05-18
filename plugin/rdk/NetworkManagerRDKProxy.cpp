@@ -987,7 +987,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             if (frequencies && frequencies->Count() > 0)
             {
-                NMLOG_DEBUG("Scan SSIDs of frequency not supported");
+                NMLOG_DEBUG("Scan SSIDs of frequency not supported, scanning for all frequency");
             }
 
             memset(&param, 0, sizeof(param));
