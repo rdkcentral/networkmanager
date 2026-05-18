@@ -559,7 +559,7 @@ TEST_F(WiFiManagerTest, startScan) {
 
     // Create a sample parameters object
     JsonObject jsonParameters;
-    jsonParameters["frequency"] = "2.4GHz";
+    jsonParameters["frequency"] = {1, 2, 3};
     jsonParameters["ssid"]  = "test";
 
     // Call the startScan method
