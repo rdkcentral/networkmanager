@@ -870,6 +870,8 @@ namespace WPEFramework
                         IpFamilyCache& c = getIpCache(interface, "IPv4");
                         c.clear();
                         c.globalAddresses.insert({result.ipaddress, result.prefix});
+                        const char* hw = nm_device_get_hw_address(device);
+                        if (hw) c.macAddress = hw;
                         c.gateway      = result.gateway;
                         c.primarydns   = result.primarydns;
                         c.secondarydns = result.secondarydns;
@@ -916,10 +918,16 @@ namespace WPEFramework
                             }
                             else
                             {
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
+                                uint32_t pfx = nm_ip_address_get_prefix(ipAddr);
+                                const char* hw = nm_device_get_hw_address(device);
+                                std::string macStr = hw ? hw : "";
+                                bool isMacBased = !macStr.empty() && isIPv6MacBased(ipStr, macStr);
+                                if(result.ipaddress.empty() || isMacBased == false) {
                                     result.ipaddress = ipStr;
-                                NMLOG_DEBUG("global ip %s/%d", ipStr.c_str(), result.prefix);
+                                    result.prefix = pfx;
+                                }
+                                NMLOG_DEBUG("global ip %s/%d%s", ipStr.c_str(), pfx,
+                                            isMacBased ? " (MAC-based)" : "");
                             }
                         }
                     }
@@ -950,6 +958,8 @@ namespace WPEFramework
                         if (!result.ipaddress.empty())
                             c.globalAddresses.insert({result.ipaddress, result.prefix});
                         c.ulaAddress   = result.ula;
+                        const char* hwc = nm_device_get_hw_address(device);
+                        if (hwc) c.macAddress = hwc;
                         c.gateway      = result.gateway;
                         c.primarydns   = result.primarydns;
                         c.secondarydns = result.secondarydns;

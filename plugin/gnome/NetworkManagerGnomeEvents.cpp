@@ -299,6 +299,8 @@ namespace WPEFramework
         NMDeviceState devState = nm_device_get_state(device);
         bool skipRead = (devState <= NM_DEVICE_STATE_DISCONNECTED);
         IpFamilyCache newCache;
+        const char* hwAddr = nm_device_get_hw_address(device);
+        if (hwAddr) newCache.macAddress = hwAddr;
         NMActiveConnection* conn = skipRead ? nullptr : nm_device_get_active_connection(device);
         if (conn) {
             /* autoconfig: method "auto" or "dhcp" → true */

@@ -19,6 +19,7 @@
 
 #include <thread>
 #include <chrono>
+#include <algorithm>
 #include "NetworkManagerImplementation.h"
 
 #if USE_TELEMETRY
@@ -1317,6 +1318,40 @@ namespace WPEFramework
                     }
                 }
             }
+        }
+
+        bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr)
+        {
+            if (ipv6Addr.empty() || macAddr.empty())
+            {
+                NMLOG_ERROR("ipv6 addr or mac addr is empty");
+                return false;
+            }
+            if (macAddr.size() < 12)
+            {
+                NMLOG_ERROR("mac addr is less than 12 chars: %s", macAddr.c_str());
+                return false;
+            }
+
+            // Normalise MAC: lowercase, remove colons, insert "fffe" in the middle,
+            // then drop the first two characters (the EUI-64 modified byte is in the IPv6 address).
+            std::string tmpMac(macAddr);                                                // "A8:11:FC:FD:1E:8D" // example
+            std::transform(tmpMac.begin(), tmpMac.end(), tmpMac.begin(), ::tolower);    // "a8:11:fc:fd:1e:8d"
+            tmpMac.erase(std::remove(tmpMac.begin(), tmpMac.end(), ':'), tmpMac.end()); // "a811fcfd1e8d"
+            tmpMac.insert(6, "fffe");                                                   // "a811fcfffefd1e8d"
+            tmpMac.erase(0, 2);                                                         //   "11fcfffefd1e8d"
+
+            // Normalise IPv6: lowercase, remove colons.
+            std::string tmpIpv6(ipv6Addr);
+            std::transform(tmpIpv6.begin(), tmpIpv6.end(), tmpIpv6.begin(), ::tolower);
+            tmpIpv6.erase(std::remove(tmpIpv6.begin(), tmpIpv6.end(), ':'), tmpIpv6.end());
+
+            if (tmpIpv6.find(tmpMac) != std::string::npos)
+            {
+                NMLOG_INFO("MAC %s based global v6 address %s", macAddr.c_str(), ipv6Addr.c_str());
+                return true;
+            }
+            return false;
         }
     }
 }

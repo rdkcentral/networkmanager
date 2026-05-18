@@ -90,12 +90,16 @@ namespace WPEFramework
                    (ntohl(sa6.s6_addr32[0]) & 0xfe000000u) == 0xfc000000u;
         }
 
+        /* Returns true if the given global IPv6 address is derived (EUI-64) from the MAC. */
+        bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr);
+
         /* Per-interface, per-address-family cache populated by libnm events. */
         struct IpFamilyCache {
             bool valid = false;
             std::map<std::string, uint32_t> globalAddresses;  // key=address, value=prefix length
             std::string linkLocalAddress;           // fe80:: for IPv6, or 169.254.x.x for IPv4
             std::string ulaAddress;                 // fc00::/7 — IPv6 Unique Local Address
+            std::string macAddress;                 // interface HW address (for MAC-based IPv6 filtering)
             std::string gateway;
             std::string primarydns;
             std::string secondarydns;
@@ -121,9 +125,27 @@ namespace WPEFramework
                 addr.primarydns   = primarydns;
                 addr.secondarydns = secondarydns;
                 if (!globalAddresses.empty()) {
-                    const auto& first = *globalAddresses.begin();
-                    addr.ipaddress = first.first;
-                    addr.prefix    = first.second;
+                    /* Prefer non-MAC-based global; fall back to first if all are MAC-based. */
+                    const std::string* chosen = nullptr;
+                    uint32_t chosenPrefix = 0;
+                    for (const auto& kv : globalAddresses) {
+                        if (!chosen) {
+                            chosen = &kv.first;
+                            chosenPrefix = kv.second;
+                        }
+                        if (isIPv6 && !macAddress.empty()
+                            && isIPv6MacBased(kv.first, macAddress)) {
+                            continue;  // skip MAC-based, keep looking
+                        }
+                        // Found a non-MAC-based global — use it
+                        chosen = &kv.first;
+                        chosenPrefix = kv.second;
+                        break;
+                    }
+                    if (chosen) {
+                        addr.ipaddress = *chosen;
+                        addr.prefix    = chosenPrefix;
+                    }
                 }
                 return addr;
             }
