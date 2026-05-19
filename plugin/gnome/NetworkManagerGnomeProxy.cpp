@@ -1147,7 +1147,6 @@ namespace WPEFramework
             return rc;
         }
 
-#ifdef ENABLE_POWERMANAGER
         uint32_t NetworkManagerImplementation::EthernetDisconnect(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -1163,7 +1162,6 @@ namespace WPEFramework
                 rc = Core::ERROR_NONE;
             return rc;
         }
-#endif //ENABLE_POWERMANAGER
 
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {

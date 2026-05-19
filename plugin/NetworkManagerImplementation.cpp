@@ -20,9 +20,6 @@
 #include <thread>
 #include <chrono>
 #include "NetworkManagerImplementation.h"
-#ifdef ENABLE_POWERMANAGER
-#include "NetworkManagerPowerClient.h"
-#endif
 
 #if USE_TELEMETRY
 #include "NetworkManagerJsonEnum.h"
@@ -76,9 +73,7 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
-#ifdef ENABLE_POWERMANAGER
             _powerClient.reset();
-#endif
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
             platform_deinit();
@@ -207,9 +202,7 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
-#ifdef ENABLE_POWERMANAGER
             _powerClient.reset(new NetworkManagerPowerClient(*this));
-#endif
             return(Core::ERROR_NONE);
         }
 
@@ -1209,7 +1202,6 @@ namespace WPEFramework
 #endif
         }
 
-#ifdef ENABLE_POWERMANAGER
         void NetworkManagerImplementation::OnPowerModePreChange(
             const Exchange::IPowerManager::PowerState currentState,
             const Exchange::IPowerManager::PowerState newState,
@@ -1327,6 +1319,5 @@ namespace WPEFramework
                 }
             }
         }
-#endif // ENABLE_POWERMANAGER
     }
 }

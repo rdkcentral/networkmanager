@@ -34,9 +34,7 @@ using namespace std;
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
-#ifdef ENABLE_POWERMANAGER
 #include "NetworkManagerPowerClient.h"
-#endif
 
 /* Forward declarations to avoid pulling GLib/libnm headers into this header */
 typedef struct _NMClient    NMClient;
@@ -66,9 +64,7 @@ namespace WPEFramework
     namespace Plugin
     {
         class NetworkManagerImplementation : public Exchange::INetworkManager
-#ifdef ENABLE_POWERMANAGER
                                            , public INetworkPowerCallback
-#endif
         {
             enum NetworkEvents
             {
@@ -232,10 +228,8 @@ namespace WPEFramework
 
                 uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t WiFiDisconnect(void) override;
-#ifdef ENABLE_POWERMANAGER
                 uint32_t EthernetDisconnect(void);
                 uint32_t EthernetConnect(void);
-#endif //ENABLE_POWERMANAGER
                 uint32_t GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */) override;
 
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;
@@ -287,14 +281,12 @@ namespace WPEFramework
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
                 void logTelemetry(const std::string& eventName, const std::string& message);
 
-#ifdef ENABLE_POWERMANAGER
                 // INetworkPowerCallback overrides
                 void OnPowerModePreChange(const Exchange::IPowerManager::PowerState currentState,
                                           const Exchange::IPowerManager::PowerState newState,
                                           std::function<void()> sendAck) override;
                 void OnPowerModeChanged(const Exchange::IPowerManager::PowerState currentState,
                                         const Exchange::IPowerManager::PowerState newState) override;
-#endif
 
             private:
                 void platform_init(void);
@@ -333,9 +325,7 @@ namespace WPEFramework
                 std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
-#ifdef ENABLE_POWERMANAGER
                 std::unique_ptr<NetworkManagerPowerClient> _powerClient;
-#endif
             public:
                 IPAddress m_ethIPv4Address;
                 IPAddress m_wlanIPv4Address;
