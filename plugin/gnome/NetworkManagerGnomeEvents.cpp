@@ -299,8 +299,6 @@ namespace WPEFramework
         NMDeviceState devState = nm_device_get_state(device);
         bool skipRead = (devState <= NM_DEVICE_STATE_DISCONNECTED);
         IpFamilyCache newCache;
-        const char* hwAddr = nm_device_get_hw_address(device);
-        if (hwAddr) newCache.macAddress = hwAddr;
         NMActiveConnection* conn = skipRead ? nullptr : nm_device_get_active_connection(device);
         if (conn) {
             /* autoconfig: method "auto" or "dhcp" → true */
@@ -323,27 +321,35 @@ namespace WPEFramework
                       : nm_device_get_ip4_config(device));
 
         if (ipConfig) {
-            GPtrArray* addresses = nm_ip_config_get_addresses(ipConfig);
-            if (addresses) {
-                for (guint i = 0; i < addresses->len; i++) {
-                    NMIPAddress* addr = (NMIPAddress*)g_ptr_array_index(addresses, i);
+            GPtrArray* ipAddresses = nm_ip_config_get_addresses(ipConfig);
+            std::string macAddr;
+            if (isIPv6) {
+                const char* hw = nm_device_get_hw_address(device);
+                if (hw) macAddr = hw;
+            }
+            if (ipAddresses) {
+                for (guint i = 0; i < ipAddresses->len; i++) {
+                    NMIPAddress* addr = (NMIPAddress*)g_ptr_array_index(ipAddresses, i);
                     if (!addr) continue;
                     const char* addrStr = nm_ip_address_get_address(addr);
                     if (!addrStr) continue;
                     std::string addrString = addrStr;
+                    uint32_t prefix = nm_ip_address_get_prefix(addr);
                     if (isIPv6) {
                         if (isIPv6LinkLocal(addrString)) {
-                            newCache.linkLocalAddress = addrString;
+                            newCache.linkLocalAddresses.insert(addrString);
                         } else if (isIPv6ULA(addrString)) {
-                            newCache.ulaAddress = addrString;
+                            newCache.uniqueLocalAddresses.insert(addrString);
                         } else {
-                            newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
+                            GlobalAddressType type = (!macAddr.empty() && isIPv6MacBased(addrString, macAddr))
+                                ? ADDR_GLOBAL_MAC_BASED : ADDR_GLOBAL;
+                            newCache.globalAddresses.emplace(addrString, GlobalAddressInfo{prefix, type});
                         }
                     } else {
                         if (isIPv4LinkLocal(addrString)) {
-                            newCache.linkLocalAddress = addrString;
+                            newCache.linkLocalAddresses.insert(addrString);
                         } else {
-                            newCache.globalAddresses.emplace(addrString, nm_ip_address_get_prefix(addr));
+                            newCache.globalAddresses.emplace(addrString, GlobalAddressInfo{prefix, ADDR_GLOBAL});
                         }
                     }
                 }
@@ -371,7 +377,7 @@ namespace WPEFramework
             newCache.valid = true;
         }
 
-        /* Swap new snapshot into instance cache under mutex; collect old address keys. */
+        /* Swap new snapshot into instance cache under mutex; collect old global address keys. */
         std::set<std::string> oldKeys;
         {
             std::lock_guard<std::mutex> lock(_instance->m_ipCacheMutex);
@@ -380,7 +386,7 @@ namespace WPEFramework
             cache = newCache;
         }
 
-        /* Emit address acquired/lost events from map-key diff (outside the lock). */
+        /* Emit address acquired/lost events from global-address key diff (outside the lock). */
         std::string family = isIPv6 ? "IPv6" : "IPv4";
         for (const auto& kv : newCache.globalAddresses) {
             if (oldKeys.find(kv.first) == oldKeys.end()) {

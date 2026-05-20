@@ -29,6 +29,7 @@
 #include <map>
 #include <mutex>
 #include <memory>
+#include <set>
 
 using namespace std;
 
@@ -66,89 +67,43 @@ namespace WPEFramework
     namespace Plugin
     {
         /* Returns true if the given string is an IPv4 link-local address (169.254.0.0/16). */
-        inline bool isIPv4LinkLocal(const std::string& addr)
-        {
-            struct in_addr sa{};
-            return inet_pton(AF_INET, addr.c_str(), &sa) == 1 &&
-                   (ntohl(sa.s_addr) & 0xffff0000u) == 0xa9fe0000u;
-        }
+        bool isIPv4LinkLocal(const std::string& addr);
 
-        /* Returns true if the given string is an IPv6 link-local address (fe80::/10):
-           first byte 0xfe, second byte with top two bits == 10 (0x80..0xbf). */
-        inline bool isIPv6LinkLocal(const std::string& addr)
-        {
-            struct in6_addr sa6{};
-            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
-                   sa6.s6_addr[0] == 0xfe && (sa6.s6_addr[1] & 0xc0) == 0x80;
-        }
+        /* Returns true if the given string is an IPv6 link-local address (fe80::/10). */
+        bool isIPv6LinkLocal(const std::string& addr);
 
         /* Returns true if the given string is an IPv6 Unique Local Address (ULA, fc00::/7). */
-        inline bool isIPv6ULA(const std::string& addr)
-        {
-            struct in6_addr sa6{};
-            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
-                   (ntohl(sa6.s6_addr32[0]) & 0xfe000000u) == 0xfc000000u;
-        }
+        bool isIPv6ULA(const std::string& addr);
 
         /* Returns true if the given global IPv6 address is derived (EUI-64) from the MAC. */
         bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr);
 
+        /* Sub-classification of global-scope addresses in the IP cache. */
+        enum GlobalAddressType : uint8_t {
+            ADDR_GLOBAL,            // non-MAC-based global (preferred by GetIPSettings)
+            ADDR_GLOBAL_MAC_BASED,  // EUI-64 global derived from interface MAC (fallback)
+        };
+
+        struct GlobalAddressInfo {
+            uint32_t          prefix;
+            GlobalAddressType type;
+            GlobalAddressInfo() : prefix(0), type(ADDR_GLOBAL) {}
+            GlobalAddressInfo(uint32_t p, GlobalAddressType t) : prefix(p), type(t) {}
+        };
+
         /* Per-interface, per-address-family cache populated by libnm events. */
         struct IpFamilyCache {
             bool valid = false;
-            std::map<std::string, uint32_t> globalAddresses;  // key=address, value=prefix length
-            std::string linkLocalAddress;           // fe80:: for IPv6, or 169.254.x.x for IPv4
-            std::string ulaAddress;                 // fc00::/7 — IPv6 Unique Local Address
-            std::string macAddress;                 // interface HW address (for MAC-based IPv6 filtering)
+            std::map<std::string, GlobalAddressInfo> globalAddresses;       // event-diffable global addresses
+            std::set<std::string> linkLocalAddresses;    // fe80::/10 or 169.254.x.x — not diffed for events
+            std::set<std::string> uniqueLocalAddresses;  // fc00::/7 (IPv6 only) — not diffed for events
             std::string gateway;
             std::string primarydns;
             std::string secondarydns;
             std::string dhcpserver;
             bool autoconfig = false;
 
-            Exchange::INetworkManager::IPAddress toIPAddress() const {
-                Exchange::INetworkManager::IPAddress addr{};
-                /* Auto-detect IP version: check global addresses first, then link-local. */
-                bool isIPv6 = false;
-                if (!globalAddresses.empty()) {
-                    struct in6_addr sa6{};
-                    isIPv6 = (inet_pton(AF_INET6, globalAddresses.begin()->first.c_str(), &sa6) == 1);
-                } else if (!linkLocalAddress.empty()) {
-                    struct in6_addr sa6{};
-                    isIPv6 = (inet_pton(AF_INET6, linkLocalAddress.c_str(), &sa6) == 1);
-                }
-                addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
-                addr.autoconfig   = autoconfig;
-                addr.dhcpserver   = dhcpserver;
-                addr.ula          = ulaAddress;
-                addr.gateway      = gateway;
-                addr.primarydns   = primarydns;
-                addr.secondarydns = secondarydns;
-                if (!globalAddresses.empty()) {
-                    /* Prefer non-MAC-based global; fall back to first if all are MAC-based. */
-                    const std::string* chosen = nullptr;
-                    uint32_t chosenPrefix = 0;
-                    for (const auto& kv : globalAddresses) {
-                        if (!chosen) {
-                            chosen = &kv.first;
-                            chosenPrefix = kv.second;
-                        }
-                        if (isIPv6 && !macAddress.empty()
-                            && isIPv6MacBased(kv.first, macAddress)) {
-                            continue;  // skip MAC-based, keep looking
-                        }
-                        // Found a non-MAC-based global — use it
-                        chosen = &kv.first;
-                        chosenPrefix = kv.second;
-                        break;
-                    }
-                    if (chosen) {
-                        addr.ipaddress = *chosen;
-                        addr.prefix    = chosenPrefix;
-                    }
-                }
-                return addr;
-            }
+            Exchange::INetworkManager::IPAddress toIPAddress() const;
             void clear() { *this = IpFamilyCache{}; }
         };
 

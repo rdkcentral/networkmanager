@@ -1320,6 +1320,27 @@ namespace WPEFramework
             }
         }
 
+        bool isIPv4LinkLocal(const std::string& addr)
+        {
+            struct in_addr sa{};
+            return inet_pton(AF_INET, addr.c_str(), &sa) == 1 &&
+                   (ntohl(sa.s_addr) & 0xffff0000u) == 0xa9fe0000u;
+        }
+
+        bool isIPv6LinkLocal(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   sa6.s6_addr[0] == 0xfe && (sa6.s6_addr[1] & 0xc0) == 0x80;
+        }
+
+        bool isIPv6ULA(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   (ntohl(sa6.s6_addr32[0]) & 0xfe000000u) == 0xfc000000u;
+        }
+
         bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr)
         {
             if (ipv6Addr.empty() || macAddr.empty())
@@ -1352,6 +1373,57 @@ namespace WPEFramework
                 return true;
             }
             return false;
+        }
+
+        Exchange::INetworkManager::IPAddress IpFamilyCache::toIPAddress() const
+        {
+            Exchange::INetworkManager::IPAddress addr{};
+            /* Detect IP version from any available address. */
+            bool isIPv6 = false;
+            {
+                const std::string* sample = nullptr;
+                if (!globalAddresses.empty())
+                    sample = &globalAddresses.begin()->first;
+                else if (!uniqueLocalAddresses.empty())
+                    sample = &(*uniqueLocalAddresses.begin());
+                else if (!linkLocalAddresses.empty())
+                    sample = &(*linkLocalAddresses.begin());
+                if (sample) {
+                    struct in6_addr sa6{};
+                    isIPv6 = (inet_pton(AF_INET6, sample->c_str(), &sa6) == 1);
+                }
+            }
+            addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
+            addr.autoconfig   = autoconfig;
+            addr.dhcpserver   = dhcpserver;
+            addr.ula          = uniqueLocalAddresses.empty() ? "" : *uniqueLocalAddresses.begin();
+            addr.gateway      = gateway;
+            addr.primarydns   = primarydns;
+            addr.secondarydns = secondarydns;
+            /* Prefer non-MAC-based global; fall back to MAC-based if all are MAC-based. */
+            const std::string* bestGlobal = nullptr;
+            uint32_t bestPrefix = 0;
+            const std::string* fallbackMac = nullptr;
+            uint32_t fallbackMacPrefix = 0;
+            for (const auto& kv : globalAddresses) {
+                if (kv.second.type == ADDR_GLOBAL) {
+                    bestGlobal = &kv.first;
+                    bestPrefix = kv.second.prefix;
+                    break;
+                }
+                if (!fallbackMac) {
+                    fallbackMac = &kv.first;
+                    fallbackMacPrefix = kv.second.prefix;
+                }
+            }
+            if (bestGlobal) {
+                addr.ipaddress = *bestGlobal;
+                addr.prefix    = bestPrefix;
+            } else if (fallbackMac) {
+                addr.ipaddress = *fallbackMac;
+                addr.prefix    = fallbackMacPrefix;
+            }
+            return addr;
         }
     }
 }
