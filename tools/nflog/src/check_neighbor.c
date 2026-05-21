@@ -57,15 +57,19 @@ static void print_neighbor_row(const struct nlmsghdr *nlh) {
     int attrlen = nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm));
     const struct rtattr *rta = (const struct rtattr *)((const char *)ndm + NLMSG_ALIGN(sizeof(*ndm)));
 
-    struct in_addr dst_addr = {0};
+    int family = ndm->ndm_family;
+    unsigned char dst_buf[sizeof(struct in6_addr)] = {0};
     bool found_dst = false;
     unsigned char mac[6] = {0};
     bool found_mac = false;
 
+    size_t expected_addr_len = (family == AF_INET) ? sizeof(struct in_addr)
+                                                   : sizeof(struct in6_addr);
+
     for (; RTA_OK(rta, attrlen); rta = RTA_NEXT(rta, attrlen)) {
         if (rta->rta_type == NDA_DST) {
-            if (RTA_PAYLOAD(rta) >= sizeof(dst_addr)) {
-                memcpy(&dst_addr, RTA_DATA(rta), sizeof(dst_addr));
+            if (RTA_PAYLOAD(rta) >= expected_addr_len) {
+                memcpy(dst_buf, RTA_DATA(rta), expected_addr_len);
                 found_dst = true;
             }
         } else if (rta->rta_type == NDA_LLADDR) {
@@ -81,10 +85,11 @@ static void print_neighbor_row(const struct nlmsghdr *nlh) {
         return;
     }
 
-    char ipstr[INET_ADDRSTRLEN] = {0};
+    char ipstr[INET6_ADDRSTRLEN] = {0};
     char ifname[IF_NAMESIZE] = {0};
+    const char *family_str = (family == AF_INET) ? "IPv4" : "IPv6";
 
-    if (inet_ntop(AF_INET, &dst_addr, ipstr, sizeof(ipstr)) == NULL) {
+    if (inet_ntop(family, dst_buf, ipstr, sizeof(ipstr)) == NULL) {
         snprintf(ipstr, sizeof(ipstr), "invalid-ip");
     }
 
@@ -92,7 +97,8 @@ static void print_neighbor_row(const struct nlmsghdr *nlh) {
         snprintf(ifname, sizeof(ifname), "if#%d", ndm->ndm_ifindex);
     }
 
-    printf("IP=%-15s IF=%-8s STATE=%-10s REACHABLE=%s",
+    printf("%-4s IP=%-39s IF=%-8s STATE=%-10s REACHABLE=%s",
+           family_str,
            ipstr,
            ifname,
            nud_state_to_string(ndm->ndm_state),
@@ -121,7 +127,7 @@ static int request_neighbor_dump(int sock, unsigned int seq) {
     req.nlh.nlmsg_type = RTM_GETNEIGH;
     req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
     req.nlh.nlmsg_seq = seq;
-    req.ndm.ndm_family = AF_INET;
+    req.ndm.ndm_family = AF_UNSPEC;
 
     if (sendto(sock, &req, req.nlh.nlmsg_len, 0,
                (struct sockaddr *)&kernel, sizeof(kernel)) < 0) {
@@ -181,7 +187,7 @@ static int dump_neighbors(int sock, unsigned int seq) {
             }
 
             struct ndmsg *ndm = (struct ndmsg *)NLMSG_DATA(nlh);
-            if (ndm->ndm_family != AF_INET) {
+            if (ndm->ndm_family != AF_INET && ndm->ndm_family != AF_INET6) {
                 continue;
             }
 
@@ -251,7 +257,7 @@ int monitor_neighbors(void) {
             }
 
             struct ndmsg *ndm = (struct ndmsg *)NLMSG_DATA(nlh);
-            if (ndm->ndm_family != AF_INET) {
+            if (ndm->ndm_family != AF_INET && ndm->ndm_family != AF_INET6) {
                 continue;
             }
 
@@ -278,7 +284,7 @@ int monitor_neighbors(void) {
 int main(int argc, char *argv[]) {
     if (argc != 1) {
         fprintf(stderr, "Usage: %s\n", argv[0]);
-        fprintf(stderr, "Runs continuously and monitors IPv4 ARP/neighbor table changes.\n");
+        fprintf(stderr, "Runs continuously and monitors IPv4/IPv6 neighbor table changes.\n");
         return 1;
     }
 
