@@ -990,7 +990,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 string frequencyList{};
                 while (frequencies->Next(frequencyList) == true)
                 {
-                    m_filterFrequencylist.push_back(frequencyList.c_str());
+                    m_filterFrequencies.push_back(frequencyList.c_str());
                     NMLOG_DEBUG("%s added to Frequency filtering", frequencyList.c_str());
                 }
             }

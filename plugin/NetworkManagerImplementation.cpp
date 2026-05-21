@@ -614,7 +614,7 @@ namespace WPEFramework
                 bool freqMatches = m_filterFrequencies.empty();
                 if (!freqMatches)
                 {
-                    for (const auto selectedFrequency : m_filterFrequencies)
+                    for (const auto& selectedFrequency : m_filterFrequencies)
                     {
                         filterFreq = std::stod(selectedFrequency);
                         if (filterFreq == frequencyValue)
