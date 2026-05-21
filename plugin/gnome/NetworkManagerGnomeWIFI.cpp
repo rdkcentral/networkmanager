@@ -755,7 +755,7 @@ namespace WPEFramework
                 g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
             }
 
-            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_ALL)
             {
                 if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
                 {

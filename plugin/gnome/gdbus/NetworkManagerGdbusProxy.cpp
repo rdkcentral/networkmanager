@@ -216,7 +216,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(IWIFIFrequencyIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(IStringIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_GENERAL;
             _nmGdbusEvents->setwifiScanOptions(true); /* Enable event posting */

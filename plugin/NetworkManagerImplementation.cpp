@@ -589,30 +589,11 @@ namespace WPEFramework
             }
             return;
         }
-      
-        namespace {
-            Exchange::INetworkManager::WIFIFrequency GetFrequencyFromMHz(const double frequencyMHz)
-            {
-                // Normalize frequency to MHz even if reported in GHz (2.4/5/6) or report MHz (2412/5180/5955).
-                const double normalizedMHz = (frequencyMHz > 0.0 && frequencyMHz < 100.0)
-                    ? (frequencyMHz * 1000.0)
-                    : frequencyMHz;
-
-                if ((normalizedMHz >= 2400.0) && (normalizedMHz < 2500.0)) {
-                    return Exchange::INetworkManager::WIFI_FREQUENCY_2_4_GHZ;
-                } else if ((normalizedMHz >= 4900.0) && (normalizedMHz < 5925.0)) {
-                    return Exchange::INetworkManager::WIFI_FREQUENCY_5_GHZ;
-                } else if ((normalizedMHz >= 5925.0) && (normalizedMHz < 7125.0)) {
-                    return Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ;
-                } else {
-                    return Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
-                }
-            }
-        }
 
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
         {
             JsonArray result;
+            double filterFreq = 0.0;
             std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
 
             // If neither SSID list nor frequency is provided, exit
@@ -628,16 +609,15 @@ namespace WPEFramework
                 string ssid = object["ssid"].String();
                 string frequency = object["frequency"].String();
 
-
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
                 bool freqMatches = m_filterFrequencies.empty();
                 if (!freqMatches)
                 {
-                    const auto ssidFrequencyBand = GetFrequencyFromMHz(frequencyValue);
                     for (const auto selectedFrequency : m_filterFrequencies)
                     {
-                        if (selectedFrequency == ssidFrequencyBand)
+                        filterFreq = std::stod(selectedFrequency);
+                        if (filterFreq == frequencyValue)
                         {
                             freqMatches = true;
                             break;

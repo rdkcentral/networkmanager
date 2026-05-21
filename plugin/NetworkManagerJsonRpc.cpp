@@ -642,27 +642,20 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-	    	Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
+	    	Exchange::INetworkManager::IStringIterator* frequencies = nullptr;
 	    	Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
-			const bool hasFrequencyLabel = parameters.HasLabel("frequency");
-			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
-            if (hasFrequencyLabel)
+            if (parameters.HasLabel("frequencies"))
 			{
-				JsonArray array = parameters["frequency"].Array();
+				JsonArray array = parameters["frequencies"].Array();
+                std::vector<std::string> frequencyList;
 	            JsonArray::Iterator index(array.Elements());
+
 				while (index.Next() == true)
 				{
-					if (Core::JSON::Variant::type::NUMBER == index.Current().Content())
+                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
 					{
-						const int freq = index.Current().Number();
-						if (freq < static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
-							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
-						{
-							NMLOG_ERROR("Invalid frequency value in array");
-							returnJson(rc);
-						}
-						frequencyList.push_back(static_cast<Exchange::INetworkManager::WIFIFrequency>(freq));
+                        frequencyList.push_back(index.Current().String());
 					}
 					else
 					{
@@ -670,13 +663,10 @@ namespace WPEFramework
 	                    returnJson(rc);
 					}
 				}
-				if (!frequencyList.empty()) {
-					using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
-					frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
-					if (frequencies == nullptr) {
-						returnJson(rc);
-					}
-				}
+                frequencies = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(frequencyList);
+                if (frequencies == nullptr) {
+                    returnJson(rc);
+                }
 			}
 
         	if (parameters.HasLabel("ssids"))

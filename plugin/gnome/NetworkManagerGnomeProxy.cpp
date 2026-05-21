@@ -986,7 +986,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(IWIFIFrequencyIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(IStringIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
@@ -1011,15 +1011,19 @@ namespace WPEFramework
                 }
             }
 
-            if (frequencies && frequencies->Count() > 0)
+            if (frequencies)
             {
-                Exchange::INetworkManager::WIFIFrequency frequency = Exchange::INetworkManager::WIFI_FREQUENCY_NONE;
+                string frequency{};
                 while (frequencies->Next(frequency) == true)
                 {
-                    if (frequency != Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
+                    if (!frequency.empty())
                     {
                         m_filterFrequencies.push_back(frequency);
-                        NMLOG_DEBUG("Frequency %u added to scan filtering", static_cast<uint32_t>(frequency));
+                        NMLOG_DEBUG("Frequency %s added to scan filtering", frequency.c_str());
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Empty frequency encountered in input list; skipping.");
                     }
                 }
             }

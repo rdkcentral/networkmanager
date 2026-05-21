@@ -634,38 +634,23 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::IWIFIFrequencyIterator* frequencies = nullptr;
+            Exchange::INetworkManager::IStringIterator* frequencies = nullptr;
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
-			std::vector<Exchange::INetworkManager::WIFIFrequency> frequencyList;
-
+			std::vector<string> frequencyList;
 
             if (parameters.HasLabel("frequency"))
 			{
-				JsonArray array = parameters["frequency"].Array();
-	            JsonArray::Iterator index(array.Elements());
-				while (index.Next() == true)
-				{
-					if (Core::JSON::Variant::type::NUMBER == index.Current().Content())
-					{
-						const int freq = index.Current().Number();
-						if (freq < static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_NONE)
-							|| freq > static_cast<int>(Exchange::INetworkManager::WIFI_FREQUENCY_6_GHZ)) 
-						{
-							NMLOG_ERROR("Invalid frequency value in array");
-							returnJson(rc);
-						}
-						frequencyList.push_back(static_cast<Exchange::INetworkManager::WIFIFrequency>(freq));
-					}
-					else
-					{
-						NMLOG_ERROR("Unexpected variant type in frequency array.");
-	                    returnJson(rc);
-					}
-				}
-			}
-			if (!frequencyList.empty()) {
-				using FrequencyIterator = RPC::IteratorType<Exchange::INetworkManager::IWIFIFrequencyIterator>;
-				frequencies = Core::Service<FrequencyIterator>::Create<Exchange::INetworkManager::IWIFIFrequencyIterator>(frequencyList);
+                if (Core::JSON::Variant::type::STRING == parameters["frequency"].Content())
+                {
+                    frequencyList.push_back(parameters["frequency"].String());
+                }
+                else
+                {
+                    NMLOG_ERROR("Unexpected variant type in frequency parameter.");
+                        returnJson(rc);
+                }
+
+                frequencies = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(frequencyList));
 				if (frequencies == nullptr) {
 					returnJson(rc);
 				}
