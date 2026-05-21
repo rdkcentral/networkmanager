@@ -1163,6 +1163,14 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::ReapplyWifiSettings(void)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->toggleAutoRouteExtGw(nmUtils::wlanIface()))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;

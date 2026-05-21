@@ -53,6 +53,7 @@ namespace WPEFramework
             bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
             bool ethernetDisconnect();
+            bool toggleAutoRouteExtGw(const std::string& iface);
             bool activateKnownConnection(std::string iface, std::string knowConnectionID="");
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo);

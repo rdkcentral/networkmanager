@@ -1306,6 +1306,9 @@ namespace WPEFramework
                 {
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
                     StartWiFiScan("", nullptr);
+
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, toggling auto-route-ext-gw on wlan0");
+                    ReapplyWifiSettings();
                 }
             }
         }

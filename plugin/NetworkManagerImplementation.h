@@ -230,6 +230,7 @@ namespace WPEFramework
                 uint32_t WiFiDisconnect(void) override;
                 uint32_t EthernetDisconnect(void);
                 uint32_t EthernetConnect(void);
+                uint32_t ReapplyWifiSettings(void);
                 uint32_t GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */) override;
 
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;
