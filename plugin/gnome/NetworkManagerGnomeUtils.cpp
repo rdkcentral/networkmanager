@@ -261,13 +261,13 @@ namespace WPEFramework
                     }
                 }
 
-                if (line.find("DEVICE_NAME=") != std::string::npos) {
+                if (line.find("DEFAULT_HOSTNAME=") != std::string::npos) {
                     deviceHostname = line.substr(line.find('=') + 1);
                     deviceHostname.erase(deviceHostname.find_last_not_of("\r\n\t") + 1);
                     deviceHostname.erase(0, deviceHostname.find_first_not_of("\r\n\t"));
                     if(deviceHostname.empty())
                     {
-                        NMLOG_WARNING("DEVICE_NAME is empty in /etc/device.properties");
+                        NMLOG_WARNING("DEFAULT_HOSTNAME is empty in /etc/device.properties");
                         deviceHostname = ""; // set empty device name
                     }
                 }
