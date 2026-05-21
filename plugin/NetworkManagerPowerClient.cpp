@@ -53,16 +53,20 @@ NetworkManagerPowerClient::~NetworkManagerPowerClient()
         mPowerThread.join();
     }
     Close(Core::infinite);
-    unregisterEventsAndDeactivate();
+    unregisterEvents();
 }
 
 bool NetworkManagerPowerClient::IsValid() const
 {
+    LOG_ENTRY_FUNCTION();
+
     return mPowerManager != nullptr;
 }
 
 bool NetworkManagerPowerClient::getNetworkStandbyMode() const
 {
+    LOG_ENTRY_FUNCTION();
+
     bool standbyMode = false;
     if (IsValid()) {
         if (auto r = mPowerManager->GetNetworkStandbyMode(standbyMode); r != Core::ERROR_NONE) {
@@ -74,6 +78,8 @@ bool NetworkManagerPowerClient::getNetworkStandbyMode() const
 
 void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId)
 {
+    LOG_ENTRY_FUNCTION();
+
     if (IsValid()) {
         NMLOG_INFO("NetworkManagerPowerClient: sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
         mPowerManager->PowerModePreChangeComplete(mClientId, transactionId);
@@ -82,6 +88,8 @@ void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId
 
 void NetworkManagerPowerClient::sendDelayPowerModeChange(int transactionId, int seconds)
 {
+    LOG_ENTRY_FUNCTION();
+
     if (IsValid()) {
         if (auto r = mPowerManager->DelayPowerModeChangeBy(mClientId, transactionId, seconds); r != Core::ERROR_NONE) {
             NMLOG_ERROR("NetworkManagerPowerClient: DelayPowerModeChangeBy failed (%u)", r);
@@ -103,13 +111,13 @@ void NetworkManagerPowerClient::Operational(bool upAndRunning)
         }
     } else {
         // Stop the power-event thread before unregistering so any in-flight
-        // event that was already enqueued is drained with a fast ack.
+        // event that was already enqueued is drained.
         mStopThread = true;
         mQueueCv.notify_one();
         if (mPowerThread.joinable()) {
             mPowerThread.join();
         }
-        unregisterEventsAndDeactivate();
+        unregisterEvents();
     }
 }
 
@@ -140,8 +148,7 @@ void NetworkManagerPowerClient::unregisterEvents()
         NMLOG_ERROR("NetworkManagerPowerClient: not in valid state, skipping event unregistration");
         return;
     }
-    // NOTE: RemovePowerModePreChangeClient MUST be called before Unregister(IModePreChangeNotification)
-    // per the IPowerManager API contract.
+    // NOTE: RemovePowerModePreChangeClient MUST be called before Unregister
     if (auto r = mPowerManager->RemovePowerModePreChangeClient(mClientId); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: RemovePowerModePreChangeClient failed (%u)", r);
     }
@@ -151,15 +158,9 @@ void NetworkManagerPowerClient::unregisterEvents()
     if (auto r = mPowerManager->Unregister(&mChangedNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: Unregister(changed) failed (%u)", r);
     }
-}
 
-void NetworkManagerPowerClient::unregisterEventsAndDeactivate()
-{
-    if (IsValid()) {
-        unregisterEvents();
-        mPowerManager->Release();
-        mPowerManager = nullptr;
-    }
+    mPowerManager->Release();
+    mPowerManager = nullptr;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,9 +199,11 @@ void NetworkManagerPowerClient::powerThreadLoop()
         }
         // Lock released — process event on this thread (blocking is fine here)
 
+        const bool toDeepSleep   = (event.newState     == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
+        const bool fromDeepSleep = (event.currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
+
         if (event.type == PowerEvent::EventType::CHANGED) {
             // Wakeup notification — no ack required.
-            const bool fromDeepSleep = (event.currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
             if (fromDeepSleep && event.standbyMode) {
                 NMLOG_INFO("NetworkManagerPowerClient: power thread — wakeup from DeepSleep standby ON");
                 mCallback.OnPowerModeChanged(event.currentState, event.newState);
@@ -215,9 +218,6 @@ void NetworkManagerPowerClient::powerThreadLoop()
         auto sendAck = [transactionId = event.transactionId, this]() {
             sendPowerModePreChangeComplete(transactionId);
         };
-
-        const bool toDeepSleep   = (event.newState     == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
-        const bool fromDeepSleep = (event.currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP);
 
         if ((toDeepSleep || fromDeepSleep) && !event.standbyMode) {
             // Deep-sleep transition with Network Standby OFF: delegate to
@@ -247,8 +247,7 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
     NMLOG_INFO("NetworkManagerPowerClient::OnPowerModePreChange current=%d new=%d txId=%d after=%ds",
                static_cast<int>(currentState), static_cast<int>(newState), transactionId, stateChangeAfter);
 
-    // Query standby mode inline on the COM-RPC dispatcher thread — it is a
-    // COM-RPC call and must not be made from the power thread.
+    // Query standby mode
     const bool standbyMode = mClient.getNetworkStandbyMode();
 
     // Cache for use by ChangedNotification
@@ -260,7 +259,7 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
         mClient.sendDelayPowerModeChange(transactionId, 5);
     }
 
-    // Enqueue and return immediately — the power thread does the real work.
+    // Enqueue and return immediately so the COM-RPC dispatcher thread is freed.
     {
         std::lock_guard<std::mutex> lock(mClient.mQueueMutex);
         mClient.mEventQueue.push(PowerEvent{PowerEvent::EventType::PRE_CHANGE,
@@ -279,7 +278,7 @@ void NetworkManagerPowerClient::ChangedNotification::OnPowerModeChanged(
     NMLOG_INFO("NetworkManagerPowerClient::OnPowerModeChanged current=%d new=%d",
                static_cast<int>(currentState), static_cast<int>(newState));
 
-    // Use the standby mode cached
+    // Use the cached standby mode
     const bool standbyMode = mClient.mLastChangeStandbyMode;
 
     // Enqueue and return immediately so the COM-RPC dispatcher thread is freed.

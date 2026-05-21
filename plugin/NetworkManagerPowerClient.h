@@ -58,9 +58,6 @@ struct INetworkPowerCallback {
 };
 
 /**
- * Thunder COMRPC client to the PowerManager plugin.
- *
- * Follows the same pattern as Mediarite's PowerManagerPluginClient:
  *   - Inherits SmartInterfaceType<IPowerManager> for automatic
  *     reconnect / Operational() lifecycle callbacks.
  *   - Registers as an AddPowerModePreChangeClient so it participates
@@ -72,7 +69,7 @@ struct INetworkPowerCallback {
  *   Construction  → Open() connects to PowerManager (async).
  *   Operational(true)  → registers events; IsValid() returns true.
  *   Operational(false) → unregisters events and releases proxy.
- *   Destruction   → Close() then unregisterEventsAndDeactivate().
+ *   Destruction   → Close() then unregisterEvents().
  */
 class NetworkManagerPowerClient : protected RPC::SmartInterfaceType<Exchange::IPowerManager> {
 public:
@@ -90,7 +87,7 @@ public:
     /** Queries the current Network Standby mode from PowerManager. */
     bool getNetworkStandbyMode() const;
 
-    /** Sends PowerModePreChangeComplete to PowerManager; ignores return value. */
+    /** Sends PowerModePreChangeComplete to PowerManager. */
     void sendPowerModePreChangeComplete(int transactionId);
 
     /** Requests a delay window extension via DelayPowerModeChangeBy. */
@@ -140,7 +137,8 @@ private:
 
     void registerEvents();
     void unregisterEvents();
-    void unregisterEventsAndDeactivate();
+    void powerThreadLoop();
+
 
     // -----------------------------------------------------------------------
     // Members
@@ -169,11 +167,8 @@ private:
     std::mutex                        mQueueMutex;
     std::condition_variable           mQueueCv;
     std::atomic<bool>                 mStopThread{false};
-
     // Cached standby mode from the last PRE_CHANGE event.
     bool                              mLastChangeStandbyMode{false};
-
-    void powerThreadLoop();
 };
 
 } // namespace Plugin

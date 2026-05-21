@@ -1208,20 +1208,10 @@ namespace WPEFramework
             std::function<void()> sendAck)
         {
             // Called from NetworkManagerPowerClient's power thread.
-            // Policy (standbyMode check, DeepSleep filter) has already been
-            // applied by the power thread before calling here.
             NMLOG_INFO("OnPowerModePreChange: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
 
             using PowerState = Exchange::IPowerManager::PowerState;
-
-            if (newState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP &&
-                currentState != PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
-            {
-                NMLOG_INFO("OnPowerModePreChange: not entering or exiting DeepSleep, no action needed");
-                sendAck();
-                return;
-            }
 
             if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
             {
