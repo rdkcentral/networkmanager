@@ -20,7 +20,6 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
-#include "NetworkManagerJsonEnum.h"
 #include <fstream>
 #include <sstream>
 #include <arpa/inet.h>
