@@ -1038,7 +1038,7 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
   "method": "org.rdk.NetworkManager.1.StartWiFiScan",
   "params": {
     "frequencies": [
-      "["2.4", "5", "6"]"
+      ["2.4", "5", "6"]
     ],
     "ssids": [
       "Xfinity Mobile"
