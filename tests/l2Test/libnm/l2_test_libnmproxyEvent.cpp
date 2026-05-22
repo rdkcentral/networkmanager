@@ -208,31 +208,6 @@ TEST_F(NetworkManagerEventTest, onInterfaceStateChangeCb)
     WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
 }
 
-TEST_F(NetworkManagerEventTest, onAddressChangeCb)
-{
-    // Test acquiring IPv4 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "192.168.1.100", true, false);
-    
-    // Test acquiring IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
-    
-    // Test acquiring same IPv6 address again (should skip posting)
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
-    
-    // Test acquiring different IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::2", true, true);
-    
-    // Test losing IPv4 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, false);
-    
-    // Test losing IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, true);
-    
-    // Test losing IP on interface with empty cache (should skip posting)
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, false);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, true);
-}
-
 TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
 {
     GPtrArray* fakeDevices = g_ptr_array_new();

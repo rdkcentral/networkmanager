@@ -681,20 +681,21 @@ namespace WPEFramework
             string ipversionStr = ipversion.empty() ? "IPv4" : ipversion;
             std::string family = nmUtils::caseInsensitiveCompare(ipversionStr, "IPv6") ? "IPv6" : "IPv4";
 
+            result = IPAddress{};
+            result.ipversion = family;
+
             // Serve from event-driven cache
+            if (lookupIpCache(interface, family, result))
             {
-                std::lock_guard<std::mutex> lock(m_ipCacheMutex);
-                auto it = m_ipCacheMap.find({interface, family});
-                if (it != m_ipCacheMap.end() && it->second.valid)
-                {
-                    NMLOG_DEBUG("%s %s address from cache", interface.c_str(), family.c_str());
-                    result = it->second.toIPAddress();
-                    return Core::ERROR_NONE;
-                }
+                NMLOG_DEBUG("%s %s address from cache", interface.c_str(), family.c_str());
+                result.ipversion = family;
+            }
+            else
+            {
+                NMLOG_DEBUG("no %s address on %s", family.c_str(), interface.c_str());
             }
 
-            NMLOG_WARNING("IP cache not populated for %s %s", interface.c_str(), family.c_str());
-            return Core::ERROR_GENERAL;
+            return Core::ERROR_NONE;
         }
 
         /* @brief Set IP Address Of the Interface */

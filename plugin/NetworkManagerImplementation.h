@@ -371,16 +371,12 @@ namespace WPEFramework
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
-                std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
-                mutable std::mutex m_ipCacheMutex;
+                bool lookupIpCache(const std::string& iface, const std::string& ipFamily,
+                                   Exchange::INetworkManager::IPAddress& out) const;
+                std::set<std::string> swapIpCache(const std::string& iface,
+                                                  const std::string& ipFamily,
+                                                  IpFamilyCache newCache);
 
-                /* Convenience accessor — returns a reference to the cache entry for the
-                   given interface + address-family pair, inserting a default-constructed
-                   entry if none exists yet.  Caller MUST hold m_ipCacheMutex. */
-                IpFamilyCache& getIpCache(const std::string& iface, const std::string& ipFamily)
-                {
-                    return m_ipCacheMap[{iface, ipFamily}];
-                }
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;
@@ -407,6 +403,8 @@ namespace WPEFramework
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
+                std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
+                mutable std::mutex m_ipCacheMutex;
         };
     }
 }

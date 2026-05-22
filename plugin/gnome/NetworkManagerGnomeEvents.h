@@ -39,11 +39,6 @@ namespace WPEFramework
         std::string ifnameEth0;
     } NMEvents;
 
-    /* Refresh the per-interface/per-family IP cache from current libnm state and
-       emit acquired/lost events for address-set differences.  Called from both
-       GnomeEvents signal callbacks and the GetIPSettings fallback path. */
-    void refreshIpFamilyCache(NMDevice* device, bool isIPv6);
-
     class GnomeNetworkManagerEvents
     {
 

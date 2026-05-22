@@ -20,6 +20,8 @@
 #include <thread>
 #include <chrono>
 #include <algorithm>
+#include <cstring>
+#include <cstdio>
 #include "NetworkManagerImplementation.h"
 
 #if USE_TELEMETRY
@@ -1338,41 +1340,82 @@ namespace WPEFramework
         {
             struct in6_addr sa6{};
             return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
-                   (ntohl(sa6.s6_addr32[0]) & 0xfe000000u) == 0xfc000000u;
+                   (sa6.s6_addr[0] & 0xfe) == 0xfc;
+        }
+
+        /* Parse a MAC string into 6 bytes.  Accepts both "AA:BB:CC:DD:EE:FF" and "aabbccddeeff". */
+        static bool parseMac(const std::string& mac, uint8_t out[6])
+        {
+            unsigned int b[6];
+            if (mac.size() >= 17 &&
+                sscanf(mac.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x",
+                       &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6)
+            {
+                for (int i = 0; i < 6; ++i) out[i] = static_cast<uint8_t>(b[i]);
+                return true;
+            }
+            if (mac.size() >= 12 &&
+                sscanf(mac.c_str(), "%02x%02x%02x%02x%02x%02x",
+                       &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6)
+            {
+                for (int i = 0; i < 6; ++i) out[i] = static_cast<uint8_t>(b[i]);
+                return true;
+            }
+            return false;
         }
 
         bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr)
         {
-            if (ipv6Addr.empty() || macAddr.empty())
-            {
-                NMLOG_ERROR("ipv6 addr or mac addr is empty");
+            struct in6_addr sa6{};
+            uint8_t mac[6];
+            if (inet_pton(AF_INET6, ipv6Addr.c_str(), &sa6) != 1 || !parseMac(macAddr, mac))
                 return false;
-            }
-            if (macAddr.size() < 12)
+
+            /* Build 8-byte EUI-64 identifier from 6-byte MAC:
+               mac[0..2] | ff:fe | mac[3..5], then flip the U/L bit (bit 1) of byte 0. */
+            uint8_t eui64[8];
+            eui64[0] = mac[0] ^ 0x02;   // flip Universal/Local bit
+            eui64[1] = mac[1];
+            eui64[2] = mac[2];
+            eui64[3] = 0xff;
+            eui64[4] = 0xfe;
+            eui64[5] = mac[3];
+            eui64[6] = mac[4];
+            eui64[7] = mac[5];
+
+            /* Compare against the interface-ID (last 8 bytes) of the IPv6 address. */
+            if (memcmp(&sa6.s6_addr[8], eui64, 8) == 0)
             {
-                NMLOG_ERROR("mac addr is less than 12 chars: %s", macAddr.c_str());
-                return false;
-            }
-
-            // Normalise MAC: lowercase, remove colons, insert "fffe" in the middle,
-            // then drop the first two characters (the EUI-64 modified byte is in the IPv6 address).
-            std::string tmpMac(macAddr);                                                // "A8:11:FC:FD:1E:8D" // example
-            std::transform(tmpMac.begin(), tmpMac.end(), tmpMac.begin(), ::tolower);    // "a8:11:fc:fd:1e:8d"
-            tmpMac.erase(std::remove(tmpMac.begin(), tmpMac.end(), ':'), tmpMac.end()); // "a811fcfd1e8d"
-            tmpMac.insert(6, "fffe");                                                   // "a811fcfffefd1e8d"
-            tmpMac.erase(0, 2);                                                         //   "11fcfffefd1e8d"
-
-            // Normalise IPv6: lowercase, remove colons.
-            std::string tmpIpv6(ipv6Addr);
-            std::transform(tmpIpv6.begin(), tmpIpv6.end(), tmpIpv6.begin(), ::tolower);
-            tmpIpv6.erase(std::remove(tmpIpv6.begin(), tmpIpv6.end(), ':'), tmpIpv6.end());
-
-            if (tmpIpv6.find(tmpMac) != std::string::npos)
-            {
-                NMLOG_INFO("MAC %s based global v6 address %s", macAddr.c_str(), ipv6Addr.c_str());
+                NMLOG_DEBUG("MAC %s based global v6 address %s", macAddr.c_str(), ipv6Addr.c_str());
                 return true;
             }
             return false;
+        }
+
+        bool NetworkManagerImplementation::lookupIpCache(
+            const std::string& iface, const std::string& ipFamily,
+            Exchange::INetworkManager::IPAddress& out) const
+        {
+            std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+            auto it = m_ipCacheMap.find({iface, ipFamily});
+            if (it != m_ipCacheMap.end() && it->second.valid) {
+                out = it->second.toIPAddress();
+                return true;
+            }
+            return false;
+        }
+
+        std::set<std::string> NetworkManagerImplementation::swapIpCache(
+            const std::string& iface, const std::string& ipFamily,
+            IpFamilyCache newCache)
+        {
+            std::set<std::string> oldKeys;
+            std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+            IpFamilyCache& cache = m_ipCacheMap[{iface, ipFamily}];
+            for (const auto& kv : cache.globalAddresses)
+                oldKeys.insert(kv.first);
+            cache = std::move(newCache);
+            return oldKeys;
         }
 
         Exchange::INetworkManager::IPAddress IpFamilyCache::toIPAddress() const
