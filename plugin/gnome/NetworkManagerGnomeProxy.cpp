@@ -20,6 +20,7 @@
 #include "NetworkManagerGnomeWIFI.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerGnomeUtils.h"
+#include "NetworkManagerJsonEnum.h"
 #include <fstream>
 #include <sstream>
 #include <arpa/inet.h>
@@ -1018,8 +1019,19 @@ namespace WPEFramework
                 {
                     if (!frequency.empty())
                     {
-                        m_filterFrequencies.push_back(frequency);
-                        NMLOG_DEBUG("Frequency %s added to scan filtering", frequency.c_str());
+                        Core::JSON::EnumType<Exchange::INetworkManager::WIFIFrequency> parsedFrequency;
+                        parsedFrequency.FromString(frequency);
+                        const string normalizedFrequency = parsedFrequency.Data();
+                        if ((!normalizedFrequency.empty()) && (normalizedFrequency == frequency))
+                        {
+                            m_filterFrequencies.push_back(normalizedFrequency);
+                            NMLOG_DEBUG("Frequency %s added to scan filtering", normalizedFrequency.c_str());
+                        }
+                        else
+                        {
+                            NMLOG_ERROR("Invalid frequency value: %s", frequency.c_str());
+                            return Core::ERROR_BAD_REQUEST;
+                        }
                     }
                     else
                     {
