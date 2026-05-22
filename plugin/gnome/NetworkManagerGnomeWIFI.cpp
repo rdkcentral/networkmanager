@@ -637,10 +637,15 @@ namespace WPEFramework
                 NMLOG_DEBUG("No persistent hostname found, using device hostname");
             }
 
+            if(hostname.empty())
+                NMLOG_WARNING("dhcp hostname: <empty>");
+            else
+                NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
+
             // IPv4 settings with DHCP
             NMSettingIP4Config *sIpv4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
-            if(hostname.length() > 0) {
+            if(!hostname.empty()) {
                 g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
                 g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
             }
@@ -649,7 +654,7 @@ namespace WPEFramework
             // IPv6 settings with DHCP
             NMSettingIP6Config *sIpv6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL);
-            if(hostname.length() > 0) {
+            if(!hostname.empty()) {
                 g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
                 g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
             }
@@ -898,15 +903,18 @@ namespace WPEFramework
             if(!nmUtils::readPersistentHostname(hostname))
             {
                 hostname = nmUtils::deviceHostname();
-                NMLOG_DEBUG("no persistent hostname found taking device name as hostname !");
+                NMLOG_DEBUG("No persistent hostname found, using device hostname");
             }
 
-            NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
+            if(hostname.empty())
+                NMLOG_WARNING("dhcp hostname: <empty>");
+            else
+                NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
 
             /* Build up the 'IPv4' Setting */
             NMSettingIP4Config *sIpv4Conf = (NMSettingIP4Config *) nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
-            if(hostname.length() > 0) {
+            if(!hostname.empty()) {
                 g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
                 g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             }
@@ -915,7 +923,7 @@ namespace WPEFramework
             /* Build up the 'IPv6' Setting */
             NMSettingIP6Config *sIpv6Conf = (NMSettingIP6Config *) nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
-            if(hostname.length() > 0) {
+            if(!hostname.empty()) {
                 g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
                 g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
             }
