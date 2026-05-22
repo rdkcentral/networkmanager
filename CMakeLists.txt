@@ -70,6 +70,8 @@ if (ENABLE_LEGACY_PLUGINS)
     add_subdirectory(legacy)
 endif (ENABLE_LEGACY_PLUGINS)
 
+add_subdirectory(networkstats)
+
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
