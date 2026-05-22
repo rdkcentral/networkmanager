@@ -151,6 +151,11 @@ namespace WPEFramework
             if(!nmUtils::readPersistentHostname(hostname))
             {
                 hostname = nmUtils::deviceHostname(); // default hostname as device name
+                if(hostname.empty())
+                {
+                    NMLOG_WARNING("default hostname is empty no modification in nm connections");
+                    return false;
+                }
             }
 
             connections = nm_client_get_connections(client);
