@@ -616,11 +616,19 @@ namespace WPEFramework
                 {
                     for (const auto& selectedFrequency : m_filterFrequencies)
                     {
-                        filterFreq = std::stod(selectedFrequency);
-                        if (filterFreq == frequencyValue)
+                        if (selectedFrequency == "ALL")
                         {
                             freqMatches = true;
                             break;
+                        }
+                        else
+                        {
+                            filterFreq = std::stod(selectedFrequency);
+                            if (filterFreq == frequencyValue)
+                            {
+                                freqMatches = true;
+                                break;
+                            }
                         }
                     }
                 }
