@@ -1147,15 +1147,15 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::EthernetDisconnect(void)
+        uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->ethernetDisconnect())
+            if(wifi->ethernetDeactivate())
                 rc = Core::ERROR_NONE;
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::EthernetConnect(void)
+        uint32_t NetworkManagerImplementation::EthernetActivate(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1"))
@@ -1163,10 +1163,10 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::ReapplyWifiSettings(void)
+        uint32_t NetworkManagerImplementation::RequestDHCPLease(const string& iface)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->toggleAutoRouteExtGw(nmUtils::wlanIface()))
+            if(wifi->requestDhcpLease(iface))
                 rc = Core::ERROR_NONE;
             return rc;
         }

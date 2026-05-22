@@ -423,7 +423,7 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        bool wifiManager::ethernetDisconnect()
+        bool wifiManager::ethernetDeactivate()
         {
             NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
             if(!createClientNewConnection())
@@ -451,60 +451,65 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        static void onUpdate2Done(GObject *src, GAsyncResult *res, gpointer user_data)
+        static void settingsSavedCb(GObject *src, GAsyncResult *res, gpointer user_data)
         {
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             GError *error = NULL;
             nm_remote_connection_update2_finish(NM_REMOTE_CONNECTION(src), res, &error);
             if (error) {
-                NMLOG_ERROR("toggleAutoRouteExtGw: update2 failed: %s", error->message);
+                NMLOG_ERROR("requestDhcpLease: update2 failed: %s", error->message);
                 g_error_free(error);
                 _wifiManager->m_isSuccess = false;
             } else {
                 _wifiManager->m_isSuccess = true;
             }
             g_main_loop_quit(_wifiManager->m_loop);
-            NMLOG_INFO("toggleAutoRouteExtGw: update2 completed for '%s'", nm_connection_get_id(NM_CONNECTION(src)));
+            NMLOG_DEBUG("requestDhcpLease: update2 completed for '%s'", nm_connection_get_id(NM_CONNECTION(src)));
         }
 
-        static void onReapplyDone(GObject *src, GAsyncResult *res, gpointer user_data)
+        static void reappliedCb(GObject *src, GAsyncResult *res, gpointer user_data)
         {
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             GError *error = NULL;
             nm_device_reapply_finish(NM_DEVICE(src), res, &error);
             if (error) {
-                NMLOG_ERROR("toggleAutoRouteExtGw: reapply failed: %s", error->message);
+                NMLOG_ERROR("requestDhcpLease: reapply failed: %s", error->message);
                 g_error_free(error);
                 _wifiManager->m_isSuccess = false;
             } else {
                 _wifiManager->m_isSuccess = true;
             }
             g_main_loop_quit(_wifiManager->m_loop);
-            NMLOG_INFO("toggleAutoRouteExtGw: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
+            NMLOG_DEBUG("requestDhcpLease: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
         }
 
-        bool wifiManager::toggleAutoRouteExtGw(const std::string& iface)
+        bool wifiManager::requestDhcpLease(const std::string& iface)
         {
+            /* There is no direct libnm API to trigger a DHCP renew on an active connection.
+             * As a workaround, we toggle the ipv4.auto-route-ext-gw property and call
+             * nm_device_reapply(). This causes NetworkManager to re-evaluate the IP
+             * configuration and send a new DHCP request for the same lease.
+            */
             if(!createClientNewConnection())
                 return false;
 
             NMDevice *device = nm_client_get_device_by_iface(m_client, iface.c_str());
             if (device == NULL) {
-                NMLOG_WARNING("toggleAutoRouteExtGw: device '%s' not found", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: device '%s' not found", iface.c_str());
                 deleteClientConnection();
                 return false;
             }
 
             NMActiveConnection *activeConn = nm_device_get_active_connection(device);
             if (activeConn == NULL) {
-                NMLOG_WARNING("toggleAutoRouteExtGw: no active connection on '%s'", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: no active connection on '%s'", iface.c_str());
                 deleteClientConnection();
                 return false;
             }
 
             NMRemoteConnection *remoteConn = nm_active_connection_get_connection(activeConn);
             if (remoteConn == NULL) {
-                NMLOG_WARNING("toggleAutoRouteExtGw: could not get connection profile for '%s'", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: could not get connection profile for '%s'", iface.c_str());
                 deleteClientConnection();
                 return false;
             }
@@ -514,7 +519,7 @@ namespace WPEFramework
             NMSettingIPConfig *s_ip4 = NM_SETTING_IP_CONFIG(
                 nm_connection_get_setting(conn, NM_TYPE_SETTING_IP4_CONFIG));
             if (s_ip4 == NULL) {
-                NMLOG_WARNING("toggleAutoRouteExtGw: no IPv4 settings on '%s'", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: no IPv4 settings on '%s'", iface.c_str());
                 g_object_unref(conn);
                 deleteClientConnection();
                 return false;
@@ -525,7 +530,7 @@ namespace WPEFramework
             g_object_get(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, &currentVal, NULL);
 
             NMTernary newVal = (currentVal == NM_TERNARY_DEFAULT) ? NM_TERNARY_TRUE : NM_TERNARY_DEFAULT;
-            NMLOG_INFO("toggleAutoRouteExtGw: '%s' auto-route-ext-gw %d -> %d",
+            NMLOG_DEBUG("requestDhcpLease: '%s' auto-route-ext-gw %d -> %d",
                        iface.c_str(), static_cast<int>(currentVal), static_cast<int>(newVal));
             g_object_set(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, newVal, NULL);
 
@@ -535,11 +540,11 @@ namespace WPEFramework
                                          nm_connection_to_dbus(conn, NM_CONNECTION_SERIALIZE_ALL),
                                          NM_SETTINGS_UPDATE2_FLAG_TO_DISK,
                                          NULL, m_cancellable,
-                                         onUpdate2Done, this);
+                                         settingsSavedCb, this);
             wait(m_loop);
 
             if (!m_isSuccess) {
-                NMLOG_ERROR("toggleAutoRouteExtGw: failed to save connection for '%s'", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: failed to save connection for '%s'", iface.c_str());
                 g_object_unref(conn);
                 deleteClientConnection();
                 return false;
@@ -547,13 +552,13 @@ namespace WPEFramework
 
             /* Reapply to live connection */
             m_isSuccess = false;
-            nm_device_reapply_async(device, conn, 0, 0, m_cancellable, onReapplyDone, this);
+            nm_device_reapply_async(device, conn, 0, 0, m_cancellable, reappliedCb, this);
             wait(m_loop);
 
             if (!m_isSuccess) {
-                NMLOG_ERROR("toggleAutoRouteExtGw: reapply failed for '%s'", iface.c_str());
+                NMLOG_ERROR("requestDhcpLease: reapply failed for '%s'", iface.c_str());
             } else {
-                NMLOG_INFO("toggleAutoRouteExtGw: reapply successful on '%s'", iface.c_str());
+                NMLOG_INFO("requestDhcpLease: reapply successful on '%s'", iface.c_str());
             }
 
             g_object_unref(conn);

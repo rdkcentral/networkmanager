@@ -1236,21 +1236,21 @@ namespace WPEFramework
 
                 if (m_ethEnabled.load() && m_ethConnected.load())
                 {
-                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting Ethernet");
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — deactivating Ethernet");
 
-                    uint32_t rcEthDown = EthernetDisconnect();
+                    uint32_t rcEthDown = EthernetDeactivate();
                     if (rcEthDown == Core::ERROR_NONE)
                     {
                         m_ethDisconnectedForSleep.store(true);
                     }
                     else
                     {
-                        NMLOG_WARNING("OnPowerModePreChange: EthernetDisconnect failed (rc=%u), will not reconnect on wakeup", rcEthDown);
+                        NMLOG_WARNING("OnPowerModePreChange: EthernetDeactivate failed (rc=%u), will not activate on wakeup", rcEthDown);
                     }
                 }
                 else
                 {
-                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not connected, skipping disconnect");
+                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not activated, skipping deactivate");
                 }
             }
             else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
@@ -1279,14 +1279,14 @@ namespace WPEFramework
                 if (m_ethDisconnectedForSleep.load())
                 {
                     m_ethDisconnectedForSleep.store(false);
-                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting Ethernet");
-                    uint32_t rcEthUp = EthernetConnect();
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — activating Ethernet");
+                    uint32_t rcEthUp = EthernetActivate();
                     if (rcEthUp != Core::ERROR_NONE)
-                        NMLOG_WARNING("OnPowerModePreChange: EthernetConnect failed (rc=%u)", rcEthUp);
+                        NMLOG_WARNING("OnPowerModePreChange: EthernetActivate failed (rc=%u)", rcEthUp);
                 }
                 else
                 {
-                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — Ethernet was not connected or was already down before sleep, skipping reconnect");
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — Ethernet was not activated or was already deactivated before sleep, skipping activate");
                 }
             }
             sendAck();
@@ -1299,16 +1299,32 @@ namespace WPEFramework
             NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
             if (currentState == Exchange::IPowerManager::POWER_STATE_STANDBY_DEEP_SLEEP) {
-                // Waking from DeepSleep with Network Standby ON: the AP may have
-                // changed channel while the device slept (802.11 CSA).  Trigger an
-                // active scan so the driver discovers the AP on its new channel.
+
                 if (m_wlanEnabled.load() && m_wlanConnected.load())
                 {
+                    // Waking from DeepSleep with Network Standby ON: the AP may have
+                    // changed channel while the device slept (802.11 CSA).  Trigger an
+                    // active scan so the driver discovers the AP on its new channel.
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
-                    StartWiFiScan("", nullptr);
+                    if (StartWiFiScan("", nullptr) != Core::ERROR_NONE)
+                    {
+                        NMLOG_WARNING("OnPowerModeChanged: StartWiFiScan failed");
+                    }
 
-                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, toggling auto-route-ext-gw on wlan0");
-                    ReapplyWifiSettings();
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on wlan0");
+                    if (RequestDHCPLease("wlan0") != Core::ERROR_NONE)
+                    {
+                        NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(wlan0) failed");
+                    }
+                }
+
+                if (m_ethEnabled.load() && m_ethConnected.load())
+                {
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
+                    if (RequestDHCPLease("eth0") != Core::ERROR_NONE)
+                    {
+                        NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(eth0) failed");
+                    }
                 }
             }
         }
