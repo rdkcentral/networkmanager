@@ -636,10 +636,10 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_GENERAL;
             Exchange::INetworkManager::IStringIterator* frequencies = nullptr;
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
-			std::vector<string> frequencyList;
 
             if (parameters.HasLabel("frequency"))
 			{
+                std::vector<string> frequencyList;
                 if (Core::JSON::Variant::type::STRING == parameters["frequency"].Content())
                 {
                     frequencyList.push_back(parameters["frequency"].String());
