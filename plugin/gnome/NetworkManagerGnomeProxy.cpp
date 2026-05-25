@@ -1157,10 +1157,20 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::EthernetActivate(void)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1"))
-                rc = Core::ERROR_NONE;
-            return rc;
+            const int maxProbes = 3;
+            for(int probe = 0; probe < maxProbes; ++probe)
+            {
+                NMDeviceState state = wifi->getEthDeviceState();
+                if(state == NM_DEVICE_STATE_DISCONNECTED)
+                {
+                    NMLOG_INFO("EthernetActivate: eth0 carrier ready, activating connection");
+                    return wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1") ? Core::ERROR_NONE : Core::ERROR_GENERAL;
+                }
+                NMLOG_WARNING("EthernetActivate: eth0 not ready (state %d), probe %d/%d", (int)state, probe + 1, maxProbes);
+                sleep(1);
+            }
+            NMLOG_ERROR("EthernetActivate: eth0 carrier not ready after %d probes, giving up", maxProbes);
+            return Core::ERROR_GENERAL;
         }
 
         uint32_t NetworkManagerImplementation::RequestDHCPLease(const string& iface)

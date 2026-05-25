@@ -451,6 +451,24 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
+        NMDeviceState wifiManager::getEthDeviceState()
+        {
+            if(!createClientNewConnection())
+                return NM_DEVICE_STATE_UNKNOWN;
+
+            NMDevice *ethDevice = nm_client_get_device_by_iface(m_client, nmUtils::ethIface());
+            if(ethDevice == NULL) {
+                NMLOG_WARNING("ethernet device not found !");
+                deleteClientConnection();
+                return NM_DEVICE_STATE_UNKNOWN;
+            }
+
+            NMDeviceState deviceState = nm_device_get_state(ethDevice);
+            NMLOG_DEBUG("ethernet device state is %d !", deviceState);
+            deleteClientConnection();
+            return deviceState;
+        }
+
         static void settingsSavedCb(GObject *src, GAsyncResult *res, gpointer user_data)
         {
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);

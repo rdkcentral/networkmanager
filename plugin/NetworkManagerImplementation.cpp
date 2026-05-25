@@ -1223,6 +1223,7 @@ namespace WPEFramework
                     if (rcWifiDown == Core::ERROR_NONE)
                     {
                         m_wlanDisconnectedForSleep.store(true);
+                        m_wlanConnected.store(false);
                     }
                     else
                     {
@@ -1263,8 +1264,14 @@ namespace WPEFramework
                                m_lastConnectedSSID.c_str());
                         m_wlanDisconnectedForSleep.store(false);
                         uint32_t rcWifiUp = ConnectToKnownSSID(m_lastConnectedSSID);
-                        if (rcWifiUp != Core::ERROR_NONE)
+                        if (rcWifiUp == Core::ERROR_NONE)
+                        {
+                            m_wlanConnected.store(true); // Mark WiFi as connected.
+                        }
+                        else
+                        {
                             NMLOG_WARNING("OnPowerModePreChange: ConnectToKnownSSID failed (rc=%u)", rcWifiUp);
+                        }
                     }
                     else
                     {
@@ -1278,11 +1285,17 @@ namespace WPEFramework
 
                 if (m_ethDisconnectedForSleep.load())
                 {
-                    m_ethDisconnectedForSleep.store(false);
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — activating Ethernet");
                     uint32_t rcEthUp = EthernetActivate();
-                    if (rcEthUp != Core::ERROR_NONE)
+                    if (rcEthUp == Core::ERROR_NONE)
+                    {
+                        m_ethConnected.store(true); // Mark Ethernet as connected.
+                        m_ethDisconnectedForSleep.store(false);
+                    }
+                    else
+                    {
                         NMLOG_WARNING("OnPowerModePreChange: EthernetActivate failed (rc=%u)", rcEthUp);
+                    }
                 }
                 else
                 {
