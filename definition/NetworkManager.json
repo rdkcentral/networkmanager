@@ -1341,7 +1341,7 @@
             }
         },
         "SetHostname": {
-            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the device name).\n\nSetting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.",
+            "summary": "To configure a custom DHCP hostname instead of the default (which is typically the default hostname).\n\nSetting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.",
             "params": {
                 "type": "object",
                 "properties": {
