@@ -1151,13 +1151,33 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_GENERAL;
             if(wifi->ethernetDeactivate())
-                rc = Core::ERROR_NONE;
+            {
+                /* ethernetDeactivate() returns as soon as NM accepts the disconnect
+                 * request, but the device may still be in DEACTIVATING (110).
+                 * Poll until the device settles to an idle state before returning,
+                 * so sendAck() is not sent while NM is mid-teardown. */
+                const int maxProbes = 5;
+                for(int probe = 0; probe < maxProbes; ++probe)
+                {
+                    NMDeviceState state = wifi->getEthDeviceState();
+                    if(state <= NM_DEVICE_STATE_DISCONNECTED || state == NM_DEVICE_STATE_FAILED)
+                    {
+                        NMLOG_INFO("EthernetDeactivate: eth0 (state %d) after %d probe(s)", (int)state, probe + 1);
+                        rc = Core::ERROR_NONE;
+                        break;
+                    }
+                    NMLOG_WARNING("EthernetDeactivate: eth0 still deactivating (state %d), probe %d/%d", (int)state, probe + 1, maxProbes);
+                    sleep(1);
+                }
+                if(rc != Core::ERROR_NONE)
+                    NMLOG_ERROR("EthernetDeactivate: eth0 did not reach idle state after %d probes", maxProbes);
+            }
             return rc;
         }
 
         uint32_t NetworkManagerImplementation::EthernetActivate(void)
         {
-            const int maxProbes = 3;
+            const int maxProbes = 5;
             for(int probe = 0; probe < maxProbes; ++probe)
             {
                 NMDeviceState state = wifi->getEthDeviceState();
