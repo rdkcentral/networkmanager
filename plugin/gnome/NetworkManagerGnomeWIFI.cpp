@@ -1699,17 +1699,17 @@ namespace WPEFramework
             if(!ssidsToFilter.empty())
             {
                 NMLOG_INFO("Starting wifi scanning for %d SSIDs:",static_cast<int>(ssidsToFilter.size()));
-                GVariantBuilder builder, array_builder;
+                GVariantBuilder nm_variant, nm_array_variant;
                 GVariant *options;
-                g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_variant_builder_init(&array_builder, G_VARIANT_TYPE("aay"));
+                g_variant_builder_init(&nm_variant, G_VARIANT_TYPE_VARDICT);
+                g_variant_builder_init(&nm_array_variant, G_VARIANT_TYPE("aay"));
                 for (const auto& ssid : ssidsToFilter) {
-                    g_variant_builder_add(&array_builder, "@ay",
+                    g_variant_builder_add(&nm_array_variant, "@ay",
                                         g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssid.c_str(), ssid.length(), 1)
                                         );
                 }
-                g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
-                options = g_variant_builder_end(&builder);
+                g_variant_builder_add(&nm_variant, "{sv}", "ssids", g_variant_builder_end(&nm_array_variant));
+                options = g_variant_builder_end(&nm_variant);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, m_cancellable, wifiScanCb, this);
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
@@ -1991,7 +1991,7 @@ namespace WPEFramework
                     connection = nm_simple_connection_new();
                     if(!connectionBuilder(wifiConnectInfo, connection, true))
                     {
-                        NMLOG_ERROR("wps connection builder failed");
+                        NMLOG_ERROR("wps connection nm_variant failed");
                         break;
                     }
 
