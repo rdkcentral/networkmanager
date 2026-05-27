@@ -423,6 +423,35 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
+        static void ethernetDeactivateCb(GObject *object, GAsyncResult *result, gpointer user_data)
+        {
+            NMClient *client = NM_CLIENT(object);
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
+
+            NMLOG_DEBUG("ethernet connection deactivating...");
+            _wifiManager->m_isSuccess = true;
+            if (!nm_client_deactivate_connection_finish(client, result, &error))
+            {
+                NMLOG_ERROR("ethernet connection deactivate failed !");
+                if(error != NULL)
+                {
+                    if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_DEBUG("Deactivate operation was cancelled");
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Deactivate error: %s", error->message);
+                    }
+                    g_error_free(error);
+                }
+                _wifiManager->m_isSuccess = false;
+            }
+            _wifiManager->quit(NULL);
+        }
+
         bool wifiManager::ethernetDeactivate()
         {
             NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
@@ -445,11 +474,19 @@ namespace WPEFramework
                 return true;
             }
 
-            nm_device_disconnect_async(ethDevice, m_cancellable, disconnectCb, this);
+            NMActiveConnection *activeConn = nm_device_get_active_connection(ethDevice);
+            if(activeConn == NULL) {
+                NMLOG_WARNING("ethernet has no active connection, nothing to deactivate !");
+                deleteClientConnection();
+                return true;
+            }
+
+            nm_client_deactivate_connection_async(m_client, activeConn, m_cancellable, ethernetDeactivateCb, this);
             wait(m_loop);
             deleteClientConnection();
             return m_isSuccess;
         }
+#endif
 
         NMDeviceState wifiManager::getEthDeviceState()
         {

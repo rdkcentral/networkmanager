@@ -54,7 +54,9 @@ namespace WPEFramework
             m_wlanConnected.store(false);
             m_ethEnabled.store(false);
             m_wlanEnabled.store(false);
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
             m_ethDisconnectedForSleep.store(false);
+#endif
             m_wlanDisconnectedForSleep.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
@@ -1234,7 +1236,7 @@ namespace WPEFramework
                 {
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
                 }
-
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 if (m_ethEnabled.load() && m_ethConnected.load())
                 {
                     NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — deactivating Ethernet");
@@ -1253,6 +1255,7 @@ namespace WPEFramework
                 {
                     NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not activated, skipping deactivate");
                 }
+#endif
             }
             else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
             {
@@ -1281,25 +1284,6 @@ namespace WPEFramework
                 else
                 {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
-                }
-
-                if (m_ethDisconnectedForSleep.load())
-                {
-                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — activating Ethernet");
-                    uint32_t rcEthUp = EthernetActivate();
-                    if (rcEthUp == Core::ERROR_NONE)
-                    {
-                        m_ethConnected.store(true); // Mark Ethernet as connected.
-                        m_ethDisconnectedForSleep.store(false);
-                    }
-                    else
-                    {
-                        NMLOG_WARNING("OnPowerModePreChange: EthernetActivate failed (rc=%u)", rcEthUp);
-                    }
-                }
-                else
-                {
-                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — Ethernet was not activated or was already deactivated before sleep, skipping activate");
                 }
             }
             sendAck();

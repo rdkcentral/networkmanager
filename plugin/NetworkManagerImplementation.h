@@ -228,8 +228,9 @@ namespace WPEFramework
 
                 uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t WiFiDisconnect(void) override;
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 uint32_t EthernetDeactivate(void);
-                uint32_t EthernetActivate(void);
+#endif
                 uint32_t RequestDHCPLease(const string& iface);
                 uint32_t GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */) override;
 
@@ -336,7 +337,9 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;
                 std::atomic<bool> m_wlanEnabled;
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 std::atomic<bool> m_ethDisconnectedForSleep;
+#endif
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
                 NMClient *m_nmClient{nullptr};          /* proxy NMClient — bound to m_nmContext */

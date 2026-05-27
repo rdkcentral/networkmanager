@@ -1147,6 +1147,7 @@ namespace WPEFramework
             return rc;
         }
 
+#ifdef DENABLE_ETHERNET_CONNECTION_HANDLING
         uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -1154,24 +1155,7 @@ namespace WPEFramework
                 rc = Core::ERROR_NONE;
             return rc;
         }
-
-        uint32_t NetworkManagerImplementation::EthernetActivate(void)
-        {
-            const int maxProbes = 5;
-            for(int probe = 0; probe < maxProbes; ++probe)
-            {
-                NMDeviceState state = wifi->getEthDeviceState();
-                if(state == NM_DEVICE_STATE_DISCONNECTED)
-                {
-                    NMLOG_INFO("EthernetActivate: eth0 carrier ready, activating connection");
-                    return wifi->activateKnownConnection(nmUtils::ethIface(), "Wired connection 1") ? Core::ERROR_NONE : Core::ERROR_GENERAL;
-                }
-                NMLOG_WARNING("EthernetActivate: eth0 not ready (state %d), probe %d/%d", (int)state, probe + 1, maxProbes);
-                sleep(1);
-            }
-            NMLOG_ERROR("EthernetActivate: eth0 carrier not ready after %d probes, giving up", maxProbes);
-            return Core::ERROR_GENERAL;
-        }
+#endif
 
         uint32_t NetworkManagerImplementation::RequestDHCPLease(const string& iface)
         {
