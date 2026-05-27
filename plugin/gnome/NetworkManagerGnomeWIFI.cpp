@@ -1991,7 +1991,7 @@ namespace WPEFramework
                     connection = nm_simple_connection_new();
                     if(!connectionBuilder(wifiConnectInfo, connection, true))
                     {
-                        NMLOG_ERROR("wps connection nm_variant failed");
+                        NMLOG_ERROR("wps connection builder failed");
                         break;
                     }
 
