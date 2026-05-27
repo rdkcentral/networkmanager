@@ -1314,7 +1314,7 @@ namespace WPEFramework
                         NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(wlan0) failed");
                     }
                 }
-
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 if (m_ethEnabled.load() && m_ethConnected.load())
                 {
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
@@ -1323,6 +1323,7 @@ namespace WPEFramework
                         NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(eth0) failed");
                     }
                 }
+#endif
             }
         }
     }

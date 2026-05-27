@@ -68,6 +68,8 @@ namespace WPEFramework
                     NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                     g_error_free(error);
                 }
+                g_clear_object(&m_client);
+                m_client = nullptr;
                 g_main_context_pop_thread_default(m_nmContext);
                 m_opMutex.unlock();
                 return false;
@@ -90,7 +92,7 @@ namespace WPEFramework
                     NMLOG_DEBUG("Cancelling pending async operations");
                     g_cancellable_cancel(m_cancellable);
                     g_clear_object(&m_cancellable);
-                    m_cancellable = NULL;
+                    m_cancellable = nullptr;
                 }
             }
 
@@ -104,18 +106,19 @@ namespace WPEFramework
                     g_main_context_iteration(context, TRUE);
                 }
                 g_main_context_unref(context);
-                m_client = NULL;
+                m_client = nullptr;
             }
 
             if(m_objectPath)
             {
                 NMLOG_DEBUG("Freeing object path");
                 g_free(m_objectPath);
-                m_objectPath = NULL;
+                m_objectPath = nullptr;
             }
 
             // Pop the context pushed in createClientNewConnection()
-            g_main_context_pop_thread_default(m_nmContext);
+            if (m_nmContext)
+                g_main_context_pop_thread_default(m_nmContext);
             // Release operation lock acquired in createClientNewConnection()
             m_opMutex.unlock();
         }
@@ -488,24 +491,6 @@ namespace WPEFramework
         }
 #endif
 
-        NMDeviceState wifiManager::getEthDeviceState()
-        {
-            if(!createClientNewConnection())
-                return NM_DEVICE_STATE_UNKNOWN;
-
-            NMDevice *ethDevice = nm_client_get_device_by_iface(m_client, nmUtils::ethIface());
-            if(ethDevice == NULL) {
-                NMLOG_WARNING("ethernet device not found !");
-                deleteClientConnection();
-                return NM_DEVICE_STATE_UNKNOWN;
-            }
-
-            NMDeviceState deviceState = nm_device_get_state(ethDevice);
-            NMLOG_DEBUG("ethernet device state is %d !", deviceState);
-            deleteClientConnection();
-            return deviceState;
-        }
-
         static void settingsSavedCb(GObject *src, GAsyncResult *res, gpointer user_data)
         {
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
@@ -518,7 +503,8 @@ namespace WPEFramework
             } else {
                 _wifiManager->m_isSuccess = true;
             }
-            g_main_loop_quit(_wifiManager->m_loop);
+            if (_wifiManager->m_loop)
+                g_main_loop_quit(_wifiManager->m_loop);
             NMLOG_DEBUG("requestDhcpLease: update2 completed for '%s'", nm_connection_get_id(NM_CONNECTION(src)));
         }
 
@@ -534,7 +520,8 @@ namespace WPEFramework
             } else {
                 _wifiManager->m_isSuccess = true;
             }
-            g_main_loop_quit(_wifiManager->m_loop);
+            if (_wifiManager->m_loop)
+                g_main_loop_quit(_wifiManager->m_loop);
             NMLOG_DEBUG("requestDhcpLease: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
         }
 
@@ -591,11 +578,13 @@ namespace WPEFramework
 
             /* Save to disk */
             m_isSuccess = false;
+            GVariant *connSettings = nm_connection_to_dbus(conn, NM_CONNECTION_SERIALIZE_ALL);
             nm_remote_connection_update2(remoteConn,
-                                         nm_connection_to_dbus(conn, NM_CONNECTION_SERIALIZE_ALL),
+                                         connSettings,
                                          NM_SETTINGS_UPDATE2_FLAG_TO_DISK,
                                          NULL, m_cancellable,
                                          settingsSavedCb, this);
+            g_variant_unref(connSettings);
             wait(m_loop);
 
             if (!m_isSuccess) {
