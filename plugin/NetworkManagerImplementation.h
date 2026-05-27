@@ -27,6 +27,7 @@
 #include <linux/rtnetlink.h>
 #include <atomic>
 #include <mutex>
+#include <memory>
 
 using namespace std;
 
@@ -327,7 +328,7 @@ namespace WPEFramework
                 std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
-                std::unique_ptr<NetworkManagerPowerClient> _powerClient;
+                std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
                 IPAddress m_ethIPv4Address;
                 IPAddress m_wlanIPv4Address;

@@ -1185,7 +1185,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             /* No-op on RDK platform */
             NMLOG_INFO("EthernetDeactivate: no-op on RDK platform");
-            return Core::ERROR_NONE;
+            return Core::ERROR_UNAVAILABLE;
         }
 #endif
 
@@ -1193,7 +1193,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             /* No-op on RDK platform */
             NMLOG_INFO("RequestDHCPLease: no-op on RDK platform (iface=%s)", iface.c_str());
-            return Core::ERROR_NONE;
+            return Core::ERROR_UNAVAILABLE;
         }
 
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)

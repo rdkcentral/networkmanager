@@ -1147,7 +1147,7 @@ namespace WPEFramework
             return rc;
         }
 
-#ifdef DENABLE_ETHERNET_CONNECTION_HANDLING
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
         uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;

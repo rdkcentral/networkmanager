@@ -462,7 +462,7 @@ namespace WPEFramework
             if(ethDevice == NULL) {
                 NMLOG_WARNING("ethernet device not found !");
                 deleteClientConnection();
-                return true;
+                return false;
             }
 
             deviceState = nm_device_get_state(ethDevice);

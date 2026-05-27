@@ -81,6 +81,10 @@ void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId
     LOG_ENTRY_FUNCTION();
 
     if (IsValid()) {
+        if (mClientId == 0) {
+            NMLOG_ERROR("NetworkManagerPowerClient: sendPowerModePreChangeComplete called with invalid clientId=0, skipping");
+            return;
+        }
         NMLOG_INFO("NetworkManagerPowerClient: sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
         mPowerManager->PowerModePreChangeComplete(mClientId, transactionId);
     }
@@ -91,6 +95,10 @@ void NetworkManagerPowerClient::sendDelayPowerModeChange(int transactionId, int 
     LOG_ENTRY_FUNCTION();
 
     if (IsValid()) {
+        if (mClientId == 0) {
+            NMLOG_ERROR("NetworkManagerPowerClient: sendDelayPowerModeChange called with invalid clientId=0, skipping");
+            return;
+        }
         if (auto r = mPowerManager->DelayPowerModeChangeBy(mClientId, transactionId, seconds); r != Core::ERROR_NONE) {
             NMLOG_ERROR("NetworkManagerPowerClient: DelayPowerModeChangeBy failed (%u)", r);
         }
@@ -129,12 +137,13 @@ void NetworkManagerPowerClient::registerEvents()
         return;
     }
     if (auto r = mPowerManager->AddPowerModePreChangeClient("org.rdk.NetworkManager", mClientId); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: AddPowerModePreChangeClient failed (%u)", r);
+        NMLOG_ERROR("NetworkManagerPowerClient: AddPowerModePreChangeClient failed (%u) — skipping pre-change sink", r);
+        // mClientId stays 0; do NOT register mPreChangeNotification
     } else {
         NMLOG_INFO("NetworkManagerPowerClient: registered as pre-change client, mClientId=%u", mClientId);
-    }
-    if (auto r = mPowerManager->Register(&mPreChangeNotification); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: Register(preChange) failed (%u)", r);
+        if (auto r2 = mPowerManager->Register(&mPreChangeNotification); r2 != Core::ERROR_NONE) {
+            NMLOG_ERROR("NetworkManagerPowerClient: Register(preChange) failed (%u)", r2);
+        }
     }
     if (auto r = mPowerManager->Register(&mChangedNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: Register(changed) failed (%u)", r);
@@ -149,11 +158,14 @@ void NetworkManagerPowerClient::unregisterEvents()
         return;
     }
     // NOTE: RemovePowerModePreChangeClient MUST be called before Unregister
-    if (auto r = mPowerManager->RemovePowerModePreChangeClient(mClientId); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: RemovePowerModePreChangeClient failed (%u)", r);
-    }
-    if (auto r = mPowerManager->Unregister(&mPreChangeNotification); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: Unregister(preChange) failed (%u)", r);
+    if (mClientId != 0) {
+        if (auto r = mPowerManager->RemovePowerModePreChangeClient(mClientId); r != Core::ERROR_NONE) {
+            NMLOG_ERROR("NetworkManagerPowerClient: RemovePowerModePreChangeClient failed (%u)", r);
+        }
+        if (auto r = mPowerManager->Unregister(&mPreChangeNotification); r != Core::ERROR_NONE) {
+            NMLOG_ERROR("NetworkManagerPowerClient: Unregister(preChange) failed (%u)", r);
+        }
+        mClientId = 0;
     }
     if (auto r = mPowerManager->Unregister(&mChangedNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("NetworkManagerPowerClient: Unregister(changed) failed (%u)", r);

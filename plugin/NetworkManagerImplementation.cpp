@@ -75,7 +75,7 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
-            _powerClient.reset();
+            m_powerClient.reset();
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
             platform_deinit();
@@ -204,7 +204,7 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
-            _powerClient.reset(new NetworkManagerPowerClient(*this));
+            m_powerClient.reset(new NetworkManagerPowerClient(*this));
             return(Core::ERROR_NONE);
         }
 
@@ -1295,7 +1295,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
-            if (currentState == Exchange::IPowerManager::POWER_STATE_STANDBY_DEEP_SLEEP) {
+            if (currentState == Exchange::IPowerManager::PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
 
                 if (m_wlanEnabled.load() && m_wlanConnected.load())
                 {
