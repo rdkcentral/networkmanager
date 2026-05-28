@@ -590,7 +590,6 @@ namespace WPEFramework
             return;
         }
 
-
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
         {
             JsonArray result;
@@ -598,15 +597,10 @@ namespace WPEFramework
             std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
 
             // If neither SSID list nor frequency is provided, exit
-            if (m_filterSsidslist.empty() && m_filterfrequency.empty())
+            if (m_filterSsidslist.empty() && m_filterFrequencies.empty())
             {
                 NMLOG_DEBUG("Neither SSID nor Frequency is provided. Exiting function.");
                 return;
-            }
-
-            if (!m_filterfrequency.empty())
-            {
-                filterFreq = std::stod(m_filterfrequency);
             }
 
             for (int i = 0; i < ssids.Length(); i++)
@@ -615,10 +609,29 @@ namespace WPEFramework
                 string ssid = object["ssid"].String();
                 string frequency = object["frequency"].String();
 
-
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
-                bool freqMatches = m_filterfrequency.empty() || (filterFreq == frequencyValue);
+                bool freqMatches = m_filterFrequencies.empty();
+                if (!freqMatches)
+                {
+                    for (const auto& selectedFrequency : m_filterFrequencies)
+                    {
+                        if (selectedFrequency == "ALL")
+                        {
+                            freqMatches = true;
+                            break;
+                        }
+                        else
+                        {
+                            filterFreq = std::stod(selectedFrequency);
+                            if (filterFreq == frequencyValue)
+                            {
+                                freqMatches = true;
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 if (ssidMatches && freqMatches)
                     result.Add(object);

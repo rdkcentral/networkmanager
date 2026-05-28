@@ -96,4 +96,11 @@ ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::IPStatus)
     { Exchange::INetworkManager::IPStatus::IP_ACQUIRED, _TXT("ACQUIRED") },
 ENUM_CONVERSION_END(Exchange::INetworkManager::IPStatus)
 
+ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::WIFIFrequency)
+    { Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_ALL, _TXT("ALL") },
+    { Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ, _TXT("2.4") },
+    { Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_5_GHZ, _TXT("5") },
+    { Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_6_GHZ, _TXT("6") },
+ENUM_CONVERSION_END(Exchange::INetworkManager::WIFIFrequency)
+
 }

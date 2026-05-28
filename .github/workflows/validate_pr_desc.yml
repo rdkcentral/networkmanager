@@ -15,7 +15,7 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           # Define valid ticket IDs
-          VALID_TICKET_IDS=("RDKEMW")
+          VALID_TICKET_IDS=("RDKEMW" "RDK")
 
           # Function to validate ticket format and ID
           validate_ticket() {
