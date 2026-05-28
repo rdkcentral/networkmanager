@@ -39,6 +39,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerPowerClient.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeProxy.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
