@@ -1208,7 +1208,7 @@ namespace WPEFramework
             std::function<void()> sendAck)
         {
             // Called from NetworkManagerPowerClient's power thread.
-            NMLOG_INFO("OnPowerModePreChange: current=%d new=%d",
+            NMLOG_DEBUG("OnPowerModePreChange: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
 
             using PowerState = Exchange::IPowerManager::PowerState;
@@ -1227,12 +1227,12 @@ namespace WPEFramework
                     }
                     else
                     {
-                        NMLOG_WARNING("OnPowerModePreChange: WiFiDisconnect failed (rc=%u), will not reconnect on wakeup", rcWifiDown);
+                        NMLOG_ERROR("OnPowerModePreChange: WiFiDisconnect failed (rc=%u), will not reconnect on wakeup", rcWifiDown);
                     }
                 }
                 else
                 {
-                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
+                    NMLOG_DEBUG("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
                 }
 #ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 if (m_ethEnabled.load() && m_ethConnected.load())
@@ -1246,12 +1246,12 @@ namespace WPEFramework
                     }
                     else
                     {
-                        NMLOG_WARNING("OnPowerModePreChange: EthernetDeactivate failed (rc=%u), will not activate on wakeup", rcEthDown);
+                        NMLOG_ERROR("OnPowerModePreChange: EthernetDeactivate failed (rc=%u), will not activate on wakeup", rcEthDown);
                     }
                 }
                 else
                 {
-                    NMLOG_WARNING("OnPowerModePreChange: going to DeepSleep — Ethernet not activated, skipping deactivate");
+                    NMLOG_DEBUG("OnPowerModePreChange: going to DeepSleep — Ethernet not activated, skipping deactivate");
                 }
 #endif
             }
@@ -1271,12 +1271,12 @@ namespace WPEFramework
                         }
                         else
                         {
-                            NMLOG_WARNING("OnPowerModePreChange: ConnectToKnownSSID failed (rc=%u)", rcWifiUp);
+                            NMLOG_ERROR("OnPowerModePreChange: ConnectToKnownSSID failed (rc=%u)", rcWifiUp);
                         }
                     }
                     else
                     {
-                        NMLOG_WARNING("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
                     }
                 }
                 else
@@ -1303,13 +1303,13 @@ namespace WPEFramework
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
                     if (StartWiFiScan(nullptr, nullptr) != Core::ERROR_NONE)
                     {
-                        NMLOG_WARNING("OnPowerModeChanged: StartWiFiScan failed");
+                        NMLOG_ERROR("OnPowerModeChanged: StartWiFiScan failed");
                     }
 
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on wlan0");
                     if (ReacquireDHCPLease("wlan0") != Core::ERROR_NONE)
                     {
-                        NMLOG_WARNING("OnPowerModeChanged: ReacquireDHCPLease(wlan0) failed");
+                        NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(wlan0) failed");
                     }
                 }
                 if (m_ethEnabled.load() && m_ethConnected.load())
@@ -1317,7 +1317,7 @@ namespace WPEFramework
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
                     if (ReacquireDHCPLease("eth0") != Core::ERROR_NONE)
                     {
-                        NMLOG_WARNING("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
+                        NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
                     }
                 }
             }

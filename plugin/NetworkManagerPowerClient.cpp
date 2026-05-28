@@ -34,17 +34,17 @@ NetworkManagerPowerClient::NetworkManagerPowerClient(INetworkPowerCallback& call
     , mPreChangeNotification(*this)
     , mChangedNotification(*this)
 {
-    NMLOG_INFO("NetworkManagerPowerClient: connecting to PowerManager");
+    NMLOG_INFO("connecting to PowerManager");
     if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.PowerManager"); r == Core::ERROR_NONE) {
         // Connected; Operational() will be called by the framework when the proxy is ready
     } else {
-        NMLOG_ERROR("NetworkManagerPowerClient: failed to open link to PowerManager (error %u)", r);
+        NMLOG_ERROR("failed to open link to PowerManager (error %u)", r);
     }
 }
 
 NetworkManagerPowerClient::~NetworkManagerPowerClient()
 {
-    NMLOG_INFO("NetworkManagerPowerClient: shutting down");
+    NMLOG_INFO("shutting down");
     // Stop the power-event thread first so any in-flight work completes
     // before we release the COM-RPC proxy.
     mStopThread = true;
@@ -70,7 +70,7 @@ bool NetworkManagerPowerClient::getNetworkStandbyMode() const
     bool standbyMode = false;
     if (IsValid()) {
         if (auto r = mPowerManager->GetNetworkStandbyMode(standbyMode); r != Core::ERROR_NONE) {
-            NMLOG_ERROR("NetworkManagerPowerClient: GetNetworkStandbyMode failed (%u)", r);
+            NMLOG_ERROR("GetNetworkStandbyMode failed (%u)", r);
         }
     }
     return standbyMode;
@@ -82,10 +82,10 @@ void NetworkManagerPowerClient::sendPowerModePreChangeComplete(int transactionId
 
     if (IsValid()) {
         if (mClientId == 0) {
-            NMLOG_ERROR("NetworkManagerPowerClient: sendPowerModePreChangeComplete called with invalid clientId=0, skipping");
+            NMLOG_ERROR("sendPowerModePreChangeComplete called with invalid clientId=0, skipping");
             return;
         }
-        NMLOG_INFO("NetworkManagerPowerClient: sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
+        NMLOG_DEBUG("sending PowerModePreChangeComplete for transactionId=%d, mClientId=%u", transactionId, mClientId);
         mPowerManager->PowerModePreChangeComplete(mClientId, transactionId);
     }
 }
@@ -96,18 +96,18 @@ void NetworkManagerPowerClient::sendDelayPowerModeChange(int transactionId, int 
 
     if (IsValid()) {
         if (mClientId == 0) {
-            NMLOG_ERROR("NetworkManagerPowerClient: sendDelayPowerModeChange called with invalid clientId=0, skipping");
+            NMLOG_ERROR("sendDelayPowerModeChange called with invalid clientId=0, skipping");
             return;
         }
         if (auto r = mPowerManager->DelayPowerModeChangeBy(mClientId, transactionId, seconds); r != Core::ERROR_NONE) {
-            NMLOG_ERROR("NetworkManagerPowerClient: DelayPowerModeChangeBy failed (%u)", r);
+            NMLOG_ERROR("DelayPowerModeChangeBy failed (%u)", r);
         }
     }
 }
 
 void NetworkManagerPowerClient::Operational(bool upAndRunning)
 {
-    NMLOG_INFO("NetworkManagerPowerClient::Operational(%s)", upAndRunning ? "true" : "false");
+    NMLOG_DEBUG("Operational(%s)", upAndRunning ? "true" : "false");
     if (upAndRunning) {
         if (!IsValid()) {
             mPowerManager = Interface();
@@ -131,44 +131,44 @@ void NetworkManagerPowerClient::Operational(bool upAndRunning)
 
 void NetworkManagerPowerClient::registerEvents()
 {
-    NMLOG_INFO("NetworkManagerPowerClient: registering events");
+    NMLOG_DEBUG("registering events");
     if (!IsValid()) {
-        NMLOG_ERROR("NetworkManagerPowerClient: not in valid state, skipping event registration");
+        NMLOG_ERROR("not in valid state, skipping event registration");
         return;
     }
     if (auto r = mPowerManager->AddPowerModePreChangeClient("org.rdk.NetworkManager", mClientId); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: AddPowerModePreChangeClient failed (%u) — skipping pre-change sink", r);
+        NMLOG_ERROR("AddPowerModePreChangeClient failed (%u) — skipping pre-change sink", r);
         // mClientId stays 0; do NOT register mPreChangeNotification
     } else {
-        NMLOG_INFO("NetworkManagerPowerClient: registered as pre-change client, mClientId=%u", mClientId);
+        NMLOG_INFO("registered as pre-change client, mClientId=%u", mClientId);
         if (auto r2 = mPowerManager->Register(&mPreChangeNotification); r2 != Core::ERROR_NONE) {
-            NMLOG_ERROR("NetworkManagerPowerClient: Register(preChange) failed (%u)", r2);
+            NMLOG_ERROR("register(preChange) failed (%u)", r2);
         }
     }
     if (auto r = mPowerManager->Register(&mChangedNotification); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: Register(changed) failed (%u)", r);
+        NMLOG_ERROR("register(changed) failed (%u)", r);
     }
 }
 
 void NetworkManagerPowerClient::unregisterEvents()
 {
-    NMLOG_INFO("NetworkManagerPowerClient: unregistering events");
+    NMLOG_DEBUG("unregistering events");
     if (!IsValid()) {
-        NMLOG_ERROR("NetworkManagerPowerClient: not in valid state, skipping event unregistration");
+        NMLOG_ERROR("not in valid state, skipping event unregistration");
         return;
     }
     // NOTE: RemovePowerModePreChangeClient MUST be called before Unregister
     if (mClientId != 0) {
         if (auto r = mPowerManager->RemovePowerModePreChangeClient(mClientId); r != Core::ERROR_NONE) {
-            NMLOG_ERROR("NetworkManagerPowerClient: RemovePowerModePreChangeClient failed (%u)", r);
+            NMLOG_ERROR("removePowerModePreChangeClient failed (%u)", r);
         }
         if (auto r = mPowerManager->Unregister(&mPreChangeNotification); r != Core::ERROR_NONE) {
-            NMLOG_ERROR("NetworkManagerPowerClient: Unregister(preChange) failed (%u)", r);
+            NMLOG_ERROR("unregister(preChange) failed (%u)", r);
         }
         mClientId = 0;
     }
     if (auto r = mPowerManager->Unregister(&mChangedNotification); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("NetworkManagerPowerClient: Unregister(changed) failed (%u)", r);
+        NMLOG_ERROR("unregister(changed) failed (%u)", r);
     }
 
     mPowerManager->Release();
@@ -181,7 +181,7 @@ void NetworkManagerPowerClient::unregisterEvents()
 
 void NetworkManagerPowerClient::powerThreadLoop()
 {
-    NMLOG_INFO("NetworkManagerPowerClient: power event thread started");
+    NMLOG_DEBUG("power event thread started");
     while (true) {
         PowerEvent event{};
         {
@@ -217,10 +217,10 @@ void NetworkManagerPowerClient::powerThreadLoop()
         if (event.type == PowerEvent::EventType::CHANGED) {
             // Wakeup notification — no ack required.
             if (fromDeepSleep && event.standbyMode) {
-                NMLOG_INFO("NetworkManagerPowerClient: power thread — wakeup from DeepSleep standby ON");
+                NMLOG_INFO("power thread — wakeup from DeepSleep standby ON");
                 mCallback.OnPowerModeChanged(event.currentState, event.newState);
             } else {
-                NMLOG_INFO("NetworkManagerPowerClient: power thread — CHANGED event, no action (fromDeepSleep=%d standbyMode=%d)",
+                NMLOG_DEBUG("power thread — CHANGED event, no action (fromDeepSleep=%d networkStandbyMode=%d)",
                            fromDeepSleep, event.standbyMode);
             }
             continue;
@@ -235,17 +235,17 @@ void NetworkManagerPowerClient::powerThreadLoop()
             // Deep-sleep transition with Network Standby OFF: delegate to
             // NetworkManagerImplementation (WiFiDisconnect / reconnect) which
             // will call sendAck() when done.
-            NMLOG_INFO("NetworkManagerPowerClient: power thread — %s DeepSleep standby OFF",
+            NMLOG_INFO("power thread — %s DeepSleep standby OFF",
                        toDeepSleep ? "to" : "from");
             mCallback.OnPowerModePreChange(event.currentState, event.newState, sendAck);
         } else {
             // standby ON or non-DeepSleep: no WiFi action needed, ack immediately.
-            NMLOG_INFO("NetworkManagerPowerClient: power thread — fast-path ack (standbyMode=%d toDeepSleep=%d fromDeepSleep=%d)",
+            NMLOG_DEBUG("power thread ack (standbyMode=%d toDeepSleep=%d fromDeepSleep=%d)",
                        event.standbyMode, toDeepSleep, fromDeepSleep);
             sendAck();
         }
     }
-    NMLOG_INFO("NetworkManagerPowerClient: power event thread stopped");
+    NMLOG_INFO("power event thread stopped");
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +256,7 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
     const PowerState currentState, const PowerState newState,
     const int transactionId, const int stateChangeAfter)
 {
-    NMLOG_INFO("NetworkManagerPowerClient::OnPowerModePreChange current=%d new=%d txId=%d after=%ds",
+    NMLOG_DEBUG("OnPowerModePreChange current=%d new=%d txId=%d after=%ds",
                static_cast<int>(currentState), static_cast<int>(newState), transactionId, stateChangeAfter);
 
     // Query standby mode
@@ -287,7 +287,7 @@ void NetworkManagerPowerClient::PreChangeNotification::OnPowerModePreChange(
 void NetworkManagerPowerClient::ChangedNotification::OnPowerModeChanged(
     const PowerState currentState, const PowerState newState)
 {
-    NMLOG_INFO("NetworkManagerPowerClient::OnPowerModeChanged current=%d new=%d",
+    NMLOG_DEBUG("OnPowerModeChanged current=%d new=%d",
                static_cast<int>(currentState), static_cast<int>(newState));
 
     // Use the cached standby mode
