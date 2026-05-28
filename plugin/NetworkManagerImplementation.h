@@ -215,7 +215,7 @@ namespace WPEFramework
 
                 // WiFi Specific Methods
                 /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-                uint32_t StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */) override;
+                uint32_t StartWiFiScan(IStringIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */) override;
                 uint32_t StopWiFiScan(void) override;
 
                 uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) override;
@@ -306,7 +306,7 @@ namespace WPEFramework
                 uint16_t m_stunBindTimeout;
                 uint16_t m_stunCacheTimeout;
                 std::thread m_registrationThread;
-                string m_filterfrequency;
+                std::vector<std::string> m_filterFrequencies;
                 std::vector<std::string> m_filterSsidslist;
                 std::thread m_monitorThread;
 

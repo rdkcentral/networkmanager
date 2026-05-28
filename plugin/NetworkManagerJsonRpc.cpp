@@ -637,19 +637,40 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-	    string frequency{};
-	    Exchange::INetworkManager::IStringIterator* ssids = NULL;
+	    	Exchange::INetworkManager::IStringIterator* frequencies = nullptr;
+	    	Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
-	    if (parameters.HasLabel("frequency"))
-                frequency = parameters["frequency"].String();
+            if (parameters.HasLabel("frequencies"))
+			{
+				JsonArray array = parameters["frequencies"].Array();
+                std::vector<std::string> frequencyList;
+	            JsonArray::Iterator index(array.Elements());
 
-            if (parameters.HasLabel("ssids"))
+				while (index.Next() == true)
+				{
+                    if (Core::JSON::Variant::type::STRING == index.Current().Content())
+					{
+                        frequencyList.push_back(index.Current().String());
+					}
+					else
+					{
+						NMLOG_ERROR("Unexpected variant type in frequency array.");
+	                    returnJson(rc);
+					}
+				}
+                frequencies = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(frequencyList);
+                if (frequencies == nullptr) {
+                    returnJson(rc);
+                }
+			}
+
+        	if (parameters.HasLabel("ssids"))
             {
                 JsonArray array = parameters["ssids"].Array();
                 std::vector<std::string> ssidslist;
-	        JsonArray::Iterator index(array.Elements());
+	        	JsonArray::Iterator index(array.Elements());
 
-		while (index.Next() == true)
+				while (index.Next() == true)
                 {
                     if (Core::JSON::Variant::type::STRING == index.Current().Content())
                     {
@@ -658,16 +679,26 @@ namespace WPEFramework
                     else
                     {
                         NMLOG_ERROR("Unexpected variant type in SSID array.");
+						if (frequencies)
+                			frequencies->Release();
                         returnJson(rc);
                     }
                 }
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidslist));
+                if(ssids == nullptr){
+					if (frequencies)
+                		frequencies->Release();
+                    returnJson(rc);
+                }
             }
 
             if (_networkManager)
-                rc = _networkManager->StartWiFiScan(frequency, ssids);
+                rc = _networkManager->StartWiFiScan(frequencies, ssids);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+			if (frequencies)
+                frequencies->Release();
 
             if (ssids)
                 ssids->Release();

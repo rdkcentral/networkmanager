@@ -103,6 +103,14 @@ namespace WPEFramework
                 WIFI_SECURITY_EAP           /* @text: EAP */,
             };
 
+            enum WIFIFrequency : uint8_t
+            {
+                WIFI_FREQUENCY_ALL           /* @text: ALL */,
+                WIFI_FREQUENCY_2_4_GHZ       /* @text: 2.4GHz */,
+                WIFI_FREQUENCY_5_GHZ         /* @text: 5GHz */,
+                WIFI_FREQUENCY_6_GHZ         /* @text: 6GHz */,
+            };
+
             struct EXTERNAL WiFiScanResults {
                     string           ssid;
                     WIFISecurityMode security;
@@ -113,6 +121,8 @@ namespace WPEFramework
             struct EXTERNAL WiFiConnectTo {
                     string           ssid;
                     string           passphrase;
+                    string           bssid;
+                    WIFIFrequency    frequency;
                     WIFISecurityMode security;
                     string           ca_cert;
                     string           client_cert;
@@ -238,7 +248,7 @@ namespace WPEFramework
 
             // WiFi Specific Methods
             /* @brief Initiate a WIFI Scan; This is Async method and returns the scan results as Event */
-            virtual uint32_t StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */) = 0;
+            virtual uint32_t StartWiFiScan(IStringIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */) = 0;
             virtual uint32_t StopWiFiScan(void) = 0;
 
             virtual uint32_t GetKnownSSIDs(IStringIterator*& ssids /* @out */) = 0;

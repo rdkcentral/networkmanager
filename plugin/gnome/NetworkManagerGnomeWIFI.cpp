@@ -805,6 +805,37 @@ m_cancellable(nullptr){
             // 'bssid' parameter is used to restrict the connection only to the BSSID
             // g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
 
+            if(!ssidinfo.bssid.empty())
+            {
+                NMLOG_INFO("bssid: %s", ssidinfo.bssid.c_str());
+                g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
+            }
+
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_ALL)
+            {
+                if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "bg", NULL);
+                    NMLOG_INFO("frequency: %s", "bg - 2.4GHz");
+                }
+                else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_5_GHZ)
+                {
+                    g_object_set(sWireless, NM_SETTING_WIRELESS_BAND, "a", NULL);
+                    NMLOG_INFO("frequency: %s", "a - 5GHz");
+                }
+                else if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_6_GHZ)
+                {
+                    // TODO: 6GHz band support - not supported by current NetworkManager version 1.47.7
+                    NMLOG_WARNING("6GHz frequency band is not supported by the current NetworkManager version");
+                    return false;
+                }
+                else
+                {
+                    NMLOG_WARNING("invalid frequency value: %d", ssidinfo.frequency);
+                    return false;
+                }
+            }
+
             NMSettingWirelessSecurity *sSecurity = NULL;
             switch(ssidinfo.security)
             {
@@ -1561,7 +1592,7 @@ m_cancellable(nullptr){
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::wifiScanRequest(std::string ssidReq)
+        bool wifiManager::wifiScanRequest(const std::vector<std::string>& ssidsToFilter)
         {
             if(!createClientNewConnection())
                 return false;
@@ -1572,24 +1603,26 @@ m_cancellable(nullptr){
                 return false;
             }
             m_isSuccess = false;
-            if(!ssidReq.empty())
+            if(!ssidsToFilter.empty())
             {
-                NMLOG_INFO("staring wifi scanning .. %s", ssidReq.c_str());
-                GVariantBuilder builder, array_builder;
+                NMLOG_INFO("Starting wifi scanning for %d SSIDs:",static_cast<int>(ssidsToFilter.size()));
+                GVariantBuilder nm_variant, nm_array_variant;
                 GVariant *options;
-                g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_variant_builder_init(&array_builder, G_VARIANT_TYPE("aay"));
-                g_variant_builder_add(&array_builder, "@ay",
-                                    g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssidReq.c_str(), ssidReq.length(), 1)
-                                    );
-                g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
-                options = g_variant_builder_end(&builder);
-                nm_device_wifi_request_scan_options_async(wifiDevice, options, NULL, wifiScanCb, this);
+                g_variant_builder_init(&nm_variant, G_VARIANT_TYPE_VARDICT);
+                g_variant_builder_init(&nm_array_variant, G_VARIANT_TYPE("aay"));
+                for (const auto& ssid : ssidsToFilter) {
+                    g_variant_builder_add(&nm_array_variant, "@ay",
+                                        g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssid.c_str(), ssid.length(), 1)
+                                        );
+                }
+                g_variant_builder_add(&nm_variant, "{sv}", "ssids", g_variant_builder_end(&nm_array_variant));
+                options = g_variant_builder_end(&nm_variant);
+                nm_device_wifi_request_scan_options_async(wifiDevice, options, m_cancellable, wifiScanCb, this);
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
-                NMLOG_INFO("staring normal wifi scanning ..");
-                nm_device_wifi_request_scan_async(wifiDevice, NULL, wifiScanCb, this);
+                NMLOG_INFO("Starting normal wifi scanning ..");
+                nm_device_wifi_request_scan_async(wifiDevice, m_cancellable, wifiScanCb, this);
             }
             wait(m_loop);
             deleteClientConnection();
