@@ -52,8 +52,8 @@ NetworkManagerPowerClient::~NetworkManagerPowerClient()
     if (mPowerThread.joinable()) {
         mPowerThread.join();
     }
-    Close(Core::infinite);
     unregisterEvents();
+    Close(Core::infinite);
 }
 
 bool NetworkManagerPowerClient::IsValid() const

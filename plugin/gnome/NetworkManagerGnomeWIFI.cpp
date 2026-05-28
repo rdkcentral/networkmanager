@@ -426,7 +426,6 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
         static void ethernetDeactivateCb(GObject *object, GAsyncResult *result, gpointer user_data)
         {
             NMClient *client = NM_CLIENT(object);
@@ -489,23 +488,26 @@ namespace WPEFramework
             deleteClientConnection();
             return m_isSuccess;
         }
-#endif
 
-        static void settingsSavedCb(GObject *src, GAsyncResult *res, gpointer user_data)
+        static void appliedConnCb(GObject *src, GAsyncResult *res, gpointer user_data)
         {
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             GError *error = NULL;
-            nm_remote_connection_update2_finish(NM_REMOTE_CONNECTION(src), res, &error);
+            guint64 versionId = 0;
+            NMConnection *conn = nm_device_get_applied_connection_finish(
+                                     NM_DEVICE(src), res, &versionId, &error);
             if (error) {
-                NMLOG_ERROR("requestDhcpLease: update2 failed: %s", error->message);
+                NMLOG_ERROR("reacquireDhcpLease: get_applied_connection failed: %s", error->message);
                 g_error_free(error);
+                _wifiManager->m_appliedConn = nullptr;
                 _wifiManager->m_isSuccess = false;
             } else {
+                _wifiManager->m_appliedConn = conn;
+                _wifiManager->m_versionId = versionId;
                 _wifiManager->m_isSuccess = true;
             }
             if (_wifiManager->m_loop)
                 g_main_loop_quit(_wifiManager->m_loop);
-            NMLOG_DEBUG("requestDhcpLease: update2 completed for '%s'", nm_connection_get_id(NM_CONNECTION(src)));
         }
 
         static void reappliedCb(GObject *src, GAsyncResult *res, gpointer user_data)
@@ -514,7 +516,7 @@ namespace WPEFramework
             GError *error = NULL;
             nm_device_reapply_finish(NM_DEVICE(src), res, &error);
             if (error) {
-                NMLOG_ERROR("requestDhcpLease: reapply failed: %s", error->message);
+                NMLOG_ERROR("reacquireDhcpLease: reapply failed: %s", error->message);
                 g_error_free(error);
                 _wifiManager->m_isSuccess = false;
             } else {
@@ -522,90 +524,66 @@ namespace WPEFramework
             }
             if (_wifiManager->m_loop)
                 g_main_loop_quit(_wifiManager->m_loop);
-            NMLOG_DEBUG("requestDhcpLease: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
+            NMLOG_DEBUG("reacquireDhcpLease: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
         }
 
-        bool wifiManager::requestDhcpLease(const std::string& iface)
+        bool wifiManager::reacquireDhcpLease(const std::string& iface)
         {
-            /* There is no direct libnm API to trigger a DHCP renew on an active connection.
-             * As a workaround, we toggle the ipv4.auto-route-ext-gw property and call
-             * nm_device_reapply(). This causes NetworkManager to re-evaluate the IP
-             * configuration and send a new DHCP request for the same lease.
-            */
+            /* No direct libnm API to trigger a DHCP renew, hence by toggling ipv4.auto-route-ext-gw on the
+             * APPLIED connection (not the stored profile) and calling reapply().
+             */
             if(!createClientNewConnection())
                 return false;
 
             NMDevice *device = nm_client_get_device_by_iface(m_client, iface.c_str());
             if (device == NULL) {
-                NMLOG_ERROR("requestDhcpLease: device '%s' not found", iface.c_str());
+                NMLOG_ERROR("reacquireDhcpLease: device '%s' not found", iface.c_str());
                 deleteClientConnection();
                 return false;
             }
 
-            NMActiveConnection *activeConn = nm_device_get_active_connection(device);
-            if (activeConn == NULL) {
-                NMLOG_ERROR("requestDhcpLease: no active connection on '%s'", iface.c_str());
+            /* Round 1: fetch what NM actually has applied in memory */
+            m_isSuccess = false;
+            m_appliedConn = nullptr;
+            nm_device_get_applied_connection_async(device, 0, m_cancellable, appliedConnCb, this);
+            wait(m_loop);
+
+            if (!m_isSuccess || m_appliedConn == nullptr) {
+                NMLOG_ERROR("reacquireDhcpLease: could not get applied connection for '%s'", iface.c_str());
                 deleteClientConnection();
                 return false;
             }
 
-            NMRemoteConnection *remoteConn = nm_active_connection_get_connection(activeConn);
-            if (remoteConn == NULL) {
-                NMLOG_ERROR("requestDhcpLease: could not get connection profile for '%s'", iface.c_str());
-                deleteClientConnection();
-                return false;
-            }
-
-            /* Clone locally to modify */
-            NMConnection *conn = nm_simple_connection_new_clone(NM_CONNECTION(remoteConn));
             NMSettingIPConfig *s_ip4 = NM_SETTING_IP_CONFIG(
-                nm_connection_get_setting(conn, NM_TYPE_SETTING_IP4_CONFIG));
+                nm_connection_get_setting(m_appliedConn, NM_TYPE_SETTING_IP4_CONFIG));
             if (s_ip4 == NULL) {
-                NMLOG_ERROR("requestDhcpLease: no IPv4 settings on '%s'", iface.c_str());
-                g_object_unref(conn);
+                NMLOG_ERROR("reacquireDhcpLease: no IPv4 settings on '%s'", iface.c_str());
+                g_object_unref(m_appliedConn);
+                m_appliedConn = nullptr;
                 deleteClientConnection();
                 return false;
             }
 
-            /* Read current value and toggle */
             NMTernary currentVal = NM_TERNARY_DEFAULT;
             g_object_get(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, &currentVal, NULL);
-
             NMTernary newVal = (currentVal == NM_TERNARY_DEFAULT) ? NM_TERNARY_TRUE : NM_TERNARY_DEFAULT;
-            NMLOG_DEBUG("requestDhcpLease: '%s' auto-route-ext-gw %d -> %d",
+            NMLOG_DEBUG("reacquireDhcpLease: '%s' auto-route-ext-gw %d -> %d (in-memory only)",
                        iface.c_str(), static_cast<int>(currentVal), static_cast<int>(newVal));
             g_object_set(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, newVal, NULL);
 
-            /* Save to disk */
+            /* Round 2: reapply with version_id for race safety — no disk write */
             m_isSuccess = false;
-            GVariant *connSettings = nm_connection_to_dbus(conn, NM_CONNECTION_SERIALIZE_ALL);
-            nm_remote_connection_update2(remoteConn,
-                                         connSettings,
-                                         NM_SETTINGS_UPDATE2_FLAG_TO_DISK,
-                                         NULL, m_cancellable,
-                                         settingsSavedCb, this);
-            g_variant_unref(connSettings);
+            nm_device_reapply_async(device, m_appliedConn, m_versionId, 0, m_cancellable, reappliedCb, this);
             wait(m_loop);
 
             if (!m_isSuccess) {
-                NMLOG_ERROR("requestDhcpLease: failed to save connection for '%s'", iface.c_str());
-                g_object_unref(conn);
-                deleteClientConnection();
-                return false;
-            }
-
-            /* Reapply to live connection */
-            m_isSuccess = false;
-            nm_device_reapply_async(device, conn, 0, 0, m_cancellable, reappliedCb, this);
-            wait(m_loop);
-
-            if (!m_isSuccess) {
-                NMLOG_ERROR("requestDhcpLease: reapply failed for '%s'", iface.c_str());
+                NMLOG_ERROR("reacquireDhcpLease: reapply failed for '%s'", iface.c_str());
             } else {
-                NMLOG_INFO("requestDhcpLease: reapply successful on '%s'", iface.c_str());
+                NMLOG_INFO("reacquireDhcpLease: reapply successful on '%s'", iface.c_str());
             }
 
-            g_object_unref(conn);
+            g_object_unref(m_appliedConn);
+            m_appliedConn = nullptr;
             deleteClientConnection();
             return m_isSuccess;
         }

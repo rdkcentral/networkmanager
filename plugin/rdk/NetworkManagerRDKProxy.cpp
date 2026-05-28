@@ -1180,19 +1180,17 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
         uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
         {
             /* No-op on RDK platform */
             NMLOG_INFO("EthernetDeactivate: no-op on RDK platform");
             return Core::ERROR_UNAVAILABLE;
         }
-#endif
 
-        uint32_t NetworkManagerImplementation::RequestDHCPLease(const string& iface)
+        uint32_t NetworkManagerImplementation::ReacquireDHCPLease(const string& iface)
         {
             /* No-op on RDK platform */
-            NMLOG_INFO("RequestDHCPLease: no-op on RDK platform (iface=%s)", iface.c_str());
+            NMLOG_INFO("ReacquireDHCPLease: no-op on RDK platform (iface=%s)", iface.c_str());
             return Core::ERROR_UNAVAILABLE;
         }
 

@@ -168,7 +168,7 @@ private:
     std::condition_variable           mQueueCv;
     std::atomic<bool>                 mStopThread{false};
     // Cached standby mode from the last PRE_CHANGE event.
-    bool                              mLastChangeStandbyMode{false};
+    std::atomic<bool>                 mLastChangeStandbyMode{false};
 };
 
 } // namespace Plugin

@@ -54,9 +54,7 @@ namespace WPEFramework
             m_wlanConnected.store(false);
             m_ethEnabled.store(false);
             m_wlanEnabled.store(false);
-#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
             m_ethDisconnectedForSleep.store(false);
-#endif
             m_wlanDisconnectedForSleep.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
@@ -1265,10 +1263,10 @@ namespace WPEFramework
                     {
                         NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
-                        m_wlanDisconnectedForSleep.store(false);
                         uint32_t rcWifiUp = ConnectToKnownSSID(m_lastConnectedSSID);
                         if (rcWifiUp == Core::ERROR_NONE)
                         {
+                            m_wlanDisconnectedForSleep.store(false);
                             m_wlanConnected.store(true); // Mark WiFi as connected.
                         }
                         else
@@ -1309,21 +1307,19 @@ namespace WPEFramework
                     }
 
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on wlan0");
-                    if (RequestDHCPLease("wlan0") != Core::ERROR_NONE)
+                    if (ReacquireDHCPLease("wlan0") != Core::ERROR_NONE)
                     {
-                        NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(wlan0) failed");
+                        NMLOG_WARNING("OnPowerModeChanged: ReacquireDHCPLease(wlan0) failed");
                     }
                 }
-#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
                 if (m_ethEnabled.load() && m_ethConnected.load())
                 {
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
-                    if (RequestDHCPLease("eth0") != Core::ERROR_NONE)
+                    if (ReacquireDHCPLease("eth0") != Core::ERROR_NONE)
                     {
-                        NMLOG_WARNING("OnPowerModeChanged: RequestDHCPLease(eth0) failed");
+                        NMLOG_WARNING("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
                     }
                 }
-#endif
             }
         }
     }

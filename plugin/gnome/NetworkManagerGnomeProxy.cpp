@@ -1147,7 +1147,6 @@ namespace WPEFramework
             return rc;
         }
 
-#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
         uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
         {
             uint32_t rc = Core::ERROR_GENERAL;
@@ -1155,12 +1154,11 @@ namespace WPEFramework
                 rc = Core::ERROR_NONE;
             return rc;
         }
-#endif
 
-        uint32_t NetworkManagerImplementation::RequestDHCPLease(const string& iface)
+        uint32_t NetworkManagerImplementation::ReacquireDHCPLease(const string& iface)
         {
             uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->requestDhcpLease(iface))
+            if(wifi->reacquireDhcpLease(iface))
                 rc = Core::ERROR_NONE;
             return rc;
         }
