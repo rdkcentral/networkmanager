@@ -12,7 +12,7 @@ env:
 jobs:
   L1-tests:
     name: Build and run unit tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       # Set up Thunder cache
@@ -21,24 +21,24 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            build/Thunder
-            build/ThunderInterfaces
-            build/ThunderTools
-            install
-            !install/etc/WPEFramework/plugins
-            !install/usr/bin/libnmproxy_l1_test
-            !install/usr/include/gmock
-            !install/usr/include/gtest
-            !install/usr/lib/libgmockd.a
-            !install/usr/lib/libgmock_maind.a
-            !install/usr/lib/libgtestd.a
-            !install/usr/lib/libgtest_maind.a
-            !install/usr/lib/cmake/GTest
-            !install/usr/lib/pkgconfig/gmock.pc
-            !install/usr/lib/pkgconfig/gmock_main.pc
-            !install/usr/lib/pkgconfig/gtest.pc
-            !install/usr/lib/pkgconfig/gtest_main.pc
-            !install/usr/lib/wpeframework/plugins
+            # build/Thunder
+            # build/ThunderInterfaces
+            # build/ThunderTools
+            # install
+            # !install/etc/WPEFramework/plugins
+            # !install/usr/bin/libnmproxy_l1_test
+            # !install/usr/include/gmock
+            # !install/usr/include/gtest
+            # !install/usr/lib/libgmockd.a
+            # !install/usr/lib/libgmock_maind.a
+            # !install/usr/lib/libgtestd.a
+            # !install/usr/lib/libgtest_maind.a
+            # !install/usr/lib/cmake/GTest
+            # !install/usr/lib/pkgconfig/gmock.pc
+            # !install/usr/lib/pkgconfig/gmock_main.pc
+            # !install/usr/lib/pkgconfig/gtest.pc
+            # !install/usr/lib/pkgconfig/gtest_main.pc
+            # !install/usr/lib/wpeframework/plugins
           key: thunder-${{ env.THUNDER_REF }}-libnm
       - name: Install packages
         run: |
@@ -106,6 +106,11 @@ jobs:
           -DCMAKE_MODULE_PATH="${{github.workspace}}/install/tools/cmake"
           &&
           cmake --build build/ThunderInterfaces --target install -j8
+
+      - name: Install IPowerManager header
+        run: |
+          IFACE_DIR=$(find ${{github.workspace}}/install/usr/include -maxdepth 2 -name "interfaces" -type d | head -1)
+          cp ${{github.workspace}}/networkmanager/tests/mocks/thunder/IPowerManager.h "$IFACE_DIR/"
 
       - name: Generate dependency files
         run: |

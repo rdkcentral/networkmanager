@@ -1301,7 +1301,7 @@ namespace WPEFramework
                     // changed channel while the device slept (802.11 CSA).  Trigger an
                     // active scan so the driver discovers the AP on its new channel.
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
-                    if (StartWiFiScan("", nullptr) != Core::ERROR_NONE)
+                    if (StartWiFiScan(nullptr, nullptr) != Core::ERROR_NONE)
                     {
                         NMLOG_WARNING("OnPowerModeChanged: StartWiFiScan failed");
                     }
