@@ -166,7 +166,7 @@ jobs:
 
       - name: Generate coverage
         run: |
-            lcov -c -o coverage.info -d build/networkmanager_libnm/
+            lcov --no-external --rc geninfo_unexecuted_blocks=1 -c -o coverage.info -d build/networkmanager_libnm/
             lcov -e coverage.info '*/networkmanager/plugin/gnome/*' -o filtered_coverage.info
 
       - name: Generate the html report
