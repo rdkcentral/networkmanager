@@ -661,7 +661,7 @@ TEST_F(NetworkManagerTest, StartWiFiScan_Success)
         ));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWiFiScan"), 
-        _T("{\"frequency\":\"2.4GHz\"}"), response));
+        _T("{\"frequency\":[\"2.4\"]}"), response));
     EXPECT_EQ(response, _T("{\"success\":true}"));
 }
 
@@ -673,7 +673,7 @@ TEST_F(NetworkManagerTest, StartWiFiScan_Failed)
         .WillOnce(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("StartWiFiScan"), 
-        _T("{\"frequency\":\"2.4GHz\"}"), response));
+        _T("{\"frequency\":[\"2.4\"]}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 

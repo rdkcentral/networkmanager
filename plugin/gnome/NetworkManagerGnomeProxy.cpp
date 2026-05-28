@@ -993,32 +993,61 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::StartWiFiScan(const string& frequency /* @in */, IStringIterator* const ssids/* @in */)
+        uint32_t NetworkManagerImplementation::StartWiFiScan(IStringIterator* const frequencies /* @in */, IStringIterator* const ssids/* @in */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
             //Cleared the Existing Store filterred SSID list
             m_filterSsidslist.clear();
-            m_filterfrequency.clear();
+            m_filterFrequencies.clear();
 
             if(ssids)
             {
                 string tmpssidlist{};
                 while (ssids->Next(tmpssidlist) == true)
                 {
-                    m_filterSsidslist.push_back(tmpssidlist.c_str());
-                    NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
+                    if (!tmpssidlist.empty())
+                    {
+                        m_filterSsidslist.push_back(tmpssidlist.c_str());
+                        NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
+                    }
+                    else 
+                    {
+                        NMLOG_DEBUG("Empty SSID encountered in input list; skipping.");
+                    }
                 }
             }
 
-            if (!frequency.empty())
+            if (frequencies)
             {
-                m_filterfrequency = frequency;
-                NMLOG_DEBUG("Scan SSIDs of frequency %s", m_filterfrequency.c_str());
+                string frequency{};
+                while (frequencies->Next(frequency) == true)
+                {
+                    if (!frequency.empty())
+                    {
+                        Core::JSON::EnumType<Exchange::INetworkManager::WIFIFrequency> parsedFrequency;
+                        parsedFrequency.FromString(frequency);
+                        const string normalizedFrequency = parsedFrequency.Data();
+                        if ((!normalizedFrequency.empty()) && (normalizedFrequency == frequency))
+                        {
+                            m_filterFrequencies.push_back(normalizedFrequency);
+                            NMLOG_DEBUG("Frequency %s added to scan filtering", normalizedFrequency.c_str());
+                        }
+                        else
+                        {
+                            NMLOG_ERROR("Invalid frequency value: %s", frequency.c_str());
+                            return Core::ERROR_BAD_REQUEST;
+                        }
+                    }
+                    else
+                    {
+                        NMLOG_DEBUG("Empty frequency encountered in input list; skipping.");
+                    }
+                }
             }
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterSsidslist.size() == 1 ? m_filterSsidslist[0] : ""))
+            if(wifi->wifiScanRequest(m_filterSsidslist))
                 rc = Core::ERROR_NONE;
             return rc;
         }
