@@ -64,21 +64,21 @@ namespace Exchange {
                                             const PowerState newState) {}
         };
 
-        virtual Core::hresult Register(IModePreChangeNotification* notification) = 0;
-        virtual Core::hresult Unregister(const IModePreChangeNotification* notification) = 0;
+        virtual Core::hresult Register(IModePreChangeNotification* notification) {};
+        virtual Core::hresult Unregister(const IModePreChangeNotification* notification) {};
 
-        virtual Core::hresult Register(IModeChangedNotification* notification) = 0;
-        virtual Core::hresult Unregister(const IModeChangedNotification* notification) = 0;
+        virtual Core::hresult Register(IModeChangedNotification* notification) {};
+        virtual Core::hresult Unregister(const IModeChangedNotification* notification) {};
 
         virtual Core::hresult AddPowerModePreChangeClient(const string& clientName,
-                                                          uint32_t& clientId) = 0;
-        virtual Core::hresult RemovePowerModePreChangeClient(const uint32_t clientId) = 0;
+                                                          uint32_t& clientId) {};
+        virtual Core::hresult RemovePowerModePreChangeClient(const uint32_t clientId) {};
         virtual Core::hresult PowerModePreChangeComplete(const uint32_t clientId,
-                                                         const int transactionId) = 0;
+                                                         const int transactionId) {};
         virtual Core::hresult DelayPowerModeChangeBy(const uint32_t clientId,
                                                      const int transactionId,
-                                                     const int delayPeriod) = 0;
-        virtual Core::hresult GetNetworkStandbyMode(bool& standbyMode) = 0;
+                                                     const int delayPeriod) {};
+        virtual Core::hresult GetNetworkStandbyMode(bool& standbyMode) {};
     };
 
 } // namespace Exchange

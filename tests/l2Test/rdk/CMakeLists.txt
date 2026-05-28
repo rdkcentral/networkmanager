@@ -32,7 +32,6 @@ add_executable(${NM_RDK_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/CurlWraps.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/NetworkManagerPowerClient.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp

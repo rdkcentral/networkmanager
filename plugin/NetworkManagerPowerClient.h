@@ -69,7 +69,7 @@ struct INetworkPowerCallback {
  *   Construction  → Open() connects to PowerManager (async).
  *   Operational(true)  → registers events; IsValid() returns true.
  *   Operational(false) → unregisters events and releases proxy.
- *   Destruction   → Close() then unregisterEvents().
+ *   Destruction   →  unregisterEvents() then Close() .
  */
 class NetworkManagerPowerClient : protected RPC::SmartInterfaceType<Exchange::IPowerManager> {
 public:
