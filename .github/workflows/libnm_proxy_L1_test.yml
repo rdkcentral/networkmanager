@@ -117,7 +117,7 @@ jobs:
         run: |
           sudo bash -c 'echo "ETHERNET_INTERFACE=eth0
           WIFI_INTERFACE=wlan0
-          DEVICE_NAME=rdk_test_device " > /etc/device.properties'
+          DEFAULT_HOSTNAME=rdk_test_device " > /etc/device.properties'
 
       - name: Generate IARM headers
         run: |

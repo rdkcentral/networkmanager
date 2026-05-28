@@ -14,6 +14,11 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [3.0.0] - 2026-05-28
+### Changed
+- The device hostname header that used to retrive has changed as "DEFAULT_HOSTNAME"
+- Updated the WiFiStartScan to scan for specific SSID and also updated to take array of freq band as input instead of single freq
+
 ## [2.3.0] - 2026-05-21
 ### Fixed
 - Fixed the issue which leads Enabling and Disabling of interfaces are taking longer
