@@ -40,7 +40,7 @@ namespace WPEFramework
     {
         static std::string m_ethifname = "eth0";
         static std::string m_wlanifname = "wlan0";
-        static std::string m_deviceHostname = "rdk-device"; // Device name can be empty if not set in /etc/device.properties
+        static std::string m_deviceHostname = "rdk-device"; // default hostname can be empty if not set in /etc/device.properties
 
         const char* nmUtils::wlanIface() {return m_wlanifname.c_str();}
         const char* nmUtils::ethIface() {return m_ethifname.c_str();}
@@ -261,14 +261,14 @@ namespace WPEFramework
                     }
                 }
 
-                if (line.find("DEVICE_NAME=") != std::string::npos) {
+                if (line.find("DEFAULT_HOSTNAME=") != std::string::npos) {
                     deviceHostname = line.substr(line.find('=') + 1);
                     deviceHostname.erase(deviceHostname.find_last_not_of("\r\n\t") + 1);
                     deviceHostname.erase(0, deviceHostname.find_first_not_of("\r\n\t"));
                     if(deviceHostname.empty())
                     {
-                        NMLOG_WARNING("DEVICE_NAME is empty in /etc/device.properties");
-                        deviceHostname = ""; // set empty device name
+                        NMLOG_WARNING("DEFAULT_HOSTNAME is empty in /etc/device.properties");
+                        deviceHostname = ""; // set empty default hostname
                     }
                 }
             }
@@ -277,7 +277,7 @@ namespace WPEFramework
             m_wlanifname = wifiIfname;
             m_ethifname = ethIfname;
             m_deviceHostname = deviceHostname;
-            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, device name: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceHostname.c_str());
+            NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, default hostname: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceHostname.c_str());
             return true;
         }
 
