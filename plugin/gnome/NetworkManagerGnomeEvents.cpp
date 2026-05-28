@@ -170,14 +170,12 @@ namespace WPEFramework
                 if (dnsArr[1]) newCache.secondarydns = dnsArr[1];
             }
 
-            if (conn) {
-                NMDhcpConfig* dhcpConfig = isIPv6
-                    ? nm_active_connection_get_dhcp6_config(conn)
-                    : nm_active_connection_get_dhcp4_config(conn);
-                if (dhcpConfig) {
-                    const char* server = nm_dhcp_config_get_one_option(dhcpConfig, "dhcp_server_identifier");
-                    if (server) newCache.dhcpserver = server;
-                }
+            NMDhcpConfig* dhcpConfig = isIPv6
+                ? nm_device_get_dhcp6_config(device)
+                : nm_device_get_dhcp4_config(device);
+            if (dhcpConfig) {
+                const char* server = nm_dhcp_config_get_one_option(dhcpConfig, "dhcp_server_identifier");
+                if (server) newCache.dhcpserver = server;
             }
 
             newCache.valid = true;
@@ -243,13 +241,10 @@ namespace WPEFramework
             g_signal_connect(ipv4Config, "notify::nameservers", G_CALLBACK(ip4ChangedCb), device);
         }
         /* Re-attach DHCP options handler to the (possibly new) DHCP config object. */
-        NMActiveConnection* conn4 = nm_device_get_active_connection(device);
-        if (conn4) {
-            NMDhcpConfig* dhcp4 = nm_active_connection_get_dhcp4_config(conn4);
-            if (dhcp4) {
-                g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
-                g_signal_connect(dhcp4, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
-            }
+        NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+        if (dhcp4) {
+            g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+            g_signal_connect(dhcp4, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
         }
         refreshIpFamilyCache(device, false);
     }
@@ -265,13 +260,10 @@ namespace WPEFramework
             g_signal_connect(ipv6Config, "notify::nameservers", G_CALLBACK(ip6ChangedCb), device);
         }
         /* Re-attach DHCP options handler to the (possibly new) DHCP config object. */
-        NMActiveConnection* conn6 = nm_device_get_active_connection(device);
-        if (conn6) {
-            NMDhcpConfig* dhcp6 = nm_active_connection_get_dhcp6_config(conn6);
-            if (dhcp6) {
-                g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
-                g_signal_connect(dhcp6, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
-            }
+        NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+        if (dhcp6) {
+            g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
+            g_signal_connect(dhcp6, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
         }
         refreshIpFamilyCache(device, true);
     }
@@ -508,15 +500,12 @@ namespace WPEFramework
                 }
 
                 /* Subscribe to DHCP option changes so dhcpserver stays current mid-lease. */
-                NMActiveConnection* connAdded = nm_device_get_active_connection(device);
-                if (connAdded) {
-                    NMDhcpConfig* dhcp4Added = nm_active_connection_get_dhcp4_config(connAdded);
-                    NMDhcpConfig* dhcp6Added = nm_active_connection_get_dhcp6_config(connAdded);
-                    if (dhcp4Added)
-                        g_signal_connect(dhcp4Added, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
-                    if (dhcp6Added)
-                        g_signal_connect(dhcp6Added, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
-                }
+                NMDhcpConfig* dhcp4Added = nm_device_get_dhcp4_config(device);
+                NMDhcpConfig* dhcp6Added = nm_device_get_dhcp6_config(device);
+                if (dhcp4Added)
+                    g_signal_connect(dhcp4Added, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
+                if (dhcp6Added)
+                    g_signal_connect(dhcp6Added, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
 
                 /* Seed the IP cache so GetIPSettings works immediately if the
                    device already has an address (e.g. hotplug in activated state). */
@@ -565,15 +554,12 @@ namespace WPEFramework
                 g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
 
             /* Disconnect DHCP option signals. */
-            NMActiveConnection* conn = nm_device_get_active_connection(device);
-            if (conn) {
-                NMDhcpConfig* dhcp4 = nm_active_connection_get_dhcp4_config(conn);
-                NMDhcpConfig* dhcp6 = nm_active_connection_get_dhcp6_config(conn);
-                if (dhcp4)
-                    g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
-                if (dhcp6)
-                    g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
-            }
+            NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+            NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+            if (dhcp4)
+                g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+            if (dhcp6)
+                g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
 
             /* Clear IP cache for the removed device (emits IP_LOST for any cached addresses). */
             if (_instance) {
@@ -690,15 +676,12 @@ namespace WPEFramework
                         NMLOG_WARNING("IPv6 config is null for device: %s, No IPv6 monitor", ifname.c_str());
 
                     /* Subscribe to DHCP option changes so dhcpserver stays current mid-lease. */
-                    NMActiveConnection* connInit = nm_device_get_active_connection(device);
-                    if (connInit) {
-                        NMDhcpConfig* dhcp4Init = nm_active_connection_get_dhcp4_config(connInit);
-                        NMDhcpConfig* dhcp6Init = nm_active_connection_get_dhcp6_config(connInit);
-                        if (dhcp4Init)
-                            g_signal_connect(dhcp4Init, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
-                        if (dhcp6Init)
-                            g_signal_connect(dhcp6Init, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
-                    }
+                    NMDhcpConfig* dhcp4Init = nm_device_get_dhcp4_config(device);
+                    NMDhcpConfig* dhcp6Init = nm_device_get_dhcp6_config(device);
+                    if (dhcp4Init)
+                        g_signal_connect(dhcp4Init, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
+                    if (dhcp6Init)
+                        g_signal_connect(dhcp6Init, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
 
                     /* Seed the IP cache from current state for already-connected devices. */
                     refreshIpFamilyCache(device, false);
@@ -786,15 +769,12 @@ namespace WPEFramework
                     }
 
                     // Clean up DHCP option signals
-                    NMActiveConnection* conn = nm_device_get_active_connection(device);
-                    if (conn) {
-                        NMDhcpConfig* dhcp4 = nm_active_connection_get_dhcp4_config(conn);
-                        NMDhcpConfig* dhcp6 = nm_active_connection_get_dhcp6_config(conn);
-                        if (dhcp4)
-                            g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
-                        if (dhcp6)
-                            g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
-                    }
+                    NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+                    NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+                    if (dhcp4)
+                        g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+                    if (dhcp6)
+                        g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
                 }
             }
         }
