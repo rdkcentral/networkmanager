@@ -846,17 +846,27 @@
             }
         },
         "StartWiFiScan":{
-            "summary": "Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.",
+            "summary": "Initiates WiFi scanning. This method supports scanning specific frequency bands (2.4GHz, 5GHz, 6GHz). When no input is passed for frequency, it scans all supported frequencies. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.",
             "events": {
                 "onAvailableSSIDs" : "Triggered when list of SSIDs is available after the scan completes."
             },
             "params": {
                 "type": "object",
                 "properties": {
-                    "frequency": {
-                        "summary": "The frequency to scan. An empty or `null` value scans all frequencies.",
-                        "type": "string",
-                        "example": "5"
+                    "frequencies": {
+                        "summary": "Frequency bands to scan. Omit this field or pass \"ALL\" to scan all frequencies.",
+                        "type": "array",
+                        "items": {
+                            "summary": "The frequency to scan.",
+                            "type": "string",
+                            "enum": [
+                                "ALL",
+                                "2.4",
+                                "5",
+                                "6"
+                                ],
+                            "example": "2.4"
+                        }
                     },
                     "ssids": {
                         "summary": "The list of SSIDs to be scanned.",
@@ -1233,7 +1243,7 @@
             }
         },
         "GetWiFiSignalQuality":{
-            "summary": "Get WiFi signal quality of currently connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are\n* 'Excellent'    : More than 40 dBm\n* 'Good'         : 40 dBm to 25 dBm\n* 'Fair'         : 25 dBm to 18 dBm\n* 'Weak'         : 18 dBm to 0 dBm\n* 'Disconnected' : 0 dBm\n",
+            "summary": "Get WiFi signal quality of currently connected SSID. The signal quality is identified based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are\n* 'Excellent'    : More than 40 dBm\n* 'Good'         : 40 dBm to 25 dBm\n* 'Fair'         : 25 dBm to 18 dBm\n* 'Weak'         : 18 dBm to 0 dBm\n* 'Disconnected' : 0 dBm\n",
             "events":{
                 "onWiFiSignalQualityChange" : "Triggered when Wifi signal strength switches between Excellent, Good, Fair, Weak."
             },
@@ -1294,7 +1304,7 @@
                                 "example": 2
                             },
                             "EAP": {
-                                "summary": "Supports security mode WPA enterpise",
+                                "summary": "Supports security mode WPA enterprise",
                                 "type": "integer",
                                 "example": 3
                             }
@@ -1455,7 +1465,7 @@
                 "type": "object",
                 "properties": {
                     "prevState":{
-                        "summary": "The privious internet connection state",
+                        "summary": "The previous internet connection state",
                         "type": "integer",
                         "example": 1
                     },
