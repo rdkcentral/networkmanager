@@ -20,7 +20,9 @@ message("Building plugin CLI tools")
 
 # Required packages
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)

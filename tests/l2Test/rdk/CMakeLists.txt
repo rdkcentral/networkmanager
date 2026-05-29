@@ -21,14 +21,19 @@ set(NM_RDK_PROXY_L2_TEST "rdkproxy_l2_test")
 
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 
 add_executable(${NM_RDK_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxy.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxyEvent.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxyImpl.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/CurlWraps.cpp
@@ -54,7 +59,6 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
 include_directories(${PROJECT_SOURCE_DIR}/legacy)
 include_directories(${PROJECT_SOURCE_DIR}/tests/mocks)
-include_directories(${PROJECT_SOURCE_DIR}/tests/mocks/thunder)
 include_directories(${PROJECT_SOURCE_DIR}/../install/usr/include/rdk/iarmbus/)
 include_directories(${PROJECT_SOURCE_DIR}/tools/upnp/)
 

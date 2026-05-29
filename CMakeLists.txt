@@ -20,19 +20,31 @@ cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
 
-# Try WPEFramework first
-find_package(WPEFramework QUIET CONFIG)
+# When THUNDER_VERSION is explicitly set, always use FetchContent
+# (skip find_package — avoids conflicts with stale cached installs)
+if(DEFINED THUNDER_VERSION)
+    message(STATUS "THUNDER_VERSION set — using FetchContent (${THUNDER_VERSION})")
+    add_subdirectory(tests/thunder)
+else()
+    # Try WPEFramework first
+    find_package(WPEFramework QUIET CONFIG)
 
-# If WPEFramework isn't found, try Thunder
-if (NOT WPEFramework_FOUND)
-    find_package(Thunder QUIET CONFIG)
-endif()
+    # If WPEFramework isn't found, try Thunder
+    if (NOT WPEFramework_FOUND)
+        find_package(Thunder QUIET CONFIG)
+    endif()
 
-# Error out if neither is found
-if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
-    message(FATAL_ERROR
-        "Neither WPEFramework nor Thunder could be found.\n"
-        "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.")
+    if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
+        if(ENABLE_UNIT_TESTING)
+            message(STATUS "Thunder not found via find_package — using FetchContent for test builds")
+            add_subdirectory(tests/thunder)
+        else()
+            message(FATAL_ERROR
+                "Neither WPEFramework nor Thunder could be found.\n"
+                "Install one of them and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.\n"
+                "Alternatively, pass -DTHUNDER_VERSION=<tag> to use FetchContent.")
+        endif()
+    endif()
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
@@ -73,6 +85,17 @@ endif (ENABLE_LEGACY_PLUGINS)
 add_subdirectory(tools)
 
 if(ENABLE_UNIT_TESTING)
+    # Fetch GoogleTest for all test targets
+    include(FetchContent)
+    set(GOOGLE_TEST_VERSION "v1.15.2" CACHE STRING "GoogleTest git tag/branch/commit to use")
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG ${GOOGLE_TEST_VERSION}
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
     add_subdirectory(tests/l1Test)
     add_subdirectory(tests/l2Test)
 endif(ENABLE_UNIT_TESTING)

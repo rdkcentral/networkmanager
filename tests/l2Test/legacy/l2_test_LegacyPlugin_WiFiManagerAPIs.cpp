@@ -22,6 +22,7 @@
 #include <fstream>
 #include "ServiceMock.h"
 #include "FactoriesImplementation.h"
+#include "WorkerPoolImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "LegacyWiFiManagerAPIs.h"
 #include "ThunderPortability.h"
@@ -47,13 +48,19 @@ protected:
     ServiceMock *m_service;
     Core::JSONRPC::Message message;
     string response;
+    Core::ProxyType<WorkerPoolImplementation> workerPool;
+    NiceMock<FactoriesImplementation> factoriesImplementation;
 
     WiFiManagerTest()
         : plugin(Core::ProxyType<Plugin::WiFiManager>::Create())
           , handler(*(plugin))
           , handlerV2(*(plugin->GetHandler(2)))
           , INIT_CONX(1, 0)
+          , workerPool(Core::ProxyType<WorkerPoolImplementation>::Create(2, Core::Thread::DefaultStackSize(), 16))
     {
+        PluginHost::IFactories::Assign(&factoriesImplementation);
+        Core::IWorkerPool::Assign(&(*workerPool));
+        workerPool->Run();
         ServiceMock* service = new ServiceMock();
         WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
         ServiceMock* mockShell = new ServiceMock();
@@ -86,6 +93,10 @@ protected:
         plugin->Deinitialize(m_service);
         m_service->Release();
         delete m_service;
+
+        Core::IWorkerPool::Assign(nullptr);
+        workerPool.Release();
+        PluginHost::IFactories::Assign(nullptr);
     }
 };
 

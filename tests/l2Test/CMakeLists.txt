@@ -21,16 +21,14 @@ message ("building Networkmanager plugin l2 tests")
 
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
 
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    URL https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip
-)
-
-FetchContent_MakeAvailable(googletest)
+# Thunder targets may already exist from FetchContent (test-only builds)
+if(NOT TARGET ${NAMESPACE}Core::${NAMESPACE}Core)
+    find_package(${NAMESPACE}Core REQUIRED)
+endif()
+if(NOT TARGET ${NAMESPACE}Plugins::${NAMESPACE}Plugins)
+    find_package(${NAMESPACE}Plugins REQUIRED)
+endif()
 
 if(ENABLE_LEGACY_PLUGINS)
     add_subdirectory(legacy)
