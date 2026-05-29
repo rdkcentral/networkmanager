@@ -31,6 +31,7 @@
 #include <string.h>
 #include <atomic>
 #include <mutex>
+#include <vector>
 
 #define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
 #define WPS_RETRY_COUNT             10
@@ -54,7 +55,7 @@ namespace WPEFramework
             bool activateKnownConnection(std::string iface, std::string knowConnectionID="");
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo);
-            bool wifiScanRequest(std::string ssidReq = "");
+            bool wifiScanRequest(const std::vector<std::string>& ssidsToFilter = {});
             bool isWifiScannedRecently(int timelimitInSec = 5); // default 5 sec as shotest scanning interval
             bool getKnownSSIDs(std::list<string>& ssids);
             bool addToKnownSSIDs(const Exchange::INetworkManager::WiFiConnectTo &ssidinfo);

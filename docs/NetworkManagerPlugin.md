@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 2.2.0**
+**Version: 3.0.0**
 
 **Status: :black_circle::black_circle::black_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 2.2.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 3.0.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -89,7 +89,7 @@ NetworkManager interface methods:
 | [GetPublicIP](#method.GetPublicIP) | Gets the internet/public IP Address of the device |
 | [Ping](#method.Ping) | Pings the specified endpoint with the specified number of packets |
 | [Trace](#method.Trace) | Traces the specified endpoint with the specified number of packets using `traceroute` |
-| [StartWiFiScan](#method.StartWiFiScan) | Initiates WiFi scaning |
+| [StartWiFiScan](#method.StartWiFiScan) | Initiates WiFi scanning |
 | [StopWiFiScan](#method.StopWiFiScan) | Stops WiFi scanning |
 | [GetKnownSSIDs](#method.GetKnownSSIDs) | Gets list of saved SSIDs |
 | [AddToKnownSSIDs](#method.AddToKnownSSIDs) | Saves the SSID, passphrase, and security mode for upcoming and future sessions |
@@ -103,7 +103,7 @@ NetworkManager interface methods:
 | [GetWiFiSignalQuality](#method.GetWiFiSignalQuality) | Get WiFi signal quality of currently connected SSID |
 | [GetSupportedSecurityModes](#method.GetSupportedSecurityModes) | Returns the Wifi security modes that the device supports |
 | [GetWifiState](#method.GetWifiState) | Returns the current Wifi State |
-| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the device name) |
+| [SetHostname](#method.SetHostname) | To configure a custom DHCP hostname instead of the default (which is typically the default hostname) |
 
 <a name="method.SetLogLevel"></a>
 ## *SetLogLevel [<sup>method</sup>](#head.Methods)*
@@ -1006,7 +1006,7 @@ Traces the specified endpoint with the specified number of packets using `tracer
 <a name="method.StartWiFiScan"></a>
 ## *StartWiFiScan [<sup>method</sup>](#head.Methods)*
 
-Initiates WiFi scaning. This method supports scanning for specific range of frequency like 2.4GHz only or 5GHz only or 6GHz only or ALL. When no input passed about the frequency to be scanned, it scans for all. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
+Initiates WiFi scanning. This method supports scanning specific frequency bands (2.4GHz, 5GHz, 6GHz). When no input is passed for frequency, it scans all supported frequencies. When list of SSIDs to be scanned specifically, it can be passed as input. It publishes 'onAvailableSSIDs' event upon completion.
 
 Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 
@@ -1015,7 +1015,8 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params?.frequency | string | <sup>*(optional)*</sup> The frequency to scan. An empty or `null` value scans all frequencies |
+| params?.frequencies | array | <sup>*(optional)*</sup> Frequency bands to scan. Omit this field or pass "ALL" to scan all frequencies |
+| params?.frequencies[#] | string | <sup>*(optional)*</sup> The frequency to scan |
 | params?.ssids | array | <sup>*(optional)*</sup> The list of SSIDs to be scanned |
 | params?.ssids[#] | string | <sup>*(optional)*</sup> The SSID to scan |
 
@@ -1036,7 +1037,9 @@ Also see: [onAvailableSSIDs](#event.onAvailableSSIDs)
   "id": 42,
   "method": "org.rdk.NetworkManager.1.StartWiFiScan",
   "params": {
-    "frequency": "5",
+    "frequencies": [
+      "2.4"
+    ],
     "ssids": [
       "Xfinity Mobile"
     ]
@@ -1558,7 +1561,7 @@ This method takes no parameters.
 <a name="method.GetWiFiSignalQuality"></a>
 ## *GetWiFiSignalQuality [<sup>method</sup>](#head.Methods)*
 
-Get WiFi signal quality of currently connected SSID. The signal quality is identifed based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
+Get WiFi signal quality of currently connected SSID. The signal quality is identified based on the Signal to Noise ratio which is calculated as SNR = rssi - noise. The possible states are
 * 'Excellent'    : More than 40 dBm
 * 'Good'         : 40 dBm to 25 dBm
 * 'Fair'         : 25 dBm to 18 dBm
@@ -1631,7 +1634,7 @@ This method takes no parameters.
 | result.security.NONE | integer | Security mode for open network |
 | result.security.WPA_PSK | integer | Supports security mode WPA,WPA-PSK,WPA2-PSK, WPA3-Personal-Transition |
 | result.security.SAE | integer | Supports security mode WPA3-Personal |
-| result.security.EAP | integer | Supports security mode WPA enterpise |
+| result.security.EAP | integer | Supports security mode WPA enterprise |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -1726,7 +1729,7 @@ This method takes no parameters.
 <a name="method.SetHostname"></a>
 ## *SetHostname [<sup>method</sup>](#head.Methods)*
 
-To configure a custom DHCP hostname instead of the default (which is typically the device name).
+To configure a custom DHCP hostname instead of the default (which is typically the default hostname).
 
 Setting host name will take effect upon reconnect; like, device reboot, wake-up from deepsleep, while connecting to new Wi-Fi connection, WiFi On/Off, or renewal of the DHCP lease.
 
@@ -1891,7 +1894,7 @@ Triggered when internet connection state changed.The possible internet connectio
 | Name | Type | Description |
 | :-------- | :-------- | :-------- |
 | params | object |  |
-| params.prevState | integer | The privious internet connection state |
+| params.prevState | integer | The previous internet connection state |
 | params.prevStatus | string | The previous internet connection status |
 | params.state | integer | The internet connection state |
 | params.status | string | The internet connection status |

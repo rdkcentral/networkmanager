@@ -637,18 +637,27 @@ namespace WPEFramework
                 NMLOG_DEBUG("No persistent hostname found, using device hostname");
             }
 
+            if(hostname.empty())
+                NMLOG_WARNING("dhcp hostname: <empty>");
+            else
+                NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
+
             // IPv4 settings with DHCP
             NMSettingIP4Config *sIpv4 = (NMSettingIP4Config *)nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
+            if(!hostname.empty()) {
+                g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+                g_object_set(G_OBJECT(sIpv4), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
+            }
             nm_connection_add_setting(connection, NM_SETTING(sIpv4));
 
             // IPv6 settings with DHCP
             NMSettingIP6Config *sIpv6 = (NMSettingIP6Config *)nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
+            if(!hostname.empty()) {
+                g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+                g_object_set(G_OBJECT(sIpv6), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL);
+            }
             nm_connection_add_setting(connection, NM_SETTING(sIpv6));
 
             NMLOG_DEBUG("Created minimal ethernet connection with autoconnect=true");
@@ -755,7 +764,7 @@ namespace WPEFramework
                 g_object_set(sWireless, NM_SETTING_WIRELESS_BSSID, ssidinfo.bssid.c_str(), NULL);
             }
 
-            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_NONE)
+            if(ssidinfo.frequency != Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_ALL)
             {
                 if(ssidinfo.frequency == Exchange::INetworkManager::WIFIFrequency::WIFI_FREQUENCY_2_4_GHZ)
                 {
@@ -894,23 +903,30 @@ namespace WPEFramework
             if(!nmUtils::readPersistentHostname(hostname))
             {
                 hostname = nmUtils::deviceHostname();
-                NMLOG_DEBUG("no persistent hostname found taking device name as hostname !");
+                NMLOG_DEBUG("No persistent hostname found, using device hostname");
             }
 
-            NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
+            if(hostname.empty())
+                NMLOG_WARNING("dhcp hostname: <empty>");
+            else
+                NMLOG_INFO("dhcp hostname: %s", hostname.c_str());
 
             /* Build up the 'IPv4' Setting */
             NMSettingIP4Config *sIpv4Conf = (NMSettingIP4Config *) nm_setting_ip4_config_new();
             g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_AUTO, NULL); // autoconf = true
-            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
+            if(!hostname.empty()) {
+                g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+                g_object_set(G_OBJECT(sIpv4Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
+            }
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv4Conf));
 
             /* Build up the 'IPv6' Setting */
             NMSettingIP6Config *sIpv6Conf = (NMSettingIP6Config *) nm_setting_ip6_config_new();
             g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_AUTO, NULL); // autoconf = true
-            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
-            g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
+            if(!hostname.empty()) {
+                g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(), NULL);
+                g_object_set(G_OBJECT(sIpv6Conf), NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE, NULL); // hostname send enabled
+            }
             nm_connection_add_setting(m_connection, NM_SETTING(sIpv6Conf));
             return true;
         }
@@ -1685,7 +1701,7 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        bool wifiManager::wifiScanRequest(std::string ssidReq)
+        bool wifiManager::wifiScanRequest(const std::vector<std::string>& ssidsToFilter)
         {
             if(!createClientNewConnection())
                 return false;
@@ -1696,23 +1712,25 @@ namespace WPEFramework
                 return false;
             }
             m_isSuccess = false;
-            if(!ssidReq.empty())
+            if(!ssidsToFilter.empty())
             {
-                NMLOG_INFO("starting wifi scanning .. %s", ssidReq.c_str());
-                GVariantBuilder builder, array_builder;
+                NMLOG_INFO("Starting wifi scanning for %d SSIDs:",static_cast<int>(ssidsToFilter.size()));
+                GVariantBuilder nm_variant, nm_array_variant;
                 GVariant *options;
-                g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
-                g_variant_builder_init(&array_builder, G_VARIANT_TYPE("aay"));
-                g_variant_builder_add(&array_builder, "@ay",
-                                    g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssidReq.c_str(), ssidReq.length(), 1)
-                                    );
-                g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
-                options = g_variant_builder_end(&builder);
+                g_variant_builder_init(&nm_variant, G_VARIANT_TYPE_VARDICT);
+                g_variant_builder_init(&nm_array_variant, G_VARIANT_TYPE("aay"));
+                for (const auto& ssid : ssidsToFilter) {
+                    g_variant_builder_add(&nm_array_variant, "@ay",
+                                        g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, (const guint8 *) ssid.c_str(), ssid.length(), 1)
+                                        );
+                }
+                g_variant_builder_add(&nm_variant, "{sv}", "ssids", g_variant_builder_end(&nm_array_variant));
+                options = g_variant_builder_end(&nm_variant);
                 nm_device_wifi_request_scan_options_async(wifiDevice, options, m_cancellable, wifiScanCb, this);
                 g_variant_unref(options); // Unreference the GVariant after passing it to the async function
             }
             else {
-                NMLOG_INFO("staring normal wifi scanning ..");
+                NMLOG_INFO("Starting normal wifi scanning ..");
                 nm_device_wifi_request_scan_async(wifiDevice, m_cancellable, wifiScanCb, this);
             }
             wait(m_loop);

@@ -634,12 +634,27 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            string frequency{};
+            Exchange::INetworkManager::IStringIterator* frequencies = nullptr;
             Exchange::INetworkManager::IStringIterator* ssids = NULL;
 
-
             if (parameters.HasLabel("frequency"))
-                frequency = parameters["frequency"].String();
+			{
+                std::vector<string> frequencyList;
+                if (Core::JSON::Variant::type::STRING == parameters["frequency"].Content())
+                {
+                    frequencyList.push_back(parameters["frequency"].String());
+                }
+                else
+                {
+                    NMLOG_ERROR("Unexpected variant type in frequency parameter.");
+                        returnJson(rc);
+                }
+
+                frequencies = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(frequencyList));
+				if (frequencies == nullptr) {
+					returnJson(rc);
+				}
+			}
 
             if (parameters.HasLabel("ssid"))
             {
@@ -654,6 +669,8 @@ namespace WPEFramework
 
                 ssids = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(inputSSIDlist));
                 if (ssids == nullptr) {
+					if (frequencies)
+                		frequencies->Release();
                     returnJson(rc);
                 }
             }
@@ -661,12 +678,15 @@ namespace WPEFramework
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _nwmgr->StartWiFiScan(frequency, ssids);
+                rc = _nwmgr->StartWiFiScan(frequencies, ssids);
                 _nwmgr->Release();
             }
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
+			if (frequencies)
+                frequencies->Release();
+			
             if (ssids)
                 ssids->Release();
 
