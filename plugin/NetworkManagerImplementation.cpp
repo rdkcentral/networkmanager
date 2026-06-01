@@ -1223,7 +1223,6 @@ namespace WPEFramework
                     if (rcWifiDown == Core::ERROR_NONE)
                     {
                         m_wlanDisconnectedForSleep.store(true);
-                        m_wlanConnected.store(false);
                     }
                     else
                     {
@@ -1267,7 +1266,6 @@ namespace WPEFramework
                         if (rcWifiUp == Core::ERROR_NONE)
                         {
                             m_wlanDisconnectedForSleep.store(false);
-                            m_wlanConnected.store(true); // Mark WiFi as connected.
                         }
                         else
                         {
