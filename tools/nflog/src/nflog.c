@@ -16,7 +16,59 @@
 
 #define NFLOG_GROUP 10
 
+/*
+ * Copy only packet headers from kernel to userspace.
+ * 80 bytes is enough for:
+ * - IPv4 + TCP base header (40 bytes) plus TCP options
+ * - IPv6 + TCP base header (60 bytes) plus small options
+ * - IPv4/IPv6 + UDP headers (28/48 bytes)
+ * This avoids full payload copies (for example 1500-byte frames or larger),
+ * which is the primary driver of high NFLOG memory usage.
+ */
+#define NFLOG_COPY_SIZE 80
+
+/*
+ * Cap NFLOG netlink buffer size per group in kernel space.
+ * 32KB is enough for short bursts while preventing large queued backlogs.
+ * With header-only copy size, this comfortably holds many events but keeps
+ * kernel memory bounded under load.
+ */
+#define NFLOG_NLBUFSIZ (32 * 1024)
+
+/*
+ * Batch up to 20 packets per netlink delivery to reduce syscall/context-switch
+ * overhead without adding too much latency for near real-time monitoring.
+ * Chosen range was 10-20 for real-time profile; we use the upper end here.
+ */
+#define NFLOG_QTHRESH 20
+
+/*
+ * Flush partial batches every 100 centiseconds (1 second).
+ * This guarantees delivery when traffic is low and qthresh is not reached,
+ * while still allowing useful batching during bursts.
+ */
+#define NFLOG_TIMEOUT 100
+
+static struct nflog_handle *g_h = NULL;
+static struct nflog_g_handle *g_gh = NULL;
+
 static volatile int running = 1;
+
+static void cleanup(void)
+{
+    if (g_gh) {
+        nflog_set_mode(g_gh, NFULNL_COPY_NONE, 0);
+        nflog_unbind_group(g_gh);
+        g_gh = NULL;
+    }
+
+    if (g_h) {
+        nflog_unbind_pf(g_h, AF_INET);
+        nflog_unbind_pf(g_h, AF_INET6);
+        nflog_close(g_h);
+        g_h = NULL;
+    }
+}
 
 static void handle_signal(int sig)
 {
@@ -227,42 +279,55 @@ int main(void)
 {
     signal(SIGINT,  handle_signal);
     signal(SIGTERM, handle_signal);
+    atexit(cleanup);
 
     printf("╔══════════════════════════════════════════════════╗\n");
     printf("║       NFLOG Packet Listener (Group %d)          ║\n", NFLOG_GROUP);
     printf("║       Press Ctrl+C to stop                      ║\n");
     printf("╚══════════════════════════════════════════════════╝\n\n");
 
-    struct nflog_handle *h = nflog_open();
-    if (!h) { fprintf(stderr, "ERROR: nflog_open() failed\n"); return 1; }
+    g_h = nflog_open();
+    if (!g_h) { fprintf(stderr, "ERROR: nflog_open() failed\n"); return 1; }
 
-    nflog_unbind_pf(h, AF_INET);
-    nflog_unbind_pf(h, AF_INET6);
+    nflog_unbind_pf(g_h, AF_INET);
+    nflog_unbind_pf(g_h, AF_INET6);
 
-    if (nflog_bind_pf(h, AF_INET) < 0)  { fprintf(stderr, "ERROR: bind AF_INET\n");  return 1; }
-    if (nflog_bind_pf(h, AF_INET6) < 0) { fprintf(stderr, "ERROR: bind AF_INET6\n"); return 1; }
+    if (nflog_bind_pf(g_h, AF_INET) < 0)  { fprintf(stderr, "ERROR: bind AF_INET\n");  return 1; }
+    if (nflog_bind_pf(g_h, AF_INET6) < 0) { fprintf(stderr, "ERROR: bind AF_INET6\n"); return 1; }
 
-    struct nflog_g_handle *gh = nflog_bind_group(h, NFLOG_GROUP);
-    if (!gh) { fprintf(stderr, "ERROR: bind group %d\n", NFLOG_GROUP); return 1; }
+    g_gh = nflog_bind_group(g_h, NFLOG_GROUP);
+    if (!g_gh) { fprintf(stderr, "ERROR: bind group %d\n", NFLOG_GROUP); return 1; }
 
-    if (nflog_set_mode(gh, NFULNL_COPY_PACKET, 0xFFFF) < 0) {
+    if (nflog_set_mode(g_gh, NFULNL_COPY_PACKET, NFLOG_COPY_SIZE) < 0) {
         fprintf(stderr, "ERROR: set mode\n"); return 1;
     }
 
-    nflog_callback_register(gh, &callback, NULL);
+    if (nflog_set_nlbufsiz(g_gh, NFLOG_NLBUFSIZ) < 0) {
+        fprintf(stderr, "ERROR: set nlbufsiz\n"); return 1;
+    }
 
-    int fd = nflog_fd(h);
+    if (nflog_set_qthresh(g_gh, NFLOG_QTHRESH) < 0) {
+        fprintf(stderr, "ERROR: set qthresh\n"); return 1;
+    }
+
+    if (nflog_set_timeout(g_gh, NFLOG_TIMEOUT) < 0) {
+        fprintf(stderr, "ERROR: set timeout\n"); return 1;
+    }
+
+    nflog_callback_register(g_gh, &callback, NULL);
+
+    int fd = nflog_fd(g_h);
     printf("[INIT] Listening on fd=%d\n\n", fd);
 
-    char buf[65535];
+    char buf[4096];
     int rv;
 
     while (running) {
         rv = recv(fd, buf, sizeof(buf), 0);
-        if (rv > 0)       nflog_handle_packet(h, buf, rv);
+        if (rv > 0)       nflog_handle_packet(g_h, buf, rv);
         else if (rv < 0) {
             if (errno == ENOBUFS) {
-                fprintf(stderr, "WARN: recv() ENOBUFS – kernel dropped packets, continuing\n");
+                fprintf(stderr, "WARN: recv() ENOBUF kernel dropped packets, continuing\n");
                 continue;
             }
             if (running) perror("recv()");
@@ -272,7 +337,6 @@ int main(void)
     }
 
     printf("\n[CLEANUP] Done.\n");
-    nflog_unbind_group(gh);
-    nflog_close(h);
+    cleanup();
     return 0;
 }
