@@ -27,28 +27,6 @@
  */
 #define NFLOG_COPY_SIZE 80
 
-/*
- * Cap NFLOG netlink buffer size per group in kernel space.
- * 32KB is enough for short bursts while preventing large queued backlogs.
- * With header-only copy size, this comfortably holds many events but keeps
- * kernel memory bounded under load.
- */
-#define NFLOG_NLBUFSIZ (32 * 1024)
-
-/*
- * Batch up to 20 packets per netlink delivery to reduce syscall/context-switch
- * overhead without adding too much latency for near real-time monitoring.
- * Chosen range was 10-20 for real-time profile; we use the upper end here.
- */
-#define NFLOG_QTHRESH 20
-
-/*
- * Flush partial batches every 100 centiseconds (1 second).
- * This guarantees delivery when traffic is low and qthresh is not reached,
- * while still allowing useful batching during bursts.
- */
-#define NFLOG_TIMEOUT 100
-
 static struct nflog_handle *g_h = NULL;
 static struct nflog_g_handle *g_gh = NULL;
 
@@ -300,18 +278,6 @@ int main(void)
 
     if (nflog_set_mode(g_gh, NFULNL_COPY_PACKET, NFLOG_COPY_SIZE) < 0) {
         fprintf(stderr, "ERROR: set mode\n"); return 1;
-    }
-
-    if (nflog_set_nlbufsiz(g_gh, NFLOG_NLBUFSIZ) < 0) {
-        fprintf(stderr, "ERROR: set nlbufsiz\n"); return 1;
-    }
-
-    if (nflog_set_qthresh(g_gh, NFLOG_QTHRESH) < 0) {
-        fprintf(stderr, "ERROR: set qthresh\n"); return 1;
-    }
-
-    if (nflog_set_timeout(g_gh, NFLOG_TIMEOUT) < 0) {
-        fprintf(stderr, "ERROR: set timeout\n"); return 1;
     }
 
     nflog_callback_register(g_gh, &callback, NULL);
