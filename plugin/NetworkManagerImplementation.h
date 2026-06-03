@@ -371,6 +371,12 @@ namespace WPEFramework
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
+                IPAddress m_ethIPv4Address;
+                IPAddress m_wlanIPv4Address;
+                IPAddress m_ethIPv6Address;
+                IPAddress m_wlanIPv6Address;
+#endif
                 bool lookupIpCache(const std::string& iface, const std::string& ipFamily,
                                    Exchange::INetworkManager::IPAddress& out) const;
                 std::set<std::string> swapIpCache(const std::string& iface,
