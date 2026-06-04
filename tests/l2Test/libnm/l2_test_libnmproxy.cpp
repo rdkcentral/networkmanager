@@ -40,6 +40,8 @@
 using namespace WPEFramework;
 using ::testing::NiceMock;
 
+namespace WPEFramework { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
+
 class NetworkManagerTest : public ::testing::Test {
 protected:
     Core::ProxyType<Plugin::NetworkManager> plugin;
@@ -550,7 +552,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_fromCache)
     cache.secondarydns = "8.8.4.4";
     cache.dhcpserver = "192.168.1.11";
     cache.autoconfig = true;
-    NetworkManagerImpl->swapIpCache("eth0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
@@ -571,7 +573,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_autoconfig)
     Plugin::IpFamilyCache cache;
     cache.valid = true;
     cache.autoconfig = true;
-    NetworkManagerImpl->swapIpCache("eth0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
     std::string expectedResponse =
@@ -587,7 +589,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_staticConfig)
     cache.autoconfig = false;
     cache.globalAddresses["192.168.1.100"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
     cache.gateway = "192.168.1.1";
-    NetworkManagerImpl->swapIpCache("eth0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
@@ -604,7 +606,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_wlan0_fromCache)
     cache.globalAddresses["10.0.0.5"] = Plugin::GlobalAddressInfo(8, Plugin::ADDR_GLOBAL);
     cache.gateway = "10.0.0.1";
     cache.primarydns = "1.1.1.1";
-    NetworkManagerImpl->swapIpCache("wlan0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("wlan0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
@@ -623,7 +625,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config_valid)
     cache.primarydns = "8.8.8.8";
     cache.secondarydns = "8.8.4.4";
     cache.dhcpserver = "192.168.1.11";
-    NetworkManagerImpl->swapIpCache("eth0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
 
@@ -649,7 +651,7 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
     cache.primarydns = "2001:4860:4860::8888";
     cache.secondarydns = "2001:4860:4860::8844";
     cache.dhcpserver = "2001:db8::1";
-    NetworkManagerImpl->swapIpCache("eth0", "IPv6", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
 
