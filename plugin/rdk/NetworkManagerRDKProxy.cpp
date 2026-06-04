@@ -1158,6 +1158,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
+        {
+            /* No-op on RDK platform */
+            NMLOG_INFO("EthernetDeactivate: no-op on RDK platform");
+            return Core::ERROR_UNAVAILABLE;
+        }
+
+        uint32_t NetworkManagerImplementation::ReacquireDHCPLease(const string& iface)
+        {
+            /* No-op on RDK platform */
+            NMLOG_INFO("ReacquireDHCPLease: no-op on RDK platform (iface=%s)", iface.c_str());
+            return Core::ERROR_UNAVAILABLE;
+        }
+
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
             LOG_ENTRY_FUNCTION();

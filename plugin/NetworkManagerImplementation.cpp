@@ -48,6 +48,8 @@ namespace WPEFramework
             m_wlanConnected.store(false);
             m_ethEnabled.store(false);
             m_wlanEnabled.store(false);
+            m_ethDisconnectedForSleep.store(false);
+            m_wlanDisconnectedForSleep.store(false);
 
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
@@ -61,6 +63,7 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+            m_powerClient.reset();
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
             if(m_registrationThread.joinable())
@@ -188,6 +191,7 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
+            m_powerClient.reset(new NetworkManagerPowerClient(*this));
             return(Core::ERROR_NONE);
         }
 
@@ -1121,6 +1125,127 @@ namespace WPEFramework
                 callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
             }
             _notificationLock.Unlock();
+        }
+
+        void NetworkManagerImplementation::OnPowerModePreChange(
+            const Exchange::IPowerManager::PowerState currentState,
+            const Exchange::IPowerManager::PowerState newState,
+            std::function<void()> sendAck)
+        {
+            // Called from NetworkManagerPowerClient's power thread.
+            NMLOG_DEBUG("OnPowerModePreChange: current=%d new=%d",
+                       static_cast<int>(currentState), static_cast<int>(newState));
+
+            using PowerState = Exchange::IPowerManager::PowerState;
+
+            if (newState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
+            {
+                if (m_wlanEnabled.load() && m_wlanConnected.load())
+                {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — disconnecting WiFi");
+
+                    uint32_t rcWifiDown = WiFiDisconnect();
+                    if (rcWifiDown == Core::ERROR_NONE)
+                    {
+                        m_wlanDisconnectedForSleep.store(true);
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("OnPowerModePreChange: WiFiDisconnect failed (rc=%u), will not reconnect on wakeup", rcWifiDown);
+                    }
+                }
+                else
+                {
+                    NMLOG_DEBUG("OnPowerModePreChange: going to DeepSleep — WiFi not connected, skipping disconnect");
+                }
+#ifdef ENABLE_ETHERNET_CONNECTION_HANDLING
+                if (m_ethEnabled.load() && m_ethConnected.load())
+                {
+                    NMLOG_INFO("OnPowerModePreChange: going to DeepSleep — deactivating Ethernet");
+
+                    uint32_t rcEthDown = EthernetDeactivate();
+                    if (rcEthDown == Core::ERROR_NONE)
+                    {
+                        m_ethDisconnectedForSleep.store(true);
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("OnPowerModePreChange: EthernetDeactivate failed (rc=%u), will not activate on wakeup", rcEthDown);
+                    }
+                }
+                else
+                {
+                    NMLOG_DEBUG("OnPowerModePreChange: going to DeepSleep — Ethernet not activated, skipping deactivate");
+                }
+#endif
+            }
+            else if (currentState == PowerState::POWER_STATE_STANDBY_DEEP_SLEEP)
+            {
+                if (m_wlanDisconnectedForSleep.load())
+                {
+                    if (!m_lastConnectedSSID.empty())
+                    {
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
+                               m_lastConnectedSSID.c_str());
+                        Exchange::INetworkManager::WiFiConnectTo connectInfo{};
+                        connectInfo.ssid = m_lastConnectedSSID;
+                        uint32_t rcWifiUp = WiFiConnect(connectInfo);
+                        if (rcWifiUp == Core::ERROR_NONE)
+                        {
+                            m_wlanDisconnectedForSleep.store(false);
+                        }
+                        else
+                        {
+                            NMLOG_ERROR("OnPowerModePreChange: WiFiConnect failed (rc=%u)", rcWifiUp);
+                        }
+                    }
+                    else
+                    {
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — no last SSID, skipping reconnect");
+                    }
+                }
+                else
+                {
+                    NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
+                }
+            }
+            sendAck();
+        }
+
+        void NetworkManagerImplementation::OnPowerModeChanged(
+            const Exchange::IPowerManager::PowerState currentState,
+            const Exchange::IPowerManager::PowerState newState)
+        {
+            NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
+                       static_cast<int>(currentState), static_cast<int>(newState));
+            if (currentState == Exchange::IPowerManager::PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
+
+                if (m_wlanEnabled.load() && m_wlanConnected.load())
+                {
+                    // Waking from DeepSleep with Network Standby ON: the AP may have
+                    // changed channel while the device slept (802.11 CSA).  Trigger an
+                    // active scan so the driver discovers the AP on its new channel.
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, triggering active WiFi scan");
+                    if (StartWiFiScan("", nullptr) != Core::ERROR_NONE)
+                    {
+                        NMLOG_ERROR("OnPowerModeChanged: StartWiFiScan failed");
+                    }
+
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on wlan0");
+                    if (ReacquireDHCPLease("wlan0") != Core::ERROR_NONE)
+                    {
+                        NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(wlan0) failed");
+                    }
+                }
+                if (m_ethEnabled.load() && m_ethConnected.load())
+                {
+                    NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
+                    if (ReacquireDHCPLease("eth0") != Core::ERROR_NONE)
+                    {
+                        NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
+                    }
+                }
+            }
         }
     }
 }

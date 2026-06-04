@@ -51,6 +51,8 @@ namespace WPEFramework
 
             bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
+            bool ethernetDeactivate();
+            bool reacquireDhcpLease(const std::string& iface);
             bool activateKnownConnection(std::string iface, std::string knowConnectionID="");
             bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo);
@@ -73,13 +75,13 @@ namespace WPEFramework
             wifiManager();
             ~wifiManager() {
                 NMLOG_INFO("~wifiManager");
+                if(m_client != NULL) {
+                    deleteClientConnection();  // handles pop
+                }
                 if (m_nmContext) {
-                    g_main_context_pop_thread_default(m_nmContext);
+                    // Do NOT pop here — deleteClientConnection already popped
                     g_main_context_unref(m_nmContext);
                     m_nmContext = NULL;
-                }
-                if(m_client != NULL) {
-                    deleteClientConnection();
                 }
                 if(m_loop != NULL) {
                     g_main_loop_unref(m_loop);
@@ -104,7 +106,10 @@ namespace WPEFramework
             GSource *m_source;
             GCancellable *m_cancellable;
             std::mutex m_cancellableMutex;
+            std::mutex m_opMutex; // serializes concurrent wifi operations from different threads
             bool m_isSuccess = false;
+            NMConnection *m_appliedConn = nullptr;
+            guint64 m_versionId = 0;
             SecretAgent m_secretAgent;
         };
     }   // Plugin
