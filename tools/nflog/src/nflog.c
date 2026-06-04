@@ -11,6 +11,7 @@
 #include <net/if.h>
 #include <time.h>
 #include <errno.h>
+#include <malloc.h>
 
 #include <libnetfilter_log/libnetfilter_log.h>
 
@@ -84,11 +85,11 @@ static int callback(struct nflog_g_handle *gh,
     (void)nfmsg;
     (void)data;
 
-    /* ---- Time ---- */
-    time_t now = time(NULL);
-    struct tm *tm = localtime(&now);
+    /* ---- Time (monotonic clock, immune to NTP jumps) ---- */
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     char timestr[64];
-    strftime(timestr, sizeof(timestr), "%H:%M:%S", tm);
+    snprintf(timestr, sizeof(timestr), "%ld.%03ld", (long)ts.tv_sec, ts.tv_nsec / 1000000);
 
     /* ---- Prefix ---- */
     char *prefix = nflog_get_prefix(nfa);
@@ -221,7 +222,7 @@ static int callback(struct nflog_g_handle *gh,
     printf("│  Dest     : %s:%u\n", dst_ip, dst_port);
     printf("│  In Iface : %s (index %u)\n", indev_name, indev);
     printf("│  Out Iface: %s (index %u)\n", outdev_name, outdev);
-    printf("│  Size     : %d bytes\n", payload_len);
+    printf("│  CopySize : %d bytes (cap %d)\n", payload_len, NFLOG_COPY_SIZE);
 
     /* ---- HTTP response code (only when service=HTTP and TCP payload exists) ---- */
     if (strcmp(service, "HTTP") == 0 && http_data != NULL) {
@@ -280,6 +281,29 @@ int main(void)
         fprintf(stderr, "ERROR: set mode\n"); return 1;
     }
 
+    /*
+     * Queue restriction controls (per libnetfilter_log docs):
+     *
+     * 1. qthresh: Max number of log entries the kernel batches in the
+     *    internal nflog buffer before flushing to the netlink socket.
+     *    Setting to 1 = flush immediately per packet, minimising the
+     *    amount of kernel memory held at any moment.
+     *
+     * 2. timeout: Max time (in hundredths of a second) kernel holds a
+     *    batch before flushing, even if qthresh isn't reached.
+     *    Safety net so packets don't sit in kernel memory indefinitely.
+     *
+     * NOTE: nflog_set_nlbufsiz() exists but the official docs say:
+     *   "The use of this function is strongly discouraged.
+     *    The default buffer size (one memory page) provides the
+     *    optimum results in terms of performance."
+     *
+     * The primary memory control should be done at the iptables layer
+     * using "-m limit" to restrict how many packets reach NFLOG.
+     */
+    nflog_set_qthresh(g_gh, 1);        /* flush every packet immediately    */
+    nflog_set_timeout(g_gh, 10);       /* 0.1s max batch hold time          */
+
     nflog_callback_register(g_gh, &callback, NULL);
 
     int fd = nflog_fd(g_h);
@@ -287,13 +311,26 @@ int main(void)
 
     char buf[4096];
     int rv;
+    int pkt_count = 0;
 
     while (running) {
         rv = recv(fd, buf, sizeof(buf), 0);
-        if (rv > 0)       nflog_handle_packet(g_h, buf, rv);
+        if (rv > 0) {
+            nflog_handle_packet(g_h, buf, rv);
+            /*
+             * Every 10 packets, release freed heap pages back to the OS.
+             * Without this, glibc holds freed memory mapped indefinitely
+             * and RSS stays high even when the app is idle in recv().
+             */
+            if (++pkt_count >= 10) {
+                malloc_trim(0);
+                pkt_count = 0;
+            }
+        }
         else if (rv < 0) {
             if (errno == ENOBUFS) {
-                fprintf(stderr, "WARN: recv() ENOBUF kernel dropped packets, continuing\n");
+                fprintf(stderr, "WARN: recv() ENOBUFS \xe2\x80\x93 kernel dropped packets, continuing\n");
+                malloc_trim(0);
                 continue;
             }
             if (running) perror("recv()");
@@ -302,7 +339,7 @@ int main(void)
         else              break;
     }
 
-    printf("\n[CLEANUP] Done.\n");
+    printf("[CLEANUP] Done.\n");
     cleanup();
     return 0;
 }
