@@ -55,6 +55,13 @@ option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
+option(ENABLE_ETHERNET_CONNECTION_HANDLING
+       "Enable pre-sleep Ethernet deactivation" OFF)
+
+if(ENABLE_ETHERNET_CONNECTION_HANDLING)
+    add_definitions(-DENABLE_ETHERNET_CONNECTION_HANDLING)
+    message(STATUS "Ethernet connection handling: enabled")
+endif()
 
 if (USE_TELEMETRY)
     find_package(T2 REQUIRED)

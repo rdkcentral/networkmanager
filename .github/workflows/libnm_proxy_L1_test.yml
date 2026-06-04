@@ -12,7 +12,8 @@ env:
 jobs:
   L1-tests:
     name: Build and run unit tests
-    runs-on: ubuntu-22.04
+    # Note: Ubuntu 24.04 is required for libnm 1.46 which is needed for NetworkManagerPowerClient support
+    runs-on: ubuntu-24.04
 
     steps:
       # Set up Thunder cache
@@ -107,6 +108,11 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
+      - name: Install IPowerManager header
+        run: |
+          IFACE_DIR=$(find ${{github.workspace}}/install/usr/include -maxdepth 2 -name "interfaces" -type d | head -1)
+          cp ${{github.workspace}}/networkmanager/tests/mocks/thunder/IPowerManager.h "$IFACE_DIR/"
+
       - name: Generate dependency files
         run: |
           sudo bash -c 'echo "ETHERNET_INTERFACE=eth0
@@ -160,7 +166,7 @@ jobs:
 
       - name: Generate coverage
         run: |
-            lcov -c -o coverage.info -d build/networkmanager_libnm/
+            lcov --rc geninfo_unexecuted_blocks=1 -c -o coverage.info -d build/networkmanager_libnm/ --ignore-errors mismatch
             lcov -e coverage.info '*/networkmanager/plugin/gnome/*' -o filtered_coverage.info
 
       - name: Generate the html report

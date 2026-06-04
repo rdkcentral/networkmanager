@@ -81,6 +81,7 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
+                            NetworkManagerPowerClient.cpp
                             Module.cpp)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
