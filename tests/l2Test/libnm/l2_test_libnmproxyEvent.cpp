@@ -347,9 +347,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_disconnected)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -359,9 +359,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unmanaged)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -467,9 +467,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unknown)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNKNOWN));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNKNOWN));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -479,9 +479,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_unmanaged)
 {
     NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
+        .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
@@ -492,9 +492,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_disconnected)
 {
     NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
+        .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
