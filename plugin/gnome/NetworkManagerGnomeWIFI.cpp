@@ -45,7 +45,11 @@ namespace WPEFramework
         wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr), m_cancellable(nullptr){
             NMLOG_INFO("wifiManager");
             m_nmContext = g_main_context_new();
-            g_main_context_push_thread_default(m_nmContext);
+            // g_main_context_push_thread_default(m_nmContext);
+            // Do NOT push m_nmContext here. Pushing here permanently locks ownership
+            // to the constructor thread (owner_count stays at 1, never released).
+            // All callers — must push/pop around
+            // each createClientNewConnection()/deleteClientConnection() pair instead.
             m_loop = g_main_loop_new(m_nmContext, FALSE);
         }
 
@@ -53,12 +57,21 @@ namespace WPEFramework
         {
             GError *error = NULL;
 
+            // Serialize concurrent wifi operations from different threads
+            m_opMutex.lock();
+
+            g_main_context_push_thread_default(m_nmContext);
+
             m_client = nm_client_new(NULL, &error);
             if (!m_client || !m_loop) {
                 if (error) {
                     NMLOG_ERROR("Could not connect to NetworkManager: %s.", error->message);
                     g_error_free(error);
                 }
+                g_clear_object(&m_client);
+                m_client = nullptr;
+                g_main_context_pop_thread_default(m_nmContext);
+                m_opMutex.unlock();
                 return false;
             }
 
@@ -79,7 +92,7 @@ namespace WPEFramework
                     NMLOG_DEBUG("Cancelling pending async operations");
                     g_cancellable_cancel(m_cancellable);
                     g_clear_object(&m_cancellable);
-                    m_cancellable = NULL;
+                    m_cancellable = nullptr;
                 }
             }
 
@@ -93,15 +106,21 @@ namespace WPEFramework
                     g_main_context_iteration(context, TRUE);
                 }
                 g_main_context_unref(context);
-                m_client = NULL;
+                m_client = nullptr;
             }
 
             if(m_objectPath)
             {
                 NMLOG_DEBUG("Freeing object path");
                 g_free(m_objectPath);
-                m_objectPath = NULL;
+                m_objectPath = nullptr;
             }
+
+            // Pop the context pushed in createClientNewConnection()
+            if (m_nmContext)
+                g_main_context_pop_thread_default(m_nmContext);
+            // Release operation lock acquired in createClientNewConnection()
+            m_opMutex.unlock();
         }
 
         bool wifiManager::quit(NMDevice *wifiNMDevice)
@@ -403,6 +422,168 @@ namespace WPEFramework
 
             nm_device_disconnect_async(wifiNMDevice, m_cancellable, disconnectCb, this);
             wait(m_loop);
+            deleteClientConnection();
+            return m_isSuccess;
+        }
+
+        static void ethernetDeactivateCb(GObject *object, GAsyncResult *result, gpointer user_data)
+        {
+            NMClient *client = NM_CLIENT(object);
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
+
+            NMLOG_DEBUG("ethernet connection deactivating...");
+            _wifiManager->m_isSuccess = true;
+            if (!nm_client_deactivate_connection_finish(client, result, &error))
+            {
+                NMLOG_ERROR("ethernet connection deactivate failed !");
+                if(error != NULL)
+                {
+                    if(g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                    {
+                        NMLOG_DEBUG("Deactivate operation was cancelled");
+                    }
+                    else
+                    {
+                        NMLOG_ERROR("Deactivate error: %s", error->message);
+                    }
+                    g_error_free(error);
+                }
+                _wifiManager->m_isSuccess = false;
+            }
+            _wifiManager->quit(NULL);
+        }
+
+        bool wifiManager::ethernetDeactivate()
+        {
+            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *ethDevice = nm_client_get_device_by_iface(m_client, nmUtils::ethIface());
+            if(ethDevice == NULL) {
+                NMLOG_WARNING("ethernet device not found !");
+                deleteClientConnection();
+                return false;
+            }
+
+            deviceState = nm_device_get_state(ethDevice);
+            NMLOG_DEBUG("ethernet device current state is %d !", deviceState);
+            if (deviceState <= NM_DEVICE_STATE_DISCONNECTED || deviceState == NM_DEVICE_STATE_FAILED || deviceState == NM_DEVICE_STATE_DEACTIVATING)
+            {
+                NMLOG_WARNING("ethernet already disconnected !");
+                deleteClientConnection();
+                return true;
+            }
+
+            NMActiveConnection *activeConn = nm_device_get_active_connection(ethDevice);
+            if(activeConn == NULL) {
+                NMLOG_WARNING("ethernet has no active connection, nothing to deactivate !");
+                deleteClientConnection();
+                return true;
+            }
+
+            nm_client_deactivate_connection_async(m_client, activeConn, m_cancellable, ethernetDeactivateCb, this);
+            wait(m_loop);
+            deleteClientConnection();
+            return m_isSuccess;
+        }
+
+        static void appliedConnCb(GObject *src, GAsyncResult *res, gpointer user_data)
+        {
+            wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
+            GError *error = NULL;
+            guint64 versionId = 0;
+            NMConnection *conn = nm_device_get_applied_connection_finish(
+                                     NM_DEVICE(src), res, &versionId, &error);
+            if (error) {
+                NMLOG_ERROR("reacquireDhcpLease: get_applied_connection failed: %s", error->message);
+                g_error_free(error);
+                _wifiManager->m_appliedConn = nullptr;
+                _wifiManager->m_isSuccess = false;
+            } else {
+                _wifiManager->m_appliedConn = conn;
+                _wifiManager->m_versionId = versionId;
+                _wifiManager->m_isSuccess = true;
+            }
+            if (_wifiManager->m_loop)
+                g_main_loop_quit(_wifiManager->m_loop);
+        }
+
+        static void reappliedCb(GObject *src, GAsyncResult *res, gpointer user_data)
+        {
+            wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
+            GError *error = NULL;
+            nm_device_reapply_finish(NM_DEVICE(src), res, &error);
+            if (error) {
+                NMLOG_ERROR("reacquireDhcpLease: reapply failed: %s", error->message);
+                g_error_free(error);
+                _wifiManager->m_isSuccess = false;
+            } else {
+                _wifiManager->m_isSuccess = true;
+            }
+            if (_wifiManager->m_loop)
+                g_main_loop_quit(_wifiManager->m_loop);
+            NMLOG_DEBUG("reacquireDhcpLease: reapply completed for '%s'", nm_device_get_iface(NM_DEVICE(src)));
+        }
+
+        bool wifiManager::reacquireDhcpLease(const std::string& iface)
+        {
+            /* No direct libnm API to trigger a DHCP renew, hence by toggling ipv4.auto-route-ext-gw on the
+             * APPLIED connection (not the stored profile) and calling reapply().
+             */
+            if(!createClientNewConnection())
+                return false;
+
+            NMDevice *device = nm_client_get_device_by_iface(m_client, iface.c_str());
+            if (device == NULL) {
+                NMLOG_ERROR("reacquireDhcpLease: device '%s' not found", iface.c_str());
+                deleteClientConnection();
+                return false;
+            }
+
+            /* Round 1: fetch what NM actually has applied in memory */
+            m_isSuccess = false;
+            m_appliedConn = nullptr;
+            nm_device_get_applied_connection_async(device, 0, m_cancellable, appliedConnCb, this);
+            wait(m_loop);
+
+            if (!m_isSuccess || m_appliedConn == nullptr) {
+                NMLOG_ERROR("reacquireDhcpLease: could not get applied connection for '%s'", iface.c_str());
+                deleteClientConnection();
+                return false;
+            }
+
+            NMSettingIPConfig *s_ip4 = NM_SETTING_IP_CONFIG(
+                nm_connection_get_setting(m_appliedConn, NM_TYPE_SETTING_IP4_CONFIG));
+            if (s_ip4 == NULL) {
+                NMLOG_ERROR("reacquireDhcpLease: no IPv4 settings on '%s'", iface.c_str());
+                g_object_unref(m_appliedConn);
+                m_appliedConn = nullptr;
+                deleteClientConnection();
+                return false;
+            }
+
+            NMTernary currentVal = NM_TERNARY_DEFAULT;
+            g_object_get(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, &currentVal, NULL);
+            NMTernary newVal = (currentVal == NM_TERNARY_DEFAULT) ? NM_TERNARY_TRUE : NM_TERNARY_DEFAULT;
+            NMLOG_DEBUG("reacquireDhcpLease: '%s' auto-route-ext-gw %d -> %d (in-memory only)",
+                       iface.c_str(), static_cast<int>(currentVal), static_cast<int>(newVal));
+            g_object_set(s_ip4, NM_SETTING_IP_CONFIG_AUTO_ROUTE_EXT_GW, newVal, NULL);
+
+            /* Round 2: reapply with version_id for race safety — no disk write */
+            m_isSuccess = false;
+            nm_device_reapply_async(device, m_appliedConn, m_versionId, 0, m_cancellable, reappliedCb, this);
+            wait(m_loop);
+
+            if (!m_isSuccess) {
+                NMLOG_ERROR("reacquireDhcpLease: reapply failed for '%s'", iface.c_str());
+            } else {
+                NMLOG_INFO("reacquireDhcpLease: reapply successful on '%s'", iface.c_str());
+            }
+
+            g_object_unref(m_appliedConn);
+            m_appliedConn = nullptr;
             deleteClientConnection();
             return m_isSuccess;
         }

@@ -38,6 +38,7 @@ add_executable(${NM_RDK_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerPowerClient.cpp
     ${CMAKE_SOURCE_DIR}/plugin/rdk/NetworkManagerRDKProxy.cpp
     ${PROXY_STUB_SOURCES}
 )
