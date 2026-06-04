@@ -933,6 +933,22 @@ namespace WPEFramework
             return rc;
         }
 
+        uint32_t NetworkManagerImplementation::EthernetDeactivate(void)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->ethernetDeactivate())
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
+        uint32_t NetworkManagerImplementation::ReacquireDHCPLease(const string& iface)
+        {
+            uint32_t rc = Core::ERROR_GENERAL;
+            if(wifi->reacquireDhcpLease(iface))
+                rc = Core::ERROR_NONE;
+            return rc;
+        }
+
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
