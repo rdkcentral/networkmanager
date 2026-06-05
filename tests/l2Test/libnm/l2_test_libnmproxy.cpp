@@ -667,6 +667,175 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
     EXPECT_TRUE(response.find("\"gateway\":\"2001:4860:4860::1\"") != std::string::npos);
 }
 
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_mac_based_fallback)
+{
+    /* When all global addresses are MAC-based, toIPAddress should use the MAC-based one */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::aabb:ccff:fedd:eeff"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL_MAC_BASED);
+    cache.gateway = "fe80::1";
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::aabb:ccff:fedd:eeff\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"prefix\":64") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_prefer_non_mac_global)
+{
+    /* ADDR_GLOBAL should be preferred over ADDR_GLOBAL_MAC_BASED */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    /* Insert MAC-based first to ensure it's not selected by insertion order */
+    cache.globalAddresses["2001:db8::aabb:ccff:fedd:eeff"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL_MAC_BASED);
+    cache.globalAddresses["2001:db8::1234:5678"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::1234:5678\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_only_cached_request_ipv4)
+{
+    /* Only IPv6 cached, but IPv4 requested — should return success with no IP */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::1"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_cache_invalidated)
+{
+    /* Cache exists but valid=false — should return success with no IP data */
+    Plugin::IpFamilyCache cache;
+    cache.valid = false;
+    cache.globalAddresses["192.168.1.5"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipversion_case_insensitive)
+{
+    /* ipversion "ipv6" (lowercase) should be treated as IPv6 */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::99"] = Plugin::GlobalAddressInfo(128, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"ipv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::99\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_ula_only)
+{
+    /* Cache has only ULA addresses, no global — ipaddress is empty so the
+       JSON-RPC layer (NetworkManagerJsonRpc.cpp) skips all address fields
+       including ula, gateway, etc.  Only interface/ipversion/autoconfig/success
+       are returned. */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.uniqueLocalAddresses.insert("fd00::1234:abcd");
+    cache.gateway = "fe80::1";
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    /* No global address → ipaddress empty → JSON-RPC omits address detail fields */
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"ula\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"gateway\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"autoconfig\":true") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_swapIpCache_returns_old_keys)
+{
+    /* Verify swapIpCache returns the old global address keys */
+    Plugin::IpFamilyCache cache1;
+    cache1.valid = true;
+    cache1.globalAddresses["192.168.1.10"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache1.globalAddresses["192.168.1.20"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache1);
+
+    /* Now swap with a new cache and check old keys are returned */
+    Plugin::IpFamilyCache cache2;
+    cache2.valid = true;
+    cache2.globalAddresses["10.0.0.1"] = Plugin::GlobalAddressInfo(8, Plugin::ADDR_GLOBAL);
+    std::set<std::string> oldKeys = Plugin::_instance->swapIpCache("eth0", "IPv4", cache2);
+
+    EXPECT_EQ(oldKeys.size(), 2u);
+    EXPECT_TRUE(oldKeys.count("192.168.1.10") == 1);
+    EXPECT_TRUE(oldKeys.count("192.168.1.20") == 1);
+
+    /* Verify the new cache is now active */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"10.0.0.1\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_separate_ipv4_ipv6_caches)
+{
+    /* IPv4 and IPv6 caches for the same interface should be independent */
+    Plugin::IpFamilyCache cache4;
+    cache4.valid = true;
+    cache4.autoconfig = true;
+    cache4.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache4);
+
+    Plugin::IpFamilyCache cache6;
+    cache6.valid = true;
+    cache6.autoconfig = true;
+    cache6.globalAddresses["2001:db8::50"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    cache6.uniqueLocalAddresses.insert("fd12::50");
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache6);
+
+    /* Query IPv4 */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.50\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+
+    /* Query IPv6 */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::50\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv6\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ula\":\"fd12::50\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_cache_cleared)
+{
+    /* Populate cache, then swap with empty/invalid cache — simulates disconnect */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.globalAddresses["192.168.1.99"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+
+    /* Verify it's there */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.99\"") != std::string::npos);
+
+    /* Clear cache by swapping with default (valid=false) */
+    Plugin::IpFamilyCache empty;
+    Plugin::_instance->swapIpCache("eth0", "IPv4", empty);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
 TEST_F(NetworkManagerTest, SetInterfaceState_deviceFailed_wlan0)
 {
     GPtrArray* fakeDevices = g_ptr_array_new();
