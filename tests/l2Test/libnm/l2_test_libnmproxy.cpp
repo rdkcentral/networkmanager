@@ -836,6 +836,115 @@ TEST_F(NetworkManagerTest, GetIPSettings_cache_cleared)
     EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Utility function tests — isIPv4LinkLocal, isIPv6LinkLocal, isIPv6ULA,
+ * isIPv6MacBased (which exercises parseMac internally).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_true_for_169_254)
+{
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.0.1"));
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.255.255"));
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.100.50"));
+}
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_false_for_non_link_local)
+{
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("192.168.1.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("10.0.0.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("169.253.255.255"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("169.255.0.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("0.0.0.0"));
+}
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal(""));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("not_an_ip"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("fe80::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_true_for_fe80)
+{
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::1"));
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::abcd:1234:5678:9abc"));
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::ffff:ffff:ffff:ffff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_false_for_non_link_local)
+{
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("2001:db8::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fd00::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fc00::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fec0::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal(""));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("not_an_ip"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("169.254.1.1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_true_for_fc_fd)
+{
+    EXPECT_TRUE(Plugin::isIPv6ULA("fc00::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fd00::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fd12:3456:789a::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_false_for_non_ula)
+{
+    EXPECT_FALSE(Plugin::isIPv6ULA("2001:db8::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fe80::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fb00::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fe00::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv6ULA(""));
+    EXPECT_FALSE(Plugin::isIPv6ULA("garbage"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("192.168.1.1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_true_for_eui64_colon_mac)
+{
+    /* MAC AA:BB:CC:DD:EE:FF → EUI-64: A8:BB:CC:FF:FE:DD:EE:FF
+       (byte 0: 0xAA ^ 0x02 = 0xA8, insert FF:FE in middle) */
+    EXPECT_TRUE(Plugin::isIPv6MacBased("2001:db8::a8bb:ccff:fedd:eeff", "AA:BB:CC:DD:EE:FF"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_true_for_eui64_plain_mac)
+{
+    /* Same MAC in plain hex format */
+    EXPECT_TRUE(Plugin::isIPv6MacBased("2001:db8::a8bb:ccff:fedd:eeff", "aabbccddeeff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_non_eui64)
+{
+    /* Address that doesn't match the MAC's EUI-64 */
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1234:5678:9abc:def0", "AA:BB:CC:DD:EE:FF"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_privacy_address)
+{
+    /* Privacy extension address — random interface ID, not MAC-based */
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::4f2a:8c91:e3d7:b560", "00:11:22:33:44:55"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_invalid_inputs)
+{
+    EXPECT_FALSE(Plugin::isIPv6MacBased("", "AA:BB:CC:DD:EE:FF"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1", ""));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("not_ipv6", "AA:BB:CC:DD:EE:FF"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1", "not_a_mac"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("192.168.1.1", "AA:BB:CC:DD:EE:FF"));
+}
+
 TEST_F(NetworkManagerTest, SetInterfaceState_deviceFailed_wlan0)
 {
     GPtrArray* fakeDevices = g_ptr_array_new();
