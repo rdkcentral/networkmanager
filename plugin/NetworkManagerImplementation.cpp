@@ -19,6 +19,8 @@
 
 #include <thread>
 #include <chrono>
+#include <malloc.h>
+#include <cinttypes>
 #include "NetworkManagerImplementation.h"
 
 #if USE_TELEMETRY
@@ -432,6 +434,12 @@ namespace WPEFramework
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
             executeExternally(NETMGR_PING, commandToExecute, tempResult);
+
+            /* Release fragmented heap pages accumulated by executeExternally() back
+             * to the OS. This prevents monotonic RSS growth when Ping() is called
+             * at high frequency (e.g. every 15s by ConnectivityWorker), which would
+             * otherwise exhaust system swap over long-duration sessions. */
+            malloc_trim(0);
 
             JsonObject temp;
             temp.FromString(tempResult);
@@ -1079,9 +1087,9 @@ namespace WPEFramework
             {
                 int fd;
                 char buffer[128] = "";
-                int processSize = 0;
-                int processRSS = 0;
-                int processShare = 0;
+                int64_t processSize = 0;
+                int64_t processRSS = 0;
+                int64_t processShare = 0;
 
                 if ((fd = open(path.c_str(), O_RDONLY)) >= 0)
                 {
@@ -1090,7 +1098,7 @@ namespace WPEFramework
                     {
                         ssize_t nulIndex = std::min(readAmount, static_cast<ssize_t>(sizeof(buffer) - 1));
                         buffer[nulIndex] = '\0';
-                        sscanf(buffer, "%d %d %d", &processSize, &processRSS, &processShare);
+                        sscanf(buffer, "%" SCNd64 " %" SCNd64 " %" SCNd64, &processSize, &processRSS, &processShare);
 
                         /* Update the sizes */
                         processSize  *= pageSize;
@@ -1103,7 +1111,7 @@ namespace WPEFramework
                         processShare >>= 10;
                     }
                     close(fd);
-                    NMLOG_INFO("VSS = %d KB   RSS = %d KB", processSize, processRSS);
+                    NMLOG_INFO("VSS = %" PRId64 " KB   RSS = %" PRId64 " KB", processSize, processRSS);
                 }
 
                 std::unique_lock<std::mutex> lock(m_processMonMutex);
