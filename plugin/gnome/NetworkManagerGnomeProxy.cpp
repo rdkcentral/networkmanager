@@ -682,18 +682,17 @@ namespace WPEFramework
             std::string family = nmUtils::caseInsensitiveCompare(ipversionStr, "IPv6") ? "IPv6" : "IPv4";
 
             result = IPAddress{};
-            result.ipversion = family;
 
             // Serve from event-driven cache
             if (lookupIpCache(interface, family, result))
             {
                 NMLOG_DEBUG("%s %s address from cache", interface.c_str(), family.c_str());
-                result.ipversion = family;
             }
             else
             {
                 NMLOG_DEBUG("no %s address on %s", family.c_str(), interface.c_str());
             }
+            result.ipversion = family;
 
             return Core::ERROR_NONE;
         }

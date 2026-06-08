@@ -674,6 +674,10 @@ namespace WPEFramework
             {
                 if(interface == "eth0")
                 {
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
+                    m_ethIPv4Address = {};
+                    m_ethIPv6Address = {};
+#endif
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
@@ -681,6 +685,10 @@ namespace WPEFramework
                 }
                 else if(interface == "wlan0")
                 {
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
+                    m_wlanIPv4Address = {};
+                    m_wlanIPv6Address = {};
+#endif
                     m_wlanConnected.store(false);
                     bool triggerConnectivityCheck;
                     if(m_ethConnected.load())
@@ -1400,6 +1408,7 @@ namespace WPEFramework
             auto it = m_ipCacheMap.find({iface, ipFamily});
             if (it != m_ipCacheMap.end() && it->second.valid) {
                 out = it->second.toIPAddress();
+                out.ipversion = ipFamily;
                 return true;
             }
             return false;
