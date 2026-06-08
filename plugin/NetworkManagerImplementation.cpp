@@ -19,6 +19,9 @@
 
 #include <thread>
 #include <chrono>
+#include <algorithm>
+#include <cstring>
+#include <cstdio>
 #include "NetworkManagerImplementation.h"
 
 #if USE_TELEMETRY
@@ -671,8 +674,10 @@ namespace WPEFramework
             {
                 if(interface == "eth0")
                 {
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
                     m_ethIPv4Address = {};
                     m_ethIPv6Address = {};
+#endif
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
@@ -680,8 +685,10 @@ namespace WPEFramework
                 }
                 else if(interface == "wlan0")
                 {
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
                     m_wlanIPv4Address = {};
                     m_wlanIPv6Address = {};
+#endif
                     m_wlanConnected.store(false);
                     bool triggerConnectivityCheck;
                     if(m_ethConnected.load())
@@ -792,7 +799,9 @@ namespace WPEFramework
             }
 
             _notificationLock.Lock();
-            NMLOG_INFO("Posting onIPAddressChange %s - %s", ipaddress.c_str(), interface.c_str());
+            NMLOG_INFO("Posting onIPAddressChange %s: %s %s %s",
+                (Exchange::INetworkManager::IP_ACQUIRED == status) ? "IP acquired" : "IP lost",
+                interface.c_str(), ipversion.c_str(), ipaddress.c_str());
             for (const auto callback : _notificationCallbacks) {
                 callback->onIPAddressChange(interface, ipversion, ipaddress, status);
             }
@@ -1319,6 +1328,154 @@ namespace WPEFramework
                     }
                 }
             }
+        }
+
+        bool isIPv4LinkLocal(const std::string& addr)
+        {
+            struct in_addr sa{};
+            return inet_pton(AF_INET, addr.c_str(), &sa) == 1 &&
+                   (ntohl(sa.s_addr) & 0xffff0000u) == 0xa9fe0000u;
+        }
+
+        bool isIPv6LinkLocal(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   sa6.s6_addr[0] == 0xfe && (sa6.s6_addr[1] & 0xc0) == 0x80;
+        }
+
+        bool isIPv6ULA(const std::string& addr)
+        {
+            struct in6_addr sa6{};
+            return inet_pton(AF_INET6, addr.c_str(), &sa6) == 1 &&
+                   (sa6.s6_addr[0] & 0xfe) == 0xfc;
+        }
+
+        /* Parse a MAC string into 6 bytes.  Accepts both "AA:BB:CC:DD:EE:FF" and "aabbccddeeff". */
+        static bool parseMac(const std::string& mac, uint8_t out[6])
+        {
+            unsigned int b[6];
+            if (mac.size() >= 17 &&
+                sscanf(mac.c_str(), "%02x:%02x:%02x:%02x:%02x:%02x",
+                       &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6)
+            {
+                for (int i = 0; i < 6; ++i) out[i] = static_cast<uint8_t>(b[i]);
+                return true;
+            }
+            if (mac.size() >= 12 &&
+                sscanf(mac.c_str(), "%02x%02x%02x%02x%02x%02x",
+                       &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6)
+            {
+                for (int i = 0; i < 6; ++i) out[i] = static_cast<uint8_t>(b[i]);
+                return true;
+            }
+            return false;
+        }
+
+        bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr)
+        {
+            struct in6_addr sa6{};
+            uint8_t mac[6];
+            if (inet_pton(AF_INET6, ipv6Addr.c_str(), &sa6) != 1 || !parseMac(macAddr, mac))
+                return false;
+
+            /* Build 8-byte EUI-64 identifier from 6-byte MAC:
+               mac[0..2] | ff:fe | mac[3..5], then flip the U/L bit (bit 1) of byte 0. */
+            uint8_t eui64[8];
+            eui64[0] = mac[0] ^ 0x02;   // flip Universal/Local bit
+            eui64[1] = mac[1];
+            eui64[2] = mac[2];
+            eui64[3] = 0xff;
+            eui64[4] = 0xfe;
+            eui64[5] = mac[3];
+            eui64[6] = mac[4];
+            eui64[7] = mac[5];
+
+            /* Compare against the interface-ID (last 8 bytes) of the IPv6 address. */
+            if (memcmp(&sa6.s6_addr[8], eui64, 8) == 0)
+            {
+                NMLOG_DEBUG("MAC %s based global v6 address %s", macAddr.c_str(), ipv6Addr.c_str());
+                return true;
+            }
+            return false;
+        }
+
+        bool NetworkManagerImplementation::lookupIpCache(
+            const std::string& iface, const std::string& ipFamily,
+            Exchange::INetworkManager::IPAddress& out) const
+        {
+            std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+            auto it = m_ipCacheMap.find({iface, ipFamily});
+            if (it != m_ipCacheMap.end() && it->second.valid) {
+                out = it->second.toIPAddress();
+                out.ipversion = ipFamily;
+                return true;
+            }
+            return false;
+        }
+
+        std::set<std::string> NetworkManagerImplementation::swapIpCache(
+            const std::string& iface, const std::string& ipFamily,
+            IpFamilyCache newCache)
+        {
+            std::set<std::string> oldKeys;
+            std::lock_guard<std::mutex> lock(m_ipCacheMutex);
+            IpFamilyCache& cache = m_ipCacheMap[{iface, ipFamily}];
+            for (const auto& kv : cache.globalAddresses)
+                oldKeys.insert(kv.first);
+            cache = std::move(newCache);
+            return oldKeys;
+        }
+
+        Exchange::INetworkManager::IPAddress IpFamilyCache::toIPAddress() const
+        {
+            Exchange::INetworkManager::IPAddress addr{};
+            /* Detect IP version from any available address. */
+            bool isIPv6 = false;
+            {
+                const std::string* sample = nullptr;
+                if (!globalAddresses.empty())
+                    sample = &globalAddresses.begin()->first;
+                else if (!uniqueLocalAddresses.empty())
+                    sample = &(*uniqueLocalAddresses.begin());
+                else if (!linkLocalAddresses.empty())
+                    sample = &(*linkLocalAddresses.begin());
+                if (sample) {
+                    struct in6_addr sa6{};
+                    isIPv6 = (inet_pton(AF_INET6, sample->c_str(), &sa6) == 1);
+                }
+            }
+            addr.ipversion    = isIPv6 ? "IPv6" : "IPv4";
+            addr.autoconfig   = autoconfig;
+            addr.dhcpserver   = dhcpserver;
+            addr.ula          = uniqueLocalAddresses.empty() ? "" : *uniqueLocalAddresses.begin();
+            addr.gateway      = gateway;
+            addr.primarydns   = primarydns;
+            addr.secondarydns = secondarydns;
+            /* Prefer non-MAC-based global; fall back to MAC-based if all are MAC-based. */
+            const std::string* bestGlobal = nullptr;
+            uint32_t bestPrefix = 0;
+            const std::string* fallbackMac = nullptr;
+            uint32_t fallbackMacPrefix = 0;
+            for (const auto& kv : globalAddresses) {
+                if (kv.second.type == ADDR_GLOBAL) {
+                    bestGlobal = &kv.first;
+                    bestPrefix = kv.second.prefix;
+                    break;
+                }
+                if (!fallbackMac) {
+                    fallbackMac = &kv.first;
+                    fallbackMacPrefix = kv.second.prefix;
+                }
+            }
+            if (bestGlobal) {
+                addr.ipaddress = *bestGlobal;
+                addr.prefix    = bestPrefix;
+            } else if (fallbackMac) {
+                addr.ipaddress = *fallbackMac;
+                addr.prefix    = fallbackMacPrefix;
+            }
+            return addr;
         }
     }
 }

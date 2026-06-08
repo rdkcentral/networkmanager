@@ -453,7 +453,7 @@ Gets the IP setting for the given interface.
     "ipaddress": "192.168.1.101",
     "prefix": 24,
     "gateway": "192.168.1.1",
-    "ula": "d00:410:2016::",
+    "ula": "",
     "primarydns": "192.168.1.1",
     "secondarydns": "192.168.1.2",
     "success": true

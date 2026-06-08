@@ -40,6 +40,8 @@
 using namespace WPEFramework;
 using ::testing::NiceMock;
 
+namespace WPEFramework { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
+
 class NetworkManagerTest : public ::testing::Test {
 protected:
     Core::ProxyType<Plugin::NetworkManager> plugin;
@@ -515,24 +517,15 @@ TEST_F(NetworkManagerTest, GetIPSettings_unknown_iface)
     EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
 }
 
-TEST_F(NetworkManagerTest, GetIPSettings_invalidDevice)
+TEST_F(NetworkManagerTest, GetIPSettings_emptyCache)
 {
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(NULL)));
+    /* With no cache populated, GetIPSettings should still succeed but return no IP data */
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
-}
-
-TEST_F(NetworkManagerTest, GetIPSettings_invalid_state)
-{
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"interface\":\"eth0\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+    /* No ipaddress key when cache is empty */
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_interface_Empty)
@@ -548,254 +541,91 @@ TEST_F(NetworkManagerTest, GetIPSettings_GetPrimary_failed)
     EXPECT_EQ(Core::ERROR_GENERAL, NetworkManagerImpl2->GetIPSettings(interface, ipversion, address));
 }
 
-TEST_F(NetworkManagerTest, GetIPSettings_Invalid_ActiveConnection)
+TEST_F(NetworkManagerTest, GetIPSettings_ipv4_fromCache)
 {
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+    /* Populate IPv4 cache for eth0, then verify GetIPSettings returns cached data */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.globalAddresses["192.168.1.2"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache.gateway = "192.168.1.1";
+    cache.primarydns = "8.8.8.8";
+    cache.secondarydns = "8.8.4.4";
+    cache.dhcpserver = "192.168.1.11";
+    cache.autoconfig = true;
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"interface\":\"eth0\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"autoconfig\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.2\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"prefix\":24") != std::string::npos);
+    EXPECT_TRUE(response.find("\"gateway\":\"192.168.1.1\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"primarydns\":\"8.8.8.8\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"secondarydns\":\"8.8.4.4\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"dhcpserver\":\"192.168.1.11\"") != std::string::npos);
 }
 
-TEST_F(NetworkManagerTest, GetIPSettings_Invalid_Connection)
+TEST_F(NetworkManagerTest, GetIPSettings_ipv4_autoconfig)
 {
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    NMActiveConnection *nullConnection = static_cast<NMActiveConnection*>(NULL);
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    g_ptr_array_add(dummyActiveConn, nullConnection);
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
-
-    g_object_unref(ethActiveConn);
-    g_ptr_array_free(dummyActiveConn, TRUE);
-}
-
-TEST_F(NetworkManagerTest, GetIPSettings_valid_ConnectionSettingsEmpty)
-{
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
-
-    g_object_unref(ethActiveConn);
-    g_ptr_array_free(dummyActiveConn, TRUE);
-}
-
-TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config)
-{
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMIPConfig*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_connection_get_interface_name(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+    /* Populate IPv4 cache with autoconfig=true but no IP address */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
     std::string expectedResponse =
         _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":true,\"success\":true}");
     EXPECT_EQ(response, expectedResponse);
-
-    g_object_unref(ethActiveConn);
-    g_ptr_array_free(dummyActiveConn, TRUE);
 }
 
-TEST_F(NetworkManagerTest, GetIPSettings_ipv4_configAutoConftrue)
+TEST_F(NetworkManagerTest, GetIPSettings_ipv4_staticConfig)
 {
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMIPConfig*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_connection_get_interface_name(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_ip_config_get_method(::testing::_))
-        .WillOnce(::testing::Return("auto"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(retConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+    /* Populate IPv4 cache with autoconfig=false (static config) */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = false;
+    cache.globalAddresses["192.168.1.100"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache.gateway = "192.168.1.1";
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    std::string expectedResponse =
-        _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":true,\"success\":true}");
-    EXPECT_EQ(response, expectedResponse);
-
-    g_object_unref(ethActiveConn);
-    g_ptr_array_free(dummyActiveConn, TRUE);
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"autoconfig\":false") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.100\"") != std::string::npos);
 }
 
-TEST_F(NetworkManagerTest, GetIPSettings_ipv4_configAutoConfNull)
+TEST_F(NetworkManagerTest, GetIPSettings_wlan0_fromCache)
 {
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
+    /* Populate IPv4 cache for wlan0 */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["10.0.0.5"] = Plugin::GlobalAddressInfo(8, Plugin::ADDR_GLOBAL);
+    cache.gateway = "10.0.0.1";
+    cache.primarydns = "1.1.1.1";
+    Plugin::_instance->swapIpCache("wlan0", "IPv4", cache);
 
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMIPConfig*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_connection_get_interface_name(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_ip_config_get_method(::testing::_))
-        .WillOnce(::testing::Return("not auto"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(retConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
-    std::string expectedResponse =
-        _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\",\"autoconfig\":true,\"success\":true}");
-    EXPECT_EQ(response, expectedResponse);
-
-    g_object_unref(ethActiveConn);
-    g_ptr_array_free(dummyActiveConn, TRUE);
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"interface\":\"wlan0\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"10.0.0.5\"") != std::string::npos);
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config_valid)
 {
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    NMIPAddress* ipv4Addr = static_cast<NMIPAddress*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    GPtrArray* ipvAddr = g_ptr_array_new();
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-    g_ptr_array_add(ipvAddr, ipv4Addr);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_dhcp_config_get_one_option(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return("192.168.1.11"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_dhcp4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDhcpConfig*>(0x100170)));
-
-    const char* fakeDnsServers[] = {"8.8.8.8", "8.8.4.4", nullptr};
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_nameservers(::testing::_))
-        .WillOnce(::testing::Return(fakeDnsServers));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_gateway(::testing::_))
-        .WillOnce(::testing::Return("192.168.1.0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_address(::testing::_))
-        .WillOnce(::testing::Return("192.168.1.2"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_addresses(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(ipvAddr)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_ip4_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMIPConfig*>(0x100171)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_connection_get_interface_name(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+    /* Populate full IPv4 cache for eth0 and verify all fields */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["192.168.1.2"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache.gateway = "192.168.1.0";
+    cache.primarydns = "8.8.8.8";
+    cache.secondarydns = "8.8.4.4";
+    cache.dhcpserver = "192.168.1.11";
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
 
@@ -807,70 +637,21 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv4_config_valid)
     EXPECT_TRUE(response.find("\"ula\":\"\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"dhcpserver\":\"192.168.1.11\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"gateway\":\"192.168.1.0\"") != std::string::npos);
-
-    g_object_unref(ethActiveConn);
-    g_object_unref(retConn);
-    g_object_unref(ipv4Addr);
-    g_ptr_array_free(dummyActiveConn, TRUE);
-    g_ptr_array_free(ipvAddr, TRUE);
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
 {
-    NMActiveConnection *ethActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    NMRemoteConnection* retConn = static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-    NMIPAddress* ipv6Addr = static_cast<NMIPAddress*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
-
-    GPtrArray* dummyActiveConn = g_ptr_array_new();
-    GPtrArray* ipvAddr = g_ptr_array_new();
-    g_ptr_array_add(dummyActiveConn, ethActiveConn);
-    g_ptr_array_add(ipvAddr, ipv6Addr);
-    g_ptr_array_add(ipvAddr, reinterpret_cast<NMIPAddress*>(0x100176));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_dhcp_config_get_one_option(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return("2001:db8::1"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_dhcp6_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDhcpConfig*>(0x100170)));
-
-    const char* fakeDnsServers[] = {"2001:4860:4860::8888", "2001:4860:4860::8844", nullptr};
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_nameservers(::testing::_))
-        .WillOnce(::testing::Return(fakeDnsServers));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_gateway(::testing::_))
-        .WillOnce(::testing::Return("2001:4860:4860::1"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_prefix(::testing::_))
-        .WillOnce(::testing::Return(64));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_address_get_address(::testing::_))
-        .WillOnce(::testing::Return("2001:db8:1:2:3:4:5:6"))
-        .WillOnce(::testing::Return("fe80::1234:5678:abcd:ef01"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_ip_config_get_addresses(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(ipvAddr)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_ip6_config(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMIPConfig*>(0x100171)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_setting_connection_get_interface_name(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_setting_connection(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMSettingConnection*>(0x100173)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_active_connection_get_connection(::testing::_))
-        .WillOnce(::testing::Return(retConn))
-        .WillOnce(::testing::Return(reinterpret_cast<NMRemoteConnection*>(NULL)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_active_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyActiveConn)));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+    /* Populate full IPv6 cache for eth0 and verify all fields */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8:1:2:3:4:5:6"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    cache.uniqueLocalAddresses.insert("fd12::1234:5678:abcd:ef01");
+    cache.gateway = "2001:4860:4860::1";
+    cache.primarydns = "2001:4860:4860::8888";
+    cache.secondarydns = "2001:4860:4860::8844";
+    cache.dhcpserver = "2001:db8::1";
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
 
@@ -880,16 +661,288 @@ TEST_F(NetworkManagerTest, GetIPSettings_ipv6_config_valid)
     EXPECT_TRUE(response.find("\"primarydns\":\"2001:4860:4860::8888\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"interface\":\"eth0\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8:1:2:3:4:5:6\"") != std::string::npos);
-    EXPECT_TRUE(response.find("\"ula\":\"fe80::1234:5678:abcd:ef01\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ula\":\"fd12::1234:5678:abcd:ef01\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"prefix\":64") != std::string::npos);
     EXPECT_TRUE(response.find("\"dhcpserver\":\"2001:db8::1\"") != std::string::npos);
     EXPECT_TRUE(response.find("\"gateway\":\"2001:4860:4860::1\"") != std::string::npos);
+}
 
-    g_object_unref(ethActiveConn);
-    g_object_unref(retConn);
-    g_object_unref(ipv6Addr);
-    g_ptr_array_free(dummyActiveConn, TRUE);
-    g_ptr_array_free(ipvAddr, TRUE);
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_mac_based_fallback)
+{
+    /* When all global addresses are MAC-based, toIPAddress should use the MAC-based one */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::aabb:ccff:fedd:eeff"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL_MAC_BASED);
+    cache.gateway = "fe80::1";
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::aabb:ccff:fedd:eeff\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"prefix\":64") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_prefer_non_mac_global)
+{
+    /* ADDR_GLOBAL should be preferred over ADDR_GLOBAL_MAC_BASED */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    /* Insert MAC-based first to ensure it's not selected by insertion order */
+    cache.globalAddresses["2001:db8::aabb:ccff:fedd:eeff"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL_MAC_BASED);
+    cache.globalAddresses["2001:db8::1234:5678"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::1234:5678\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_only_cached_request_ipv4)
+{
+    /* Only IPv6 cached, but IPv4 requested — should return success with no IP */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::1"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_cache_invalidated)
+{
+    /* Cache exists but valid=false — should return success with no IP data */
+    Plugin::IpFamilyCache cache;
+    cache.valid = false;
+    cache.globalAddresses["192.168.1.5"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipversion_case_insensitive)
+{
+    /* ipversion "ipv6" (lowercase) should be treated as IPv6 */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.globalAddresses["2001:db8::99"] = Plugin::GlobalAddressInfo(128, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"ipv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::99\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_ipv6_ula_only)
+{
+    /* Cache has only ULA addresses, no global — ipaddress is empty so the
+       JSON-RPC layer (NetworkManagerJsonRpc.cpp) skips all address fields
+       including ula, gateway, etc.  Only interface/ipversion/autoconfig/success
+       are returned. */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.autoconfig = true;
+    cache.uniqueLocalAddresses.insert("fd00::1234:abcd");
+    cache.gateway = "fe80::1";
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    /* No global address → ipaddress empty → JSON-RPC omits address detail fields */
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"ula\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"gateway\"") == std::string::npos);
+    EXPECT_TRUE(response.find("\"autoconfig\":true") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_swapIpCache_returns_old_keys)
+{
+    /* Verify swapIpCache returns the old global address keys */
+    Plugin::IpFamilyCache cache1;
+    cache1.valid = true;
+    cache1.globalAddresses["192.168.1.10"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache1.globalAddresses["192.168.1.20"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache1);
+
+    /* Now swap with a new cache and check old keys are returned */
+    Plugin::IpFamilyCache cache2;
+    cache2.valid = true;
+    cache2.globalAddresses["10.0.0.1"] = Plugin::GlobalAddressInfo(8, Plugin::ADDR_GLOBAL);
+    std::set<std::string> oldKeys = Plugin::_instance->swapIpCache("eth0", "IPv4", cache2);
+
+    EXPECT_EQ(oldKeys.size(), 2u);
+    EXPECT_TRUE(oldKeys.count("192.168.1.10") == 1);
+    EXPECT_TRUE(oldKeys.count("192.168.1.20") == 1);
+
+    /* Verify the new cache is now active */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"10.0.0.1\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_separate_ipv4_ipv6_caches)
+{
+    /* IPv4 and IPv6 caches for the same interface should be independent */
+    Plugin::IpFamilyCache cache4;
+    cache4.valid = true;
+    cache4.autoconfig = true;
+    cache4.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache4);
+
+    Plugin::IpFamilyCache cache6;
+    cache6.valid = true;
+    cache6.autoconfig = true;
+    cache6.globalAddresses["2001:db8::50"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    cache6.uniqueLocalAddresses.insert("fd12::50");
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache6);
+
+    /* Query IPv4 */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.50\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv4\"") != std::string::npos);
+
+    /* Query IPv6 */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\", \"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::50\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipversion\":\"IPv6\"") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ula\":\"fd12::50\"") != std::string::npos);
+}
+
+TEST_F(NetworkManagerTest, GetIPSettings_cache_cleared)
+{
+    /* Populate cache, then swap with empty/invalid cache — simulates disconnect */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.globalAddresses["192.168.1.99"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+
+    /* Verify it's there */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.99\"") != std::string::npos);
+
+    /* Clear cache by swapping with default (valid=false) */
+    Plugin::IpFamilyCache empty;
+    Plugin::_instance->swapIpCache("eth0", "IPv4", empty);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Utility function tests — isIPv4LinkLocal, isIPv6LinkLocal, isIPv6ULA,
+ * isIPv6MacBased (which exercises parseMac internally).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_true_for_169_254)
+{
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.0.1"));
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.255.255"));
+    EXPECT_TRUE(Plugin::isIPv4LinkLocal("169.254.100.50"));
+}
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_false_for_non_link_local)
+{
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("192.168.1.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("10.0.0.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("169.253.255.255"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("169.255.0.1"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("0.0.0.0"));
+}
+
+TEST_F(NetworkManagerTest, isIPv4LinkLocal_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal(""));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("not_an_ip"));
+    EXPECT_FALSE(Plugin::isIPv4LinkLocal("fe80::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_true_for_fe80)
+{
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::1"));
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::abcd:1234:5678:9abc"));
+    EXPECT_TRUE(Plugin::isIPv6LinkLocal("fe80::ffff:ffff:ffff:ffff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_false_for_non_link_local)
+{
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("2001:db8::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fd00::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fc00::1"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("fec0::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6LinkLocal_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal(""));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("not_an_ip"));
+    EXPECT_FALSE(Plugin::isIPv6LinkLocal("169.254.1.1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_true_for_fc_fd)
+{
+    EXPECT_TRUE(Plugin::isIPv6ULA("fc00::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fd00::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fd12:3456:789a::1"));
+    EXPECT_TRUE(Plugin::isIPv6ULA("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_false_for_non_ula)
+{
+    EXPECT_FALSE(Plugin::isIPv6ULA("2001:db8::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fe80::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fb00::1"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("fe00::1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6ULA_false_for_invalid_input)
+{
+    EXPECT_FALSE(Plugin::isIPv6ULA(""));
+    EXPECT_FALSE(Plugin::isIPv6ULA("garbage"));
+    EXPECT_FALSE(Plugin::isIPv6ULA("192.168.1.1"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_true_for_eui64_colon_mac)
+{
+    /* MAC AA:BB:CC:DD:EE:FF → EUI-64: A8:BB:CC:FF:FE:DD:EE:FF
+       (byte 0: 0xAA ^ 0x02 = 0xA8, insert FF:FE in middle) */
+    EXPECT_TRUE(Plugin::isIPv6MacBased("2001:db8::a8bb:ccff:fedd:eeff", "AA:BB:CC:DD:EE:FF"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_true_for_eui64_plain_mac)
+{
+    /* Same MAC in plain hex format */
+    EXPECT_TRUE(Plugin::isIPv6MacBased("2001:db8::a8bb:ccff:fedd:eeff", "aabbccddeeff"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_non_eui64)
+{
+    /* Address that doesn't match the MAC's EUI-64 */
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1234:5678:9abc:def0", "AA:BB:CC:DD:EE:FF"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_privacy_address)
+{
+    /* Privacy extension address — random interface ID, not MAC-based */
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::4f2a:8c91:e3d7:b560", "00:11:22:33:44:55"));
+}
+
+TEST_F(NetworkManagerTest, isIPv6MacBased_false_for_invalid_inputs)
+{
+    EXPECT_FALSE(Plugin::isIPv6MacBased("", "AA:BB:CC:DD:EE:FF"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1", ""));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("not_ipv6", "AA:BB:CC:DD:EE:FF"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("2001:db8::1", "not_a_mac"));
+    EXPECT_FALSE(Plugin::isIPv6MacBased("192.168.1.1", "AA:BB:CC:DD:EE:FF"));
 }
 
 TEST_F(NetworkManagerTest, SetInterfaceState_deviceFailed_wlan0)

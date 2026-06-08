@@ -63,6 +63,14 @@ if(ENABLE_ETHERNET_CONNECTION_HANDLING)
     message(STATUS "Ethernet connection handling: enabled")
 endif()
 
+# Backend identity macros are consumed by shared headers; define them globally
+# so all targets (plugin, tests, tools) compile against the same API surface.
+if(ENABLE_GNOME_NETWORKMANAGER AND ENABLE_GNOME_GDBUS)
+    add_compile_definitions(NM_BACKEND_GDBUS=1)
+elseif(NOT ENABLE_GNOME_NETWORKMANAGER)
+    add_compile_definitions(NM_BACKEND_RDK=1)
+endif()
+
 if (USE_TELEMETRY)
     find_package(T2 REQUIRED)
     add_compile_definitions(USE_TELEMETRY=1)

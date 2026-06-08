@@ -26,8 +26,10 @@
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <memory>
+#include <set>
 
 using namespace std;
 
@@ -64,6 +66,47 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        /* Returns true if the given string is an IPv4 link-local address (169.254.0.0/16). */
+        bool isIPv4LinkLocal(const std::string& addr);
+
+        /* Returns true if the given string is an IPv6 link-local address (fe80::/10). */
+        bool isIPv6LinkLocal(const std::string& addr);
+
+        /* Returns true if the given string is an IPv6 Unique Local Address (ULA, fc00::/7). */
+        bool isIPv6ULA(const std::string& addr);
+
+        /* Returns true if the given global IPv6 address is derived (EUI-64) from the MAC. */
+        bool isIPv6MacBased(const std::string& ipv6Addr, const std::string& macAddr);
+
+        /* Sub-classification of global-scope addresses in the IP cache. */
+        enum GlobalAddressType : uint8_t {
+            ADDR_GLOBAL,            // non-MAC-based global (preferred by GetIPSettings)
+            ADDR_GLOBAL_MAC_BASED,  // EUI-64 global derived from interface MAC (fallback)
+        };
+
+        struct GlobalAddressInfo {
+            uint32_t          prefix;
+            GlobalAddressType type;
+            GlobalAddressInfo() : prefix(0), type(ADDR_GLOBAL) {}
+            GlobalAddressInfo(uint32_t p, GlobalAddressType t) : prefix(p), type(t) {}
+        };
+
+        /* Per-interface, per-address-family cache populated by libnm events. */
+        struct IpFamilyCache {
+            bool valid = false;
+            std::map<std::string, GlobalAddressInfo> globalAddresses;       // event-diffable global addresses
+            std::set<std::string> linkLocalAddresses;    // fe80::/10 or 169.254.x.x — not diffed for events
+            std::set<std::string> uniqueLocalAddresses;  // fc00::/7 (IPv6 only) — not diffed for events
+            std::string gateway;
+            std::string primarydns;
+            std::string secondarydns;
+            std::string dhcpserver;
+            bool autoconfig = false;
+
+            Exchange::INetworkManager::IPAddress toIPAddress() const;
+            void clear() { *this = IpFamilyCache{}; }
+        };
+
         class NetworkManagerImplementation : public Exchange::INetworkManager
                                            , public INetworkPowerCallback
         {
@@ -328,10 +371,18 @@ namespace WPEFramework
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
+#if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
                 IPAddress m_ethIPv4Address;
                 IPAddress m_wlanIPv4Address;
                 IPAddress m_ethIPv6Address;
                 IPAddress m_wlanIPv6Address;
+#endif
+                bool lookupIpCache(const std::string& iface, const std::string& ipFamily,
+                                   Exchange::INetworkManager::IPAddress& out) const;
+                std::set<std::string> swapIpCache(const std::string& iface,
+                                                  const std::string& ipFamily,
+                                                  IpFamilyCache newCache);
+
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
                 std::atomic<bool> m_ethEnabled;
@@ -358,6 +409,8 @@ namespace WPEFramework
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
+                std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
+                mutable std::mutex m_ipCacheMutex;
         };
     }
 }
