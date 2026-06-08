@@ -42,6 +42,8 @@
 using namespace WPEFramework;
 using ::testing::NiceMock;
 
+namespace WPEFramework { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
+
 class NetworkManagerEventTest : public ::testing::Test {
 protected:
     Core::ProxyType<Plugin::NetworkManager> plugin;
@@ -208,31 +210,6 @@ TEST_F(NetworkManagerEventTest, onInterfaceStateChangeCb)
     WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
 }
 
-TEST_F(NetworkManagerEventTest, onAddressChangeCb)
-{
-    // Test acquiring IPv4 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "192.168.1.100", true, false);
-    
-    // Test acquiring IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
-    
-    // Test acquiring same IPv6 address again (should skip posting)
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::1", true, true);
-    
-    // Test acquiring different IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "2001:db8::2", true, true);
-    
-    // Test losing IPv4 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, false);
-    
-    // Test losing IPv6 address
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth0", "", false, true);
-    
-    // Test losing IP on interface with empty cache (should skip posting)
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, false);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAddressChangeCb("eth1", "", false, true);
-}
-
 TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
 {
     GPtrArray* fakeDevices = g_ptr_array_new();
@@ -372,9 +349,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_disconnected)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -384,9 +361,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unmanaged)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -492,9 +469,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unknown)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNKNOWN));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNKNOWN));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"));
+        .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
@@ -504,9 +481,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_unmanaged)
 {
     NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
+        .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
@@ -517,9 +494,9 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_disconnected)
 {
     NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("eth0"));
+        .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
@@ -563,4 +540,103 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_activated)
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
     WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
     g_object_unref(DummyDevice);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Cache-clearing tests — verify that disconnect events clear the IP cache.
+ * These test observable behavior (cache state after disconnect) rather than
+ * internal NM API call sequences, so they remain stable across refactors.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+TEST_F(NetworkManagerEventTest, disconnect_clears_ipv4_cache_eth0)
+{
+    /* Pre-populate the IPv4 cache for eth0 */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    cache.gateway = "192.168.1.1";
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+
+    /* Verify cache is populated */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"192.168.1.50\"") != std::string::npos);
+
+    /* Trigger eth0 disconnect — refreshIpFamilyCache runs with skipRead=true,
+       swapping an empty cache and clearing the old addresses. */
+    NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("eth0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
+    g_object_unref(DummyDevice);
+
+    /* Cache should now be empty — GetIPSettings returns success but no address fields */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerEventTest, disconnect_clears_ipv6_cache_wlan0)
+{
+    /* Pre-populate the IPv6 cache for wlan0 */
+    Plugin::IpFamilyCache cache;
+    cache.valid = true;
+    cache.globalAddresses["2001:db8::1"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    cache.gateway = "fe80::1";
+    Plugin::_instance->swapIpCache("wlan0", "IPv6", cache);
+
+    /* Verify cache is populated */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\",\"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\":\"2001:db8::1\"") != std::string::npos);
+
+    /* Trigger wlan0 disconnect */
+    NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("wlan0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    g_object_unref(DummyDevice);
+
+    /* Cache should now be empty */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\",\"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+TEST_F(NetworkManagerEventTest, disconnect_clears_both_ip_family_caches)
+{
+    /* Pre-populate both IPv4 and IPv6 caches for eth0 */
+    Plugin::IpFamilyCache cache4;
+    cache4.valid = true;
+    cache4.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", cache4);
+
+    Plugin::IpFamilyCache cache6;
+    cache6.valid = true;
+    cache6.globalAddresses["2001:db8::99"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", cache6);
+
+    /* Trigger disconnect — refreshIpFamilyCache is called for BOTH families */
+    NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
+        .WillRepeatedly(::testing::Return("eth0"));
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
+    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
+    g_object_unref(DummyDevice);
+
+    /* Both families should be cleared */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\"}"), response));
+    EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
 }

@@ -30,6 +30,8 @@
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
+#include <set>
+
 #ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
 #include "NetworkManagerGnomeMfrMgr.h"
 #endif
@@ -72,6 +74,198 @@ namespace WPEFramework
             GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
             NMLOG_WARNING("now there's no active connection");
         }
+    }
+
+    /* Refresh the per-interface/per-family IP cache from current libnm state and
+       emit acquired/lost events for address-set differences.
+
+       Build a fresh IpFamilyCache from current libnm state for one device/family,
+       swap it into _instance under the cache mutex, then emit acquired/lost events
+       for any address-set differences outside the lock. */
+    static void refreshIpFamilyCache(NMDevice* device, bool isIPv6)
+    {
+        if (!device || !NM_IS_DEVICE(device) || !_instance)
+            return;
+
+        const char* iface = nm_device_get_iface(device);
+        if (!iface) return;
+        std::string ifname = iface;
+
+        bool isEth  = (ifname == nmUtils::ethIface());
+        bool isWlan = (ifname == nmUtils::wlanIface());
+        if (!isEth && !isWlan) return;
+
+        /* Build the new snapshot locally (no locks held during NM calls).
+         * Skip the NM read when the device is in a disconnected/down state
+         * so that newCache stays empty and the diff emits IP_LOST for every
+         * address still in the cache.  This also prevents spurious
+         * "IP acquired" events from intermediate NM signals (nameserver,
+         * gateway clearing) that fire after the cache has been emptied
+         * but before NM clears addresses on the config object. */
+        NMDeviceState devState = nm_device_get_state(device);
+        bool skipRead = (devState <= NM_DEVICE_STATE_DISCONNECTED);
+        IpFamilyCache newCache;
+        NMActiveConnection* conn = skipRead ? nullptr : nm_device_get_active_connection(device);
+        if (conn) {
+            /* autoconfig: method "auto" or "dhcp" → true */
+            NMConnection* nmConn = NM_CONNECTION(nm_active_connection_get_connection(conn));
+            if (nmConn) {
+                NMSettingIPConfig* ipSetting = isIPv6
+                    ? NM_SETTING_IP_CONFIG(nm_connection_get_setting_ip6_config(nmConn))
+                    : NM_SETTING_IP_CONFIG(nm_connection_get_setting_ip4_config(nmConn));
+                if (ipSetting) {
+                    const char* method = nm_setting_ip_config_get_method(ipSetting);
+                    newCache.autoconfig = method &&
+                        (g_strcmp0(method, "auto") == 0 || g_strcmp0(method, "dhcp") == 0);
+                }
+            }
+        }
+
+        /* IP config read is device-level and does not require an active connection. */
+        NMIPConfig* ipConfig = skipRead ? nullptr
+            : (isIPv6 ? nm_device_get_ip6_config(device)
+                      : nm_device_get_ip4_config(device));
+
+        if (ipConfig) {
+            GPtrArray* ipAddresses = nm_ip_config_get_addresses(ipConfig);
+            std::string macAddr;
+            if (isIPv6) {
+                const char* hw = nm_device_get_hw_address(device);
+                if (hw) macAddr = hw;
+            }
+            if (ipAddresses) {
+                for (guint i = 0; i < ipAddresses->len; i++) {
+                    NMIPAddress* addr = (NMIPAddress*)g_ptr_array_index(ipAddresses, i);
+                    if (!addr) continue;
+                    const char* addrStr = nm_ip_address_get_address(addr);
+                    if (!addrStr) continue;
+                    std::string addrString = addrStr;
+                    uint32_t prefix = nm_ip_address_get_prefix(addr);
+                    if (isIPv6) {
+                        if (isIPv6LinkLocal(addrString)) {
+                            newCache.linkLocalAddresses.insert(addrString);
+                        } else if (isIPv6ULA(addrString)) {
+                            newCache.uniqueLocalAddresses.insert(addrString);
+                        } else {
+                            GlobalAddressType type = (!macAddr.empty() && isIPv6MacBased(addrString, macAddr))
+                                ? ADDR_GLOBAL_MAC_BASED : ADDR_GLOBAL;
+                            newCache.globalAddresses.emplace(addrString, GlobalAddressInfo{prefix, type});
+                        }
+                    } else {
+                        if (isIPv4LinkLocal(addrString)) {
+                            newCache.linkLocalAddresses.insert(addrString);
+                        } else {
+                            newCache.globalAddresses.emplace(addrString, GlobalAddressInfo{prefix, ADDR_GLOBAL});
+                        }
+                    }
+                }
+            }
+
+            const char* gw = nm_ip_config_get_gateway(ipConfig);
+            if (gw) newCache.gateway = gw;
+
+            const char* const* dnsArr = nm_ip_config_get_nameservers(ipConfig);
+            if (dnsArr && dnsArr[0]) {
+                newCache.primarydns = dnsArr[0];
+                if (dnsArr[1]) newCache.secondarydns = dnsArr[1];
+            }
+
+            NMDhcpConfig* dhcpConfig = isIPv6
+                ? nm_device_get_dhcp6_config(device)
+                : nm_device_get_dhcp4_config(device);
+            if (dhcpConfig) {
+                const char* server = nm_dhcp_config_get_one_option(dhcpConfig, "dhcp_server_identifier");
+                if (server) newCache.dhcpserver = server;
+            }
+
+            newCache.valid = true;
+        }
+
+        /* Swap new snapshot into instance cache; collect old global address keys for diff. */
+        std::set<std::string> oldKeys = _instance->swapIpCache(
+            ifname, isIPv6 ? "IPv6" : "IPv4", newCache);
+
+        /* Emit address acquired/lost events from global-address key diff (outside the lock). */
+        std::string family = isIPv6 ? "IPv6" : "IPv4";
+        for (const auto& kv : newCache.globalAddresses) {
+            if (oldKeys.find(kv.first) == oldKeys.end()) {
+                _instance->ReportIPAddressChange(ifname, family, kv.first, Exchange::INetworkManager::IP_ACQUIRED);
+            }
+        }
+        for (const auto& key : oldKeys) {
+            if (newCache.globalAddresses.find(key) == newCache.globalAddresses.end()) {
+                _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
+            }
+        }
+    }
+
+    static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
+    {
+        NMDevice *device = (NMDevice*)userData;
+        if (!device || !NM_IS_DEVICE(device)) return;
+        refreshIpFamilyCache(device, false);
+    }
+
+    static void ip6ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
+    {
+        NMDevice *device = (NMDevice*)userData;
+        if (!device || !NM_IS_DEVICE(device)) return;
+        refreshIpFamilyCache(device, true);
+    }
+
+    /* Called when DHCP options change mid-lease (e.g. renewed with different server/options). */
+    static void dhcp4OptionsCb(NMDhcpConfig *dhcpConfig, GParamSpec *pspec, gpointer userData)
+    {
+        NMDevice *device = (NMDevice*)userData;
+        if (!device || !NM_IS_DEVICE(device)) return;
+        refreshIpFamilyCache(device, false);
+    }
+
+    static void dhcp6OptionsCb(NMDhcpConfig *dhcpConfig, GParamSpec *pspec, gpointer userData)
+    {
+        NMDevice *device = (NMDevice*)userData;
+        if (!device || !NM_IS_DEVICE(device)) return;
+        refreshIpFamilyCache(device, true);
+    }
+
+    /* Called when the ip4-config or ip6-config object on a device is replaced
+       (e.g. after reconnect).  Re-attaches notify handlers to the new object. */
+    static void ip4ConfigChangedCb(NMDevice *device, GParamSpec *pspec, gpointer userData)
+    {
+        if (!device || !NM_IS_DEVICE(device)) return;
+        NMIPConfig* ipv4Config = nm_device_get_ip4_config(device);
+        if (ipv4Config) {
+            g_signal_handlers_disconnect_by_func(ipv4Config, (gpointer)ip4ChangedCb, device);
+            g_signal_connect(ipv4Config, "notify::addresses",   G_CALLBACK(ip4ChangedCb), device);
+            g_signal_connect(ipv4Config, "notify::gateway",     G_CALLBACK(ip4ChangedCb), device);
+            g_signal_connect(ipv4Config, "notify::nameservers", G_CALLBACK(ip4ChangedCb), device);
+        }
+        /* Re-attach DHCP options handler to the (possibly new) DHCP config object. */
+        NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+        if (dhcp4) {
+            g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+            g_signal_connect(dhcp4, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
+        }
+        refreshIpFamilyCache(device, false);
+    }
+
+    static void ip6ConfigChangedCb(NMDevice *device, GParamSpec *pspec, gpointer userData)
+    {
+        if (!device || !NM_IS_DEVICE(device)) return;
+        NMIPConfig* ipv6Config = nm_device_get_ip6_config(device);
+        if (ipv6Config) {
+            g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
+            g_signal_connect(ipv6Config, "notify::addresses",   G_CALLBACK(ip6ChangedCb), device);
+            g_signal_connect(ipv6Config, "notify::gateway",     G_CALLBACK(ip6ChangedCb), device);
+            g_signal_connect(ipv6Config, "notify::nameservers", G_CALLBACK(ip6ChangedCb), device);
+        }
+        /* Re-attach DHCP options handler to the (possibly new) DHCP config object. */
+        NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+        if (dhcp6) {
+            g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
+            g_signal_connect(dhcp6, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
+        }
+        refreshIpFamilyCache(device, true);
     }
 
     void GnomeNetworkManagerEvents::deviceStateChangeCb(NMDevice *device, GParamSpec *pspec, NMEvents *nmEvents)
@@ -125,11 +319,15 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_UNKNOWN:
                         wifiState = "WIFI_STATE_UNINSTALLED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_UNMANAGED:
                         wifiState = "WIFI_STATE_DISABLED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISABLED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                         isWlanDisabled = true;
                         break;
@@ -137,6 +335,8 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
+                        refreshIpFamilyCache(device, false);
+                        refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_PREPARE:
@@ -212,11 +412,15 @@ namespace WPEFramework
             {
                 case NM_DEVICE_STATE_UNKNOWN:
                 case NM_DEVICE_STATE_UNMANAGED:
+                    refreshIpFamilyCache(device, false);
+                    refreshIpFamilyCache(device, true);
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
                     isEthDisabled = true;
                     break;
                 case NM_DEVICE_STATE_UNAVAILABLE:
                 case NM_DEVICE_STATE_DISCONNECTED:
+                    refreshIpFamilyCache(device, false);
+                    refreshIpFamilyCache(device, true);
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::ethIface());
                 break;
                 case NM_DEVICE_STATE_PREPARE:
@@ -261,101 +465,6 @@ namespace WPEFramework
         }
     }
 
-    static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
-    {
-        if (!ipConfig) {
-            NMLOG_ERROR("IP config is null");
-            return;
-        }
-
-        NMDevice *device = (NMDevice*)userData;
-        if((device == NULL) || (!NM_IS_DEVICE(device)))
-        return;
-
-        const char* iface = nm_device_get_iface(device);
-        if(iface == NULL)
-            return;
-        std::string ifname = iface;
-
-        GPtrArray *addresses = nm_ip_config_get_addresses(ipConfig);
-        if (!addresses) {
-            NMLOG_ERROR("No addresses found");
-            return;
-        }
-        else {
-            if(addresses->len == 0) {
-                GnomeNetworkManagerEvents::onAddressChangeCb(ifname, "", false, false);
-                return;
-            }
-        }
-
-        for (guint i = 0; i < addresses->len; ++i) {
-            NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
-            if(address == NULL)
-            {
-                NMLOG_WARNING("IPv4 address is null");
-                continue;
-            }
-            if (nm_ip_address_get_family(address) == AF_INET) {
-                const char *ipAddress = nm_ip_address_get_address(address);
-                if(ipAddress != NULL) {
-                    GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
-                }
-            }
-        }
-    }
-
-    static void ip6ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
-    {
-        if (!ipConfig) {
-            NMLOG_ERROR("ip config is null");
-            return;
-        }
-
-        NMDevice *device = (NMDevice*)userData;
-        if( ((device != NULL) && NM_IS_DEVICE(device)) )
-        {
-            const char* iface = nm_device_get_iface(device);
-            if(iface == NULL)
-                return;
-            std::string ifname = iface;
-            GPtrArray *addresses = nm_ip_config_get_addresses(ipConfig);
-            if (!addresses) {
-                NMLOG_ERROR("No addresses found");
-                return;
-            }
-            else {
-                if(addresses->len == 0) {
-                    GnomeNetworkManagerEvents::onAddressChangeCb(ifname, "", false, true);
-                    return;
-                }
-            }
-
-            for (guint i = 0; i < addresses->len; ++i) {
-                NMIPAddress *address = (NMIPAddress *)g_ptr_array_index(addresses, i);
-                if(address == NULL)
-                {
-                    NMLOG_WARNING("IPv6 address is null");
-                    continue;
-                }
-                if (nm_ip_address_get_family(address) == AF_INET6) {
-                    const char *ipaddr = nm_ip_address_get_address(address);
-                    //int prefix = nm_ip_address_get_prefix(address);
-                    if(ipaddr != NULL) {
-                        std::string ipAddress = ipaddr;
-                        if (ipAddress.compare(0, 5, "fe80:") == 0 || 
-                            ipAddress.compare(0, 6, "fe80::") == 0) {
-                            NMLOG_DEBUG("%s It's link-local ip", ipAddress.c_str());
-                            continue; // It's link-local so skiping
-                        }
-                        GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, true);
-                        break; // SLAAC protocol may include multip ipv6 address posting only one Global address
-                    }
-                }
-            }
-        }
-    }
-
     static void deviceAddedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
@@ -374,16 +483,34 @@ namespace WPEFramework
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
                 g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
-                // TODO call notify::" NM_DEVICE_ACTIVE_CONNECTION if needed
+                g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
+                g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
                 NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                 NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                 if (ipv4Config) {
-                    g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
+                    g_signal_connect(ipv4Config, "notify::addresses",   G_CALLBACK(ip4ChangedCb), device);
+                    g_signal_connect(ipv4Config, "notify::gateway",     G_CALLBACK(ip4ChangedCb), device);
+                    g_signal_connect(ipv4Config, "notify::nameservers", G_CALLBACK(ip4ChangedCb), device);
                 }
 
                 if (ipv6Config) {
-                    g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
+                    g_signal_connect(ipv6Config, "notify::addresses",   G_CALLBACK(ip6ChangedCb), device);
+                    g_signal_connect(ipv6Config, "notify::gateway",     G_CALLBACK(ip6ChangedCb), device);
+                    g_signal_connect(ipv6Config, "notify::nameservers", G_CALLBACK(ip6ChangedCb), device);
                 }
+
+                /* Subscribe to DHCP option changes so dhcpserver stays current mid-lease. */
+                NMDhcpConfig* dhcp4Added = nm_device_get_dhcp4_config(device);
+                NMDhcpConfig* dhcp6Added = nm_device_get_dhcp6_config(device);
+                if (dhcp4Added)
+                    g_signal_connect(dhcp4Added, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
+                if (dhcp6Added)
+                    g_signal_connect(dhcp6Added, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
+
+                /* Seed the IP cache so GetIPSettings works immediately if the
+                   device already has an address (e.g. hotplug in activated state). */
+                refreshIpFamilyCache(device, false);
+                refreshIpFamilyCache(device, true);
 
                 if (NM_IS_DEVICE_WIFI(device))
                 {
@@ -405,13 +532,44 @@ namespace WPEFramework
             std::string ifname = nm_device_get_iface(device);
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
-                g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
                 NMLOG_INFO("WIFI device removed: %s", ifname.c_str());
             }
             else if(ifname == nmUtils::ethIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::ethIface());
-                g_signal_handlers_disconnect_by_func(device, (gpointer)GnomeNetworkManagerEvents::deviceStateChangeCb, nmEvents);
                 NMLOG_INFO("ETHERNET device removed: %s", ifname.c_str());
+            }
+            else {
+                return; // not a tracked interface
+            }
+
+            /* Disconnect all device-level signals (state, ip4/ip6-config changes). */
+            g_signal_handlers_disconnect_by_data(device, nmEvents);
+
+            /* Disconnect IP config property signals (addresses, gateway, nameservers). */
+            NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
+            NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
+            if (ipv4Config)
+                g_signal_handlers_disconnect_by_func(ipv4Config, (gpointer)ip4ChangedCb, device);
+            if (ipv6Config)
+                g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
+
+            /* Disconnect DHCP option signals. */
+            NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+            NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+            if (dhcp4)
+                g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+            if (dhcp6)
+                g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
+
+            /* Clear IP cache for the removed device (emits IP_LOST for any cached addresses). */
+            if (_instance) {
+                for (const char* family : {"IPv4", "IPv6"}) {
+                    IpFamilyCache empty;
+                    std::set<std::string> oldKeys = _instance->swapIpCache(ifname, family, empty);
+                    for (const auto& key : oldKeys) {
+                        _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
+                    }
+                }
             }
         }
 
@@ -492,6 +650,8 @@ namespace WPEFramework
 
                     /* Register device state change event */
                     g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
+                    g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
+                    g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
                     if(NM_IS_DEVICE_WIFI(device)) {
                         nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
                         g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
@@ -500,18 +660,32 @@ namespace WPEFramework
                     NMIPConfig *ipv4Config = nm_device_get_ip4_config(device);
                     NMIPConfig *ipv6Config = nm_device_get_ip6_config(device);
                     if (ipv4Config) {
-                        ip4ChangedCb(ipv4Config, NULL, device); // posting event if interface already connected
-                        g_signal_connect(ipv4Config, "notify::addresses", G_CALLBACK(ip4ChangedCb), device);
+                        g_signal_connect(ipv4Config, "notify::addresses",   G_CALLBACK(ip4ChangedCb), device);
+                        g_signal_connect(ipv4Config, "notify::gateway",     G_CALLBACK(ip4ChangedCb), device);
+                        g_signal_connect(ipv4Config, "notify::nameservers", G_CALLBACK(ip4ChangedCb), device);
                     }
                     else
                         NMLOG_WARNING("IPv4 config is null for device: %s, No IPv4 monitor", ifname.c_str());
 
                     if (ipv6Config) {
-                        ip6ChangedCb(ipv6Config, NULL, device);
-                        g_signal_connect(ipv6Config, "notify::addresses", G_CALLBACK(ip6ChangedCb), device);
+                        g_signal_connect(ipv6Config, "notify::addresses",   G_CALLBACK(ip6ChangedCb), device);
+                        g_signal_connect(ipv6Config, "notify::gateway",     G_CALLBACK(ip6ChangedCb), device);
+                        g_signal_connect(ipv6Config, "notify::nameservers", G_CALLBACK(ip6ChangedCb), device);
                     }
                     else
                         NMLOG_WARNING("IPv6 config is null for device: %s, No IPv6 monitor", ifname.c_str());
+
+                    /* Subscribe to DHCP option changes so dhcpserver stays current mid-lease. */
+                    NMDhcpConfig* dhcp4Init = nm_device_get_dhcp4_config(device);
+                    NMDhcpConfig* dhcp6Init = nm_device_get_dhcp6_config(device);
+                    if (dhcp4Init)
+                        g_signal_connect(dhcp4Init, "notify::options", G_CALLBACK(dhcp4OptionsCb), device);
+                    if (dhcp6Init)
+                        g_signal_connect(dhcp6Init, "notify::options", G_CALLBACK(dhcp6OptionsCb), device);
+
+                    /* Seed the IP cache from current state for already-connected devices. */
+                    refreshIpFamilyCache(device, false);
+                    refreshIpFamilyCache(device, true);
                 }
                 else
                     NMLOG_DEBUG("device type not eth/wifi %s", ifname.c_str());
@@ -593,6 +767,14 @@ namespace WPEFramework
                     if (ipv6Config) {
                         g_signal_handlers_disconnect_by_func(ipv6Config, (gpointer)ip6ChangedCb, device);
                     }
+
+                    // Clean up DHCP option signals
+                    NMDhcpConfig* dhcp4 = nm_device_get_dhcp4_config(device);
+                    NMDhcpConfig* dhcp6 = nm_device_get_dhcp6_config(device);
+                    if (dhcp4)
+                        g_signal_handlers_disconnect_by_func(dhcp4, (gpointer)dhcp4OptionsCb, device);
+                    if (dhcp6)
+                        g_signal_handlers_disconnect_by_func(dhcp6, (gpointer)dhcp6OptionsCb, device);
                 }
             }
         }
@@ -712,53 +894,6 @@ namespace WPEFramework
             }
 #endif
         }
-    }
-
-    void GnomeNetworkManagerEvents::onAddressChangeCb(std::string iface, std::string ipAddress, bool acquired, bool isIPv6)
-    {
-        /* 
-         * notify::addresses g signal only send ipaddress when accuired time only. 
-         * we need to post ip address when ipaddress lost case also so we caching the ip address per interface
-         */
-        static std::map<std::string, std::string> ipv6Map;
-        static std::map<std::string, std::string> ipv4Map;
-
-        if(acquired)
-        {
-            if (isIPv6)
-            {
-                if (ipv6Map[iface].find(ipAddress) == std::string::npos) { // same ip comes multiple time so avoding that
-                    ipv6Map[iface] = ipAddress;
-                }
-                else // same ip not posting
-                    return;
-            }
-            else
-            {
-                ipv4Map[iface] = ipAddress;
-            }
-        }
-        else
-        {
-            if (isIPv6)
-            {
-                ipAddress = ipv6Map[iface];
-                ipv6Map[iface].clear();
-            }
-            else
-            {
-                ipAddress = ipv4Map[iface];
-                ipv4Map[iface].clear();
-            }
-            if(ipAddress.empty())
-                return; // empty ip address not posting event
-        }
-        Exchange::INetworkManager::IPStatus ipStatus{};
-        if (acquired)
-            ipStatus = Exchange::INetworkManager::IP_ACQUIRED;
-        if(_instance != nullptr)
-            _instance->ReportIPAddressChange(iface, isIPv6?"IPv6":"IPv4", ipAddress, ipStatus);
-        NMLOG_INFO("iface:%s - ipaddress:%s - %s - %s", iface.c_str(), ipAddress.c_str(), acquired?"acquired":"lost", isIPv6?"isIPv6":"isIPv4");
     }
 
     bool GnomeNetworkManagerEvents::apToJsonObject(NMAccessPoint *ap, JsonObject& ssidObj)

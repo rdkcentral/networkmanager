@@ -22,9 +22,6 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
-#include <arpa/inet.h>
-
-#define IN_IS_ADDR_LINKLOCAL(a)     ((((uint32_t)ntohl(a)) & 0xffff0000U) == 0xa9fe0000U)
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace std;
@@ -656,40 +653,9 @@ namespace WPEFramework
             return Core::ERROR_GENERAL;
         }
 
-        bool static isAutoConnectEnabled(NMActiveConnection* activeConn)
-        {
-            NMConnection *connection = NM_CONNECTION(nm_active_connection_get_connection(activeConn));
-            if(connection == NULL)
-                return false;
-
-            NMSettingIPConfig *ipConfig = nm_connection_get_setting_ip4_config(connection);
-            if(ipConfig)
-            {
-                const char* ipConfMethod = nm_setting_ip_config_get_method (ipConfig);
-                if(ipConfMethod != NULL && g_strcmp0(ipConfMethod, "auto") == 0)
-                    return true;
-                else
-                    NMLOG_WARNING("ip configuration: %s", ipConfMethod != NULL? ipConfMethod: "null");
-            }
-
-            return false;
-        }
-
         /* @brief Get IP Address Of the Interface */
         uint32_t NetworkManagerImplementation::GetIPSettings(string& interface /* @inout */, const string &ipversion /* @in */, IPAddress& result /* @out */)
         {
-            NMActiveConnection *conn = NULL;
-            NMIPConfig *ip4_config = NULL;
-            NMIPConfig *ip6_config = NULL;
-            const gchar *gateway = NULL;
-            char **dnsArr = NULL;
-            NMDhcpConfig *dhcp4_config = NULL;
-            NMDhcpConfig *dhcp6_config = NULL;
-            const char* dhcpserver;
-            NMSettingConnection *settings = NULL;
-            NMDevice *device = NULL;
-            string ipversionStr;
-
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
             if(interface.empty())
@@ -712,271 +678,22 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(ipversion.empty())
+            string ipversionStr = ipversion.empty() ? "IPv4" : ipversion;
+            std::string family = nmUtils::caseInsensitiveCompare(ipversionStr, "IPv6") ? "IPv6" : "IPv4";
+
+            result = IPAddress{};
+
+            // Serve from event-driven cache
+            if (lookupIpCache(interface, family, result))
             {
-                ipversionStr = "IPV4";
+                NMLOG_DEBUG("%s %s address from cache", interface.c_str(), family.c_str());
             }
             else
             {
-                ipversionStr = ipversion;
+                NMLOG_DEBUG("no %s address on %s", family.c_str(), interface.c_str());
             }
+            result.ipversion = family;
 
-            // Add caching optimization similar to RDK proxy
-            if (wifiname == interface)
-            {
-                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_wlanIPv4Address.ipaddress.empty())
-                {
-                    NMLOG_DEBUG("%s IPv4 address from cache", wifiname.c_str());
-                    result = m_wlanIPv4Address;
-                    return Core::ERROR_NONE;
-                }
-                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_wlanIPv6Address.ipaddress.empty())
-                {
-                    NMLOG_DEBUG("%s IPv6 address from cache", wifiname.c_str());
-                    result = m_wlanIPv6Address;
-                    return Core::ERROR_NONE;
-                }
-            }
-            else if (ethname == interface)
-            {
-                if(nmUtils::caseInsensitiveCompare(ipversionStr, "IPV4") && !m_ethIPv4Address.ipaddress.empty())
-                {
-                    NMLOG_DEBUG("%s IPv4 address from cache", ethname.c_str());
-                    result = m_ethIPv4Address;
-                    return Core::ERROR_NONE;
-                }
-                else if(nmUtils::caseInsensitiveCompare(ipversion, "IPV6") && !m_ethIPv6Address.ipaddress.empty())
-                {
-                    NMLOG_DEBUG("%s IPv6 address from cache", ethname.c_str());
-                    result = m_ethIPv6Address;
-                    return Core::ERROR_NONE;
-                }
-            }
-
-            if(m_nmClient == nullptr)
-            {
-                NMLOG_WARNING("NMClient is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
-            /* Drain any pending D-Bus property-change events queued on m_nmContext
-             * before reading libnm GObject state.  Because m_nmContext is isolated
-             * from the event thread, nobody else can run it — so this loop is
-             * single-threaded and safe.  It ensures m_nmClient reflects the latest state
-             * from NetworkManager before we start iterating connections/addresses. */
-            if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
-                    // Intentional empty body: just flushing the event queue
-                }
-            }
-
-            device = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
-            if (device == NULL)
-            {
-                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface.c_str());
-                return Core::ERROR_GENERAL;
-            }
-
-            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-            deviceState = nm_device_get_state(device);
-            if(deviceState < NM_DEVICE_STATE_DISCONNECTED)
-            {
-                NMLOG_WARNING("%s state is not a valid state: (%d)", interface.c_str(), deviceState);
-                return Core::ERROR_GENERAL;
-            }
-
-            // if(ipversion.empty())
-            //     NMLOG_DEBUG("ipversion is empty default value IPv4");
-
-            const GPtrArray *connections = nm_client_get_active_connections(m_nmClient);
-            if(connections == NULL)
-            {
-                NMLOG_WARNING("no active connection; ip is not assigned to interface");
-                return Core::ERROR_GENERAL;
-            }
-
-            for (guint i = 0; i < connections->len; i++)
-            {
-                if(connections->pdata[i] == NULL)
-                    continue;
-
-                NMActiveConnection *connection = NM_ACTIVE_CONNECTION(connections->pdata[i]);
-                if (connection == nullptr)
-                    continue;
-
-                NMRemoteConnection* retConn = nm_active_connection_get_connection(connection);
-                if(retConn == NULL)
-                {
-                    NMLOG_INFO("remote connection is null");
-                    continue;
-                }
-
-                settings = nm_connection_get_setting_connection(NM_CONNECTION(retConn));
-                if(settings == NULL)
-                    continue;
-                if (g_strcmp0(nm_setting_connection_get_interface_name(settings), interface.c_str()) == 0)
-                {
-                    conn = connection;
-                    break;
-                }
-            }
-
-            if (conn == NULL)
-            {
-                NMLOG_WARNING("no active connection on %s interface", interface.c_str());
-                return Core::ERROR_GENERAL;
-            }
-
-            result.autoconfig = isAutoConnectEnabled(conn);
-
-            if(ipversion.empty() || nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))
-            {
-                const GPtrArray *ipByte = nullptr;
-                result.ipversion = "IPv4";
-                ip4_config = nm_active_connection_get_ip4_config(conn);
-                NMIPAddress *ipAddr = NULL;
-                std::string ipStr;
-                struct sockaddr_in sa;
-                if (ip4_config)
-                    ipByte = nm_ip_config_get_addresses(ip4_config);
-                else
-                    NMLOG_WARNING("no IPv4 configurtion on %s", interface.c_str());
-                if(ipByte)
-                {
-                    for (guint i = 0; i < ipByte->len; i++)
-                    {
-                        ipStr.clear();
-                        ipAddr = static_cast<NMIPAddress*>(ipByte->pdata[i]);
-                        if(ipAddr)
-                        {
-                            const char* addr = nm_ip_address_get_address(ipAddr);
-                            if(addr)
-                                ipStr = addr;
-                        }
-                        if(!ipStr.empty())
-                        {
-                            // Skip link-local IPv4 addresses (169.254.x.x)
-                            inet_pton(AF_INET, ipStr.c_str(), &(sa.sin_addr));
-                            if(IN_IS_ADDR_LINKLOCAL(sa.sin_addr.s_addr))
-                            {
-                                NMLOG_DEBUG("Skipping link-local IPv4 address: %s", ipStr.c_str());
-                                continue;
-                            }
-                            result.ipaddress = ipStr;
-                            result.prefix = nm_ip_address_get_prefix(ipAddr);
-                            NMLOG_DEBUG("IPv4 addr: %s/%d", result.ipaddress.c_str(), result.prefix);
-                        }
-                    }
-                    gateway = nm_ip_config_get_gateway(ip4_config);
-                    if(gateway)
-                        result.gateway = gateway;
-                    dnsArr = (char **)nm_ip_config_get_nameservers(ip4_config);
-                    if(dnsArr)
-                    {
-                        if(dnsArr[0])
-                            result.primarydns = std::string(dnsArr[0]);
-                        if(dnsArr[1])
-                            result.secondarydns = std::string(dnsArr[1]);
-                    }
-                    dhcp4_config = nm_active_connection_get_dhcp4_config(conn);
-                    if(dhcp4_config)
-                    {
-                        dhcpserver = nm_dhcp_config_get_one_option (dhcp4_config, "dhcp_server_identifier");
-                        if(dhcpserver)
-                            result.dhcpserver = dhcpserver;
-                    }
-                    result.ula = "";
-
-                    // Check if only link-local IPv4 is available (no valid global address found)
-                    if(result.ipaddress.empty())
-                    {
-                        NMLOG_WARNING("Only link-local IPv4 available on %s, not returning it", interface.c_str());
-                        // Clear cache for link-local only
-                        if(ethname == interface)
-                            m_ethIPv4Address = IPAddress();
-                        else if(wifiname == interface)
-                            m_wlanIPv4Address = IPAddress();
-                        return Core::ERROR_GENERAL;
-                    }
-
-                    // Cache the IPv4 address
-                    if(ethname == interface)
-                        m_ethIPv4Address = result;
-                    else if(wifiname == interface)
-                        m_wlanIPv4Address = result;
-                }
-            }
-            if((result.ipaddress.empty() && !(nmUtils::caseInsensitiveCompare(ipversion, "IPV4"))) || nmUtils::caseInsensitiveCompare(ipversion, "IPV6"))
-            {
-                std::string ipStr;
-                const GPtrArray *ipArray = nullptr;
-                result.ipversion = "IPv6";
-                NMIPAddress *ipAddr = nullptr;
-                ip6_config = nm_active_connection_get_ip6_config(conn);
-                if(ip6_config)
-                    ipArray = nm_ip_config_get_addresses(ip6_config);
-                else
-                    NMLOG_WARNING("no IPv6 configurtion on %s", interface.c_str());
-                if(ipArray)
-                {
-                    for (guint i = 0; i < ipArray->len; i++)
-                    {
-                        ipStr.clear();
-                        ipAddr = static_cast<NMIPAddress*>(ipArray->pdata[i]);
-                        if(ipAddr)
-                        {
-                            const char* addr = nm_ip_address_get_address(ipAddr);
-                            if(addr)
-                                ipStr = addr;
-                        }
-                        if(!ipStr.empty())
-                        {
-                            if (ipStr.compare(0, 5, "fe80:") == 0 || ipStr.compare(0, 6, "fe80::") == 0)
-                            {
-                                result.ula = ipStr;
-                                NMLOG_DEBUG("link-local ip: %s", result.ula.c_str());
-                            }
-                            else
-                            {
-                                result.prefix = nm_ip_address_get_prefix(ipAddr);
-                                if(result.ipaddress.empty()) // SLAAC mutiple ip not added
-                                    result.ipaddress = ipStr;
-                                NMLOG_DEBUG("global ip %s/%d", ipStr.c_str(), result.prefix);
-                            }
-                        }
-                    }
-
-                    gateway = nm_ip_config_get_gateway(ip6_config);
-                    if(gateway)
-                        result.gateway= gateway;
-                    dnsArr = (char **)nm_ip_config_get_nameservers(ip6_config);
-                    if(dnsArr)
-                    {
-                        if(dnsArr[0])
-                            result.primarydns = std::string(dnsArr[0]);
-                        if(dnsArr[1])
-                            result.secondarydns = std::string(dnsArr[1]);
-                    }
-                    dhcp6_config = nm_active_connection_get_dhcp6_config(conn);
-                    if(dhcp6_config)
-                    {
-                        dhcpserver = nm_dhcp_config_get_one_option (dhcp6_config, "dhcp_server_identifier");
-                        if(dhcpserver)
-                            result.dhcpserver = dhcpserver;
-                    }
-                    // Cache the IPv6 address
-                    if(ethname == interface)
-                        m_ethIPv6Address = result;
-                    else if(wifiname == interface)
-                        m_wlanIPv6Address = result;
-                }
-            }
-            if(result.ipaddress.empty())
-            {
-                result.autoconfig = true;
-                if(ipversion.empty())
-                    result.ipversion = "IPv4";
-            }
             return Core::ERROR_NONE;
         }
 
