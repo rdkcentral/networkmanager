@@ -418,7 +418,7 @@ Gets the IP setting for the given interface.
 | result.ipaddress | string | The IP address |
 | result.prefix | integer | The prefix number |
 | result.gateway | string | The gateway address |
-| result.ula | string | The IPv6 Unified Local Address |
+| result.ula | string | The IPv6 Unique Local Address |
 | result.primarydns | string | The primary DNS address |
 | result.secondarydns | string | The secondary DNS address |
 | result.success | boolean | Whether the request succeeded |
@@ -453,7 +453,7 @@ Gets the IP setting for the given interface.
     "ipaddress": "192.168.1.101",
     "prefix": 24,
     "gateway": "192.168.1.1",
-    "ula": "",
+    "ula": "fd00:410:2016::",
     "primarydns": "192.168.1.1",
     "secondarydns": "192.168.1.2",
     "success": true
