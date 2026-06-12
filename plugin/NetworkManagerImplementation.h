@@ -40,7 +40,6 @@ using namespace std;
 #include "NetworkManagerPowerClient.h"
 
 /* Forward declarations to avoid pulling GLib/libnm headers into this header */
-typedef struct _NMClient    NMClient;
 typedef struct _GMainContext GMainContext;
 
 /*
@@ -390,8 +389,7 @@ namespace WPEFramework
                 std::atomic<bool> m_ethDisconnectedForSleep;
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
-                NMClient *m_nmClient{nullptr};          /* proxy NMClient — bound to m_nmContext */
-                GMainContext *m_nmContext{nullptr};     /* isolated context, not the global default */
+                GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
                 mutable ConnectivityMonitor connectivityMonitor;
 
                 string getDefaultInterface() const
