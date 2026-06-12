@@ -30,6 +30,40 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        /*
+         * Per-call NMClient helpers (same pattern as wifiManager).
+         * A fresh NMClient is created for each proxy API call and destroyed
+         * immediately after use, so no D-Bus signals accumulate between calls.
+         */
+        static NMClient* createProxyClient(GMainContext *ctx)
+        {
+            GError *error = NULL;
+            g_main_context_push_thread_default(ctx);
+            NMClient *client = nm_client_new(NULL, &error);
+            g_main_context_pop_thread_default(ctx);
+            if (!client) {
+                if (error) {
+                    NMLOG_ERROR("Failed to create NMClient: %s", error->message);
+                    g_error_free(error);
+                }
+            }
+            return client;
+        }
+
+        static void deleteProxyClient(NMClient *client)
+        {
+            if (!client)
+                return;
+            GMainContext *context = g_main_context_ref(nm_client_get_main_context(client));
+            GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(client);
+            g_object_add_weak_pointer(contextBusyWatcher, (gpointer *)&contextBusyWatcher);
+            g_clear_object(&client);
+            while (contextBusyWatcher) {
+                g_main_context_iteration(context, TRUE);
+            }
+            g_main_context_unref(context);
+        }
+
         wifiManager *wifi = nullptr;
         GnomeNetworkManagerEvents *nmEvent = nullptr;
         NetworkManagerImplementation* _instance = nullptr;
@@ -196,11 +230,8 @@ namespace WPEFramework
         /* @brief Set the dhcp hostname */
         uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
         {
-            const GPtrArray *connections = NULL;
-            NMConnection *connection = NULL;
-
-            if (m_nmClient == nullptr) {
-                NMLOG_ERROR("NMClient is NULL");
+            if (m_nmContext == nullptr) {
+                NMLOG_ERROR("NMContext is NULL");
                 return Core::ERROR_GENERAL;
             }
 
@@ -210,10 +241,17 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
-            connections = nm_client_get_connections(m_nmClient);
+            NMClient *client = createProxyClient(m_nmContext);
+            if (client == nullptr) {
+                NMLOG_ERROR("Failed to create NMClient for SetHostname");
+                return Core::ERROR_GENERAL;
+            }
+
+            const GPtrArray *connections = nm_client_get_connections(client);
             if (connections == NULL || connections->len == 0)
             {
                 NMLOG_ERROR("Could not get nm connections");
+                deleteProxyClient(client);
                 return Core::ERROR_GENERAL;
             }
 
@@ -221,7 +259,7 @@ namespace WPEFramework
 
             for (uint32_t i = 0; i < connections->len; i++)
             {
-                connection = NM_CONNECTION(connections->pdata[i]);
+                NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
                 if(connection != NULL)
                 {
                     const char *iface = nm_connection_get_interface_name(connection);
@@ -240,12 +278,15 @@ namespace WPEFramework
                     if(!setHostname(connection, hostname))
                     {
                         NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
+                        deleteProxyClient(client);
                         return Core::ERROR_GENERAL;
                     }
                 }
                 else
                     NMLOG_ERROR("Connection at index %d is NULL", i);
             }
+
+            deleteProxyClient(client);
 
             // Write the hostname to persistent storage
             nmUtils::writePersistentHostname(hostname);
@@ -255,7 +296,6 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::platform_deinit()
         {
-            if(m_nmClient) { g_object_unref(m_nmClient); m_nmClient = nullptr; }
             if(m_nmContext) { g_main_context_unref(m_nmContext); m_nmContext = nullptr; }
         }
 
@@ -270,38 +310,31 @@ namespace WPEFramework
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
-            GError *error = NULL;
 
-            // initialize the NMClient object
-            // Create an isolated GMainContext so this m_nmClient's D-Bus socket is NOT a
-            // source on the global default context.  The event thread runs the default
-            // context via g_main_loop_run(); without isolation it would own and mutate
-            // this m_nmClient's GObjects concurrently with the RPC thread.
+            // Create an isolated GMainContext for per-call NMClient creation.
             m_nmContext = g_main_context_new();
-            g_main_context_push_thread_default(m_nmContext);
-            m_nmClient = nm_client_new(NULL, &error);
-            g_main_context_pop_thread_default(m_nmContext);
-            if (m_nmClient == NULL) {
-                if (error) {
-                    NMLOG_FATAL("Error initializing NMClient: %s", error->message);
-                    g_error_free(error);
-                }
-                if (m_nmContext) {
-                    g_main_context_unref(m_nmContext);
-                    m_nmContext = nullptr;
-                }
+
+            // Create a temporary client for one-time init work
+            NMClient *initClient = createProxyClient(m_nmContext);
+            if (initClient == NULL) {
+                NMLOG_FATAL("Error initializing NMClient during platform_init");
+                g_main_context_unref(m_nmContext);
+                m_nmContext = nullptr;
                 return;
             }
 
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
-            modifyDefaultConnConfig(m_nmClient);
-            NMDeviceState ethState = ifaceState(m_nmClient, nmUtils::ethIface());
+            modifyDefaultConnConfig(initClient);
+            NMDeviceState ethState = ifaceState(initClient, nmUtils::ethIface());
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 setDefaultInterface(nmUtils::ethIface());
             else
                 setDefaultInterface(nmUtils::wlanIface());
 
             NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
+
+            deleteProxyClient(initClient);
+
             // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
@@ -314,20 +347,22 @@ namespace WPEFramework
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(m_nmClient == nullptr) {
-                NMLOG_FATAL("NMClient is null");
+            if(m_nmContext == nullptr) {
+                NMLOG_FATAL("NMContext is null");
                 return Core::ERROR_GENERAL;
             }
 
-            if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
-                    // Intentional empty body: just flushing the event queue
-                }
+            NMClient *client = createProxyClient(m_nmContext);
+            if (client == nullptr) {
+                NMLOG_FATAL("Failed to create NMClient for GetAvailableInterfaces");
+                return Core::ERROR_GENERAL;
             }
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
+
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
-                return Core::ERROR_GENERAL;
+                deleteProxyClient(client);
+                return rc;
             }
 
             for (guint j = 0; j < devices->len; j++)
@@ -372,6 +407,11 @@ namespace WPEFramework
                     }
                 }
             }
+
+            deleteProxyClient(client);
+
+            if (rc != Core::ERROR_NONE)
+                return rc;
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
@@ -454,9 +494,9 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
 
-            if(m_nmClient == nullptr)
+            if(m_nmContext == nullptr)
             {
-                NMLOG_WARNING("NMClient is null");
+                NMLOG_WARNING("NMContext is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
@@ -492,57 +532,62 @@ namespace WPEFramework
                         {
                             NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
 
-                            // Bring down the ethernet interface before wiping its connections
-                            // so NM doesn't immediately re-activate them during deletion.
-                            NMDevice *ethDev = nm_client_get_device_by_iface(m_nmClient, interface.c_str());
-                            if(ethDev)
+                            NMClient *client = createProxyClient(m_nmContext);
+                            if (client != nullptr)
                             {
-                                GError *discError = nullptr;
-                                if(!nm_device_disconnect(ethDev, nullptr, &discError))
+                                // Bring down the ethernet interface before wiping its connections
+                                // so NM doesn't immediately re-activate them during deletion.
+                                NMDevice *ethDev = nm_client_get_device_by_iface(client, interface.c_str());
+                                if(ethDev)
                                 {
-                                    NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
-                                            interface.c_str(),
-                                            discError ? discError->message : "unknown error");
-                                    if(discError) g_error_free(discError);
-                                }
-                            }
-
-                            const GPtrArray *connections = nm_client_get_connections(m_nmClient);
-                            if(connections && connections->len > 0)
-                            {
-                                /* Snapshot the list before iterating: nm_client_get_connections()
-                                 * returns an internal array that can be mutated as connections
-                                 * are removed, so we must not iterate it while deleting. */
-                                GPtrArray *snapshot = g_ptr_array_new_full(connections->len, g_object_unref);
-                                for(guint i = 0; i < connections->len; ++i)
-                                {
-                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
-                                    if(!conn) continue;
-                                    NMSettingConnection *sCon = nm_connection_get_setting_connection(NM_CONNECTION(conn));
-                                    if(!sCon) continue;
-                                    const char *connType = nm_setting_connection_get_connection_type(sCon);
-                                    if(g_strcmp0(connType, NM_SETTING_WIRED_SETTING_NAME) != 0)
+                                    GError *discError = nullptr;
+                                    if(!nm_device_disconnect(ethDev, nullptr, &discError))
                                     {
-                                        NMLOG_DEBUG("Skipping non-wired connection type: %s", connType ? connType : "null");
-                                        continue;
-                                    }
-                                    g_ptr_array_add(snapshot, g_object_ref(conn));
-                                }
-
-                                for(guint i = 0; i < snapshot->len; ++i)
-                                {
-                                    NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
-                                    GError *error = nullptr;
-                                    if(!nm_remote_connection_delete(conn, nullptr, &error))
-                                    {
-                                        const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
-                                        NMLOG_ERROR("Failed to delete connection %s: %s",
-                                                    connId ? connId : "<unknown>",
-                                                    error ? error->message : "unknown error");
-                                        if(error) g_error_free(error);
+                                        NMLOG_WARNING("Failed to disconnect %s before migration cleanup: %s",
+                                                interface.c_str(),
+                                                discError ? discError->message : "unknown error");
+                                        if(discError) g_error_free(discError);
                                     }
                                 }
-                                g_ptr_array_unref(snapshot);
+
+                                const GPtrArray *connections = nm_client_get_connections(client);
+                                if(connections && connections->len > 0)
+                                {
+                                    /* Snapshot the list before iterating: nm_client_get_connections()
+                                     * returns an internal array that can be mutated as connections
+                                     * are removed, so we must not iterate it while deleting. */
+                                    GPtrArray *snapshot = g_ptr_array_new_full(connections->len, g_object_unref);
+                                    for(guint i = 0; i < connections->len; ++i)
+                                    {
+                                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(connections->pdata[i]);
+                                        if(!conn) continue;
+                                        NMSettingConnection *sCon = nm_connection_get_setting_connection(NM_CONNECTION(conn));
+                                        if(!sCon) continue;
+                                        const char *connType = nm_setting_connection_get_connection_type(sCon);
+                                        if(g_strcmp0(connType, NM_SETTING_WIRED_SETTING_NAME) != 0)
+                                        {
+                                            NMLOG_DEBUG("Skipping non-wired connection type: %s", connType ? connType : "null");
+                                            continue;
+                                        }
+                                        g_ptr_array_add(snapshot, g_object_ref(conn));
+                                    }
+
+                                    for(guint i = 0; i < snapshot->len; ++i)
+                                    {
+                                        NMRemoteConnection *conn = NM_REMOTE_CONNECTION(snapshot->pdata[i]);
+                                        GError *error = nullptr;
+                                        if(!nm_remote_connection_delete(conn, nullptr, &error))
+                                        {
+                                            const char *connId = nm_connection_get_id(NM_CONNECTION(conn));
+                                            NMLOG_ERROR("Failed to delete connection %s: %s",
+                                                        connId ? connId : "<unknown>",
+                                                        error ? error->message : "unknown error");
+                                            if(error) g_error_free(error);
+                                        }
+                                    }
+                                    g_ptr_array_unref(snapshot);
+                                }
+                                deleteProxyClient(client);
                             }
                         }
                     }
@@ -604,22 +649,23 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(m_nmClient == nullptr)
+            if(m_nmContext == nullptr)
             {
-                NMLOG_WARNING("NMClient is null");
+                NMLOG_WARNING("NMContext is null");
                 return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            if (m_nmContext) {
-                for (int i = 0; i < 100 && g_main_context_iteration(m_nmContext, FALSE); ++i){
-                    // Intentional empty body: just flushing the event queue
-                }
+            NMClient *client = createProxyClient(m_nmContext);
+            if (client == nullptr) {
+                NMLOG_ERROR("Failed to create NMClient for GetInterfaceState");
+                return Core::ERROR_RPC_CALL_FAILED;
             }
 
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(m_nmClient));
+            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
 
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
+                deleteProxyClient(client);
                 return Core::ERROR_GENERAL;
             }
 
@@ -645,6 +691,8 @@ namespace WPEFramework
                     }
                 }
             }
+
+            deleteProxyClient(client);
 
             if(isIfaceFound)
                 return Core::ERROR_NONE;
