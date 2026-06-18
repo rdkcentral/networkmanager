@@ -1188,7 +1188,6 @@ namespace WPEFramework
                         NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
                                m_lastConnectedSSID.c_str());
                         Exchange::INetworkManager::WiFiConnectTo connectInfo{};
-                        connectInfo.ssid = m_lastConnectedSSID;
                         uint32_t rcWifiUp = WiFiConnect(connectInfo);
                         if (rcWifiUp == Core::ERROR_NONE)
                         {
