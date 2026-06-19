@@ -79,7 +79,6 @@ namespace WPEFramework
             m_powerClient.reset();
             connectivityMonitor.stopConnectivityMonitor();
             _instance = nullptr;
-            platform_deinit();
             if(m_registrationThread.joinable())
             {
                 m_registrationThread.join();

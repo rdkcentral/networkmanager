@@ -90,11 +90,6 @@ namespace WPEFramework
             nmUtils::setNetworkManagerlogLevelToTrace();
         }
 
-        void NetworkManagerImplementation::platform_deinit()
-        {
-            return;
-        }
-
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;

@@ -30,38 +30,87 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+
         /*
-         * Per-call NMClient helpers (same pattern as wifiManager).
-         * A fresh NMClient is created for each proxy API call and destroyed
-         * immediately after use, so no D-Bus signals accumulate between calls.
+         * Per-call NMClient helpers.
+         *
+         * Each proxy API call gets its own NMClient bound to its own freshly
+         * allocated GMainContext. libnm requires every NMClient to own its
+         * thread-default GMainContext so that D-Bus signal dispatch routed
+         * to one client's context cannot mutate state held by other live
+         * clients on other threads. Sharing a single context across clients
+         * (the previous design) caused use-after-free when one thread's
+         * deleteProxyClient drain loop dispatched signals into another
+         * thread's live NMClient device array.
+         *
+         * With per-call contexts there is no shared mutable state between
+         * concurrent calls, so no cross-call mutex is required.
          */
-        static NMClient* createProxyClient(GMainContext *ctx)
+        static NMClient* createProxyClient(GMainContext **ctxOut, GCancellable **cancellableOut)
         {
+            if (!ctxOut || !cancellableOut) {
+                NMLOG_ERROR("createProxyClient called with NULL out parameter");
+                return nullptr;
+            }
+
+            *ctxOut = nullptr;
+            *cancellableOut = nullptr;
+
+            GMainContext *ctx = g_main_context_new();
+            if (!ctx) {
+                NMLOG_ERROR("Failed to allocate per-call GMainContext");
+                return nullptr;
+            }
+
             GError *error = NULL;
+            GCancellable *cancellable = g_cancellable_new();
+
             g_main_context_push_thread_default(ctx);
-            NMClient *client = nm_client_new(NULL, &error);
+            NMClient *client = nm_client_new(cancellable, &error);
             g_main_context_pop_thread_default(ctx);
+
             if (!client) {
                 if (error) {
                     NMLOG_ERROR("Failed to create NMClient: %s", error->message);
                     g_error_free(error);
                 }
+                g_clear_object(&cancellable);
+                g_main_context_unref(ctx);
+                return nullptr;
             }
+
+            *ctxOut = ctx;
+            *cancellableOut = cancellable;
             return client;
         }
 
-        static void deleteProxyClient(NMClient *client)
+        static void deleteProxyClient(NMClient *client, GMainContext *ctx, GCancellable *cancellable)
         {
-            if (!client)
-                return;
-            GMainContext *context = g_main_context_ref(nm_client_get_main_context(client));
-            GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(client);
-            g_object_add_weak_pointer(contextBusyWatcher, (gpointer *)&contextBusyWatcher);
-            g_clear_object(&client);
-            while (contextBusyWatcher) {
-                g_main_context_iteration(context, TRUE);
+            if (cancellable) {
+                g_cancellable_cancel(cancellable);
+                g_clear_object(&cancellable);
             }
-            g_main_context_unref(context);
+
+            if (!client) {
+                if (ctx) g_main_context_unref(ctx);
+                return;
+            }
+
+            GObject *contextBusyWatcher = nm_client_get_context_busy_watcher(client);
+            if (contextBusyWatcher) {
+                g_object_add_weak_pointer(contextBusyWatcher, (gpointer *)&contextBusyWatcher);
+            } else {
+                NMLOG_WARNING("NMClient context busy watcher is NULL during delete");
+            }
+
+            g_clear_object(&client);
+
+            if (ctx) {
+                while (contextBusyWatcher) {
+                    g_main_context_iteration(ctx, TRUE);
+                }
+                g_main_context_unref(ctx);
+            }
         }
 
         wifiManager *wifi = nullptr;
@@ -230,18 +279,15 @@ namespace WPEFramework
         /* @brief Set the dhcp hostname */
         uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
         {
-            if (m_nmContext == nullptr) {
-                NMLOG_ERROR("NMContext is NULL");
-                return Core::ERROR_GENERAL;
-            }
-
             if(hostname.length() < 1 || hostname.length() > 32)
             {
                 NMLOG_ERROR("Invalid hostname length: %zu", hostname.length());
                 return Core::ERROR_BAD_REQUEST;
             }
 
-            NMClient *client = createProxyClient(m_nmContext);
+            GMainContext *callCtx = nullptr;
+            GCancellable *cancellable = nullptr;
+            NMClient *client = createProxyClient(&callCtx, &cancellable);
             if (client == nullptr) {
                 NMLOG_ERROR("Failed to create NMClient for SetHostname");
                 return Core::ERROR_GENERAL;
@@ -251,7 +297,7 @@ namespace WPEFramework
             if (connections == NULL || connections->len == 0)
             {
                 NMLOG_ERROR("Could not get nm connections");
-                deleteProxyClient(client);
+                deleteProxyClient(client, callCtx, cancellable);
                 return Core::ERROR_GENERAL;
             }
 
@@ -278,7 +324,7 @@ namespace WPEFramework
                     if(!setHostname(connection, hostname))
                     {
                         NMLOG_ERROR("Failed to set hostname for connection at index %d", i);
-                        deleteProxyClient(client);
+                        deleteProxyClient(client, callCtx, cancellable);
                         return Core::ERROR_GENERAL;
                     }
                 }
@@ -286,17 +332,12 @@ namespace WPEFramework
                     NMLOG_ERROR("Connection at index %d is NULL", i);
             }
 
-            deleteProxyClient(client);
+            deleteProxyClient(client, callCtx, cancellable);
 
             // Write the hostname to persistent storage
             nmUtils::writePersistentHostname(hostname);
 
             return Core::ERROR_NONE;
-        }
-
-        void NetworkManagerImplementation::platform_deinit()
-        {
-            if(m_nmContext) { g_main_context_unref(m_nmContext); m_nmContext = nullptr; }
         }
 
         void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
@@ -311,15 +352,12 @@ namespace WPEFramework
         {
             ::_instance = this;
 
-            // Create an isolated GMainContext for per-call NMClient creation.
-            m_nmContext = g_main_context_new();
-
-            // Create a temporary client for one-time init work
-            NMClient *initClient = createProxyClient(m_nmContext);
+            // Temporary client for one-time init work; its GMainContext lives only for this call.
+            GMainContext *initCtx = nullptr;
+            GCancellable *initCancellable = nullptr;
+            NMClient *initClient = createProxyClient(&initCtx, &initCancellable);
             if (initClient == NULL) {
                 NMLOG_FATAL("Error initializing NMClient during platform_init");
-                g_main_context_unref(m_nmContext);
-                m_nmContext = nullptr;
                 return;
             }
 
@@ -333,7 +371,7 @@ namespace WPEFramework
 
             NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
 
-            deleteProxyClient(initClient);
+            deleteProxyClient(initClient, initCtx, initCancellable);
 
             // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();
@@ -347,12 +385,9 @@ namespace WPEFramework
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(m_nmContext == nullptr) {
-                NMLOG_FATAL("NMContext is null");
-                return Core::ERROR_GENERAL;
-            }
-
-            NMClient *client = createProxyClient(m_nmContext);
+            GMainContext *callCtx = nullptr;
+            GCancellable *cancellable = nullptr;
+            NMClient *client = createProxyClient(&callCtx, &cancellable);
             if (client == nullptr) {
                 NMLOG_FATAL("Failed to create NMClient for GetAvailableInterfaces");
                 return Core::ERROR_GENERAL;
@@ -361,7 +396,7 @@ namespace WPEFramework
             GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
-                deleteProxyClient(client);
+                deleteProxyClient(client, callCtx, cancellable);
                 return rc;
             }
 
@@ -408,7 +443,7 @@ namespace WPEFramework
                 }
             }
 
-            deleteProxyClient(client);
+            deleteProxyClient(client, callCtx, cancellable);
 
             if (rc != Core::ERROR_NONE)
                 return rc;
@@ -493,13 +528,6 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::SetInterfaceState(const string& interface/* @in */, const bool enabled /* @in */)
         {
-
-            if(m_nmContext == nullptr)
-            {
-                NMLOG_WARNING("NMContext is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
             if(interface.empty() || (interface != nmUtils::wlanIface() && interface != nmUtils::ethIface()))
             {
                 NMLOG_ERROR("interface: %s; not valied", interface.c_str()!=nullptr? interface.c_str():"empty");
@@ -532,7 +560,9 @@ namespace WPEFramework
                         {
                             NMLOG_INFO("BOOT_MIGRATION detected, deleting all wired NM connections");
 
-                            NMClient *client = createProxyClient(m_nmContext);
+                            GMainContext *callCtx = nullptr;
+                            GCancellable *cancellable = nullptr;
+                            NMClient *client = createProxyClient(&callCtx, &cancellable);
                             if (client != nullptr)
                             {
                                 // Bring down the ethernet interface before wiping its connections
@@ -587,7 +617,7 @@ namespace WPEFramework
                                     }
                                     g_ptr_array_unref(snapshot);
                                 }
-                                deleteProxyClient(client);
+                                deleteProxyClient(client, callCtx, cancellable);
                             }
                         }
                     }
@@ -649,13 +679,9 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(m_nmContext == nullptr)
-            {
-                NMLOG_WARNING("NMContext is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
-            NMClient *client = createProxyClient(m_nmContext);
+            GMainContext *callCtx = nullptr;
+            GCancellable *cancellable = nullptr;
+            NMClient *client = createProxyClient(&callCtx, &cancellable);
             if (client == nullptr) {
                 NMLOG_ERROR("Failed to create NMClient for GetInterfaceState");
                 return Core::ERROR_RPC_CALL_FAILED;
@@ -665,7 +691,7 @@ namespace WPEFramework
 
             if (devices == NULL) {
                 NMLOG_ERROR("Failed to get device list.");
-                deleteProxyClient(client);
+                deleteProxyClient(client, callCtx, cancellable);
                 return Core::ERROR_GENERAL;
             }
 
@@ -692,7 +718,7 @@ namespace WPEFramework
                 }
             }
 
-            deleteProxyClient(client);
+            deleteProxyClient(client, callCtx, cancellable);
 
             if(isIfaceFound)
                 return Core::ERROR_NONE;

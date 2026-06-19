@@ -39,9 +39,6 @@ using namespace std;
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
-/* Forward declarations to avoid pulling GLib/libnm headers into this header */
-typedef struct _GMainContext GMainContext;
-
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
  * for a 20MHz channel,
@@ -333,7 +330,6 @@ namespace WPEFramework
 
             private:
                 void platform_init(void);
-                void platform_deinit(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
@@ -389,7 +385,6 @@ namespace WPEFramework
                 std::atomic<bool> m_ethDisconnectedForSleep;
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
-                GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
                 mutable ConnectivityMonitor connectivityMonitor;
 
                 string getDefaultInterface() const

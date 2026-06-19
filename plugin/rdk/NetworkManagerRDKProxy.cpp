@@ -444,11 +444,6 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        void NetworkManagerImplementation::platform_deinit()
-        {
-            return;
-        }
-
         void NetworkManagerImplementation::platform_init()
         {
             LOG_ENTRY_FUNCTION();
