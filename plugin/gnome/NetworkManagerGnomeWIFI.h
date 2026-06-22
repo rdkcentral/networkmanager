@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <atomic>
+#include <mutex>
 
 #define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
 #define WPS_RETRY_COUNT             10
