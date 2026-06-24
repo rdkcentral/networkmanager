@@ -45,7 +45,7 @@ using namespace std;
 #define DEFAULT_NOISE                              -96
 #define MAX_SNR_VALUE                              180
 
-#define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      60
+#define DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC      5
 #define NM_PROCESS_MONITOR_INTERVAL_SEC            60
 #define NM_WIFI_SNR_THRESHOLD_EXCELLENT            40
 #define NM_WIFI_SNR_THRESHOLD_GOOD                 25
