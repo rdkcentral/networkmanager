@@ -762,6 +762,9 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
+            std::vector<std::string> ssidsSnapshot;
+            
+            _filterVectorsLock.Lock();
             //Cleared the Existing Store filterred SSID list
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
@@ -801,6 +804,7 @@ namespace WPEFramework
                         else
                         {
                             NMLOG_ERROR("Invalid frequency value: %s", frequency.c_str());
+                            _filterVectorsLock.Unlock();
                             return Core::ERROR_BAD_REQUEST;
                         }
                     }
@@ -810,9 +814,11 @@ namespace WPEFramework
                     }
                 }
             }
+            ssidsSnapshot = m_filterSsidslist;
+            _filterVectorsLock.Unlock();
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(m_filterSsidslist))
+            if(wifi->wifiScanRequest(ssidsSnapshot))
                 rc = Core::ERROR_NONE;
             return rc;
         }
