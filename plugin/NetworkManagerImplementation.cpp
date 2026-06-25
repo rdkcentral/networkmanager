@@ -597,14 +597,16 @@ namespace WPEFramework
             return;
         }
 
-        void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
+         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids,
+											            const std::vector<std::string>& filterSsidslist,
+											            const std::vector<std::string>& filterFrequencies)
         {
             JsonArray result;
             double filterFreq = 0.0;
-            std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
+            std::unordered_set<std::string> scanForSsidsSet(filterSsidslist.begin(), filterSsidslist.end());
 
             // If neither SSID list nor frequency is provided, exit
-            if (m_filterSsidslist.empty() && m_filterFrequencies.empty())
+            if (filterSsidslist.empty() && filterFrequencies.empty())
             {
                 NMLOG_DEBUG("Neither SSID nor Frequency is provided. Exiting function.");
                 return;
@@ -618,10 +620,10 @@ namespace WPEFramework
 
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
-                bool freqMatches = m_filterFrequencies.empty();
+                bool freqMatches = filterFrequencies.empty();
                 if (!freqMatches)
                 {
-                    for (const auto& selectedFrequency : m_filterFrequencies)
+                    for (const auto& selectedFrequency : filterFrequencies)
                     {
                         if (selectedFrequency == "ALL")
                         {
@@ -862,9 +864,19 @@ namespace WPEFramework
             NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
-			_filterVectorsLock.Lock();
-            filterScanResults(filterResult);
-			_filterVectorsLock.Unlock();
+			// Snapshot filter vectors under lock, then release before calling filterScanResults
+            // to ensure exception-safety (std::stod can throw).
+            std::vector<std::string> ssidsSnapshot;
+            std::vector<std::string> frequenciesSnapshot;
+            {
+                _filterVectorsLock.Lock();
+                ssidsSnapshot = m_filterSsidslist;
+                frequenciesSnapshot = m_filterFrequencies;
+                _filterVectorsLock.Unlock();
+            }
+
+            // Call filterScanResults outside the lock with snapshots (exception-safe)
+            filterScanResults(filterResult, ssidsSnapshot, frequenciesSnapshot);
             filterResult.ToString(jsonOfFilterScanResults);
 
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
