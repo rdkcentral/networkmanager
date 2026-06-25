@@ -338,7 +338,7 @@ namespace WPEFramework
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
-                void filterScanResults(JsonArray &ssids);
+                void filterScanResults(JsonArray &ssids, const std::vector<std::string>& filterSsidslist, const std::vector<std::string>& filterFrequencies);
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();
                 void monitorThreadFunction(int interval);
