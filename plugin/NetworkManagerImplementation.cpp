@@ -738,7 +738,6 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
-            _notificationLock.Lock();
             NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
@@ -754,15 +753,15 @@ namespace WPEFramework
 
             // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
             // m_defaultInterface = currentActiveinterface;
-
+            _notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
                 callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
             }
+			_notificationLock.Unlock();
 #if USE_TELEMETRY
             NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
-#endif
-            _notificationLock.Unlock();
+#endif 
         }
 
         void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
@@ -810,7 +809,6 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
-            _notificationLock.Lock();
             NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
 #if USE_TELEMETRY
             // Log error only when ethernet is up and there's no internet
@@ -823,15 +821,16 @@ namespace WPEFramework
                 logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
             }
 #endif
+			_notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
                 callback->onInternetStatusChange(prevState, currState, interface);
             }
+			_notificationLock.Unlock();
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
             NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
 #endif
-            _notificationLock.Unlock();
         }
 
         int32_t NetworkManagerImplementation::logSSIDs(Logging level, const JsonArray &ssids)
@@ -855,7 +854,6 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults)
         {
-            _notificationLock.Lock();
             string jsonOfWiFiScanResults;
             string jsonOfFilterScanResults;
             JsonArray filterResult = arrayofWiFiScanResults;
@@ -864,12 +862,15 @@ namespace WPEFramework
             NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
+			_filterVectorsLock.Lock();
             filterScanResults(filterResult);
+			_filterVectorsLock.Unlock();
             filterResult.ToString(jsonOfFilterScanResults);
 
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
+			_notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
                 callback->onAvailableSSIDs(jsonOfFilterScanResults);
             }
@@ -1177,13 +1178,13 @@ namespace WPEFramework
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
             }
 
-            _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
+			_notificationLock.Lock();
             for (const auto callback : _notificationCallbacks) {
                 callback->onWiFiStateChange(state);
             }
