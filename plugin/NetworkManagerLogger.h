@@ -70,7 +70,7 @@ void logPrint(LogLevel level, const char* file, const char* func, int line, cons
 #define NMLOG_ERROR(FMT, ...)   logPrint(NetworkManagerLogger::ERROR_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
 #define NMLOG_FATAL(FMT, ...)   logPrint(NetworkManagerLogger::FATAL_LEVEL, __FILE__,__func__, __LINE__, FMT, ##__VA_ARGS__)
 
-#define LOG_ENTRY_FUNCTION()    { NMLOG_DEBUG("Entering"); }
+#define LOG_ENTRY_FUNCTION()    { NMLOG_INFO("Entering"); }
 
 } // namespace NetworkManagerLogger
 
