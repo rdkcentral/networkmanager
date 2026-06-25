@@ -348,6 +348,7 @@ namespace WPEFramework
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
                 Core::CriticalSection _notificationLock;
+                Core::CriticalSection _filterVectorsLock;
                 string m_publicIP;
                 stun::client stunClient;
                 string m_stunEndpoint;
