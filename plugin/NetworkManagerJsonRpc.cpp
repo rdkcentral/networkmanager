@@ -1046,7 +1046,9 @@ namespace WPEFramework
             parameters["interface"] = interface;
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onInterfaceStateChange BEGIN");
             Notify(_T("onInterfaceStateChange"), parameters);
+            NMLOG_INFO("<< Notify onInterfaceStateChange END");
         }
 
         void NetworkManager::onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
@@ -1056,7 +1058,9 @@ namespace WPEFramework
             parameters["currentActiveInterface"] = currentActiveinterface;
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onActiveInterfaceChange BEGIN");
             Notify(_T("onActiveInterfaceChange"), parameters);
+            NMLOG_INFO("<< Notify onActiveInterfaceChange END");
         }
 
         void NetworkManager::onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
@@ -1069,7 +1073,9 @@ namespace WPEFramework
             parameters["status"] = iStatus.Data();
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onIPAddressChange BEGIN");
             Notify(_T("onIPAddressChange"), parameters);
+            NMLOG_INFO("<< Notify onIPAddressChange END");
         }
 
         void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
@@ -1084,7 +1090,9 @@ namespace WPEFramework
             parameters["interface"] = interface;
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onInternetStatusChange BEGIN");
             Notify(_T("onInternetStatusChange"), parameters);
+            NMLOG_INFO("<< Notify onInternetStatusChange END");
             /* if new state is fully connectd set the internet subsystem only once */
             static bool isInternetSet = false;
             if(!isInternetSet && currState == Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED)
@@ -1102,7 +1110,9 @@ namespace WPEFramework
             parameters["ssids"] = scanResults;
 
             NMLOG_INFO("Event with %d SSIDs as, %s", scanResults.Length(), jsonOfScanResults.c_str());
+            NMLOG_INFO(">> Notify onAvailableSSIDs BEGIN");
             Notify(_T("onAvailableSSIDs"), parameters);
+            NMLOG_INFO("<< Notify onAvailableSSIDs END");
         }
 
         void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
@@ -1113,7 +1123,9 @@ namespace WPEFramework
             parameters["status"] = iState.Data();
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onWiFiStateChange BEGIN");
             Notify(_T("onWiFiStateChange"), parameters);
+            NMLOG_INFO("<< Notify onWiFiStateChange END");
         }
 
         void NetworkManager::onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
@@ -1127,7 +1139,9 @@ namespace WPEFramework
             parameters["noise"]    = noise;
 
             LOG_INPARAM();
+            NMLOG_INFO(">> Notify onWiFiSignalQualityChange BEGIN");
             Notify(_T("onWiFiSignalQualityChange"), parameters);
+            NMLOG_INFO("<< Notify onWiFiSignalQualityChange END");
         }
     }
 }
