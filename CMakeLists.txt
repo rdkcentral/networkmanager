@@ -54,7 +54,13 @@ get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
 option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
+option(ENABLE_ETHERNET_CONNECTION_HANDLING
+       "Enable pre-sleep Ethernet deactivation" OFF)
 
+if(ENABLE_ETHERNET_CONNECTION_HANDLING)
+    add_definitions(-DENABLE_ETHERNET_CONNECTION_HANDLING)
+    message(STATUS "Ethernet connection handling: enabled")
+endif()
 
 add_subdirectory(interface)
 add_subdirectory(definition)

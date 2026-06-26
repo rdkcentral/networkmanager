@@ -107,6 +107,11 @@ jobs:
           &&
           cmake --build build/ThunderInterfaces --target install -j8
 
+      - name: Install IPowerManager header
+        run: |
+          IFACE_DIR=$(find ${{github.workspace}}/install/usr/include -maxdepth 2 -name "interfaces" -type d | head -1)
+          cp ${{github.workspace}}/networkmanager/tests/mocks/thunder/IPowerManager.h "$IFACE_DIR/"
+
       - name: Build networkmanager with Gnome GDBUS Proxy
         run: >
           cmake
