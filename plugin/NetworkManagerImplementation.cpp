@@ -808,6 +808,33 @@ namespace WPEFramework
             _notificationLock.Unlock();
         }
 
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion)
+        {
+            string iface = interface;
+            Exchange::INetworkManager::IPAddress settings{};
+            if (GetIPSettings(iface, ipversion, settings) != Core::ERROR_NONE) {
+                return;
+            }
+            ReportRouteChange(interface, ipversion, settings);
+        }
+
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings)
+        {
+            if (settings.ipaddress.empty() || settings.gateway.empty() || settings.primarydns.empty()) {
+                return;
+            }
+
+            _notificationLock.Lock();
+            NMLOG_INFO("Posting onRouteChange %s %s ip=%s gw=%s dns=%s",
+                interface.c_str(), ipversion.c_str(), settings.ipaddress.c_str(),
+                settings.gateway.c_str(), settings.primarydns.c_str());
+            for (const auto callback : _notificationCallbacks) {
+                callback->onRouteChange(interface, settings.ipversion, settings.ipaddress,
+                                        settings.gateway, settings.primarydns);
+            }
+            _notificationLock.Unlock();
+        }
+
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             _notificationLock.Lock();
