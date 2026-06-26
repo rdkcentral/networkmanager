@@ -773,6 +773,54 @@ m_cancellable(nullptr){
             return connection;
         }
 
+        static void addMinimalEthernetConnectionCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = static_cast<wifiManager*>(user_data);
+            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error)) {
+                NMLOG_ERROR("addMinimalEthernetConnection failed");
+                _wifiManager->m_isSuccess = false;
+            }
+            else
+            {
+                NMLOG_INFO("addMinimalEthernetConnection success");
+                _wifiManager->m_isSuccess = true;
+            }
+            if (error) {
+                NMLOG_ERROR("addMinimalEthernetConnection error: %s", error->message);
+                _wifiManager->m_isSuccess = false;
+                g_error_free(error);
+            }
+            g_main_loop_quit(_wifiManager->m_loop);
+        }
+
+        bool wifiManager::addMinimalEthernetConnection(std::string iface)
+        {
+            if (!createClientNewConnection())
+                return false;
+
+            NMConnection *ethConn = createMinimalEthernetConnection(iface);
+            if (ethConn == NULL)
+            {
+                NMLOG_ERROR("Failed to create minimal ethernet connection");
+                deleteClientConnection();
+                return false;
+            }
+
+            GVariant *connSettings = nm_connection_to_dbus(ethConn, NM_CONNECTION_SERIALIZE_ALL);
+            g_object_unref(ethConn);
+
+            m_isSuccess = false;
+            nm_client_add_connection2(m_client,
+                                      connSettings,
+                                      NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK,
+                                      NULL, TRUE, NULL,
+                                      addMinimalEthernetConnectionCb, this);
+            wait(m_loop);
+            deleteClientConnection();
+            return m_isSuccess;
+        }
+
         static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false)
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
