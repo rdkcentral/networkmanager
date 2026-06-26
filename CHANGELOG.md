@@ -14,6 +14,12 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.12.5] - 2026-06-26
+### Added
+- Added support to handle Power State changes within NetworkManager as below,
+- Transition to DeepSleep will disconnect when NSM is OFF
+- Transition from DeepSleep will Renew IP when NSM is ON
+
 ## [1.12.4] - 2026-03-13
 ### Changed
 - Plugin updated to check the migration status and add minimal Ethernet connection profile
