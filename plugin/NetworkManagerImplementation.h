@@ -26,6 +26,8 @@
 #include <arpa/inet.h>
 #include <linux/rtnetlink.h>
 #include <atomic>
+#include <mutex>
+#include <memory>
 
 using namespace std;
 
@@ -33,6 +35,7 @@ using namespace std;
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerStunClient.h"
+#include "NetworkManagerPowerClient.h"
 
 /*
  * Receiver thermal noise + BW factor + assumed noise figure (NF) (dB)
@@ -58,6 +61,7 @@ namespace WPEFramework
     namespace Plugin
     {
         class NetworkManagerImplementation : public Exchange::INetworkManager
+                                           , public INetworkPowerCallback
         {
             enum NetworkEvents
             {
@@ -220,6 +224,8 @@ namespace WPEFramework
 
                 uint32_t WiFiConnect(const WiFiConnectTo& ssid /* @in */) override;
                 uint32_t WiFiDisconnect(void) override;
+                uint32_t EthernetDeactivate(void);
+                uint32_t ReacquireDHCPLease(const string& iface);
                 uint32_t GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */) override;
 
                 uint32_t StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */) override;
@@ -270,6 +276,13 @@ namespace WPEFramework
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
+                // INetworkPowerCallback overrides
+                void OnPowerModePreChange(const Exchange::IPowerManager::PowerState currentState,
+                                          const Exchange::IPowerManager::PowerState newState,
+                                          std::function<void()> sendAck) override;
+                void OnPowerModeChanged(const Exchange::IPowerManager::PowerState currentState,
+                                        const Exchange::IPowerManager::PowerState newState) override;
+
             private:
                 void platform_init(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
@@ -306,6 +319,7 @@ namespace WPEFramework
                 std::atomic<bool> m_stopThread{false};
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
+                std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
             public:
                 IPAddress m_ethIPv4Address;
                 IPAddress m_wlanIPv4Address;
@@ -316,6 +330,8 @@ namespace WPEFramework
                 std::atomic<bool> m_ethEnabled;
                 std::atomic<bool> m_wlanEnabled;
                 string m_defaultInterface;
+                std::atomic<bool> m_ethDisconnectedForSleep;
+                std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
                 mutable ConnectivityMonitor connectivityMonitor;
         };
