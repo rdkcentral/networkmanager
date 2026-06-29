@@ -27,6 +27,9 @@ set(PLUGIN_LEGACY_WIFI    ${NAMESPACE}WiFiManager)
 set(PLUGIN_LEGACY_NW_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy Network plugin")
 set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy WiFi plugin")
 
+set(PLUGIN_LEGACY_NW_AUTOSTART "false" CACHE STRING "The autostart of Legacy Network plugin")
+set(PLUGIN_LEGACY_WIFI_AUTOSTART "false" CACHE STRING "The autostart of Legacy WiFi plugin")
+
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 

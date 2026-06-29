@@ -209,21 +209,51 @@ namespace WPEFramework
                 Core::JSON::DecUInt32 loglevel;
             };
 
-
-            class Job : public Core::IDispatch {
-            public:
-                Job(function<void()> work)
-                : _work(work)
-                {
-                }
-                void Dispatch() override
-                {
-                    _work();
-                }
-
-            private:
-                function<void()> _work;
+            enum NMPublishEvents {
+                NM_ON_INTERFACESTATE_CHANGE = 0,
+                NM_ON_ACTIVEINTERFACE_CHANGE,
+                NM_ON_IPADDRESS_CHANGE,
+                NM_ON_INTERNETSTATUS_CHANGE,
+                NM_ON_AVAILABLESSIDS,
+                NM_ON_WIFISTATE_CHANGE,
+                NM_ON_WIFISIGNALQUALITY_CHANGE
             };
+
+            class EXTERNAL Job : public Core::IDispatch {
+            protected:
+                Job(NetworkManagerImplementation *NetworkManagerImplementation, NMPublishEvents event, JsonObject &params)
+                    : m_jobNWImpl(NetworkManagerImplementation)
+                    , _event(event)
+                    , _params(params) {
+                    if (m_jobNWImpl != nullptr) {
+                        m_jobNWImpl->AddRef();
+                    }
+                }
+
+            public:
+                Job() = delete;
+                Job(const Job&) = delete;
+                Job& operator=(const Job&) = delete;
+                ~Job() {
+                    if (m_jobNWImpl != nullptr) {
+                        m_jobNWImpl->Release();
+                    }
+                }
+
+            public:
+                static Core::ProxyType<Core::IDispatch> Create(NetworkManagerImplementation *pNWImpl, NMPublishEvents event, JsonObject params) {
+                    return (Core::ProxyType<Core::IDispatch>(Core::ProxyType<Job>::Create(pNWImpl, event, params)));
+                }
+                virtual void Dispatch() {
+                    if (m_jobNWImpl != nullptr) {
+                        m_jobNWImpl->Dispatch(_event, _params);
+                    }
+                }
+            private:
+                NetworkManagerImplementation *m_jobNWImpl;
+                const NMPublishEvents _event;
+                const JsonObject _params;
+            };  // class EXTERNAL Job
 
             public:
                 NetworkManagerImplementation();
@@ -338,16 +368,19 @@ namespace WPEFramework
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
-                void filterScanResults(JsonArray &ssids);
+                void filterScanResults(JsonArray &ssids, const std::vector<std::string>& filterSsidslist, const std::vector<std::string>& filterFrequencies);
                 void startWiFiSignalQualityMonitor(int interval);
                 void stopWiFiSignalQualityMonitor();
                 void monitorThreadFunction(int interval);
                 int32_t logSSIDs(Logging level, const JsonArray &ssids);
                 void processMonitor(uint16_t interval);
+                void dispatchEvent(NMPublishEvents event, const JsonObject& params);
+                void Dispatch(NMPublishEvents event, const JsonObject& params);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
                 Core::CriticalSection _notificationLock;
+                Core::CriticalSection m_filterVectorsLock;
                 string m_publicIP;
                 stun::client stunClient;
                 string m_stunEndpoint;
@@ -409,6 +442,8 @@ namespace WPEFramework
                 mutable std::mutex m_defaultInterfaceMutex;
                 std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;
+
+                friend class Job;
         };
     }
 }

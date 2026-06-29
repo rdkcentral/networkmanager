@@ -1,4 +1,4 @@
 precondition = ["Platform"]
 callsign = "org.rdk.Wifi"
-autostart = "false"
+autostart = "@PLUGIN_LEGACY_WIFI_AUTOSTART@"
 startuporder = "@PLUGIN_LEGACY_WIFI_STARTUPORDER@"
