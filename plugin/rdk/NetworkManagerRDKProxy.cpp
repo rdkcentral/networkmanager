@@ -972,8 +972,8 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             IARM_Bus_WiFiSrvMgr_SsidList_Param_t param{};
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
-            // Cleared the existing stored filtered SSID list
-            _filterVectorsLock.Lock();
+            //Cleared the Existing Store filterred SSID list
+            m_filterVectorsLock.Lock();
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
             if(ssids)
@@ -995,7 +995,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     NMLOG_DEBUG("%s added to Frequency filtering", frequencyList.c_str());
                 }
             }
-            _filterVectorsLock.Unlock();
+            m_filterVectorsLock.Unlock();
 
             memset(&param, 0, sizeof(param));
 
