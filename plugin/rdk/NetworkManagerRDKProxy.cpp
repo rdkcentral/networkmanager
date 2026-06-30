@@ -972,7 +972,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             IARM_Bus_WiFiSrvMgr_SsidList_Param_t param{};
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
-//Cleared the Existing Store filtered SSID list
+            // Cleared the existing stored filtered SSID list
             _filterVectorsLock.Lock();
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
