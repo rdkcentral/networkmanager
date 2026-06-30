@@ -868,12 +868,10 @@ namespace WPEFramework
             // to ensure exception-safety (std::stod can throw).
             std::vector<std::string> ssidsSnapshot;
             std::vector<std::string> frequenciesSnapshot;
-            {
-                _filterVectorsLock.Lock();
-                ssidsSnapshot = m_filterSsidslist;
-                frequenciesSnapshot = m_filterFrequencies;
-                _filterVectorsLock.Unlock();
-            }
+            m_filterVectorsLock.Lock();
+            ssidsSnapshot = m_filterSsidslist;
+            frequenciesSnapshot = m_filterFrequencies;
+            m_filterVectorsLock.Unlock();
 
             // Call filterScanResults outside the lock with snapshots (exception-safe)
             filterScanResults(filterResult, ssidsSnapshot, frequenciesSnapshot);

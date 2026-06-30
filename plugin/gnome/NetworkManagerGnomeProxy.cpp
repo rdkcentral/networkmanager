@@ -810,13 +810,13 @@ namespace WPEFramework
                 }
             }
 
-            _filterVectorsLock.Lock();
+            m_filterVectorsLock.Lock();
             // Replace existing stored filters only after successful parsing/validation.
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
             m_filterSsidslist = filteredSsids;
             m_filterFrequencies = filteredFrequencies;
-            _filterVectorsLock.Unlock();
+            m_filterVectorsLock.Unlock();
 
             nmEvent->setwifiScanOptions(true);
             if(wifi->wifiScanRequest(filteredSsids))
