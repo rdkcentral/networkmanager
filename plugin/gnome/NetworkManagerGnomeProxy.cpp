@@ -762,7 +762,6 @@ namespace WPEFramework
         {
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
-            std::vector<std::string> ssidsSnapshot;
             std::vector<std::string> filteredSsids;
             std::vector<std::string> filteredFrequencies;
 
@@ -817,11 +816,10 @@ namespace WPEFramework
             m_filterFrequencies.clear();
             m_filterSsidslist = filteredSsids;
             m_filterFrequencies = filteredFrequencies;
-            ssidsSnapshot = m_filterSsidslist;
             _filterVectorsLock.Unlock();
 
             nmEvent->setwifiScanOptions(true);
-            if(wifi->wifiScanRequest(ssidsSnapshot))
+            if(wifi->wifiScanRequest(filteredSsids))
                 rc = Core::ERROR_NONE;
             return rc;
         }
