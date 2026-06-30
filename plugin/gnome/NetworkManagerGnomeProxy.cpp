@@ -763,11 +763,8 @@ namespace WPEFramework
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
 
             std::vector<std::string> ssidsSnapshot;
-            
-            _filterVectorsLock.Lock();
-            //Cleared the Existing Store filterred SSID list
-            m_filterSsidslist.clear();
-            m_filterFrequencies.clear();
+            std::vector<std::string> filteredSsids;
+            std::vector<std::string> filteredFrequencies;
 
             if(ssids)
             {
@@ -776,7 +773,7 @@ namespace WPEFramework
                 {
                     if (!tmpssidlist.empty())
                     {
-                        m_filterSsidslist.push_back(tmpssidlist.c_str());
+                        filteredSsids.push_back(tmpssidlist);
                         NMLOG_DEBUG("%s added to SSID filtering", tmpssidlist.c_str());
                     }
                     else 
@@ -798,13 +795,12 @@ namespace WPEFramework
                         const string normalizedFrequency = parsedFrequency.Data();
                         if ((!normalizedFrequency.empty()) && (normalizedFrequency == frequency))
                         {
-                            m_filterFrequencies.push_back(normalizedFrequency);
+                            filteredFrequencies.push_back(normalizedFrequency);
                             NMLOG_DEBUG("Frequency %s added to scan filtering", normalizedFrequency.c_str());
                         }
                         else
                         {
                             NMLOG_ERROR("Invalid frequency value: %s", frequency.c_str());
-                            _filterVectorsLock.Unlock();
                             return Core::ERROR_BAD_REQUEST;
                         }
                     }
@@ -814,6 +810,13 @@ namespace WPEFramework
                     }
                 }
             }
+
+            _filterVectorsLock.Lock();
+            // Replace existing stored filters only after successful parsing/validation.
+            m_filterSsidslist.clear();
+            m_filterFrequencies.clear();
+            m_filterSsidslist = filteredSsids;
+            m_filterFrequencies = filteredFrequencies;
             ssidsSnapshot = m_filterSsidslist;
             _filterVectorsLock.Unlock();
 
