@@ -854,6 +854,7 @@ namespace WPEFramework
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
             LOG_ENTRY_FUNCTION();
+            NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
 
             if(currentActiveinterface == "eth0")
             {
@@ -877,7 +878,7 @@ namespace WPEFramework
 #if USE_TELEMETRY
             NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
-#endif
+#endif 
         }
 
         void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
