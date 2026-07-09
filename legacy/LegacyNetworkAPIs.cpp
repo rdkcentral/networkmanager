@@ -19,6 +19,7 @@
 #include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include <syslog.h>
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -519,6 +520,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             JsonObject tmpResponse;
 
             DEBUGLOG_INPARAM();
+            {
+                string _dbgParams; parameters.ToString(_dbgParams);
+                syslog(LOG_WARNING, "[LegacyNetworkAPIs] getIPSettings v1 called, params=%s", _dbgParams.c_str());
+            }
             rc = internalGetIPSettings(parameters, tmpResponse);
 
             if (tmpResponse.HasLabel("ipaddr") && (!tmpResponse["ipaddr"].String().empty()))
@@ -532,6 +537,10 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                 response["success"] = true;
             else
                 response["success"] = false;
+            {
+                string _dbgResp; response.ToString(_dbgResp);
+                syslog(LOG_INFO, "[LegacyNetworkAPIs] getIPSettings v1 result rc=%u, response=%s", rc, _dbgResp.c_str());
+            }
             DEBUGLOG_OUTPARAM();
             return Core::ERROR_NONE;
         }
@@ -540,12 +549,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             DEBUGLOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
+            {
+                string _dbgParams; parameters.ToString(_dbgParams);
+                syslog(LOG_WARNING, "[LegacyNetworkAPIs] getIPSettings v2 called, params=%s", _dbgParams.c_str());
+            }
 
             rc = internalGetIPSettings(parameters, response);
             if (Core::ERROR_NONE == rc)
                 response["success"] = true;
             else
                 response["success"] = false;
+            {
+                string _dbgResp; response.ToString(_dbgResp);
+                syslog(LOG_INFO, "[LegacyNetworkAPIs] getIPSettings v2 result rc=%u, response=%s", rc, _dbgResp.c_str());
+            }
             DEBUGLOG_OUTPARAM();
             return Core::ERROR_NONE;
         }
