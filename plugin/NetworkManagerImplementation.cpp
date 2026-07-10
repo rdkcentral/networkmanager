@@ -65,7 +65,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            SYSLOG(Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             #if USE_TELEMETRY
                 // Initialize Telemetry T2 for NwMgrPlugin
@@ -142,12 +142,12 @@ namespace WPEFramework
             Configuration config;
             if(configLine.empty())
             {
-                SYSLOG(Logging::Startup, (_T("config line is empty")));
+                SYSLOG(::WPEFramework::Logging::Startup, (_T("config line is empty")));
                 return Core::ERROR_GENERAL;
             }
             else
             {
-                SYSLOG(Logging::Startup, (_T("Loading incoming configuration")));
+                SYSLOG(::WPEFramework::Logging::Startup, (_T("Loading incoming configuration")));
                 config.FromString(configLine);
             }
 
