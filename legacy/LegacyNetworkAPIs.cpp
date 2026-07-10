@@ -96,6 +96,7 @@ namespace WPEFramework
 
         const string Network::Initialize(PluginHost::IShell*  service )
         {
+            NetworkManagerLogger::Init();
             m_service = service;
             m_service->AddRef();
             string message{};
