@@ -384,11 +384,6 @@ namespace WPEFramework
                     NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
                 }
-                else
-                {
-                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
-                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
-                }
 #endif
                 return Core::ERROR_NONE;
             }
