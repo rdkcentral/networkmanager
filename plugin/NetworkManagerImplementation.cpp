@@ -142,7 +142,7 @@ namespace WPEFramework
             Configuration config;
             if(configLine.empty())
             {
-                SYSLOG(::WPEFramework::Logging::Startup, (_T("config line is empty")));
+                SYSLOG(::WPEFramework::Logging::Shutdown, (_T("config line is empty")));
                 return Core::ERROR_GENERAL;
             }
             else
