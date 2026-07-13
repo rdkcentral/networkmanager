@@ -65,7 +65,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             #if USE_TELEMETRY
                 // Initialize Telemetry T2 for NwMgrPlugin
