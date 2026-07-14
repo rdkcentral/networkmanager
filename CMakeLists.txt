@@ -61,6 +61,13 @@ if(ENABLE_ETHERNET_CONNECTION_HANDLING)
     add_definitions(-DENABLE_ETHERNET_CONNECTION_HANDLING)
     message(STATUS "Ethernet connection handling: enabled")
 endif()
+option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
+
+if (USE_TELEMETRY)
+    find_package(T2 REQUIRED)
+    add_compile_definitions(USE_TELEMETRY=1)
+    message("Telemetry support enabled")
+endif(USE_TELEMETRY)
 
 add_subdirectory(interface)
 add_subdirectory(definition)
@@ -76,4 +83,3 @@ if(ENABLE_UNIT_TESTING)
     add_subdirectory(tests/l1Test)
     add_subdirectory(tests/l2Test)
 endif(ENABLE_UNIT_TESTING)
-

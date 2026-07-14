@@ -1144,7 +1144,6 @@ m_cancellable(nullptr){
             std::string activeSSID{};
 
             NMLOG_DEBUG("wifi connect ssid: %s, security %d persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.security, ssidInfoParam.persist);
-
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
             m_isSuccess = false;
             if(!createClientNewConnection())

@@ -28,6 +28,7 @@ extern "C" NMSettingIPConfig* __real_nm_connection_get_setting_ip6_config(NMConn
 extern "C" const char* __real_nm_setting_ip_config_get_method(NMSettingIPConfig* setting);
 extern "C" NMSettingConnection* __real_nm_connection_get_setting_connection(NMConnection* connection);
 extern "C" const char* __real_nm_setting_connection_get_interface_name(NMSettingConnection* setting);
+extern "C" NMIPConfig* __real_nm_device_get_ip4_config(NMDevice* device);
 extern "C" NMIPConfig* __real_nm_active_connection_get_ip4_config(NMActiveConnection* connection);
 extern "C" NMIPConfig* __real_nm_active_connection_get_ip6_config(NMActiveConnection* connection);
 extern "C" GPtrArray* __real_nm_ip_config_get_addresses(NMIPConfig* config);
@@ -491,6 +492,8 @@ public:
             [&](NMClient *client, GAsyncResult *result, GError **error) -> gboolean {
                 return __real_nm_client_dbus_set_property_finish(client, result, error);
             }));
+        ON_CALL(*this, nm_device_get_ip4_config(::testing::_))
+            .WillByDefault(::testing::Return(nullptr));
         ON_CALL(*this, nm_remote_connection_delete(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
             [&](NMRemoteConnection *connection, GCancellable *cancellable, GError **error) -> gboolean {
@@ -589,4 +592,5 @@ public:
     MOCK_METHOD(NMDeviceStateReason, nm_device_get_state_reason, (NMDevice *device), (override));
     MOCK_METHOD(int, nm_ip_address_get_family, (NMIPAddress *address), (override));
     MOCK_METHOD(GVariant*, nm_connection_to_dbus, (NMConnection *connection, NMConnectionSerializationFlags flags), (override));
+    MOCK_METHOD(NMIPConfig*, nm_device_get_ip4_config, (NMDevice* device), (override));
 };

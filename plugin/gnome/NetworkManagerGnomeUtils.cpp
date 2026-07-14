@@ -22,6 +22,8 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <sstream>
+#include <fstream>
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
 #include "Module.h"
@@ -387,6 +389,73 @@ namespace WPEFramework
             hostname = "";
             file.close();
             return false;
+        }
+
+        std::string nmUtils::resolveGatewayMac(const std::string& gatewayIp)
+        {
+            std::string mac = "";
+            std::string arpFile = "/proc/net/arp";
+            std::ifstream file(arpFile);
+            std::string line;
+
+            if (!file.is_open()) {
+                NMLOG_ERROR("Failed to open %s", arpFile.c_str());
+                return mac;
+            }
+
+            // Skip header
+            std::getline(file, line);
+
+            while (std::getline(file, line)) {
+                std::istringstream iss(line);
+                std::string ip, hwType, flags, hwAddr;
+
+                if (iss >> ip >> hwType >> flags >> hwAddr) {
+                    if (ip == gatewayIp && hwAddr != "00:00:00:00:00:00") {
+                        mac = hwAddr;
+                        NMLOG_INFO("Resolved gateway IP %s to MAC %s", gatewayIp.c_str(), mac.c_str());
+                        break;
+                    }
+                }
+            }
+
+            if (mac.empty()) {
+                NMLOG_WARNING("Could not resolve gateway IP %s to MAC address", gatewayIp.c_str());
+            }
+
+            return mac;
+        }
+
+        std::string nmUtils::getGatewayMacAddress(NMDevice* device)
+        {
+            std::string gatewayMac = "";
+
+            if (!device) {
+                NMLOG_ERROR("device is NULL");
+                return gatewayMac;
+            }
+
+            if (!NM_IS_DEVICE(device)) {
+                NMLOG_ERROR("device is not an NMDevice");
+                return gatewayMac;
+            }
+
+            NMIPConfig *ip4Config = nm_device_get_ip4_config(device);
+            if (!ip4Config) {
+                NMLOG_WARNING("No IPv4 configuration found");
+                return gatewayMac;
+            }
+
+            const char *ifname = nm_device_get_iface(device);
+            const char *gateway = nm_ip_config_get_gateway(ip4Config);
+            if (!gateway) {
+                NMLOG_WARNING("No gateway found for %s", ifname ? ifname : "unknown");
+                return gatewayMac;
+            }
+
+            NMLOG_DEBUG("Found gateway IP for %s: %s", ifname ? ifname : "unknown", gateway);
+            gatewayMac = resolveGatewayMac(gateway);
+            return gatewayMac;
         }
 
     }   // Plugin
