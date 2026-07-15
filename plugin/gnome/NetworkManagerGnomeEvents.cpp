@@ -163,6 +163,20 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+#if USE_TELEMETRY
+                        {
+                            static std::string lastWlanGatewayMac;
+                            std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
+                            if (!gatewayMac.empty() && lastWlanGatewayMac != gatewayMac) {
+                                lastWlanGatewayMac = gatewayMac;
+                                NMLOG_INFO("NM_WIFI_GW_MAC = %s", gatewayMac.c_str());
+                                if (_instance != nullptr)
+                                {
+                                    _instance->logTelemetry("NM_WIFI_GW_MAC", gatewayMac);
+                                }
+                            }
+                        }
+#endif
                         break;
                     case NM_DEVICE_STATE_DEACTIVATING:
                         wifiState = "WIFI_STATE_CONNECTION_LOST";
@@ -211,9 +225,22 @@ namespace WPEFramework
                 case NM_DEVICE_STATE_IP_CONFIG:
                     GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::ethIface());
                 break;
+                case NM_DEVICE_STATE_ACTIVATED:
+#if USE_TELEMETRY
+                    {
+                        static std::string lastEthGatewayMac;
+                        std::string gatewayMac = nmUtils::getGatewayMacAddress(device);
+                        if (!gatewayMac.empty() && lastEthGatewayMac != gatewayMac) {
+                            lastEthGatewayMac = gatewayMac;
+                            NMLOG_INFO("NM_ETHERNET_GW_MAC = %s", gatewayMac.c_str());
+                            if (_instance != nullptr)
+                                _instance->logTelemetry("NM_ETHERNET_GW_MAC", gatewayMac);
+                        }
+                    }
+#endif
+                break;
                 case NM_DEVICE_STATE_NEED_AUTH:
                 case NM_DEVICE_STATE_SECONDARIES:
-                case NM_DEVICE_STATE_ACTIVATED:
                 case NM_DEVICE_STATE_DEACTIVATING:
                 default:
                     NMLOG_WARNING("Unhandiled state change %d", deviceState);
@@ -271,8 +298,9 @@ namespace WPEFramework
             }
             if (nm_ip_address_get_family(address) == AF_INET) {
                 const char *ipAddress = nm_ip_address_get_address(address);
-                if(ipAddress != NULL)
+                if(ipAddress != NULL) {
                     GnomeNetworkManagerEvents::onAddressChangeCb(iface, ipAddress, true, false);
+                }
             }
         }
     }

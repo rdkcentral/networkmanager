@@ -33,7 +33,9 @@ if (USE_RDK_LOGGER)
     include_directories(${RDKLOGGER_INCLUDE_DIRS})
 endif (USE_RDK_LOGGER)
 
-
+if (USE_TELEMETRY)
+    include_directories(${T2_INCLUDE_DIRS})
+endif (USE_TELEMETRY)
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     pkg_check_modules(GLIB REQUIRED glib-2.0)
@@ -141,6 +143,11 @@ if (USE_RDK_LOGGER)
     target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
 endif (USE_RDK_LOGGER)
+
+if (USE_TELEMETRY)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${T2_LIBRARIES})
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${T2_LIBRARIES})
+endif (USE_TELEMETRY)
 
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
