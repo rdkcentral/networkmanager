@@ -139,8 +139,9 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::Configure(const string configLine)
         {
             LOG_ENTRY_FUNCTION();
-            Configuration config;
-            if(!configLine.empty()) // Test change to immediately return so plugin initialization time increases
+            return(Core::ERROR_NONE);
+            Configuration config; // Test change to immediately return so plugin initialization time increases
+            if(configLine.empty())
             {
                 NMLOG_FATAL("config line : is empty !");
                 return Core::ERROR_GENERAL;
