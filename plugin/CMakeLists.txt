@@ -154,12 +154,12 @@ endif (USE_TELEMETRY)
 install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 install(TARGETS ${MODULE_IMPL_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
 
-if(ENABLE_GNOME_NETWORKMANAGER)
-    install(PROGRAMS     gnome/scripts/nm_interface_handler.sh
-            DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
-    install(FILES gnome/systemd/gnome-networkmanager-migration.conf
-            DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
-endif(ENABLE_GNOME_NETWORKMANAGER)
+# if(ENABLE_GNOME_NETWORKMANAGER)
+#     install(PROGRAMS     gnome/scripts/nm_interface_handler.sh
+#             DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
+#     install(FILES gnome/systemd/gnome-networkmanager-migration.conf
+#             DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
+# endif(ENABLE_GNOME_NETWORKMANAGER)
 
 #Generate Plugin configuration file
 write_config()
