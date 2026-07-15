@@ -140,6 +140,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             Configuration config;
+            configLine.clear(); // Test change to immediately return so plugin initialization time increases
             if(configLine.empty())
             {
                 NMLOG_FATAL("config line : is empty !");
