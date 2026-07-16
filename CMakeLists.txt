@@ -55,6 +55,8 @@ option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
+option(USE_CONNECTIVITY_CHECK_MGR
+       "Delegate internet-connectivity queries to the ConnectivityCheckMgr plugin" OFF)
 option(ENABLE_ETHERNET_CONNECTION_HANDLING
        "Enable pre-sleep Ethernet deactivation" OFF)
 

@@ -35,7 +35,9 @@ using namespace std;
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
+#ifndef USE_CONNECTIVITY_CHECK_MGR
 #include "NetworkManagerConnectivity.h"
+#endif
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
@@ -392,7 +394,9 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                 mutable ConnectivityMonitor connectivityMonitor;
+#endif
 
                 string getDefaultInterface() const
                 {

@@ -84,6 +84,13 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
 
+# When enabled, JSON-RPC methods in the shell delegate connectivity queries
+# to ConnectivityCheckMgr via QueryInterfaceByCallsign.
+if(USE_CONNECTIVITY_CHECK_MGR)
+    target_compile_definitions(${MODULE_NAME} PRIVATE USE_CONNECTIVITY_CHECK_MGR)
+    target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE USE_CONNECTIVITY_CHECK_MGR)
+endif()
+
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)
         message("networkmanager building with gdbus")
