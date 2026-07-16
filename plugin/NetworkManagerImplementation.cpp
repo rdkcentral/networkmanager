@@ -327,7 +327,7 @@ namespace WPEFramework
 
 #ifdef USE_CONNECTIVITY_CHECK_MGR
             (void)ipVersionNotSpecified;
-            result = INTERNET_UNKNOWN;
+            result = connectivityClient.getInternetState();
 #else
             result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
 #endif
@@ -347,7 +347,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
 #ifdef USE_CONNECTIVITY_CHECK_MGR
-            uri.clear();
+            uri = connectivityClient.getCaptivePortalURI();
 #else
             uri = connectivityMonitor.getCaptivePortalURI();
 #endif

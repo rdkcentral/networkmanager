@@ -20,9 +20,6 @@
 #include "NetworkManager.h"
 #include "INetworkManager.h"
 #include "NetworkManagerJsonEnum.h"
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-#include <interfaces/IConnectivityCheck.h>
-#endif
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -39,27 +36,6 @@
 
 
 using namespace NetworkManagerLogger;
-
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-namespace {
-Exchange::INetworkManager::InternetStatus MapConnectivityStatus(const Exchange::IConnectivityCheck::InternetStatus status)
-{
-    switch (status) {
-        case Exchange::IConnectivityCheck::NO_INTERNET:
-            return Exchange::INetworkManager::INTERNET_NOT_AVAILABLE;
-        case Exchange::IConnectivityCheck::LIMITED_INTERNET:
-            return Exchange::INetworkManager::INTERNET_LIMITED;
-        case Exchange::IConnectivityCheck::CAPTIVE_PORTAL:
-            return Exchange::INetworkManager::INTERNET_CAPTIVE_PORTAL;
-        case Exchange::IConnectivityCheck::FULLY_CONNECTED:
-            return Exchange::INetworkManager::INTERNET_FULLY_CONNECTED;
-        case Exchange::IConnectivityCheck::UNKNOWN:
-        default:
-            return Exchange::INetworkManager::INTERNET_UNKNOWN;
-    }
-}
-}
-#endif
 
 namespace WPEFramework
 {
@@ -472,7 +448,7 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            Exchange::INetworkManager::InternetStatus result = Exchange::INetworkManager::INTERNET_UNKNOWN;
+            Exchange::INetworkManager::InternetStatus result;
             string ipversion{};
             string interface{};
 
@@ -481,35 +457,10 @@ namespace WPEFramework
             if (parameters.HasLabel("interface"))
                 interface = parameters["interface"].String();
 
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-            if (_service != nullptr) {
-                Exchange::IConnectivityCheck* connectivity =
-                    _service->QueryInterfaceByCallsign<Exchange::IConnectivityCheck>("org.rdk.ConnectivityCheckMgr");
-                if (connectivity != nullptr) {
-                    Exchange::IConnectivityCheck::StatusInfo info{};
-                    rc = connectivity->GetInternetStatus(info);
-                    if (rc == Core::ERROR_NONE) {
-                        result = MapConnectivityStatus(info.status);
-                        if (!info.ipversion.empty()) {
-                            ipversion = info.ipversion;
-                        }
-                        if (!info.interface.empty()) {
-                            interface = info.interface;
-                        }
-                    }
-                    connectivity->Release();
-                } else {
-                    rc = Core::ERROR_UNAVAILABLE;
-                }
-            } else {
-                rc = Core::ERROR_UNAVAILABLE;
-            }
-#else
             if (_networkManager)
                 rc = _networkManager->IsConnectedToInternet(ipversion, interface, result);
             else
                 rc = Core::ERROR_UNAVAILABLE;
-#endif
 
             if (Core::ERROR_NONE == rc)
             {
@@ -528,26 +479,10 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string uri;
-
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-            if (_service != nullptr) {
-                Exchange::IConnectivityCheck* connectivity =
-                    _service->QueryInterfaceByCallsign<Exchange::IConnectivityCheck>("org.rdk.ConnectivityCheckMgr");
-                if (connectivity != nullptr) {
-                    rc = connectivity->GetCaptivePortalURI(uri);
-                    connectivity->Release();
-                } else {
-                    rc = Core::ERROR_UNAVAILABLE;
-                }
-            } else {
-                rc = Core::ERROR_UNAVAILABLE;
-            }
-#else
             if (_networkManager)
                 rc = _networkManager->GetCaptivePortalURI(uri);
             else
                 rc = Core::ERROR_UNAVAILABLE;
-#endif
 
             if (Core::ERROR_NONE == rc)
                 response["uri"] = uri;
