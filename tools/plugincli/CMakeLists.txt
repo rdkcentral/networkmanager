@@ -74,7 +74,7 @@ if(ENABLE_GNOME_GDBUS)
     )
 
     set_target_properties(${PLUGIN_GDBUS_CLI} PROPERTIES
-        CXX_STANDARD 11
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
     )
 
@@ -106,7 +106,7 @@ else()
     )
 
     set_target_properties(${PLUGIN_LIBNM_CLI} PROPERTIES
-        CXX_STANDARD 11
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
     )
 

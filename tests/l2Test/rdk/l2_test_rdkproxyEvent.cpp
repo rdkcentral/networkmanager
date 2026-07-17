@@ -235,6 +235,7 @@ TEST_F(NetworkManagerEventTest, onInterfaceStateChange)
 
     EXPECT_EQ(Core::ERROR_NONE, onInterfaceStateChange.Lock());
 
+    sleep(5);
     EVENT_UNSUBSCRIBE(2, _T("onInterfaceStateChange"), _T("org.rdk.NetworkManager"), message);
 }
 
@@ -464,6 +465,7 @@ TEST_F(NetworkManagerEventTest, onInterfaceStateChange2)
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_CONNECTION_STATUS, &eventData, sizeof(eventData));
 
     EXPECT_EQ(Core::ERROR_NONE, onInterfaceStateChange.Lock());
+    sleep(5);
 
     EVENT_UNSUBSCRIBE(2, _T("onInterfaceStateChange"), _T("org.rdk.NetworkManager"), message);
 
