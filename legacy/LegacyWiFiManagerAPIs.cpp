@@ -128,6 +128,7 @@ namespace WPEFramework
 
         const string WiFiManager::Initialize(PluginHost::IShell*  service )
         {
+            NetworkManagerLogger::Init();
             m_service = service;
             string message{};
 
