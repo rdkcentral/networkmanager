@@ -27,6 +27,9 @@ set(PLUGIN_LEGACY_WIFI    ${NAMESPACE}WiFiManager)
 set(PLUGIN_LEGACY_NW_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy Network plugin")
 set(PLUGIN_LEGACY_WIFI_STARTUPORDER "35" CACHE STRING "To configure startup order of Legacy WiFi plugin")
 
+set(PLUGIN_LEGACY_NW_AUTOSTART "false" CACHE STRING "The autostart of Legacy Network plugin")
+set(PLUGIN_LEGACY_WIFI_AUTOSTART "false" CACHE STRING "The autostart of Legacy WiFi plugin")
+
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
@@ -53,7 +56,7 @@ if (USE_RDK_LOGGER)
 endif (USE_RDK_LOGGER)
 
 set_target_properties(${PLUGIN_LEGACY_NETWORK} PROPERTIES
-                                        CXX_STANDARD 11
+                                        CXX_STANDARD 17
                                         CXX_STANDARD_REQUIRED YES)
 
 install(TARGETS ${PLUGIN_LEGACY_NETWORK} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)
@@ -71,7 +74,7 @@ if (USE_RDK_LOGGER)
 endif (USE_RDK_LOGGER)
 
 set_target_properties(${PLUGIN_LEGACY_WIFI} PROPERTIES
-                                        CXX_STANDARD 11
+                                        CXX_STANDARD 17
                                         CXX_STANDARD_REQUIRED YES)
 
 install(TARGETS ${PLUGIN_LEGACY_WIFI} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/${STORAGE_DIRECTORY}/plugins)

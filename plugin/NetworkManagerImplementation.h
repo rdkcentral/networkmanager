@@ -30,6 +30,8 @@
 #include <mutex>
 #include <memory>
 #include <set>
+#include <queue>
+#include <variant>
 
 using namespace std;
 
@@ -209,20 +211,70 @@ namespace WPEFramework
                 Core::JSON::DecUInt32 loglevel;
             };
 
+            enum NMPublishEvents {
+                NM_ON_INTERFACESTATE_CHANGE = 0,
+                NM_ON_ACTIVEINTERFACE_CHANGE,
+                NM_ON_IPADDRESS_CHANGE,
+                NM_ON_INTERNETSTATUS_CHANGE,
+                NM_ON_AVAILABLESSIDS,
+                NM_ON_WIFISTATE_CHANGE,
+                NM_ON_WIFISIGNALQUALITY_CHANGE
+            };
 
-            class Job : public Core::IDispatch {
-            public:
-                Job(function<void()> work)
-                : _work(work)
-                {
-                }
-                void Dispatch() override
-                {
-                    _work();
-                }
+            // Typed event data structures
+            struct InterfaceStateChangeData {
+                Exchange::INetworkManager::InterfaceState state;
+                string interface;
+            };
 
-            private:
-                function<void()> _work;
+            struct ActiveInterfaceChangeData {
+                string prevActiveInterface;
+                string currentActiveInterface;
+            };
+
+            struct IPAddressChangeData {
+                string interface;
+                string ipversion;
+                string ipaddress;
+                Exchange::INetworkManager::IPStatus status;
+            };
+
+            struct InternetStatusChangeData {
+                Exchange::INetworkManager::InternetStatus prevState;
+                Exchange::INetworkManager::InternetStatus currState;
+                string interface;
+            };
+
+            struct AvailableSSIDsData {
+                string jsonResult;  // Pre-serialized JSON string
+            };
+
+            struct WiFiStateChangeData {
+                Exchange::INetworkManager::WiFiState state;
+            };
+
+            struct WiFiSignalQualityChangeData {
+                string ssid;
+                int strength;
+                int noise;
+                int snr;
+                Exchange::INetworkManager::WiFiSignalQuality quality;
+            };
+
+            using EventDataVariant = std::variant<
+                std::monostate,
+                InterfaceStateChangeData,
+                ActiveInterfaceChangeData,
+                IPAddressChangeData,
+                InternetStatusChangeData,
+                AvailableSSIDsData,
+                WiFiStateChangeData,
+                WiFiSignalQualityChangeData
+            >;
+
+            struct EventData {
+                NMPublishEvents event;
+                EventDataVariant data;
             };
 
             public:
@@ -344,6 +396,9 @@ namespace WPEFramework
                 void monitorThreadFunction(int interval);
                 int32_t logSSIDs(Logging level, const JsonArray &ssids);
                 void processMonitor(uint16_t interval);
+                void eventThreadFunction();
+                void enqueueEvent(NMPublishEvents event, EventDataVariant&& data);
+                void dispatchEvent(NMPublishEvents event, const EventDataVariant& data);
 
             private:
                 std::list<Exchange::INetworkManager::INotification *> _notificationCallbacks;
@@ -364,6 +419,12 @@ namespace WPEFramework
                 std::mutex m_processMonMutex;
                 std::atomic<bool> m_processMonThreadStop{false};
                 std::condition_variable m_processMonCondVar;
+
+                std::thread m_eventThread;
+                std::queue<EventData> m_eventQueue;
+                std::mutex m_eventMutex;
+                std::condition_variable m_eventCondVar;
+                std::atomic<bool> m_eventThreadStop{false};
 
                 std::atomic<bool> m_isRunning{false};
                 std::atomic<bool> m_stopThread{false};

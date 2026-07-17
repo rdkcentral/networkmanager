@@ -102,6 +102,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::Logging _loglevel;
                 _networkManager->GetLogLevel(_loglevel);
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
+
                 // Register all custom JSON-RPC methods
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
                 RegisterAllMethods();
