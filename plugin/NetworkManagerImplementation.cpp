@@ -65,7 +65,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
             /* Start dedicated event dispatch thread */
@@ -159,12 +159,12 @@ namespace WPEFramework
             Configuration config;
             if(configLine.empty())
             {
-                NMLOG_FATAL("config line : is empty !");
+                SYSLOG(::WPEFramework::Logging::Shutdown, (_T("config line is empty")));
                 return Core::ERROR_GENERAL;
             }
             else
             {
-                NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                SYSLOG(::WPEFramework::Logging::Startup, (_T("Loading incoming configuration")));
                 config.FromString(configLine);
             }
 
@@ -401,6 +401,11 @@ namespace WPEFramework
                 {
                     NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
+                }
+                else
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
                 }
 #endif
                 return Core::ERROR_NONE;
