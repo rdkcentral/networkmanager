@@ -1,0 +1,637 @@
+/**
+* If not stated otherwise in this file or this component's LICENSE
+* file the following copyright and licenses apply:
+*
+* Copyright 2025 RDK Management
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+* http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+**/
+
+#include "NetworkConnectionStatsImplementation.h"
+#include "NetworkConnectionStatsLogger.h"
+#include <chrono>
+
+#ifdef USE_RFCAPI
+#include "rfcapi.h"
+#endif
+
+using namespace NetworkConnectionStatsLogger;
+
+#define API_VERSION_NUMBER_MAJOR 1
+#define API_VERSION_NUMBER_MINOR 0
+#define API_VERSION_NUMBER_PATCH 0
+#define SUBSCRIPTION_RETRY_INTERVAL_MS 500
+
+namespace WPEFramework {
+namespace Plugin {
+
+    SERVICE_REGISTRATION(NetworkConnectionStatsImplementation, API_VERSION_NUMBER_MAJOR, API_VERSION_NUMBER_MINOR, API_VERSION_NUMBER_PATCH);
+
+    NetworkConnectionStatsImplementation::NetworkConnectionStatsImplementation()
+        : _adminLock()
+        , m_provider(nullptr)
+        , m_interface("")
+        , m_ipv4Address("")
+        , m_ipv6Address("")
+        , m_ipv4Route("")
+        , m_ipv6Route("")
+        , m_ipv4Dns("")
+        , m_ipv6Dns("")
+        , _periodicReportingEnabled(true)  // Auto-enabled
+        , _reportingIntervalSeconds(600)   // Default 10 minutes (600 seconds)
+        , _stopReporting(false)
+        , _stopSubscriptionRetry(false)
+        , m_subsIfaceStateChange(false)
+        , m_subsActIfaceChange(false)
+        , m_subsIPAddrChange(false)
+    {
+        
+        NSLOG_INFO("NetworkConnectionStatsImplementation Constructor");
+        /* Set NetworkManager Out-Process name to be "NetworkConnectionStats" */
+        Core::ProcessInfo().Name("NetworkConnectionStats");
+        NSLOG_INFO((_T("NetworkConnectionStats Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+#if USE_TELEMETRY
+        t2_init("networkstats");
+#endif
+    }
+
+    NetworkConnectionStatsImplementation::~NetworkConnectionStatsImplementation()
+    {
+        NSLOG_INFO("NetworkConnectionStatsImplementation Destructor");
+        
+        // Stop subscription retry thread
+        _stopSubscriptionRetry = true;
+        if (_subscriptionRetryThread.joinable()) {
+            _subscriptionRetryThread.join();
+        }
+        
+        // Stop reporting threads
+        _stopReporting = true;
+        
+        // Push STOP message to unblock consumer thread
+        {
+            std::lock_guard<std::mutex> lock(_queueMutex);
+            _messageQueue.push({MessageType::STOP});
+        }
+        _queueCondition.notify_one();
+        
+        // Wait for threads to finish
+        if (_timerThread.joinable()) {
+            _timerThread.join();
+        }
+        if (_reportingThread.joinable()) {
+            _reportingThread.join();
+        }
+        
+        if (m_provider) {
+            delete m_provider;
+            m_provider = nullptr;
+        }
+    }
+
+    /**
+     * Register a notification callback
+     */
+    uint32_t NetworkConnectionStatsImplementation::Register(INetworkConnectionStats::INotification* notification)
+    {
+        if (nullptr == notification) {
+            NSLOG_ERROR("Register: notification parameter is nullptr");
+            return Core::ERROR_BAD_REQUEST;
+        }
+        
+        NSLOG_INFO("Register::Enter");
+        _notificationLock.Lock();
+
+        // Make sure we can't register the same notification callback multiple times
+        if (std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification) == _notificationCallbacks.end()) {
+            _notificationCallbacks.push_back(notification);
+            notification->AddRef();
+        }
+
+        _notificationLock.Unlock();
+        
+        return Core::ERROR_NONE;
+    }
+
+    /**
+     * Unregister a notification callback
+     */
+    uint32_t NetworkConnectionStatsImplementation::Unregister(INetworkConnectionStats::INotification* notification)
+    {
+        if (nullptr == notification) {
+            NSLOG_ERROR("Unregister: notification parameter is nullptr");
+            return Core::ERROR_BAD_REQUEST;
+        }
+        
+        NSLOG_INFO("Unregister::Enter");
+        _notificationLock.Lock();
+
+        // Remove the notification callback if it exists
+        auto itr = std::find(_notificationCallbacks.begin(), _notificationCallbacks.end(), notification);
+        if (itr != _notificationCallbacks.end()) {
+            (*itr)->Release();
+            _notificationCallbacks.erase(itr);
+        }
+
+        _notificationLock.Unlock();
+
+        return Core::ERROR_NONE;
+    }
+
+
+    uint32_t NetworkConnectionStatsImplementation::Configure(const string configLine)
+    {
+        NSLOG_INFO("NetworkConnectionStatsImplementation::Configure");
+        uint32_t result = Core::ERROR_NONE;
+        
+        // Parse configuration
+        JsonObject config;
+        config.FromString(configLine);
+        
+        if (config.HasLabel("reportingInterval")) {
+            _reportingIntervalSeconds = config["reportingInterval"].Number();
+            NSLOG_INFO("Reporting interval set to %u seconds (%u minutes)", 
+                   _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
+        }
+        
+        if (config.HasLabel("autoStart")) {
+            _periodicReportingEnabled = config["autoStart"].Boolean();
+            NSLOG_INFO("Auto-start set to %s", _periodicReportingEnabled ? "true" : "false");
+        }
+        
+        // Get provider type from configuration (default: comrpc)
+        std::string providerType = "comrpc";
+        if (config.HasLabel("providerType")) {
+            providerType = config["providerType"].Value();
+        }
+        
+        // Create network provider using factory
+        m_provider = NetworkDataProviderFactory::CreateProvider(providerType);
+        if (m_provider == nullptr) {
+            NSLOG_ERROR("Failed to create network provider for type: %s", providerType.c_str());
+            result = Core::ERROR_GENERAL;
+        } else {
+            auto factoryType = NetworkDataProviderFactory::ParseProviderType(providerType);
+            std::string typeName = NetworkDataProviderFactory::GetProviderTypeName(factoryType);
+            NSLOG_INFO("%s provider created", typeName.c_str());
+            
+            // Initialize the provider
+            if (m_provider->Initialize()) {
+                NSLOG_INFO("%s provider initialized successfully", typeName.c_str());
+                
+                // Subscribe to NetworkManager events (with automatic retry)
+                _stopSubscriptionRetry = false;
+                subscribeToEvents();
+                _subscriptionRetryThread = std::thread(&NetworkConnectionStatsImplementation::subscriptionRetryThread, this);
+                
+                // Generate initial report
+                generateReport();
+                
+                // Start timer and consumer threads if enabled
+                if (_periodicReportingEnabled) {
+                    _stopReporting = false;
+                    _timerThread = std::thread(&NetworkConnectionStatsImplementation::timerThread, this);
+                    _reportingThread = std::thread(&NetworkConnectionStatsImplementation::periodicReportingThread, this);
+                    NSLOG_INFO("Timer and reporting threads started with %u second interval (%u minutes)", 
+                           _reportingIntervalSeconds.load(), _reportingIntervalSeconds.load() / 60);
+                }
+            } else {
+                auto factoryType = NetworkDataProviderFactory::ParseProviderType(providerType);
+                std::string typeName = NetworkDataProviderFactory::GetProviderTypeName(factoryType);
+                NSLOG_ERROR("Failed to initialize %s provider", typeName.c_str());
+                // Clean up the partially initialized provider to prevent leaks and later accidental use
+                delete m_provider;
+                m_provider = nullptr;
+                result = Core::ERROR_GENERAL;
+            }
+        }
+        
+        return result;
+    }
+
+    void NetworkConnectionStatsImplementation::timerThread()
+    {
+        NSLOG_INFO("Timer thread started");
+        
+        while (!_stopReporting && _periodicReportingEnabled) {
+            // Sleep for configured interval
+            std::this_thread::sleep_for(std::chrono::seconds(_reportingIntervalSeconds.load()));
+            
+            if (_stopReporting || !_periodicReportingEnabled) {
+                break;
+            }
+            
+            // Queue report generation
+            queueReportGeneration("Timer");
+        }
+        
+        NSLOG_INFO("Timer thread stopped");
+    }
+    
+    void NetworkConnectionStatsImplementation::periodicReportingThread()
+    {
+        NSLOG_INFO("Periodic reporting thread (consumer) started");
+        
+        while (!_stopReporting && _periodicReportingEnabled) {
+            Message msg;
+            
+            // Wait for message in queue
+            {
+                std::unique_lock<std::mutex> lock(_queueMutex);
+                _queueCondition.wait(lock, [this] { 
+                    return !_messageQueue.empty() || _stopReporting; 
+                });
+                
+                if (_stopReporting) {
+                    break;
+                }
+                
+                if (_messageQueue.empty()) {
+                    continue;
+                }
+                
+                msg = _messageQueue.front();
+                _messageQueue.pop();
+            }
+            
+            // Process message
+            if (msg.type == MessageType::GENERATE_REPORT) {
+                NSLOG_INFO("Consumer: Processing GENERATE_REPORT message");
+                generateReport();
+                NSLOG_INFO("Consumer: Periodic report generated");
+            } else if (msg.type == MessageType::STOP) {
+                NSLOG_INFO("Consumer: Received STOP message");
+                break;
+            }
+        }
+        
+        NSLOG_INFO("Periodic reporting thread (consumer) stopped");
+    }
+
+    void NetworkConnectionStatsImplementation::generateReport()
+    {
+        NSLOG_INFO("Generating network diagnostics report");
+        
+        _adminLock.Lock();
+        
+        // Run all diagnostic checks
+        connectionTypeCheck();
+        connectionIpCheck();
+        defaultIpv4RouteCheck();
+        defaultIpv6RouteCheck();
+        networkDnsCheck();
+        gatewayPacketLossCheck();
+       
+        _adminLock.Unlock();
+        
+        NSLOG_INFO("Network diagnostics report completed");
+    }
+
+    void NetworkConnectionStatsImplementation::logTelemetry(const std::string& eventName, const std::string& message)
+    {
+        //NSLOG_INFO("NS_T2: %s:%s", eventName.c_str(), message.c_str());
+#if USE_TELEMETRY
+        T2ERROR t2error = t2_event_s(eventName.c_str(), (char*)message.c_str());
+        if (t2error != T2ERROR_SUCCESS) {
+            NSLOG_ERROR("t2_event_s(\"%s\", \"%s\") failed with error %d", 
+                   eventName.c_str(), message.c_str(), t2error);
+        }
+#endif
+    }
+
+    void NetworkConnectionStatsImplementation::connectionTypeCheck()
+    {
+        if (m_provider) {
+            std::string connType = m_provider->getConnectionType();
+            NSLOG_INFO("Connection type: %s", connType.c_str());
+            logTelemetry("Connection_Type", connType);
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::connectionIpCheck()
+    {
+        if (m_provider) {
+            m_interface = m_provider->getInterface();
+            
+            // Get IPv4 settings
+            m_ipv4Address = m_provider->getIpv4Address(m_interface);
+            m_ipv4Route = m_provider->getIpv4Gateway();
+            m_ipv4Dns = m_provider->getIpv4PrimaryDns();
+            
+            // Get IPv6 settings
+            m_ipv6Address = m_provider->getIpv6Address(m_interface);
+            m_ipv6Route = m_provider->getIpv6Gateway();
+            m_ipv6Dns = m_provider->getIpv6PrimaryDns();
+            
+            NSLOG_INFO("Interface: %s, IPv4: %s, IPv6: %s", 
+                   m_interface.c_str(), m_ipv4Address.c_str(), m_ipv6Address.c_str());
+            NSLOG_INFO("IPv4 Gateway: %s, DNS: %s", 
+                   m_ipv4Route.c_str(), m_ipv4Dns.c_str());
+            NSLOG_INFO("IPv6 Gateway: %s, DNS: %s", 
+                   m_ipv6Route.c_str(), m_ipv6Dns.c_str());
+            
+            // Log telemetry events
+            logTelemetry("Network_Interface", m_interface);
+            logTelemetry("Network_IPv4_Address", m_ipv4Address);
+            logTelemetry("Network_IPv6_Address", m_ipv6Address);
+            logTelemetry("IPv4_DNS", m_ipv4Dns);
+            logTelemetry("IPv6_DNS", m_ipv6Dns);
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::defaultIpv4RouteCheck()
+    {
+        if (!m_ipv4Address.empty() && m_ipv4Address != "0.0.0.0") {
+            if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
+                NSLOG_INFO("IPv4: Interface %s has gateway %s",
+                       m_interface.c_str(), m_ipv4Route.c_str());
+                logTelemetry("IPv4_Route_Check", "Success," + m_interface + "," + m_ipv4Route);
+            } else {
+                NSLOG_INFO("IPv4: No valid gateway for interface %s", m_interface.c_str());
+                logTelemetry("IPv4_Route_Check", "Failed,No valid gateway," + m_interface);
+            }
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::defaultIpv6RouteCheck()
+    {
+        if (!m_ipv6Address.empty() && m_ipv6Address != "::") {
+            if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
+                NSLOG_INFO("IPv6: Interface %s has gateway %s",
+                       m_interface.c_str(), m_ipv6Route.c_str());
+                logTelemetry("IPv6_Route_Check", "Success," + m_interface + "," + m_ipv6Route);
+            } else {
+                NSLOG_INFO("IPv6: No valid gateway for interface %s", m_interface.c_str());
+                logTelemetry("IPv6_Route_Check", "Failed,No valid gateway," + m_interface);
+            }
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::gatewayPacketLossCheck()
+    {
+        if (!m_provider) {
+            return;
+        }
+
+        // Get RFC threshold for WiFi reassociation tolerance (default: 100%)
+        int reassocTolerance = 100;
+#ifdef USE_RFCAPI
+        {
+            RFC_ParamData_t rfcParam = {0};
+            WDMP_STATUS wdmpStatus = getRFCParameter("NetworkStats",
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.WiFiReset.ReassociateTolerance",
+                &rfcParam);
+            if (wdmpStatus == WDMP_SUCCESS || wdmpStatus == WDMP_ERR_DEFAULT_VALUE) {
+                int rfcValue = atoi(rfcParam.value);
+                if (rfcValue > 0 && rfcValue <= 100) {
+                    reassocTolerance = rfcValue;
+                    NSLOG_INFO("RFC WiFiReset.ReassociateTolerance = %d%%", reassocTolerance);
+                } else {
+                    NSLOG_WARNING("RFC ReassociateTolerance value '%s' is out of range, using default %d%%",
+                           rfcParam.value, reassocTolerance);
+                }
+            } else {
+                NSLOG_WARNING("getRFCParameter for ReassociateTolerance failed (status=%d), using default %d%%",
+                       wdmpStatus, reassocTolerance);
+            }
+        }
+#endif
+
+        bool ipv4PacketLoss100 = false;
+        bool ipv6PacketLoss100 = false;
+        
+        // Check IPv4 gateway packet loss
+        if (!m_ipv4Route.empty() && m_ipv4Route != "0.0.0.0") {
+            NSLOG_INFO("Pinging IPv4 gateway: %s", m_ipv4Route.c_str());
+            bool success = m_provider->pingToGatewayCheck(m_ipv4Route, "IPv4", 10, 30);
+            std::string packetLoss = m_provider->getPacketLoss();
+            std::string avgRtt = m_provider->getAvgRtt();
+            
+            // Check if packet loss meets or exceeds RFC reassociation threshold
+            try {
+                if (static_cast<int>(std::stof(packetLoss)) >= reassocTolerance) {
+                    ipv4PacketLoss100 = true;
+                }
+            } catch (...) {}
+            
+            if (success) {
+                NSLOG_INFO("IPv4 gateway ping Loss: %s%%, RTT: %s",
+                       packetLoss.c_str(), avgRtt.c_str());
+                
+                logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv4_Gateway_RTT", avgRtt);
+            } else {
+                NSLOG_ERROR("IPv4 gateway ping failed");
+                logTelemetry("IPv4_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv4_Gateway_RTT", avgRtt);
+            }
+        }
+        
+        // Check IPv6 gateway packet loss
+        if (!m_ipv6Route.empty() && m_ipv6Route != "::") {
+            // Append zone ID for link-local IPv6 addresses
+            std::string ipv6Gateway = m_ipv6Route;
+            if (ipv6Gateway.find("fe80::") == 0 && !m_interface.empty()) {
+                ipv6Gateway += "%" + m_interface;
+            }
+            NSLOG_INFO("Pinging IPv6 gateway: %s", ipv6Gateway.c_str());
+            bool success = m_provider->pingToGatewayCheck(ipv6Gateway, "IPv6", 10, 30);
+            std::string packetLoss = m_provider->getPacketLoss();
+            std::string avgRtt = m_provider->getAvgRtt();
+            
+            // Check if packet loss meets or exceeds RFC reassociation threshold
+            try {
+                if (static_cast<int>(std::stof(packetLoss)) >= reassocTolerance) {
+                    ipv6PacketLoss100 = true;
+                }
+            } catch (...) {}
+            
+            if (success) {
+                NSLOG_INFO("IPv6 gateway ping Loss: %s%%, RTT: %s",
+                       packetLoss.c_str(), avgRtt.c_str());
+                
+                logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv6_Gateway_RTT", avgRtt);
+            } else {
+                NSLOG_ERROR("IPv6 gateway ping failed");
+                logTelemetry("IPv6_Gateway_Packet_Loss", packetLoss);
+                logTelemetry("IPv6_Gateway_RTT", avgRtt);
+            }
+        }
+        
+        // WiFi reassociation logic
+        // Trigger reassociation if:
+        // 1. Connection type is WiFi
+        // 2. Both IPv4 and IPv6 packet loss meets or exceeds RFC threshold
+        std::string connType = m_provider->getConnectionType();
+        
+        if ((connType == "WIFI" || connType == "WiFi" || connType == "wifi") && 
+            ipv4PacketLoss100 && ipv6PacketLoss100) {
+            NSLOG_WARNING("WiFi connection: Both IPv4 and IPv6 gateways have packet loss >= %d%%", reassocTolerance);
+            
+            logTelemetry("Wifi_ReAssoc", "WIFI_Error_Reassociation");
+            
+            uint32_t rc = m_provider->invokeWiFiConnect();
+            if (rc != Core::ERROR_NONE) {
+                NSLOG_ERROR("WiFiConnect call to NetworkManager failed, errCode: %u", rc);
+            }
+        }
+    }
+
+    void NetworkConnectionStatsImplementation::networkDnsCheck()
+    {
+        bool hasDns = false;
+        
+        if (!m_ipv4Dns.empty()) {
+            NSLOG_INFO("IPv4 DNS: %s", m_ipv4Dns.c_str());
+            hasDns = true;
+        }
+        
+        if (!m_ipv6Dns.empty()) {
+            NSLOG_INFO("IPv6 DNS: %s", m_ipv6Dns.c_str());
+            hasDns = true;
+        }
+        
+        if (hasDns) {
+            NSLOG_INFO("DNS configuration present");
+            logTelemetry("DNS_Status", "DNS configured");
+        } else {
+            NSLOG_WARNING("No DNS configuration found");
+            logTelemetry("DNS_Status", "No DNS configured");
+        }
+    }
+
+    /** NetworkManager Event Subscription */
+    void NetworkConnectionStatsImplementation::subscribeToEvents(bool logErrors)
+    {
+        uint32_t errCode = Core::ERROR_GENERAL;
+        if (m_provider)
+        {
+            if (!m_subsIfaceStateChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onInterfaceStateChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonInterfaceStateChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsIfaceStateChange = true;
+                else if (logErrors)
+                    NSLOG_ERROR("Subscribe to onInterfaceStateChange failed, errCode: %u", errCode);
+            }
+
+            if (!m_subsActIfaceChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onActiveInterfaceChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonActiveInterfaceChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsActIfaceChange = true;
+                else if (logErrors)
+                    NSLOG_ERROR("Subscribe to onActiveInterfaceChange failed, errCode: %u", errCode);
+            }
+
+            if (!m_subsIPAddrChange)
+            {
+                errCode = m_provider->SubscribeToEvent("onIPAddressChange",
+                    [this](const WPEFramework::Core::JSON::VariantContainer& parameters) {
+                        this->ReportonIPAddressChange(parameters);
+                    });
+                if (Core::ERROR_NONE == errCode)
+                    m_subsIPAddrChange = true;
+                else if (logErrors)
+                    NSLOG_ERROR("Subscribe to onIPAddressChange failed, errCode: %u", errCode);
+            }
+        }
+        else if (logErrors)
+            NSLOG_ERROR("m_provider is null");
+    }
+
+    void NetworkConnectionStatsImplementation::subscriptionRetryThread()
+    {
+        NSLOG_INFO("Subscription retry thread started");
+        
+        unsigned int retryCount = 0;
+        unsigned int backoffMs = SUBSCRIPTION_RETRY_INTERVAL_MS;
+        constexpr unsigned int maxBackoffMs = 30000; // Cap at 30 seconds
+        
+        while (!_stopSubscriptionRetry)
+        {
+            // Check if all subscriptions are successful
+            if (m_subsIfaceStateChange && m_subsActIfaceChange && m_subsIPAddrChange)
+            {
+                NSLOG_INFO("All required events subscribed; Stopping retry thread");
+                break;
+            }
+            
+            // Wait before retry with exponential backoff
+            std::this_thread::sleep_for(std::chrono::milliseconds(backoffMs));
+            
+            if (_stopSubscriptionRetry)
+                break;
+            
+            retryCount++;
+            
+            // Rate-limit logging: log on first retry, then every 10th attempt
+            bool shouldLog = (retryCount == 1 || retryCount % 10 == 0);
+            if (shouldLog)
+            {
+                NSLOG_INFO("Retrying event subscriptions (attempt %u, backoff %ums)...", retryCount, backoffMs);
+            }
+            
+            subscribeToEvents(shouldLog);
+            
+            // Exponential backoff: double interval up to the cap
+            if (backoffMs < maxBackoffMs)
+            {
+                backoffMs = std::min(backoffMs * 2, maxBackoffMs);
+            }
+        }
+        
+        NSLOG_INFO("Subscription retry thread stopped");
+    }
+
+    /** Event Handling - Report methods */
+    void NetworkConnectionStatsImplementation::ReportonInterfaceStateChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onInterfaceStateChange", &parameters);
+    }
+
+    void NetworkConnectionStatsImplementation::ReportonActiveInterfaceChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onActiveInterfaceChange", &parameters);
+    }
+
+    void NetworkConnectionStatsImplementation::ReportonIPAddressChange(const WPEFramework::Core::JSON::VariantContainer& parameters)
+    {
+        queueReportGeneration("Event: onIPAddressChange", &parameters);
+    }
+    
+    void NetworkConnectionStatsImplementation::queueReportGeneration(const std::string& source, const WPEFramework::Core::JSON::VariantContainer* parameters)
+    {
+        // Log event parameters if provided
+        if (parameters != nullptr) {
+            string json;
+            parameters->ToString(json);
+            NSLOG_INFO("%s - params: %s", source.c_str(), json.c_str());
+        }
+        
+        // Queue report generation
+        std::lock_guard<std::mutex> lock(_queueMutex);
+        _messageQueue.push({MessageType::GENERATE_REPORT});
+        NSLOG_INFO("%s: Pushed GENERATE_REPORT to queue", source.c_str());
+        _queueCondition.notify_one();
+    }
+
+} // namespace Plugin
+} // namespace WPEFramework
