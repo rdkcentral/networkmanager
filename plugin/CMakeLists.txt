@@ -79,11 +79,22 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
-                            NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
+
+# Connectivity source selection: when enabled, the out-of-process implementation
+# delegates internet-connectivity queries to the ConnectivityCheckMgr plugin via
+# a COM-RPC client. This covers both the JSON-RPC surface (shell -> impl) and
+# direct COM-RPC callers of INetworkManager. Otherwise the built-in
+# ConnectivityMonitor is used. STUN is unaffected either way.
+if(USE_CONNECTIVITY_CHECK_MGR)
+    target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE USE_CONNECTIVITY_CHECK_MGR)
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivityClient.cpp)
+else()
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivity.cpp)
+endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)

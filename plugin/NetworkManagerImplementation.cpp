@@ -83,7 +83,9 @@ namespace WPEFramework
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             m_powerClient.reset();
+#ifndef USE_CONNECTIVITY_CHECK_MGR
             connectivityMonitor.stopConnectivityMonitor();
+#endif
             _instance = nullptr;
             platform_deinit();
             if(m_registrationThread.joinable())
@@ -204,19 +206,22 @@ namespace WPEFramework
                 connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
             }
 
-            /* check whether the endpoint is already loaded from Cache; if Yes, do not use the one from configuration */
-            if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
-            {
-                NMLOG_INFO("Use the connectivity endpoint from config");
-                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
-            }
-            else if (connectEndpts.size() < 1)
+            if (connectEndpts.size() < 1)
             {
                 std::vector<std::string> backup;
                 NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
                 backup.push_back("http://clients3.google.com/generate_204");
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                 connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+#endif
             }
+#ifndef USE_CONNECTIVITY_CHECK_MGR
+            else if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+            {
+                NMLOG_INFO("Use the connectivity endpoint from config");
+                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+            }
+#endif
 
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
@@ -273,7 +278,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetConnectivityTestEndpoints(IStringIterator*& endpoints/* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            std::vector<std::string> tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
+            std::vector<std::string> tmpEndpoints;
+#ifndef USE_CONNECTIVITY_CHECK_MGR
+            tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
+#endif
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
             if(endpoints == nullptr) {
                 return Core::ERROR_GENERAL;
@@ -299,7 +307,9 @@ namespace WPEFramework
                         tmpEndpoints.push_back(endpoint);
                     }
                 }
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                 connectivityMonitor.setConnectivityMonitorEndpoints(tmpEndpoints);
+#endif
             }
             return Core::ERROR_NONE;
         }
@@ -332,7 +342,12 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
+#ifdef USE_CONNECTIVITY_CHECK_MGR
+            (void)ipVersionNotSpecified;
+            result = connectivityClient.getInternetState();
+#else
             result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
+#endif
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
@@ -348,7 +363,11 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
+#ifdef USE_CONNECTIVITY_CHECK_MGR
+            uri = connectivityClient.getCaptivePortalURI();
+#else
             uri = connectivityMonitor.getCaptivePortalURI();
+#endif
             return Core::ERROR_NONE;
         }
 
@@ -857,7 +876,9 @@ namespace WPEFramework
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                     connectivityMonitor.switchToInitialCheck();
+#endif
                 }
                 else if(interface == "wlan0")
                 {
@@ -874,7 +895,9 @@ namespace WPEFramework
                     {
                         // When WiFi is disconnected while Ethernet is connected, we don't need to trigger connectivity monitor.
                         // For WiFi-only state and WiFi disconnected, we should trigger connectivity monitor.
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                         connectivityMonitor.switchToInitialCheck();
+#endif
                     }
                 }
             }
@@ -965,7 +988,9 @@ namespace WPEFramework
 
                 if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
+#ifndef USE_CONNECTIVITY_CHECK_MGR
                     connectivityMonitor.switchToInitialCheck();
+#endif
                 }
                 else
                     NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());
@@ -977,6 +1002,33 @@ namespace WPEFramework
                                                                      interface.c_str(), ipversion.c_str(), ipaddress.c_str());
                 enqueueEvent(NM_ON_IPADDRESS_CHANGE, std::move(eventData));
             }
+        }
+
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion)
+        {
+            string iface = interface;
+            Exchange::INetworkManager::IPAddress settings{};
+            if (GetIPSettings(iface, ipversion, settings) != Core::ERROR_NONE) {
+                return;
+            }
+            ReportRouteChange(interface, ipversion, settings);
+        }
+
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings)
+        {
+            if (settings.ipaddress.empty() || settings.gateway.empty() || settings.primarydns.empty()) {
+                return;
+            }
+
+            _notificationLock.Lock();
+            NMLOG_INFO("Posting onRouteChange %s %s ip=%s gw=%s dns=%s",
+                interface.c_str(), ipversion.c_str(), settings.ipaddress.c_str(),
+                settings.gateway.c_str(), settings.primarydns.c_str());
+            for (const auto callback : _notificationCallbacks) {
+                callback->onRouteChange(interface, settings.ipversion, settings.ipaddress,
+                                        settings.gateway, settings.primarydns);
+            }
+            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)

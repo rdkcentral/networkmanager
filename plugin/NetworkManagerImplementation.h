@@ -37,7 +37,11 @@ using namespace std;
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
+#ifdef USE_CONNECTIVITY_CHECK_MGR
+#include "NetworkManagerConnectivityClient.h"
+#else
 #include "NetworkManagerConnectivity.h"
+#endif
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
@@ -370,6 +374,8 @@ namespace WPEFramework
                 void ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
                 void ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
                 void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
+                void ReportRouteChange(const string& interface, const string& ipversion);
+                void ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings);
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
@@ -452,7 +458,11 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
+#ifdef USE_CONNECTIVITY_CHECK_MGR
+                mutable NetworkManagerConnectivityClient connectivityClient;
+#else
                 mutable ConnectivityMonitor connectivityMonitor;
+#endif
 
                 string getDefaultInterface() const
                 {

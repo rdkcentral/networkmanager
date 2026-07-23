@@ -282,6 +282,7 @@ namespace WPEFramework
                 virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
                 virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
                 virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
+                virtual void onRouteChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const string gateway /* @in */, const string primarydns /* @in */){};
                 virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
 
                 // WiFi Notifications that other processes can subscribe to
