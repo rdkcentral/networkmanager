@@ -55,6 +55,7 @@ option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
+option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" OFF)
 option(ENABLE_ETHERNET_CONNECTION_HANDLING
        "Enable pre-sleep Ethernet deactivation" OFF)
 
@@ -76,6 +77,15 @@ if (USE_TELEMETRY)
     add_compile_definitions(USE_TELEMETRY=1)
     message("Telemetry support enabled")
 endif(USE_TELEMETRY)
+
+# Optional RFC API support (for reading TR-181 RFC feature flags at runtime, e.g.
+# Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable).
+if (USE_RFCAPI)
+    find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
+    find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
+    add_compile_definitions(USE_RFCAPI=1)
+    message(STATUS "RFC API support enabled (lib=${RFCAPI_LIBRARY}, include=${RFCAPI_INCLUDE_DIR})")
+endif(USE_RFCAPI)
 
 add_subdirectory(interface)
 add_subdirectory(definition)

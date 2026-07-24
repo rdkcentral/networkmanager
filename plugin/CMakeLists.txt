@@ -93,17 +93,14 @@ target_sources(${MODULE_IMPL_NAME} PRIVATE
                             NetworkManagerConnectivity.cpp
                             NetworkManagerConnectivityClient.cpp)
 
-# Optional RFC API support (for reading TR-181 RFC feature flags at runtime).
-option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" OFF)
+# Optional RFC API support. The USE_RFCAPI option, library discovery, and the
+# USE_RFCAPI compile definition are declared in the top-level CMakeLists.txt
+# (mirroring USE_TELEMETRY). Here we only link the library into the impl target.
 if(USE_RFCAPI)
-    find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
-    find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
-    target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE USE_RFCAPI)
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
     if(RFCAPI_INCLUDE_DIR)
         target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
     endif()
-    message(STATUS "NetworkManager RFC API support: enabled")
 endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)
