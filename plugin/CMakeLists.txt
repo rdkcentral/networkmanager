@@ -51,6 +51,7 @@ endif ()
 
 set(PLUGIN_NETWORKMANAGER_LOGLEVEL "5" CACHE STRING "To configure default loglevel NetworkManager plugin")
 set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
+set(PLUGIN_NETWORKMANAGER_USE_CONNECTIVITYCHECKMGR "false" CACHE STRING "Config fallback to delegate connectivity to ConnectivityCheckMgr when the RFC flag is unset")
 
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
@@ -83,16 +84,26 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
 
-# Connectivity source selection: when enabled, the out-of-process implementation
-# delegates internet-connectivity queries to the ConnectivityCheckMgr plugin via
-# a COM-RPC client. This covers both the JSON-RPC surface (shell -> impl) and
-# direct COM-RPC callers of INetworkManager. Otherwise the built-in
-# ConnectivityMonitor is used. STUN is unaffected either way.
-if(USE_CONNECTIVITY_CHECK_MGR)
-    target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE USE_CONNECTIVITY_CHECK_MGR)
-    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivityClient.cpp)
-else()
-    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivity.cpp)
+# Connectivity backend: both the built-in ConnectivityMonitor and the
+# ConnectivityCheckMgr delegation client are always compiled. Selection between
+# them is made at runtime (see resolveConnectivityCheckMgrEnabled) from the RFC
+# flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
+# with a config-line fallback. STUN is unaffected either way.
+target_sources(${MODULE_IMPL_NAME} PRIVATE
+                            NetworkManagerConnectivity.cpp
+                            NetworkManagerConnectivityClient.cpp)
+
+# Optional RFC API support (for reading TR-181 RFC feature flags at runtime).
+option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" OFF)
+if(USE_RFCAPI)
+    find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
+    find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
+    target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE USE_RFCAPI)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+    message(STATUS "NetworkManager RFC API support: enabled")
 endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)

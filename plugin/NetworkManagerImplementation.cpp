@@ -24,6 +24,11 @@
 #include <cstdio>
 #include "NetworkManagerImplementation.h"
 
+#ifdef USE_RFCAPI
+#include <strings.h>
+#include "rfcapi.h"
+#endif
+
 #if USE_TELEMETRY
 #include "NetworkManagerJsonEnum.h"
 #include <telemetry_busmessage_sender.h>
@@ -60,6 +65,11 @@ namespace WPEFramework
             m_ethDisconnectedForSleep.store(false);
             m_wlanDisconnectedForSleep.store(false);
 
+            /* Default connectivity backend is the built-in monitor. Configure()
+             * may switch to ConnectivityCheckMgr delegation based on the RFC flag
+             * (see resolveConnectivityCheckMgrEnabled). */
+            connectivityMonitor.reset(new ConnectivityMonitor());
+
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
 
@@ -77,9 +87,10 @@ namespace WPEFramework
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             m_powerClient.reset();
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-            connectivityMonitor.stopConnectivityMonitor();
-#endif
+            if(!m_useConnectivityCheckMgr && connectivityMonitor)
+            {
+                connectivityMonitor->stopConnectivityMonitor();
+            }
             _instance = nullptr;
             platform_deinit();
             if(m_registrationThread.joinable())
@@ -156,6 +167,26 @@ namespace WPEFramework
             NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             NMLOG_DEBUG("loglevel %d", config.loglevel.Value());
 
+            /* Resolve the connectivity backend at runtime (replaces the old
+             * USE_CONNECTIVITY_CHECK_MGR compile-time macro). */
+            m_useConnectivityCheckMgr = resolveConnectivityCheckMgrEnabled(config);
+            if(m_useConnectivityCheckMgr)
+            {
+                /* Stop/destroy the built-in monitor (constructed by default) so it
+                 * does not run alongside the delegation client. */
+                if(connectivityMonitor)
+                    connectivityMonitor.reset();
+                if(!connectivityClient)
+                    connectivityClient.reset(new NetworkManagerConnectivityClient());
+                NMLOG_INFO("Connectivity delegated to ConnectivityCheckMgr (runtime selection)");
+            }
+            else
+            {
+                if(!connectivityMonitor)
+                    connectivityMonitor.reset(new ConnectivityMonitor());
+                NMLOG_INFO("Using built-in ConnectivityMonitor (runtime selection)");
+            }
+
             /* STUN configuration copy */
             m_stunEndpoint = config.stun.stunEndpoint.Value();
             m_stunPort = config.stun.port.Value();
@@ -194,17 +225,14 @@ namespace WPEFramework
                 std::vector<std::string> backup;
                 NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
                 backup.push_back("http://clients3.google.com/generate_204");
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-                connectivityMonitor.setConnectivityMonitorEndpoints(backup);
-#endif
+                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                    connectivityMonitor->setConnectivityMonitorEndpoints(backup);
             }
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-            else if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+            else if (!m_useConnectivityCheckMgr && connectivityMonitor && connectivityMonitor->getConnectivityMonitorEndpoints().size() < 1)
             {
                 NMLOG_INFO("Use the connectivity endpoint from config");
-                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                connectivityMonitor->setConnectivityMonitorEndpoints(connectEndpts);
             }
-#endif
 
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
@@ -212,6 +240,33 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
             return(Core::ERROR_NONE);
+        }
+
+        /* @brief Resolve whether internet-connectivity queries are delegated to the
+         *        ConnectivityCheckMgr plugin. Precedence: RFC feature flag (when the
+         *        RFC API is compiled in) -> config-line fallback -> default false. */
+        bool NetworkManagerImplementation::resolveConnectivityCheckMgrEnabled(const Configuration& config) const
+        {
+            LOG_ENTRY_FUNCTION();
+#ifdef USE_RFCAPI
+            RFC_ParamData_t rfcParam = {0};
+            WDMP_STATUS wdmpStatus = getRFCParameter(const_cast<char*>("NetworkManager"),
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable",
+                &rfcParam);
+            if (wdmpStatus == WDMP_SUCCESS || wdmpStatus == WDMP_ERR_DEFAULT_VALUE)
+            {
+                bool enabled = (0 == strcasecmp(rfcParam.value, "true"));
+                NMLOG_INFO("RFC ConnectivityCheckMgr.Enable = '%s' -> %s", rfcParam.value,
+                           enabled ? "delegate" : "internal monitor");
+                return enabled;
+            }
+            NMLOG_WARNING("getRFCParameter(ConnectivityCheckMgr.Enable) failed (status=%d); using config fallback",
+                          wdmpStatus);
+#endif
+            bool enabled = config.useConnectivityCheckMgr.Value();
+            NMLOG_INFO("ConnectivityCheckMgr delegation (config fallback) = %s",
+                       enabled ? "enabled" : "disabled");
+            return enabled;
         }
 
         /* @brief Get STUN Endpoint to be used for identifying Public IP */
@@ -262,9 +317,8 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             std::vector<std::string> tmpEndpoints;
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-            tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
-#endif
+            if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                tmpEndpoints = connectivityMonitor->getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
             if(endpoints == nullptr) {
                 return Core::ERROR_GENERAL;
@@ -290,9 +344,8 @@ namespace WPEFramework
                         tmpEndpoints.push_back(endpoint);
                     }
                 }
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-                connectivityMonitor.setConnectivityMonitorEndpoints(tmpEndpoints);
-#endif
+                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                    connectivityMonitor->setConnectivityMonitorEndpoints(tmpEndpoints);
             }
             return Core::ERROR_NONE;
         }
@@ -325,12 +378,17 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-            (void)ipVersionNotSpecified;
-            result = connectivityClient.getInternetState();
-#else
-            result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
-#endif
+            if(m_useConnectivityCheckMgr)
+            {
+                (void)ipVersionNotSpecified;
+                result = connectivityClient ? connectivityClient->getInternetState()
+                                            : Exchange::INetworkManager::INTERNET_UNKNOWN;
+            }
+            else
+            {
+                result = connectivityMonitor ? connectivityMonitor->getInternetState(interface, curlIPversion, ipVersionNotSpecified)
+                                             : Exchange::INetworkManager::INTERNET_UNKNOWN;
+            }
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
@@ -346,11 +404,10 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-            uri = connectivityClient.getCaptivePortalURI();
-#else
-            uri = connectivityMonitor.getCaptivePortalURI();
-#endif
+            if(m_useConnectivityCheckMgr)
+                uri = connectivityClient ? connectivityClient->getCaptivePortalURI() : std::string();
+            else
+                uri = connectivityMonitor ? connectivityMonitor->getCaptivePortalURI() : std::string();
             return Core::ERROR_NONE;
         }
 
@@ -700,9 +757,8 @@ namespace WPEFramework
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-                    connectivityMonitor.switchToInitialCheck();
-#endif
+                    if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                        connectivityMonitor->switchToInitialCheck();
                 }
                 else if(interface == "wlan0")
                 {
@@ -719,9 +775,8 @@ namespace WPEFramework
                     {
                         // When WiFi is disconnected while Ethernet is connected, we don't need to trigger connectivity monitor.
                         // For WiFi-only state and WiFi disconnected, we should trigger connectivity monitor.
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-                        connectivityMonitor.switchToInitialCheck();
-#endif
+                        if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                            connectivityMonitor->switchToInitialCheck();
                     }
                 }
             }
@@ -815,9 +870,8 @@ namespace WPEFramework
 
                 if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
-#ifndef USE_CONNECTIVITY_CHECK_MGR
-                    connectivityMonitor.switchToInitialCheck();
-#endif
+                    if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                        connectivityMonitor->switchToInitialCheck();
                 }
                 else
                     NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());

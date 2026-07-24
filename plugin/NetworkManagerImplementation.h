@@ -35,11 +35,8 @@ using namespace std;
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-#include "NetworkManagerConnectivityClient.h"
-#else
 #include "NetworkManagerConnectivity.h"
-#endif
+#include "NetworkManagerConnectivityClient.h"
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
@@ -204,6 +201,7 @@ namespace WPEFramework
                         Add(_T("connectivity"), &connectivityConf);
                         Add(_T("stun"), &stun);
                         Add(_T("loglevel"), &loglevel);
+                        Add(_T("useConnectivityCheckMgr"), &useConnectivityCheckMgr);
                     }
                 ~Configuration() override = default;
 
@@ -211,6 +209,7 @@ namespace WPEFramework
                 ConnectivityConf connectivityConf;
                 Stun stun;
                 Core::JSON::DecUInt32 loglevel;
+                Core::JSON::Boolean useConnectivityCheckMgr;
             };
 
 
@@ -341,6 +340,11 @@ namespace WPEFramework
                 void platform_init(void);
                 void platform_deinit(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
+                /* Resolve whether connectivity is delegated to ConnectivityCheckMgr:
+                 * RFC flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
+                 * (when USE_RFCAPI is built in) takes precedence, then the config-line
+                 * fallback key, then default false (built-in monitor). */
+                bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
@@ -396,11 +400,14 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 std::string m_lastConnectedSSID;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
-#ifdef USE_CONNECTIVITY_CHECK_MGR
-                mutable NetworkManagerConnectivityClient connectivityClient;
-#else
-                mutable ConnectivityMonitor connectivityMonitor;
-#endif
+                /* Runtime connectivity backend selection (replaces the old
+                 * USE_CONNECTIVITY_CHECK_MGR compile-time macro). When
+                 * m_useConnectivityCheckMgr is true, connectivity queries are
+                 * delegated to ConnectivityCheckMgr via connectivityClient;
+                 * otherwise the built-in connectivityMonitor is used. */
+                bool m_useConnectivityCheckMgr {false};
+                mutable std::unique_ptr<ConnectivityMonitor> connectivityMonitor;
+                mutable std::unique_ptr<NetworkManagerConnectivityClient> connectivityClient;
 
                 string getDefaultInterface() const
                 {
