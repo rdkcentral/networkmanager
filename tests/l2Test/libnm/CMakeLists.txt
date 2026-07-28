@@ -49,7 +49,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
 )
 
 set_target_properties(${NM_LIBNM_PROXY_L2_TEST} PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
 )
 

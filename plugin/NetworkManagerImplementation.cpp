@@ -75,8 +75,14 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            NMLOG_INFO((_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: " _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE)))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
+            
+            /* Start dedicated event dispatch thread */
+            m_eventThreadStop.store(false);
+            m_eventThread = std::thread(&NetworkManagerImplementation::eventThreadFunction, this);
+            NMLOG_INFO("Event dispatch thread started");
+            
             #if USE_TELEMETRY
                 // Initialize Telemetry T2 for NwMgrPlugin
                 t2_init("NwMgrPlugin");
@@ -99,6 +105,17 @@ namespace WPEFramework
             }
             /* Stop WiFi Signal Monitoring */
             stopWiFiSignalQualityMonitor();
+
+            /* Stop event dispatch thread */
+            {
+                std::unique_lock<std::mutex> lock(m_eventMutex);
+                m_eventThreadStop.store(true);
+                m_eventCondVar.notify_one();
+            }
+            if (m_eventThread.joinable()) {
+                m_eventThread.join();
+                NMLOG_INFO("Event dispatch thread stopped");
+            }
 
             {
                 std::unique_lock<std::mutex> lock(m_processMonMutex);
@@ -155,12 +172,12 @@ namespace WPEFramework
             Configuration config;
             if(configLine.empty())
             {
-                NMLOG_FATAL("config line : is empty !");
+                SYSLOG(::WPEFramework::Logging::Shutdown, (_T("config line is empty")));
                 return Core::ERROR_GENERAL;
             }
             else
             {
-                NMLOG_INFO("Loading the incoming configuration : %s", configLine.c_str());
+                SYSLOG(::WPEFramework::Logging::Startup, (_T("Loading incoming configuration")));
                 config.FromString(configLine);
             }
 
@@ -414,6 +431,7 @@ namespace WPEFramework
         /* @brief Get the active Interface used for external world communication */
         uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
         {
+            LOG_ENTRY_FUNCTION();
             if(m_ethEnabled.load() && m_ethConnected.load())
                 interface = "eth0";
             else if(m_wlanEnabled.load() && m_wlanConnected.load())
@@ -460,6 +478,11 @@ namespace WPEFramework
                     NMLOG_INFO("NM_PUBLIC_IPV4 = %s", ipaddress.c_str());
                     logTelemetry("NM_PUBLIC_IPV4", ipaddress);
                 }
+                else
+                {
+                    NMLOG_INFO("NM_PUBLIC_IPV6 = %s", ipaddress.c_str());
+                    logTelemetry("NM_PUBLIC_IPV6", ipaddress);
+                }
 #endif
                 return Core::ERROR_NONE;
             }
@@ -473,6 +496,7 @@ namespace WPEFramework
         /* @brief Set the network manager plugin log level */
         uint32_t NetworkManagerImplementation::SetLogLevel(const Logging& level /* @in */)
         {
+            LOG_ENTRY_FUNCTION();
             NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(level));
             platform_logging(static_cast<NetworkManagerLogger::LogLevel>(level));
             NMLOG_DEBUG("loglevel %d", level);
@@ -482,6 +506,7 @@ namespace WPEFramework
         /* @brief Get the network manager plugin log level */
         uint32_t NetworkManagerImplementation::GetLogLevel(Logging& level /* @out */)
         {
+            LOG_ENTRY_FUNCTION();
             LogLevel inLevel;
             NetworkManagerLogger::GetLevel(inLevel);
 
@@ -492,6 +517,7 @@ namespace WPEFramework
         /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
         {
+            LOG_ENTRY_FUNCTION();
             char cmd[100] = "";
             string tempResult = "";
             if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
@@ -523,6 +549,7 @@ namespace WPEFramework
         /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
         uint32_t NetworkManagerImplementation::Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */)
         {
+            LOG_ENTRY_FUNCTION();
             char cmd[256] = "";
             string tempResult = "";
             if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
@@ -553,6 +580,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::executeExternally(NetworkEvents event, const string commandToExecute, string& response)
         {
+            LOG_ENTRY_FUNCTION();
             FILE *pipe = NULL;
             string output{};
             char buffer[1024];
@@ -650,7 +678,7 @@ namespace WPEFramework
                 }
 
                 pingResult.ToString(response);
-                NMLOG_INFO("Response is, %s", response.c_str());
+                NMLOG_DEBUG("Response is, %s", response.c_str());
             }
             else if (NETMGR_TRACE == event)
             {
@@ -668,19 +696,22 @@ namespace WPEFramework
 
                 pclose(pipe);
                 list.ToString(response);
-                NMLOG_INFO("Response is, %s", response.c_str());
+                NMLOG_DEBUG("Response is, %s", response.c_str());
             }
             return;
         }
 
-        void NetworkManagerImplementation::filterScanResults(JsonArray &ssids)
+        void NetworkManagerImplementation::filterScanResults(JsonArray &ssids,
+											                 const std::vector<std::string>& filterSsidslist,
+											                 const std::vector<std::string>& filterFrequencies)
         {
+            LOG_ENTRY_FUNCTION();
             JsonArray result;
             double filterFreq = 0.0;
-            std::unordered_set<std::string> scanForSsidsSet(m_filterSsidslist.begin(), m_filterSsidslist.end());
+            std::unordered_set<std::string> scanForSsidsSet(filterSsidslist.begin(), filterSsidslist.end());
 
             // If neither SSID list nor frequency is provided, exit
-            if (m_filterSsidslist.empty() && m_filterFrequencies.empty())
+            if (filterSsidslist.empty() && filterFrequencies.empty())
             {
                 NMLOG_DEBUG("Neither SSID nor Frequency is provided. Exiting function.");
                 return;
@@ -694,10 +725,10 @@ namespace WPEFramework
 
                 double frequencyValue = std::stod(frequency);
                 bool ssidMatches = scanForSsidsSet.empty() || scanForSsidsSet.find(ssid) != scanForSsidsSet.end();
-                bool freqMatches = m_filterFrequencies.empty();
+                bool freqMatches = filterFrequencies.empty();
                 if (!freqMatches)
                 {
-                    for (const auto& selectedFrequency : m_filterFrequencies)
+                    for (const auto& selectedFrequency : filterFrequencies)
                     {
                         if (selectedFrequency == "ALL")
                         {
@@ -741,6 +772,151 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
             return Core::ERROR_NONE;
+        }
+
+
+        void NetworkManagerImplementation::enqueueEvent(NMPublishEvents event, EventDataVariant&& data)
+        {
+            LOG_ENTRY_FUNCTION();
+            if (m_eventThreadStop.load(std::memory_order_relaxed))
+            {
+                NMLOG_WARNING("Dropping event %d because event thread is stopping", event);
+                return;
+            }
+            {
+                std::lock_guard<std::mutex> lock(m_eventMutex);
+                m_eventQueue.push({event, std::move(data)});
+                NMLOG_DEBUG("Event %d queued, queue size: %zu", event, m_eventQueue.size());
+            }
+            m_eventCondVar.notify_one();
+        }
+
+        void NetworkManagerImplementation::eventThreadFunction()
+        {
+            NMLOG_INFO("Event thread started");
+            
+            while (!m_eventThreadStop.load()) {
+                std::unique_lock<std::mutex> lock(m_eventMutex);
+                
+                // Wait for events or stop signal
+                m_eventCondVar.wait(lock, [this] { 
+                    return !m_eventQueue.empty() || m_eventThreadStop.load(); 
+                });
+                
+                // Process all queued events
+                while (!m_eventQueue.empty() && !m_eventThreadStop.load()) {
+                    EventData eventData = std::move(m_eventQueue.front());
+                    m_eventQueue.pop();
+                    
+                    // Unlock while processing to avoid blocking new events
+                    lock.unlock();
+                    
+                    NMLOG_DEBUG("Processing event %d from queue", eventData.event);
+                    dispatchEvent(eventData.event, eventData.data);
+                    
+                    lock.lock();
+                }
+            }
+            
+            NMLOG_INFO("Event thread exiting");
+        }
+
+        void NetworkManagerImplementation::dispatchEvent(NMPublishEvents event, const EventDataVariant& data)
+        {
+            LOG_ENTRY_FUNCTION();
+            std::list<Exchange::INetworkManager::INotification*> callbacks;
+            /*
+             * Avoid holding _notificationLock while notifying subscribers: callbacks can be slow and may
+             * call back into NetworkManager, risking deadlock. Take a snapshot of callbacks with an
+             * extra reference, then release each reference after the invocation.
+             */
+            _notificationLock.Lock();
+            for (auto* tmpCB : _notificationCallbacks) {
+                tmpCB->AddRef();
+                callbacks.push_back(tmpCB);
+            }
+            _notificationLock.Unlock();
+
+            switch(event)
+            {
+                case NM_ON_INTERFACESTATE_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onInterfaceStateChange Event");
+                    const auto& eventData = std::get<InterfaceStateChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onInterfaceStateChange(eventData.state, eventData.interface);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_ACTIVEINTERFACE_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onActiveInterfaceChange Event");
+                    const auto& eventData = std::get<ActiveInterfaceChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onActiveInterfaceChange(eventData.prevActiveInterface, eventData.currentActiveInterface);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_IPADDRESS_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onIPAddressChange Event");
+                    const auto& eventData = std::get<IPAddressChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onIPAddressChange(eventData.interface, eventData.ipversion, eventData.ipaddress, eventData.status);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_INTERNETSTATUS_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onInternetStatusChange Event");
+                    const auto& eventData = std::get<InternetStatusChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_AVAILABLESSIDS:
+                {
+                    NMLOG_INFO("Publishing onAvailableSSIDs Event");
+                    const auto& eventData = std::get<AvailableSSIDsData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onAvailableSSIDs(eventData.jsonResult);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_WIFISTATE_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onWiFiStateChange Event");
+                    const auto& eventData = std::get<WiFiStateChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onWiFiStateChange(eventData.state);
+                        callback->Release();
+                    }
+                }
+                break;
+                case NM_ON_WIFISIGNALQUALITY_CHANGE:
+                {
+                    NMLOG_INFO("Publishing onWiFiSignalQualityChange Event");
+                    const auto& eventData = std::get<WiFiSignalQualityChangeData>(data);
+                    for (const auto callback : callbacks) {
+                        callback->onWiFiSignalQualityChange(eventData.ssid, eventData.strength, eventData.noise, eventData.snr, eventData.quality);
+                        callback->Release();
+                    }
+                }
+                break;
+                default:
+                {
+                    for (const auto callback : callbacks) {
+                        callback->Release();
+                    }
+                }
+                break;
+            }
         }
 
         void NetworkManagerImplementation::ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
@@ -806,18 +982,17 @@ namespace WPEFramework
                     m_wlanEnabled.store(true);
             }
 
-            _notificationLock.Lock();
-            NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
-            for (const auto callback : _notificationCallbacks) {
-                callback->onInterfaceStateChange(state, interface);
+            {
+                InterfaceStateChangeData eventData{state, interface};
+                NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
+                enqueueEvent(NM_ON_INTERFACESTATE_CHANGE, std::move(eventData));
             }
-            _notificationLock.Unlock();
+            return;
         }
 
         void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
         {
-            _notificationLock.Lock();
-            NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
+            LOG_ENTRY_FUNCTION();
 
             if(currentActiveinterface == "eth0")
             {
@@ -830,17 +1005,15 @@ namespace WPEFramework
                 m_wlanEnabled.store(true);
             }
 
-            // FIXME : This could be the place to define `m_defaultInterface` to incoming `currentActiveinterface`.
-            // m_defaultInterface = currentActiveinterface;
-
-            for (const auto callback : _notificationCallbacks) {
-                callback->onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
+            {
+                ActiveInterfaceChangeData eventData{prevActiveInterface, currentActiveinterface};
+                NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
+                enqueueEvent(NM_ON_ACTIVEINTERFACE_CHANGE, std::move(eventData));
             }
 #if USE_TELEMETRY
             NMLOG_INFO("NM_INTERFACE_STATUS = Interface changed to %s", currentActiveinterface.c_str());
             logTelemetry("NM_INTERFACE_STATUS", "Interface changed to " + currentActiveinterface);
-#endif
-            _notificationLock.Unlock();
+#endif 
         }
 
         void NetworkManagerImplementation::ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
@@ -877,14 +1050,12 @@ namespace WPEFramework
                     NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());
             }
 
-            _notificationLock.Lock();
-            NMLOG_INFO("Posting onIPAddressChange %s: %s %s %s",
-                (Exchange::INetworkManager::IP_ACQUIRED == status) ? "IP acquired" : "IP lost",
-                interface.c_str(), ipversion.c_str(), ipaddress.c_str());
-            for (const auto callback : _notificationCallbacks) {
-                callback->onIPAddressChange(interface, ipversion, ipaddress, status);
+            {
+                IPAddressChangeData eventData{interface, ipversion, ipaddress, status};
+                NMLOG_INFO("Posting onIPAddressChange %s: %s %s %s", (Exchange::INetworkManager::IP_ACQUIRED == status) ? "IP acquired" : "IP lost",
+                                                                     interface.c_str(), ipversion.c_str(), ipaddress.c_str());
+                enqueueEvent(NM_ON_IPADDRESS_CHANGE, std::move(eventData));
             }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion)
@@ -916,8 +1087,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
-            _notificationLock.Lock();
-            NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+            LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
             // Log error only when ethernet is up and there's no internet
             if(currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE &&
@@ -929,19 +1099,22 @@ namespace WPEFramework
                 logTelemetry("NM_ETHERNET_CONNECTIVITY", "Ethernet connectivity failed");
             }
 #endif
-            for (const auto callback : _notificationCallbacks) {
-                callback->onInternetStatusChange(prevState, currState, interface);
+            {
+                InternetStatusChangeData eventData{prevState, currState, interface};
+                NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
+                enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
+
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
             NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
 #endif
-            _notificationLock.Unlock();
         }
 
         int32_t NetworkManagerImplementation::logSSIDs(Logging level, const JsonArray &ssids)
         {
+            LOG_ENTRY_FUNCTION();
             Logging inLevel;
             GetLogLevel(inLevel);
             if (level > inLevel)
@@ -961,7 +1134,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults)
         {
-            _notificationLock.Lock();
+            LOG_ENTRY_FUNCTION();
             string jsonOfWiFiScanResults;
             string jsonOfFilterScanResults;
             JsonArray filterResult = arrayofWiFiScanResults;
@@ -970,20 +1143,31 @@ namespace WPEFramework
             NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
-            filterScanResults(filterResult);
+			// Snapshot filter vectors under lock, then release before calling filterScanResults
+            // to ensure exception-safety (std::stod can throw).
+            std::vector<std::string> ssidsSnapshot;
+            std::vector<std::string> frequenciesSnapshot;
+            m_filterVectorsLock.Lock();
+            ssidsSnapshot = m_filterSsidslist;
+            frequenciesSnapshot = m_filterFrequencies;
+            m_filterVectorsLock.Unlock();
+
+            // Call filterScanResults outside the lock with snapshots (exception-safe)
+            filterScanResults(filterResult, ssidsSnapshot, frequenciesSnapshot);
             filterResult.ToString(jsonOfFilterScanResults);
 
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
-            for (const auto callback : _notificationCallbacks) {
-                callback->onAvailableSSIDs(jsonOfFilterScanResults);
+            {
+                AvailableSSIDsData eventData{jsonOfFilterScanResults};
+                enqueueEvent(NM_ON_AVAILABLESSIDS, std::move(eventData));
             }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::startWiFiSignalQualityMonitor(int interval)
         {
+            LOG_ENTRY_FUNCTION();
             if (m_isRunning.load()) {
                 NMLOG_INFO("WiFiSignalQualityMonitor Thread is already running.");
                 return;
@@ -999,6 +1183,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::stopWiFiSignalQualityMonitor()
         {
+            LOG_ENTRY_FUNCTION();
             if (!m_isRunning.load())
                 return; // No thread to stop
 
@@ -1183,6 +1368,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::processMonitor(uint16_t interval)
         {
+            LOG_ENTRY_FUNCTION();
             pid_t pid = getpid();
 
             string path = "/proc/";
@@ -1234,6 +1420,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::monitorThreadFunction(int interval)
         {
+            LOG_ENTRY_FUNCTION();
             static Exchange::INetworkManager::WiFiSignalQuality oldSignalQuality = Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED;
             NMLOG_INFO("WiFiSignalQualityMonitor thread started ! (%d)", interval);
             while (true)
@@ -1246,7 +1433,8 @@ namespace WPEFramework
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
-                m_lastConnectedSSID = ssid; // last connected ssid used in wifiConnect
+                if (!ssid.empty())
+                    m_lastConnectedSSID = ssid; // last connected ssid used in wifiConnect
 
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
@@ -1271,6 +1459,7 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
+            LOG_ENTRY_FUNCTION();
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
@@ -1283,31 +1472,31 @@ namespace WPEFramework
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
             }
 
-            _notificationLock.Lock();
             NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
-            for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiStateChange(state);
+            {
+                WiFiStateChangeData eventData{state};
+                enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
-            _notificationLock.Lock();
-            NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
-            for (const auto callback : _notificationCallbacks) {
-                callback->onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
+            LOG_ENTRY_FUNCTION();
+            {
+                WiFiSignalQualityChangeData eventData{ssid, strength, noise, snr, quality};
+                NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
+                enqueueEvent(NM_ON_WIFISIGNALQUALITY_CHANGE, std::move(eventData));
             }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::logTelemetry(const std::string& eventName, const std::string& message)
         {
+            LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
             T2ERROR t2error = t2_event_s(eventName.c_str(), const_cast<char*>(message.c_str()));
             if (t2error != T2ERROR_SUCCESS) {
@@ -1322,6 +1511,7 @@ namespace WPEFramework
             const Exchange::IPowerManager::PowerState newState,
             std::function<void()> sendAck)
         {
+            LOG_ENTRY_FUNCTION();
             // Called from NetworkManagerPowerClient's power thread.
             NMLOG_DEBUG("OnPowerModePreChange: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
@@ -1404,6 +1594,7 @@ namespace WPEFramework
             const Exchange::IPowerManager::PowerState currentState,
             const Exchange::IPowerManager::PowerState newState)
         {
+            LOG_ENTRY_FUNCTION();
             NMLOG_INFO("OnPowerModeChanged: current=%d new=%d",
                        static_cast<int>(currentState), static_cast<int>(newState));
             if (currentState == Exchange::IPowerManager::PowerState::POWER_STATE_STANDBY_DEEP_SLEEP) {
@@ -1535,6 +1726,7 @@ namespace WPEFramework
 
         Exchange::INetworkManager::IPAddress IpFamilyCache::toIPAddress() const
         {
+            LOG_ENTRY_FUNCTION();
             Exchange::INetworkManager::IPAddress addr{};
             /* Detect IP version from any available address. */
             bool isIPv6 = false;

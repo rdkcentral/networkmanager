@@ -973,6 +973,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             IARM_Result_t retVal = IARM_RESULT_SUCCESS;
 
             //Cleared the Existing Store filterred SSID list
+            m_filterVectorsLock.Lock();
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
             if(ssids)
@@ -994,6 +995,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
                     NMLOG_DEBUG("%s added to Frequency filtering", frequencyList.c_str());
                 }
             }
+            m_filterVectorsLock.Unlock();
 
             memset(&param, 0, sizeof(param));
 
