@@ -905,7 +905,7 @@ namespace WPEFramework
             return m_isSuccess;
         }
 
-        static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false)
+        static bool connectionBuilder(const Exchange::INetworkManager::WiFiConnectTo& ssidinfo, NMConnection *m_connection, bool iswpsAP = false, bool isScannedAP = false)
         {
             if(ssidinfo.ssid.empty() || ssidinfo.ssid.length() > 32)
             {
@@ -978,15 +978,18 @@ namespace WPEFramework
                 {
                     sSecurity = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                     nm_connection_add_setting(m_connection, NM_SETTING(sSecurity));
-                    if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
+                    if(isScannedAP)
                     {
-                        NMLOG_INFO("key-mgmt: %s", "sae");
-                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"sae", NULL);
-                    }
-                    else
-                    {
-                        NMLOG_INFO("key-mgmt: %s", "wpa-psk");
-                        g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
+                        if(Exchange::INetworkManager::WIFISecurityMode::WIFI_SECURITY_SAE == ssidinfo.security)
+                        {
+                            NMLOG_INFO("key-mgmt: %s", "sae");
+                            g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"sae", NULL);
+                        }
+                        else
+                        {
+                            NMLOG_INFO("key-mgmt: %s", "wpa-psk");
+                            g_object_set(G_OBJECT(sSecurity), NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,"wpa-psk", NULL);
+                        }
                     }
 
                     /* if ap is not a wps network */
@@ -1348,7 +1351,7 @@ namespace WPEFramework
             NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %d, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency, ssidInfoParam.security, ssidInfoParam.persist);
 
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
-            m_isSuccess = false;
+            bool isScannedAP = false;
             if(!createClientNewConnection())
                 return false;
 
@@ -1419,6 +1422,7 @@ namespace WPEFramework
             }
             else
             {
+                isScannedAP = true;
                 getApInfo(AccessPoint, apinfo);
                 ssidInfo.security = apinfo.security;
             }
@@ -1484,7 +1488,7 @@ namespace WPEFramework
 
                 m_objectPath = g_strdup(apPath);
 
-                if(!connectionBuilder(ssidInfo, m_connection)) {
+                if(!connectionBuilder(ssidInfo, m_connection, false, isScannedAP)) {
                     NMLOG_ERROR("connection builder failed");
                     g_object_unref(m_connection);
                     m_connection = NULL;
@@ -1537,7 +1541,7 @@ namespace WPEFramework
 
                 m_objectPath = g_strdup(apPath);
                 NMLOG_DEBUG("Setting object path to '%s'", m_objectPath);
-                if(!connectionBuilder(ssidInfo, m_connection))
+                if(!connectionBuilder(ssidInfo, m_connection, false, isScannedAP))
                 {
                     NMLOG_ERROR("connection builder failed");
                     if(m_connection)
@@ -1664,7 +1668,7 @@ namespace WPEFramework
 
             if (m_connection && NM_IS_REMOTE_CONNECTION(m_connection))
             {
-                if(!connectionBuilder(ssidinfo, m_connection))
+                if(!connectionBuilder(ssidinfo, m_connection, false))
                 {
                     NMLOG_ERROR("connection builder failed");
                     g_object_unref(m_connection);
@@ -1689,7 +1693,7 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("creating new connection '%s' ", ssidinfo.ssid.c_str());
                 m_connection = nm_simple_connection_new();
-                if(!connectionBuilder(ssidinfo, m_connection))
+                if(!connectionBuilder(ssidinfo, m_connection, false))
                 {
                     NMLOG_ERROR("connection builder failed");
                     g_object_unref(m_connection);
