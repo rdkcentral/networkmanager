@@ -24,7 +24,7 @@
 #include <cstdio>
 #include "NetworkManagerImplementation.h"
 
-#ifdef USE_RFCAPI
+#ifdef USE_CONNECTIVITYCHECKMGR
 #include <strings.h>
 #include "rfcapi.h"
 #endif
@@ -187,6 +187,7 @@ namespace WPEFramework
             /* Resolve the connectivity backend at runtime (replaces the old
              * USE_CONNECTIVITY_CHECK_MGR compile-time macro). */
             m_useConnectivityCheckMgr = resolveConnectivityCheckMgrEnabled(config);
+#ifdef USE_CONNECTIVITYCHECKMGR
             if(m_useConnectivityCheckMgr)
             {
                 /* Stop/destroy the built-in monitor (constructed by default) so it
@@ -198,6 +199,7 @@ namespace WPEFramework
                 NMLOG_INFO("Connectivity delegated to ConnectivityCheckMgr (runtime selection)");
             }
             else
+#endif
             {
                 if(!connectivityMonitor)
                     connectivityMonitor.reset(new ConnectivityMonitor());
@@ -265,7 +267,7 @@ namespace WPEFramework
         bool NetworkManagerImplementation::resolveConnectivityCheckMgrEnabled(const Configuration& config) const
         {
             LOG_ENTRY_FUNCTION();
-#ifdef USE_RFCAPI
+#ifdef USE_CONNECTIVITYCHECKMGR
             RFC_ParamData_t rfcParam = {0};
             WDMP_STATUS wdmpStatus = getRFCParameter(const_cast<char*>("NetworkManager"),
                 "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable",
@@ -279,11 +281,15 @@ namespace WPEFramework
             }
             NMLOG_WARNING("getRFCParameter(ConnectivityCheckMgr.Enable) failed (status=%d); using config fallback",
                           wdmpStatus);
-#endif
             bool enabled = config.useConnectivityCheckMgr.Value();
             NMLOG_INFO("ConnectivityCheckMgr delegation (config fallback) = %s",
                        enabled ? "enabled" : "disabled");
             return enabled;
+#else
+            (void)config;
+            NMLOG_INFO("ConnectivityCheckMgr delegation not compiled in; using built-in monitor");
+            return false;
+#endif
         }
 
         /* @brief Get STUN Endpoint to be used for identifying Public IP */
@@ -395,6 +401,7 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
+#ifdef USE_CONNECTIVITYCHECKMGR
             if(m_useConnectivityCheckMgr)
             {
                 (void)ipVersionNotSpecified;
@@ -402,6 +409,7 @@ namespace WPEFramework
                                             : Exchange::INetworkManager::INTERNET_UNKNOWN;
             }
             else
+#endif
             {
                 result = connectivityMonitor ? connectivityMonitor->getInternetState(interface, curlIPversion, ipVersionNotSpecified)
                                              : Exchange::INetworkManager::INTERNET_UNKNOWN;
@@ -421,9 +429,11 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
+#ifdef USE_CONNECTIVITYCHECKMGR
             if(m_useConnectivityCheckMgr)
                 uri = connectivityClient ? connectivityClient->getCaptivePortalURI() : std::string();
             else
+#endif
                 uri = connectivityMonitor ? connectivityMonitor->getCaptivePortalURI() : std::string();
             return Core::ERROR_NONE;
         }

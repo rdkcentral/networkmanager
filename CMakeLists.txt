@@ -55,7 +55,7 @@ option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
-option(USE_RFCAPI "Enable RFC API for TR-181 feature flag access" OFF)
+option(USE_CONNECTIVITYCHECKMGR "Enable ConnectivityCheckMgr delegation (compiles the delegation client and reads the TR-181 RFC feature flag via rfcapi)" OFF)
 option(ENABLE_ETHERNET_CONNECTION_HANDLING
        "Enable pre-sleep Ethernet deactivation" OFF)
 
@@ -78,14 +78,15 @@ if (USE_TELEMETRY)
     message("Telemetry support enabled")
 endif(USE_TELEMETRY)
 
-# Optional RFC API support (for reading TR-181 RFC feature flags at runtime, e.g.
-# Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable).
-if (USE_RFCAPI)
+# Optional ConnectivityCheckMgr delegation. Compiles the delegation client and pulls
+# in the rfcapi library used to read the TR-181 RFC feature flag at runtime, e.g.
+# Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable.
+if (USE_CONNECTIVITYCHECKMGR)
     find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
     find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
-    add_compile_definitions(USE_RFCAPI=1)
-    message(STATUS "RFC API support enabled (lib=${RFCAPI_LIBRARY}, include=${RFCAPI_INCLUDE_DIR})")
-endif(USE_RFCAPI)
+    add_compile_definitions(USE_CONNECTIVITYCHECKMGR=1)
+    message(STATUS "ConnectivityCheckMgr delegation enabled (rfcapi lib=${RFCAPI_LIBRARY}, include=${RFCAPI_INCLUDE_DIR})")
+endif(USE_CONNECTIVITYCHECKMGR)
 
 add_subdirectory(interface)
 add_subdirectory(definition)

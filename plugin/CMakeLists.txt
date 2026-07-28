@@ -85,19 +85,20 @@ add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
 
-# Connectivity backend: both the built-in ConnectivityMonitor and the
-# ConnectivityCheckMgr delegation client are always compiled. Selection between
-# them is made at runtime (see resolveConnectivityCheckMgrEnabled) from the RFC
-# flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
-# with a config-line fallback. STUN is unaffected either way.
+# The built-in ConnectivityMonitor is always compiled. The ConnectivityCheckMgr
+# delegation client (NetworkManagerConnectivityClient.cpp) is compiled only when
+# USE_CONNECTIVITYCHECKMGR is enabled; runtime selection between the two backends
+# is done in resolveConnectivityCheckMgrEnabled(). STUN is unaffected either way.
 target_sources(${MODULE_IMPL_NAME} PRIVATE
-                            NetworkManagerConnectivity.cpp
-                            NetworkManagerConnectivityClient.cpp)
+                            NetworkManagerConnectivity.cpp)
 
-# Optional RFC API support. The USE_RFCAPI option, library discovery, and the
-# USE_RFCAPI compile definition are declared in the top-level CMakeLists.txt
-# (mirroring USE_TELEMETRY). Here we only link the library into the impl target.
-if(USE_RFCAPI)
+# Optional ConnectivityCheckMgr delegation. The USE_CONNECTIVITYCHECKMGR option,
+# rfcapi library discovery, and the USE_CONNECTIVITYCHECKMGR compile definition are
+# declared in the top-level CMakeLists.txt (mirroring USE_TELEMETRY). When enabled we
+# compile the delegation client and link the rfcapi library used to read the TR-181
+# feature flag.
+if(USE_CONNECTIVITYCHECKMGR)
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivityClient.cpp)
     target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
     if(RFCAPI_INCLUDE_DIR)
         target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})

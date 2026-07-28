@@ -38,7 +38,9 @@ using namespace std;
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
+#ifdef USE_CONNECTIVITYCHECKMGR
 #include "NetworkManagerConnectivityClient.h"
+#endif
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
@@ -394,7 +396,7 @@ namespace WPEFramework
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
                 /* Resolve whether connectivity is delegated to ConnectivityCheckMgr:
                  * RFC flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
-                 * (when USE_RFCAPI is built in) takes precedence, then the config-line
+                 * (when USE_CONNECTIVITYCHECKMGR is built in) takes precedence, then the config-line
                  * fallback key, then default false (built-in monitor). */
                 bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
@@ -469,7 +471,9 @@ namespace WPEFramework
                  * otherwise the built-in connectivityMonitor is used. */
                 bool m_useConnectivityCheckMgr {false};
                 mutable std::unique_ptr<ConnectivityMonitor> connectivityMonitor;
+#ifdef USE_CONNECTIVITYCHECKMGR
                 mutable std::unique_ptr<NetworkManagerConnectivityClient> connectivityClient;
+#endif
 
                 string getDefaultInterface() const
                 {
