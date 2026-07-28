@@ -1437,6 +1437,36 @@
                 ]
             }
         },
+        "onRouteChange":{
+            "summary": "Triggered when the default route changes and a new gateway/DNS becomes available for an interface.",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "interface":{
+                        "$ref": "#/definitions/interface"
+                    },
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
+                    },
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
+                    },
+                    "gateway": {
+                        "$ref": "#/definitions/gateway"
+                    },
+                    "primarydns": {
+                        "$ref": "#/definitions/primarydns"
+                    }
+                },
+                "required": [
+                    "interface",
+                    "ipversion",
+                    "ipaddress",
+                    "gateway",
+                    "primarydns"
+                ]
+            }
+        },
         "onActiveInterfaceChange":{
             "summary": "Triggered when the primary/active interface changes",
             "params": {
