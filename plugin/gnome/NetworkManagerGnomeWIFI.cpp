@@ -1351,7 +1351,8 @@ namespace WPEFramework
             NMLOG_DEBUG("wifi connect ssid: %s, bssid: %s, frequency: %d, security %d, persist %d", ssidInfoParam.ssid.c_str(), ssidInfoParam.bssid.c_str(), ssidInfoParam.frequency, ssidInfoParam.security, ssidInfoParam.persist);
 
             Exchange::INetworkManager::WiFiConnectTo ssidInfo = ssidInfoParam;
-            bool isScannedAP = false;
+            m_isSuccess = false;
+	        bool isScannedAP = false;
             if(!createClientNewConnection())
                 return false;
 
@@ -1668,7 +1669,7 @@ namespace WPEFramework
 
             if (m_connection && NM_IS_REMOTE_CONNECTION(m_connection))
             {
-                if(!connectionBuilder(ssidinfo, m_connection, false))
+                if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
                     g_object_unref(m_connection);
@@ -1693,7 +1694,7 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("creating new connection '%s' ", ssidinfo.ssid.c_str());
                 m_connection = nm_simple_connection_new();
-                if(!connectionBuilder(ssidinfo, m_connection, false))
+                if(!connectionBuilder(ssidinfo, m_connection))
                 {
                     NMLOG_ERROR("connection builder failed");
                     g_object_unref(m_connection);
