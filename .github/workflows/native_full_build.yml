@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**' ]
 
+permissions:
+  contents: read
+
 jobs:
   build-networkmanager:
     name: Build networkmanager component in github rdkcentral
