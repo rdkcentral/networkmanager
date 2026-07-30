@@ -155,23 +155,29 @@ cmake --build "${WORKSPACE}/build/ThunderInterfaces" --target install -j"${NPROC
 # ---------------------------------------------------------------------------
 log "Installing IPowerManager header"
 IFACE_DIR="$(find "${INSTALL_DIR}/include" -maxdepth 2 -name "interfaces" -type d | head -1)"
+if [ -z "${IFACE_DIR}" ] || [ ! -d "${IFACE_DIR}" ]; then
+   echo "Error: Thunder interfaces include dir not found under ${INSTALL_DIR}/include" >&2
+   exit 1
+fi
 cp "${NETWORKMANAGER_DIR}/tests/mocks/thunder/IPowerManager.h" "${IFACE_DIR}/"
 
 # ---------------------------------------------------------------------------
 # Generate dependency files
 # ---------------------------------------------------------------------------
 log "Generating /etc/device.properties"
-${SUDO} bash -c 'echo "ETHERNET_INTERFACE=eth0
+${SUDO} tee /etc/device.properties >/dev/null <<'EOF'
+ETHERNET_INTERFACE=eth0
 WIFI_INTERFACE=wlan0
-DEFAULT_HOSTNAME=rdk_test_device " > /etc/device.properties'
+DEFAULT_HOSTNAME=rdk_test_device
+EOF
 
 # ---------------------------------------------------------------------------
 # Generate IARM headers/stubs
 # ---------------------------------------------------------------------------
 log "Generating IARM headers"
 mkdir -p "${INSTALL_DIR}/lib"
-touch "${INSTALL_DIR}/lib/libIARMBus.so"
-touch "${INSTALL_DIR}/lib/libmfrlib.so"
+printf 'void __nm_cov_stub(void){}\n' | ${CC:-cc} -fPIC -shared -x c - -o "${INSTALL_DIR}/lib/libIARMBus.so"
+printf 'void __nm_cov_stub(void){}\n' | ${CC:-cc} -fPIC -shared -x c - -o "${INSTALL_DIR}/lib/libmfrlib.so"
 mkdir -p "${INSTALL_DIR}/include/rdk/iarmbus"
 mkdir -p "${INSTALL_DIR}/include/rdk/iarmmgrs-hal"
 touch "${INSTALL_DIR}/include/rdk/iarmbus/libIARM.h"
