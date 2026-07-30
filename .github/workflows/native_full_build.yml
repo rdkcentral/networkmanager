@@ -1,0 +1,23 @@
+name: Build Component in Native Environment
+
+on:
+  push:
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**' ]
+  pull_request:
+    branches: [ main, develop, 'support/**', 'hotfix/**', 'topic/**' ]
+
+jobs:
+  build-networkmanager:
+    name: Build networkmanager component in github rdkcentral
+    # Ubuntu 24.04 is required for libnm 1.46 (NetworkManagerPowerClient support).
+    runs-on: ubuntu-24.04
+
+    steps:
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: native build
+        run: |
+          sh -x build_dependencies.sh
+          sh -x cov_build.sh
