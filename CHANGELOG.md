@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [1.12.7] - 2026-08-03
+### Added
+- Added PowerManager boot dependency
+
 ## [1.12.6] - 2026-07-15
 ### Added
 - Integrated Telemetry Component and publishing t2 events
