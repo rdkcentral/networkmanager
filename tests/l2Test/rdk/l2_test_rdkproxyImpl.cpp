@@ -158,7 +158,7 @@ TEST_F(NetworkManagerImplTest, GetConnectivityTestEndpoints)
 {
     // Set up mock endpoints in the ConnectivityMonitor
     std::vector<std::string> mockEndpoints = {"http://clients3.google.com/generate_204", "http://example.com"};
-    NetworkManagerImplementation->connectivityMonitor.setConnectivityMonitorEndpoints(mockEndpoints);
+    NetworkManagerImplementation->connectivityMonitor->setConnectivityMonitorEndpoints(mockEndpoints);
 
     // Call GetConnectivityTestEndpoints
     RPC::IIteratorType<string,RPC::ID_STRINGITERATOR>* endpoints = nullptr;
@@ -193,7 +193,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_EmptyEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were not set
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
     printf("Retrieved Endpoints Size: %zu %s\n", retrievedEndpoints.size(), retrievedEndpoints[0].c_str());
 	EXPECT_TRUE(retrievedEndpoints.empty() != true && retrievedEndpoints[0] == "http://clients3.google.com/generate_204"); // default endpoint should remain
 
@@ -213,7 +213,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_ValidEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were set correctly
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
     EXPECT_EQ(retrievedEndpoints, validEndpoints);
 
     // Clean up
@@ -233,7 +233,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_InvalidEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were not set
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
     EXPECT_TRUE(retrievedEndpoints.size() == 1 && retrievedEndpoints[0] == "1234567890");
 
     // Clean up
@@ -254,7 +254,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_TooManyEndpoints) {
 	// Verify the result
 	EXPECT_EQ(result, Core::ERROR_NONE);
 
-	std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
+	std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
 	EXPECT_EQ((int)retrievedEndpoints.size(), 12);
 	
 	// Clean up

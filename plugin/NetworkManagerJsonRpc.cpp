@@ -1072,6 +1072,19 @@ namespace WPEFramework
             Notify(_T("onIPAddressChange"), parameters);
         }
 
+        void NetworkManager::onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns)
+        {
+            JsonObject parameters;
+            parameters["interface"]  = interface;
+            parameters["ipversion"]  = ipversion;
+            parameters["ipaddress"]  = ipaddress;
+            parameters["gateway"]    = gateway;
+            parameters["primarydns"] = primarydns;
+
+            LOG_INPARAM();
+            Notify(_T("onRouteChange"), parameters);
+        }
+
         void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
         {
             JsonObject parameters;

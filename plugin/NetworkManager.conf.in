@@ -24,4 +24,5 @@ configuration.add("root", process)
 configuration.add("connectivity", connectivity)
 configuration.add("stun", stun)
 configuration.add("loglevel", "@PLUGIN_NETWORKMANAGER_LOGLEVEL@")
+configuration.add("useConnectivityCheckMgr", "@PLUGIN_NETWORKMANAGER_USE_CONNECTIVITYCHECKMGR@")
 

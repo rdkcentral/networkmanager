@@ -51,6 +51,7 @@ endif ()
 
 set(PLUGIN_NETWORKMANAGER_LOGLEVEL "3" CACHE STRING "To configure default loglevel NetworkManager plugin")
 set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
+set(PLUGIN_NETWORKMANAGER_USE_CONNECTIVITYCHECKMGR "false" CACHE STRING "Config fallback to delegate connectivity to ConnectivityCheckMgr when the RFC flag is unset")
 
 set(PLUGIN_NETWORKMANAGER_AUTOSTART "false" CACHE STRING "Set the default AutoStart of NetworkManager Plugin")
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
@@ -79,11 +80,30 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
-                            NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
+
+# The built-in ConnectivityMonitor is always compiled. The ConnectivityCheckMgr
+# delegation client (NetworkManagerConnectivityClient.cpp) is compiled only when
+# USE_CONNECTIVITYCHECKMGR is enabled; runtime selection between the two backends
+# is done in resolveConnectivityCheckMgrEnabled(). STUN is unaffected either way.
+target_sources(${MODULE_IMPL_NAME} PRIVATE
+                            NetworkManagerConnectivity.cpp)
+
+# Optional ConnectivityCheckMgr delegation. The USE_CONNECTIVITYCHECKMGR option,
+# rfcapi library discovery, and the USE_CONNECTIVITYCHECKMGR compile definition are
+# declared in the top-level CMakeLists.txt (mirroring USE_TELEMETRY). When enabled we
+# compile the delegation client and link the rfcapi library used to read the TR-181
+# feature flag.
+if(USE_CONNECTIVITYCHECKMGR)
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivityClient.cpp)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)

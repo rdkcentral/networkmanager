@@ -197,6 +197,23 @@ namespace WPEFramework
                 _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
             }
         }
+
+        /* Coalesced "route ready" event: emit once address + gateway + primary DNS
+           are all populated for this family. The notify::addresses /
+           notify::gateway / notify::nameservers subscriptions on NMIPConfig all
+           funnel here, so a single emission per snapshot covers all three.
+           Each family emits independently — dual-stack consumers will see one
+           event per family. */
+        if (newCache.valid
+            && !newCache.globalAddresses.empty()
+            && !newCache.gateway.empty()
+            && !newCache.primarydns.empty()) {
+            /* Values are already in hand from the snapshot we just built, so emit
+               them directly instead of having ReportRouteChange re-query the cache. */
+            Exchange::INetworkManager::IPAddress settings = newCache.toIPAddress();
+            settings.ipversion = family;
+            _instance->ReportRouteChange(ifname, family, settings);
+        }
     }
 
     static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
@@ -842,6 +859,15 @@ namespace WPEFramework
                 _instance->ReportActiveInterfaceChange(oldIface, newIface);
             NMLOG_INFO("old interface - %s new interface - %s", oldIface.c_str(), newIface.c_str());
             oldIface = newIface;
+
+            /* Default-route owner changed (e.g. eth0↔wlan0 failover). The new primary
+               already has its IP/gateway/DNS in the cache from prior refreshIpFamilyCache,
+               so emit a coalesced route-ready event for both families — ReportRouteChange
+               is a no-op for whichever family isn't fully populated. */
+            if (_instance != nullptr && !newIface.empty() && newIface != "Unknown") {
+                _instance->ReportRouteChange(newIface, "IPv4");
+                _instance->ReportRouteChange(newIface, "IPv6");
+            }
         }
     }
 
