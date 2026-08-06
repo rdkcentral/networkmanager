@@ -1105,12 +1105,13 @@ namespace WPEFramework
             Notify(_T("onAvailableSSIDs"), parameters);
         }
 
-        void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
             JsonObject parameters;
             Core::JSON::EnumType<Exchange::INetworkManager::WiFiState> iState{state};
             parameters["state"] = JsonValue(state);
             parameters["status"] = iState.Data();
+            parameters["ssid"] = ssid;
 
             LOG_INPARAM();
             Notify(_T("onWiFiStateChange"), parameters);

@@ -1556,6 +1556,11 @@
                         "summary": "WiFi status",
                         "type": "string",
                         "example": "WIFI_STATE_CONNECTED"
+                    },
+                    "ssid": {
+                        "summary": "The SSID associated with the Wi-Fi profile causing the state transition. For a disconnected state, this is the SSID that was previously connected, when available; otherwise an empty string",
+                        "type": "string",
+                        "example": "myHomeSSID"
                     }
                 },
                 "required": [

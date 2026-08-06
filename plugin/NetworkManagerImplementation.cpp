@@ -818,7 +818,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onWiFiStateChange Event");
                     const auto& eventData = std::get<WiFiStateChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onWiFiStateChange(eventData.state);
+                        callback->onWiFiStateChange(eventData.state, eventData.ssid);
                         callback->Release();
                     }
                 }
@@ -1354,10 +1354,15 @@ namespace WPEFramework
         void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
         {
             LOG_ENTRY_FUNCTION();
+            static std::string lastKnownSSID;
+
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
+                Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
+                if ((GetConnectedSSID(ssidInfo) == Core::ERROR_NONE) && !ssidInfo.ssid.empty())
+                    lastKnownSSID = ssidInfo.ssid;
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
@@ -1366,14 +1371,14 @@ namespace WPEFramework
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
             }
 
-            NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+            NMLOG_INFO("Posting onWiFiStateChange (%d) ssid: %s", state, lastKnownSSID.c_str());
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state};
+                WiFiStateChangeData eventData{state, lastKnownSSID};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }

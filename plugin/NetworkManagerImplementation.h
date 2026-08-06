@@ -251,6 +251,7 @@ namespace WPEFramework
 
             struct WiFiStateChangeData {
                 Exchange::INetworkManager::WiFiState state;
+                string ssid;
             };
 
             struct WiFiSignalQualityChangeData {
