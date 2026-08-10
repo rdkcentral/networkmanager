@@ -364,21 +364,7 @@ namespace WPEFramework
                 return true;
             }
             else
-            {
-                /* Not yet associated (pairing/connecting)*/
-                NMActiveConnection *activeConn = nm_device_get_active_connection(wifiDevice);
-                if(activeConn != NULL)
-                {
-                    const char* connId = nm_active_connection_get_id(activeConn);
-                    if(connId != NULL)
-                    {
-                        ssidinfo.ssid = connId;
-                        NMLOG_DEBUG("attempting ssid: %s", ssidinfo.ssid.c_str());
-                    }
-                }
-                else
-                    NMLOG_WARNING("no active access point/connection; wifi device state: (%d)", deviceState);
-            }
+                NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
 
             deleteClientConnection();
             return true;

@@ -46,7 +46,7 @@ namespace WPEFramework
         static void onInterfaceStateChangeCb(uint8_t newState, std::string iface); // ReportInterfaceStateChange
         static void onActiveInterfaceChangeCb(std::string newInterface); // ReportActiveInterfaceChange
         static void onAvailableSSIDsCb(NMDeviceWifi *wifiDevice, GParamSpec *pspec, gpointer userData); // ReportAvailableSSIDs
-        static void onWIFIStateChanged(uint8_t state); // ReportWiFiStateChange
+        static void onWIFIStateChanged(uint8_t state, std::string ssid = ""); // ReportWiFiStateChange
         static void deviceStateChangeCb(NMDevice *device, GParamSpec *pspec, NMEvents *nmEvents);
 
     public:

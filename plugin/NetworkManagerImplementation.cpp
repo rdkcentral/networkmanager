@@ -1351,7 +1351,7 @@ namespace WPEFramework
             m_stopThread.store(false);
         }
 
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
             LOG_ENTRY_FUNCTION();
 
@@ -1362,9 +1362,8 @@ namespace WPEFramework
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
-                Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
-                if ((GetConnectedSSID(ssidInfo) == Core::ERROR_NONE) && !ssidInfo.ssid.empty())
-                    lastConnectedSSID = ssidInfo.ssid;
+                if(!ssid.empty())
+                    lastConnectedSSID = ssid;
                 reportSSID = lastConnectedSSID;
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
@@ -1374,22 +1373,11 @@ namespace WPEFramework
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
 
                 if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
-                {
-                    /* Disconnected state report the previously connected SSID or empty */
-                    reportSSID = lastConnectedSSID;
-                }
+                    reportSSID = lastConnectedSSID;   /* previously connected SSID, or empty */
                 else if(INetworkManager::WiFiState::WIFI_STATE_SSID_NOT_FOUND == state)
-                {
-                    /* Wrong/unknown SSID report empty. */
-                    reportSSID.clear();
-                }
+                    reportSSID.clear();               /* wrong/unknown SSID: empty */
                 else
-                {
-                    /* Pairing/Connecting report the SSID currently being attempted */
-                    Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
-                    if (GetConnectedSSID(ssidInfo) == Core::ERROR_NONE)
-                        reportSSID = ssidInfo.ssid;
-                }
+                    reportSSID = ssid;                /* SSID currently being attempted */
             }
 
             NMLOG_INFO("Posting onWiFiStateChange (%d) ssid: %s", state, reportSSID.c_str());
