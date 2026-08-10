@@ -1375,16 +1375,20 @@ namespace WPEFramework
 
                 if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
                 {
-                    /* Disconnected: report the previously connected SSID (or empty). */
+                    /* Disconnected state report the previously connected SSID or empty */
                     reportSSID = lastConnectedSSID;
+                }
+                else if(INetworkManager::WiFiState::WIFI_STATE_SSID_NOT_FOUND == state)
+                {
+                    /* Wrong/unknown SSID report empty. */
+                    reportSSID.clear();
                 }
                 else
                 {
+                    /* Pairing/Connecting report the SSID currently being attempted */
                     Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
-                    if ((GetConnectedSSID(ssidInfo) == Core::ERROR_NONE) && !ssidInfo.ssid.empty())
+                    if (GetConnectedSSID(ssidInfo) == Core::ERROR_NONE)
                         reportSSID = ssidInfo.ssid;
-                    else
-                        reportSSID = lastConnectedSSID;
                 }
             }
 
