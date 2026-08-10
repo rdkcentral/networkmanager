@@ -30,6 +30,7 @@ using namespace WPEFramework::Plugin;
 // ---------------------------------------------------------------------------
 
 NetworkManagerConnectivityClient::NetworkManagerConnectivityClient()
+    : mNotification(*this)
 {
     NMLOG_INFO("connecting to ConnectivityCheckMgr");
     if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.ConnectivityCheckMgr"); r == Core::ERROR_NONE) {
@@ -44,6 +45,7 @@ NetworkManagerConnectivityClient::~NetworkManagerConnectivityClient()
     NMLOG_INFO("shutting down");
     {
         std::lock_guard<std::mutex> lock(mLock);
+        unregisterEvents();
         if (mConnectivity != nullptr) {
             mConnectivity->Release();
             mConnectivity = nullptr;
@@ -66,13 +68,78 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
     if (upAndRunning) {
         if (mConnectivity == nullptr) {
             mConnectivity = Interface();
+            registerEvents();
         }
     } else {
+        unregisterEvents();
         if (mConnectivity != nullptr) {
             mConnectivity->Release();
             mConnectivity = nullptr;
         }
     }
+}
+
+void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
+{
+    std::lock_guard<std::mutex> lock(mLock);
+    mInternetStatusChangeHandler = std::move(handler);
+}
+
+void NetworkManagerConnectivityClient::registerEvents()
+{
+    if (mConnectivity == nullptr) {
+        return;
+    }
+    if (mNotificationRegistered) {
+        return;
+    }
+
+    if (auto r = mConnectivity->Register(&mNotification); r != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u)", r);
+        return;
+    }
+
+    mNotificationRegistered = true;
+    NMLOG_INFO("registered for ConnectivityCheckMgr internet-status notifications");
+}
+
+void NetworkManagerConnectivityClient::unregisterEvents()
+{
+    if (mConnectivity == nullptr) {
+        mNotificationRegistered = false;
+        return;
+    }
+    if (!mNotificationRegistered) {
+        return;
+    }
+
+    if (auto r = mConnectivity->Unregister(&mNotification); r != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr unregister(notification) failed (%u)", r);
+    }
+    mNotificationRegistered = false;
+}
+
+void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status)
+{
+    InternetStatusChangeHandler handler;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        handler = mInternetStatusChangeHandler;
+    }
+
+    if (!handler) {
+        return;
+    }
+
+    handler(mapStatus(status));
+}
+
+void NetworkManagerConnectivityClient::Notification::OnInternetStatusChange(
+    const Exchange::IConnectivityCheck::InternetStatus status,
+    const string& reason)
+{
+    (void)reason;
+    mParent.notifyInternetStatusChanged(status);
 }
 
 NetworkManagerConnectivityClient::NmInternetStatus

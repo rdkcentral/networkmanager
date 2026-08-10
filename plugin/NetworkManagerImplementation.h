@@ -378,6 +378,7 @@ namespace WPEFramework
                 void ReportRouteChange(const string& interface, const string& ipversion);
                 void ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings);
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
+                void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState);
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
@@ -474,6 +475,9 @@ namespace WPEFramework
 #ifdef USE_CONNECTIVITYCHECKMGR
                 mutable std::unique_ptr<NetworkManagerConnectivityClient> connectivityClient;
 #endif
+                std::mutex m_bridgedStatusMutex;
+                Exchange::INetworkManager::InternetStatus m_lastBridgedInternetStatus {Exchange::INetworkManager::INTERNET_UNKNOWN};
+                bool m_hasBridgedInternetStatus {false};
 
                 string getDefaultInterface() const
                 {

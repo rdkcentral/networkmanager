@@ -22,6 +22,7 @@
 #include "Module.h"
 #include "INetworkManager.h"
 #include <interfaces/IConnectivityCheck.h>
+#include <functional>
 #include <mutex>
 #include <string>
 
@@ -53,6 +54,7 @@ namespace Plugin {
 class NetworkManagerConnectivityClient : protected RPC::SmartInterfaceType<Exchange::IConnectivityCheck> {
 public:
     using NmInternetStatus = Exchange::INetworkManager::InternetStatus;
+    using InternetStatusChangeHandler = std::function<void(NmInternetStatus)>;
 
     NetworkManagerConnectivityClient();
     ~NetworkManagerConnectivityClient() override;
@@ -69,15 +71,41 @@ public:
     /** Delegated captive-portal URI (empty when unavailable / not captive). */
     std::string getCaptivePortalURI();
 
+    /** Sets/clears callback invoked when ConnectivityCheckMgr publishes internet-status changes. */
+    void SetInternetStatusChangeHandler(InternetStatusChangeHandler handler);
+
 private:
+    class Notification : public Exchange::IConnectivityCheck::INotification {
+    public:
+        explicit Notification(NetworkManagerConnectivityClient& parent)
+            : mParent(parent) {}
+
+        void OnInternetStatusChange(const Exchange::IConnectivityCheck::InternetStatus status,
+                                    const string& reason) override;
+
+        BEGIN_INTERFACE_MAP(Notification)
+        INTERFACE_ENTRY(Exchange::IConnectivityCheck::INotification)
+        END_INTERFACE_MAP
+
+    private:
+        NetworkManagerConnectivityClient& mParent;
+    };
+
     // SmartInterfaceType lifecycle callback.
     void Operational(bool upAndRunning) override;
+
+    void registerEvents();
+    void unregisterEvents();
+    void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status);
 
     // 1:1 mapping ConnectivityCheckMgr InternetStatus -> NetworkManager InternetStatus.
     static NmInternetStatus mapStatus(Exchange::IConnectivityCheck::InternetStatus status);
 
     mutable std::mutex               mLock;
     Exchange::IConnectivityCheck*    mConnectivity{nullptr};
+    Core::Sink<Notification>         mNotification;
+    InternetStatusChangeHandler      mInternetStatusChangeHandler;
+    bool                             mNotificationRegistered{false};
 };
 
 } // namespace Plugin

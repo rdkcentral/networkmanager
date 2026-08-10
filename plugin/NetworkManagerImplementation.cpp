@@ -93,6 +93,11 @@ namespace WPEFramework
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             m_powerClient.reset();
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if (connectivityClient) {
+                connectivityClient->SetInternetStatusChangeHandler(nullptr);
+            }
+#endif
             if(!m_useConnectivityCheckMgr && connectivityMonitor)
             {
                 connectivityMonitor->stopConnectivityMonitor();
@@ -196,11 +201,31 @@ namespace WPEFramework
                     connectivityMonitor.reset();
                 if(!connectivityClient)
                     connectivityClient.reset(new NetworkManagerConnectivityClient());
+                connectivityClient->SetInternetStatusChangeHandler(
+                    [this](const Exchange::INetworkManager::InternetStatus status) {
+                        OnDelegatedInternetStatusChange(status);
+                    });
+                {
+                    std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
+                    m_hasBridgedInternetStatus = false;
+                    m_lastBridgedInternetStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
+                }
                 NMLOG_INFO("Connectivity delegated to ConnectivityCheckMgr (runtime selection)");
             }
             else
 #endif
             {
+#ifdef USE_CONNECTIVITYCHECKMGR
+                if (connectivityClient) {
+                    connectivityClient->SetInternetStatusChangeHandler(nullptr);
+                    connectivityClient.reset();
+                }
+                {
+                    std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
+                    m_hasBridgedInternetStatus = false;
+                    m_lastBridgedInternetStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
+                }
+#endif
                 if(!connectivityMonitor)
                     connectivityMonitor.reset(new ConnectivityMonitor());
                 NMLOG_INFO("Using built-in ConnectivityMonitor (runtime selection)");
@@ -1119,6 +1144,39 @@ namespace WPEFramework
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
             NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
+#endif
+        }
+
+        void NetworkManagerImplementation::OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState)
+        {
+            LOG_ENTRY_FUNCTION();
+
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if (!m_useConnectivityCheckMgr) {
+                NMLOG_DEBUG("Ignoring delegated internet-status event because delegation is disabled");
+                return;
+            }
+
+            Exchange::INetworkManager::InternetStatus prevState = Exchange::INetworkManager::INTERNET_UNKNOWN;
+            {
+                std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
+                if (m_hasBridgedInternetStatus && m_lastBridgedInternetStatus == currState) {
+                    NMLOG_DEBUG("Skipping duplicate delegated internet-status event state=%u", static_cast<unsigned>(currState));
+                    return;
+                }
+                if (m_hasBridgedInternetStatus) {
+                    prevState = m_lastBridgedInternetStatus;
+                }
+                m_lastBridgedInternetStatus = currState;
+                m_hasBridgedInternetStatus = true;
+            }
+
+            const string activeInterface = getDefaultInterface();
+            NMLOG_INFO("Bridging ConnectivityCheckMgr internet-status event prev=%u curr=%u iface=%s",
+                       static_cast<unsigned>(prevState), static_cast<unsigned>(currState), activeInterface.c_str());
+            ReportInternetStatusChange(prevState, currState, activeInterface);
+#else
+            (void)currState;
 #endif
         }
 
