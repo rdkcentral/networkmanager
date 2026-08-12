@@ -95,7 +95,10 @@ namespace WPEFramework
             m_powerClient.reset();
 #ifdef USE_CONNECTIVITYCHECKMGR
             if (connectivityClient) {
+                // Clear the handler first so no in-flight callback can reach this
+                // (partially-destroyed) object, then tear down the COM-RPC client.
                 connectivityClient->SetInternetStatusChangeHandler(nullptr);
+                connectivityClient.reset();
             }
 #endif
             if(!m_useConnectivityCheckMgr && connectivityMonitor)

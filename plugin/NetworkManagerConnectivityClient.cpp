@@ -32,20 +32,17 @@ using namespace WPEFramework::Plugin;
 NetworkManagerConnectivityClient::NetworkManagerConnectivityClient()
     : mNotification(*this)
 {
-    NMLOG_INFO("connecting to ConnectivityCheckMgr");
-    if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.ConnectivityCheckMgr"); r == Core::ERROR_NONE) {
-        // Connected; Operational() will be called by the framework when the proxy is ready.
-    } else {
-        NMLOG_ERROR("failed to open link to ConnectivityCheckMgr (error %u)", r);
-    }
+    NMLOG_INFO("ConnectivityCheckMgr client created; deferring open until first use");
 }
 
 NetworkManagerConnectivityClient::~NetworkManagerConnectivityClient()
 {
     NMLOG_INFO("shutting down");
+    // Unregister without holding mLock to avoid deadlock when a notification
+    // arrives concurrently and tries to acquire mLock inside notifyInternetStatusChanged.
+    unregisterEvents();
     {
         std::lock_guard<std::mutex> lock(mLock);
-        unregisterEvents();
         if (mConnectivity != nullptr) {
             mConnectivity->Release();
             mConnectivity = nullptr;
@@ -64,14 +61,21 @@ bool NetworkManagerConnectivityClient::IsValid() const
 void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
 {
     NMLOG_DEBUG("Operational(%s)", upAndRunning ? "true" : "false");
-    std::lock_guard<std::mutex> lock(mLock);
     if (upAndRunning) {
-        if (mConnectivity == nullptr) {
+        {
+            std::lock_guard<std::mutex> lock(mLock);
+            if (mConnectivity != nullptr) {
+                return; // already connected
+            }
             mConnectivity = Interface();
-            registerEvents();
         }
+        // Register without holding mLock: Register() can dispatch a synchronous
+        // notification on some Thunder builds, which would deadlock if mLock is held.
+        registerEvents();
     } else {
+        // Unregister without holding mLock for the same reason.
         unregisterEvents();
+        std::lock_guard<std::mutex> lock(mLock);
         if (mConnectivity != nullptr) {
             mConnectivity->Release();
             mConnectivity = nullptr;
@@ -81,8 +85,36 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
 
 void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
 {
-    std::lock_guard<std::mutex> lock(mLock);
-    mInternetStatusChangeHandler = std::move(handler);
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        mInternetStatusChangeHandler = std::move(handler);
+    }
+    ensureOpen();
+}
+
+void NetworkManagerConnectivityClient::ensureOpen()
+{
+    bool shouldOpen = false;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (!mOpenRequested) {
+            mOpenRequested = true;
+            shouldOpen = true;
+        }
+    }
+
+    if (!shouldOpen) {
+        return;
+    }
+
+    NMLOG_INFO("connecting to ConnectivityCheckMgr");
+    if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.ConnectivityCheckMgr"); r == Core::ERROR_NONE) {
+        // Connected; Operational() will be called by the framework when the proxy is ready.
+    } else {
+        NMLOG_WARNING("failed to open link to ConnectivityCheckMgr (error %u); will retry", r);
+        std::lock_guard<std::mutex> lock(mLock);
+        mOpenRequested = false;
+    }
 }
 
 void NetworkManagerConnectivityClient::registerEvents()
@@ -159,6 +191,7 @@ NetworkManagerConnectivityClient::NmInternetStatus
 NetworkManagerConnectivityClient::getInternetState()
 {
     LOG_ENTRY_FUNCTION();
+    ensureOpen();
     std::lock_guard<std::mutex> lock(mLock);
     if (mConnectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
@@ -176,6 +209,7 @@ NetworkManagerConnectivityClient::getInternetState()
 std::string NetworkManagerConnectivityClient::getCaptivePortalURI()
 {
     LOG_ENTRY_FUNCTION();
+    ensureOpen();
     std::lock_guard<std::mutex> lock(mLock);
     std::string uri;
     if (mConnectivity == nullptr) {

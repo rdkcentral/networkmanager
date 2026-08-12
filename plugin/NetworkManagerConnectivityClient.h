@@ -97,6 +97,7 @@ private:
     void registerEvents();
     void unregisterEvents();
     void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status);
+    void ensureOpen();
 
     // 1:1 mapping ConnectivityCheckMgr InternetStatus -> NetworkManager InternetStatus.
     static NmInternetStatus mapStatus(Exchange::IConnectivityCheck::InternetStatus status);
@@ -106,6 +107,7 @@ private:
     Core::Sink<Notification>         mNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
     bool                             mNotificationRegistered{false};
+    bool                             mOpenRequested{false};
 };
 
 } // namespace Plugin
