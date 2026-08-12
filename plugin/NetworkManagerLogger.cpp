@@ -84,6 +84,15 @@ namespace NetworkManagerLogger {
 
     void logPrint(LogLevel level, const char* file, const char* func, int line, const char* format, ...)
     {
+        // Gate on level before formatting so disabled logs incur no vsnprintf cost.
+#ifdef USE_RDK_LOGGER
+        if (!rdk_logger_is_logLevel_enabled(RDKLOGGER_MODULE_NAME, mapTordkLogLevel(level)))
+            return;
+#else
+        if (gDefaultLogLevel < level)
+            return;
+#endif
+
         size_t n = 0;
         const short kFormatMessageSize = 1024;
         char formattedLog[kFormatMessageSize] = {0};
@@ -108,9 +117,6 @@ namespace NetworkManagerLogger {
         struct timeval tv;
         struct tm* lt;
         const char* fileName = trimPath(file);
-
-        if (gDefaultLogLevel < level)
-            return;
 
         gettimeofday(&tv, NULL);
         lt = localtime(&tv.tv_sec);
