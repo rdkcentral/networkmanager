@@ -1364,6 +1364,8 @@ namespace WPEFramework
                 m_wlanConnected.store(true);
                 if(!ssid.empty())
                     lastConnectedSSID = ssid;
+		else
+                    lastConnectedSSID.clear();
                 reportSSID = lastConnectedSSID;
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
