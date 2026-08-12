@@ -1186,6 +1186,7 @@ m_cancellable(nullptr){
                 /* ssid not found in scan list so add to known ssid it will do a scanning and connect */
                 if(ssidInfo.persist)
                 {
+                    deleteClientConnection();
                     if(addToKnownSSIDs(ssidInfo))
                     {
                         NMLOG_DEBUG("Adding to known ssid '%s' ", ssidInfo.ssid.c_str());
