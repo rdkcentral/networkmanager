@@ -286,7 +286,7 @@ namespace WPEFramework
             }
             std::string wifiState;
             /* SSID NM is activating (pairing/connecting); empty once the activation is torn down */
-            std::string attemptingSSID;
+            std::string attemptingSSID = "";
             if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
             {
                 const char* connId = nm_active_connection_get_id(wifiActiveConn);

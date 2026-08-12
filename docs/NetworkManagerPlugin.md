@@ -1966,7 +1966,7 @@ Triggered when WIFI connection state get changed. The possible states are define
 | params | object |  |
 | params.state | integer | WiFi State |
 | params.status | string | WiFi status |
-| params?.ssid | string | <sup>*(optional)*</sup> The SSID associated with the Wi-Fi profile causing the state transition. For a disconnected state, this is the SSID that was previously connected, when available; otherwise an empty string |
+| params.ssid | string | <sup>*(optional)*</sup> The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected |
 
 ### Example
 
