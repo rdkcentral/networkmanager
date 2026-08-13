@@ -32,12 +32,22 @@ using namespace WPEFramework::Plugin;
 NetworkManagerConnectivityClient::NetworkManagerConnectivityClient()
     : mNotification(*this)
 {
-    NMLOG_INFO("ConnectivityCheckMgr client created; deferring open until first use");
+    NMLOG_INFO("ConnectivityCheckMgr client created; opening link asynchronously");
+    mOpenThread = std::thread(&NetworkManagerConnectivityClient::openThreadLoop, this);
 }
 
 NetworkManagerConnectivityClient::~NetworkManagerConnectivityClient()
 {
     NMLOG_INFO("shutting down");
+    {
+        std::lock_guard<std::mutex> lock(mOpenMutex);
+        mStopOpenThread = true;
+    }
+    mOpenCv.notify_one();
+    if (mOpenThread.joinable()) {
+        mOpenThread.join();
+    }
+
     // Unregister without holding mLock to avoid deadlock when a notification
     // arrives concurrently and tries to acquire mLock inside notifyInternetStatusChanged.
     unregisterEvents();
@@ -49,6 +59,26 @@ NetworkManagerConnectivityClient::~NetworkManagerConnectivityClient()
         }
     }
     Close(Core::infinite);
+}
+
+void NetworkManagerConnectivityClient::openThreadLoop()
+{
+    constexpr auto retryInterval = std::chrono::seconds(5);
+
+    while (!mStopOpenThread.load()) {
+        NMLOG_INFO("connecting to ConnectivityCheckMgr");
+        const uint32_t r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.ConnectivityCheckMgr");
+        if (r == Core::ERROR_NONE) {
+            // Connected; Operational() is invoked by the framework when the proxy is ready.
+            NMLOG_INFO("link to ConnectivityCheckMgr opened");
+            return;
+        }
+
+        NMLOG_WARNING("failed to open link to ConnectivityCheckMgr (error %u); retrying", r);
+
+        std::unique_lock<std::mutex> lock(mOpenMutex);
+        mOpenCv.wait_for(lock, retryInterval, [this] { return mStopOpenThread.load(); });
+    }
 }
 
 bool NetworkManagerConnectivityClient::IsValid() const
@@ -85,36 +115,8 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
 
 void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
 {
-    {
-        std::lock_guard<std::mutex> lock(mLock);
-        mInternetStatusChangeHandler = std::move(handler);
-    }
-    ensureOpen();
-}
-
-void NetworkManagerConnectivityClient::ensureOpen()
-{
-    bool shouldOpen = false;
-    {
-        std::lock_guard<std::mutex> lock(mLock);
-        if (!mOpenRequested) {
-            mOpenRequested = true;
-            shouldOpen = true;
-        }
-    }
-
-    if (!shouldOpen) {
-        return;
-    }
-
-    NMLOG_INFO("connecting to ConnectivityCheckMgr");
-    if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.ConnectivityCheckMgr"); r == Core::ERROR_NONE) {
-        // Connected; Operational() will be called by the framework when the proxy is ready.
-    } else {
-        NMLOG_WARNING("failed to open link to ConnectivityCheckMgr (error %u); will retry", r);
-        std::lock_guard<std::mutex> lock(mLock);
-        mOpenRequested = false;
-    }
+    std::lock_guard<std::mutex> lock(mLock);
+    mInternetStatusChangeHandler = std::move(handler);
 }
 
 void NetworkManagerConnectivityClient::registerEvents()
@@ -191,7 +193,6 @@ NetworkManagerConnectivityClient::NmInternetStatus
 NetworkManagerConnectivityClient::getInternetState()
 {
     LOG_ENTRY_FUNCTION();
-    ensureOpen();
     std::lock_guard<std::mutex> lock(mLock);
     if (mConnectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
@@ -209,7 +210,6 @@ NetworkManagerConnectivityClient::getInternetState()
 std::string NetworkManagerConnectivityClient::getCaptivePortalURI()
 {
     LOG_ENTRY_FUNCTION();
-    ensureOpen();
     std::lock_guard<std::mutex> lock(mLock);
     std::string uri;
     if (mConnectivity == nullptr) {

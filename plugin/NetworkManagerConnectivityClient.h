@@ -22,9 +22,12 @@
 #include "Module.h"
 #include "INetworkManager.h"
 #include <interfaces/IConnectivityCheck.h>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <string>
+#include <thread>
 
 namespace WPEFramework {
 namespace Plugin {
@@ -97,7 +100,7 @@ private:
     void registerEvents();
     void unregisterEvents();
     void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status);
-    void ensureOpen();
+    void openThreadLoop();
 
     // 1:1 mapping ConnectivityCheckMgr InternetStatus -> NetworkManager InternetStatus.
     static NmInternetStatus mapStatus(Exchange::IConnectivityCheck::InternetStatus status);
@@ -107,7 +110,13 @@ private:
     Core::Sink<Notification>         mNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
     bool                             mNotificationRegistered{false};
-    bool                             mOpenRequested{false};
+
+    // Open() runs on its own thread so plugin Configure() never blocks on, or
+    // re-enters, a ConnectivityCheckMgr that is not activated yet.
+    std::thread                      mOpenThread;
+    std::mutex                       mOpenMutex;
+    std::condition_variable          mOpenCv;
+    std::atomic<bool>                mStopOpenThread{false};
 };
 
 } // namespace Plugin
