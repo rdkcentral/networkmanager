@@ -1355,7 +1355,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
 
-            static std::string lastConnectedSSID;
+            static std::string lastAssociatedSSID;
             std::string reportSSID;
 
             /* start signal strength monitor when wifi connected */
@@ -1363,10 +1363,10 @@ namespace WPEFramework
             {
                 m_wlanConnected.store(true);
                 if(!ssid.empty())
-                    lastConnectedSSID = ssid;
+                    lastAssociatedSSID = ssid;
 		else
-                    lastConnectedSSID.clear();
-                reportSSID = lastConnectedSSID;
+                    lastAssociatedSSID.clear();
+                reportSSID = lastAssociatedSSID;
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
@@ -1375,7 +1375,7 @@ namespace WPEFramework
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
 
                 if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
-                    reportSSID = lastConnectedSSID;   /* previously connected SSID, or empty */
+                    reportSSID = lastAssociatedSSID;   /* previously connected SSID, or empty */
                 else if(INetworkManager::WiFiState::WIFI_STATE_SSID_NOT_FOUND == state)
                     reportSSID.clear();               /* wrong/unknown SSID: empty */
                 else
