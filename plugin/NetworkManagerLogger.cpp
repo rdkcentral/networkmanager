@@ -105,17 +105,12 @@ namespace NetworkManagerLogger {
         RDK_LOG(mapTordkLogLevel(level), RDKLOGGER_MODULE_NAME, "[%s +%d] %s\n", trimPath(file), line, formattedLog);
 #else
         const char* levelMap[] = {"Fatal", "Error", "Warn", "Info", "Debug"};
-        struct timeval tv;
-        struct tm* lt;
         const char* fileName = trimPath(file);
 
         if (gDefaultLogLevel < level)
             return;
 
-        gettimeofday(&tv, NULL);
-        lt = localtime(&tv.tv_sec);
-
-        printf("%.2d:%.2d:%.2d.%.6lld [%-5s] [PID=%d] [TID=%d] [%s +%d] %s : %s\n", lt->tm_hour, lt->tm_min, lt->tm_sec, (long long int)tv.tv_usec, levelMap[level], getpid(), gettid(), fileName, line, func, formattedLog);
+        printf("[%-5s] [PID=%d] [TID=%d] [%s +%d] %s : %s\n", levelMap[level], getpid(), gettid(), fileName, line, func, formattedLog);
         fflush(stdout);
 #endif
     }
