@@ -44,7 +44,7 @@ if(ENABLE_ROUTER_DISCOVERY_TOOL)
     )
 
     set_target_properties(${NM_ROUTER_DISCOVERY_L1_TEST} PROPERTIES
-        CXX_STANDARD 11
+        CXX_STANDARD 17
         CXX_STANDARD_REQUIRED YES
     )
 
@@ -78,7 +78,7 @@ target_link_libraries(${NM_CLASS_L1_TEST} PRIVATE
 )
 
 set_target_properties(${NM_CLASS_L1_TEST} PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
 )
 

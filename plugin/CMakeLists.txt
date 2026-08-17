@@ -49,9 +49,10 @@ else()
     find_package(IARMBus REQUIRED)
 endif ()
 
-set(PLUGIN_NETWORKMANAGER_LOGLEVEL "5" CACHE STRING "To configure default loglevel NetworkManager plugin")
+set(PLUGIN_NETWORKMANAGER_LOGLEVEL "3" CACHE STRING "To configure default loglevel NetworkManager plugin")
 set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
 
+set(PLUGIN_NETWORKMANAGER_AUTOSTART "false" CACHE STRING "Set the default AutoStart of NetworkManager Plugin")
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
 add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
@@ -71,7 +72,7 @@ target_link_libraries(${MODULE_NAME}  PRIVATE
                                         )
 
 set_target_properties(${MODULE_NAME} PROPERTIES
-                                     CXX_STANDARD 11
+                                     CXX_STANDARD 17
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
@@ -128,7 +129,7 @@ else()
 endif()
 
 set_target_properties(${MODULE_IMPL_NAME} PROPERTIES
-                                          CXX_STANDARD 11
+                                          CXX_STANDARD 17
                                           CXX_STANDARD_REQUIRED YES
                                           FRAMEWORK FALSE)
 
@@ -158,6 +159,8 @@ if(ENABLE_GNOME_NETWORKMANAGER)
     install(PROGRAMS     gnome/scripts/nm_interface_handler.sh
             DESTINATION  ${CMAKE_INSTALL_PREFIX}/../lib/rdk)
     install(FILES gnome/systemd/gnome-networkmanager-migration.conf
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
+    install(FILES gnome/systemd/nm-powermanager.conf
             DESTINATION ${CMAKE_INSTALL_PREFIX}/../lib/systemd/system/wpeframework-networkmanager.service.d)
 endif(ENABLE_GNOME_NETWORKMANAGER)
 
