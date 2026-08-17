@@ -231,6 +231,17 @@ namespace WPEFramework
 
             /* @brief Get Internet Connectivty Status */ 
             virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */) = 0;
+
+	    // Source-compatible overload for consumers that do not need the
+            // NO_INTERNET reason. The RPC contract remains the four-argument
+            // virtual method above; this only forwards locally and discards
+            // the optional detail.
+            uint32_t IsConnectedToInternet(string &ipversion, string &interface, InternetStatus& status)
+            {
+                string reason;
+                return IsConnectedToInternet(ipversion, interface, status, reason);
+            }
+
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             virtual uint32_t GetCaptivePortalURI(string &uri/* @out */) const = 0;
 
@@ -282,13 +293,13 @@ namespace WPEFramework
                 virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
                 virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
                 virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
-                virtual void onRouteChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const string gateway /* @in */, const string primarydns /* @in */){};
                 virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
 
                 // WiFi Notifications that other processes can subscribe to
                 virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};
                 virtual void onWiFiStateChange(const WiFiState state /* @in */){};
                 virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */){};
+                virtual void onRouteChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const string gateway /* @in */, const string primarydns /* @in */){};
             };
 
             // Allow other processes to register/unregister from our notifications
