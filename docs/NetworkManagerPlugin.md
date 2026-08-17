@@ -740,6 +740,7 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
+| result.reason | string | <sup>*(optional)*</sup> Reason for `NO_INTERNET`, when available |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example

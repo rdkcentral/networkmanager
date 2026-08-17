@@ -402,9 +402,10 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */
-        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
+        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */, string& reason /* @out */)
         {
             LOG_ENTRY_FUNCTION();
+            reason.clear();
             Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             bool ipVersionNotSpecified = false;
 
@@ -433,7 +434,7 @@ namespace WPEFramework
             if(m_useConnectivityCheckMgr)
             {
                 (void)ipVersionNotSpecified;
-                result = connectivityClient ? connectivityClient->getInternetState()
+                result = connectivityClient ? connectivityClient->getInternetState(reason)
                                             : Exchange::INetworkManager::INTERNET_UNKNOWN;
             }
             else

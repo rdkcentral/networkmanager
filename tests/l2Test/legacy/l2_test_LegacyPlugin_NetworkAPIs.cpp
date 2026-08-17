@@ -472,10 +472,10 @@ TEST_F(NetworkTest, isConnectedToInternet) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result) -> uint32_t
+                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result, string&) -> uint32_t
                     {
                     result = WPEFramework::Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
                     return Core::ERROR_NONE;
@@ -485,6 +485,29 @@ TEST_F(NetworkTest, isConnectedToInternet) {
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isConnectedToInternet"), _T(parameters), response));
     EXPECT_EQ(response, "{\"ipversion\":\"IPv4\",\"connectedToInternet\":true,\"success\":true}");
+
+    delete mockNetworkManager;
+}
+
+TEST_F(NetworkTest, isConnectedToInternetIncludesNoInternetReason) {
+    MockINetworkManager* mockNetworkManager = new MockINetworkManager();
+    string response;
+
+    EXPECT_CALL(*m_service, QueryInterfaceByCallsign(::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Return(static_cast<void*>(mockNetworkManager)));
+    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .Times(1)
+        .WillOnce(::testing::Invoke(
+            [&](string&, string&, Exchange::INetworkManager::InternetStatus& status, string& reason) {
+                status = Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE;
+                reason = "NOT_CONFIGURED";
+                return Core::ERROR_NONE;
+            }));
+    EXPECT_CALL(*mockNetworkManager, Release()).Times(1);
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("isConnectedToInternet"), _T("{}"), response));
+    EXPECT_EQ(response, "{\"ipversion\":\"\",\"connectedToInternet\":false,\"reason\":\"NOT_CONFIGURED\",\"success\":true}");
 
     delete mockNetworkManager;
 }
@@ -505,10 +528,10 @@ TEST_F(NetworkTest, getInternetConnectionState) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
-    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-            [&](const string&, const string&, Exchange::INetworkManager::InternetStatus& status) {
+            [&](const string&, const string&, Exchange::INetworkManager::InternetStatus& status, string&) {
                 status = Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL;
                 return Core::ERROR_NONE;
             }));

@@ -192,7 +192,15 @@ NetworkManagerConnectivityClient::mapStatus(Exchange::IConnectivityCheck::Intern
 NetworkManagerConnectivityClient::NmInternetStatus
 NetworkManagerConnectivityClient::getInternetState()
 {
+    std::string reason;
+    return getInternetState(reason);
+}
+
+NetworkManagerConnectivityClient::NmInternetStatus
+NetworkManagerConnectivityClient::getInternetState(std::string& reason)
+{
     LOG_ENTRY_FUNCTION();
+    reason.clear();
     std::lock_guard<std::mutex> lock(mLock);
     if (mConnectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
@@ -203,6 +211,9 @@ NetworkManagerConnectivityClient::getInternetState()
     if (auto r = mConnectivity->GetInternetStatus(info); r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr GetInternetStatus failed (%u)", r);
         return Exchange::INetworkManager::INTERNET_UNKNOWN;
+    }
+    if (info.status == Exchange::IConnectivityCheck::NO_INTERNET) {
+        reason = info.reason;
     }
     return mapStatus(info.status);
 }

@@ -71,6 +71,9 @@ public:
     /** Delegated internet status, mapped to NetworkManager's InternetStatus. */
     NmInternetStatus getInternetState();
 
+    /** Delegated internet status and its current NO_INTERNET reason. */
+    NmInternetStatus getInternetState(std::string& reason);
+
     /** Delegated captive-portal URI (empty when unavailable / not captive). */
     std::string getCaptivePortalURI();
 

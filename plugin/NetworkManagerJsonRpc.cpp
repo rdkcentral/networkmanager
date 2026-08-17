@@ -451,6 +451,7 @@ namespace WPEFramework
             Exchange::INetworkManager::InternetStatus result;
             string ipversion{};
             string interface{};
+            string reason{};
 
             if (parameters.HasLabel("ipversion"))
                 ipversion = parameters["ipversion"].String();
@@ -458,7 +459,7 @@ namespace WPEFramework
                 interface = parameters["interface"].String();
 
             if (_networkManager)
-                rc = _networkManager->IsConnectedToInternet(ipversion, interface, result);
+                rc = _networkManager->IsConnectedToInternet(ipversion, interface, result, reason);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
@@ -470,6 +471,8 @@ namespace WPEFramework
                 response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result);
                 response["state"] = JsonValue(status);
                 response["status"] = status.Data();
+                if (result == Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE && !reason.empty())
+                    response["reason"] = reason;
             }
             returnJson(rc);
         }
