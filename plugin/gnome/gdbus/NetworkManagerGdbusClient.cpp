@@ -979,8 +979,9 @@ namespace WPEFramework
                     // Wait for 1 sec to change the device state
                     sleep(1);
                     if(interface == GnomeUtils::getWifiIfname() && _instance != nullptr) {
-                        NMLOG_INFO("Activating connection '%s' ...", _instance->m_lastConnectedSSID.c_str());
-                        activateKnownConnection(GnomeUtils::getWifiIfname(), _instance->m_lastConnectedSSID);
+                        const std::string lastConnectedSSID = _instance->getLastConnectedSSID();
+                        NMLOG_INFO("Activating connection '%s' ...", lastConnectedSSID.c_str());
+                        activateKnownConnection(GnomeUtils::getWifiIfname(), lastConnectedSSID);
                     }
                     else if(interface == GnomeUtils::getEthIfname()) {
                         NMLOG_INFO("Activating connection 'Wired connection 1' ...");
