@@ -777,9 +777,16 @@ namespace WPEFramework
             if (!m_cmRunning)
                 break;
 
-            // Wait for next interval
+            // Wait for the next signal. Once the state is fully connected, stay idle until
+            // a wake-up event indicates the network changed; do not poll every 30 seconds.
             std::unique_lock<std::mutex> lock(m_cmMutex);
-            if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec), [this] { return m_wakeupMonitoring.load(); }))
+            if (m_InternetState == INTERNET_FULLY_CONNECTED)
+            {
+                m_cmCv.wait(lock, [this] { return m_wakeupMonitoring.load(); });
+                NMLOG_INFO("connectivity monitor received signal while fully connected; resuming Initial check");
+                m_wakeupMonitoring = false;
+            }
+            else if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec), [this] { return m_wakeupMonitoring.load(); }))
             {
                 NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
                 m_wakeupMonitoring = false;
