@@ -102,8 +102,13 @@ private:
 
     void registerEvents();
     void unregisterEvents();
-    void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status);
+    void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,
+                                     const std::string& reason);
     void openThreadLoop();
+
+    /* Returns an AddRef'd proxy (nullptr when unavailable) so the caller can invoke
+     * ConnectivityCheckMgr without holding mLock across the blocking COM-RPC call. */
+    Exchange::IConnectivityCheck* acquireInterface() const;
 
     // 1:1 mapping ConnectivityCheckMgr InternetStatus -> NetworkManager InternetStatus.
     static NmInternetStatus mapStatus(Exchange::IConnectivityCheck::InternetStatus status);
@@ -113,6 +118,12 @@ private:
     Core::Sink<Notification>         mNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
     bool                             mNotificationRegistered{false};
+
+    // Status cache kept current by OnInternetStatusChange, so the hot
+    // isConnectedToInternet path needs no cross-process round trip.
+    NmInternetStatus                 mCachedStatus{Exchange::INetworkManager::INTERNET_UNKNOWN};
+    std::string                      mCachedReason;
+    bool                             mHasCachedStatus{false};
 
     // Open() runs on its own thread so plugin Configure() never blocks on, or
     // re-enters, a ConnectivityCheckMgr that is not activated yet.

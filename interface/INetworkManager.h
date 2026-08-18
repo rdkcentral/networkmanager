@@ -232,7 +232,7 @@ namespace WPEFramework
             /* @brief Get Internet Connectivty Status */ 
             virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */) = 0;
 
-	    // Source-compatible overload for consumers that do not need the
+            // Source-compatible overload for consumers that do not need the
             // NO_INTERNET reason. The RPC contract remains the four-argument
             // virtual method above; this only forwards locally and discards
             // the optional detail.

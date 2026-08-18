@@ -98,6 +98,9 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
                 return; // already connected
             }
             mConnectivity = Interface();
+            mHasCachedStatus = false;
+            mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
+            mCachedReason.clear();
         }
         // Register without holding mLock: Register() can dispatch a synchronous
         // notification on some Thunder builds, which would deadlock if mLock is held.
@@ -110,7 +113,19 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
             mConnectivity->Release();
             mConnectivity = nullptr;
         }
+        mHasCachedStatus = false;
+        mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
+        mCachedReason.clear();
     }
+}
+
+Exchange::IConnectivityCheck* NetworkManagerConnectivityClient::acquireInterface() const
+{
+    std::lock_guard<std::mutex> lock(mLock);
+    if (mConnectivity != nullptr) {
+        mConnectivity->AddRef();
+    }
+    return mConnectivity;
 }
 
 void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
@@ -153,11 +168,17 @@ void NetworkManagerConnectivityClient::unregisterEvents()
     mNotificationRegistered = false;
 }
 
-void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status)
+void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,
+                                                                   const std::string& reason)
 {
+    const NmInternetStatus mapped = mapStatus(status);
+
     InternetStatusChangeHandler handler;
     {
         std::lock_guard<std::mutex> lock(mLock);
+        mCachedStatus = mapped;
+        mCachedReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
+        mHasCachedStatus = true;
         handler = mInternetStatusChangeHandler;
     }
 
@@ -165,15 +186,14 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         return;
     }
 
-    handler(mapStatus(status));
+    handler(mapped);
 }
 
 void NetworkManagerConnectivityClient::Notification::OnInternetStatusChange(
     const Exchange::IConnectivityCheck::InternetStatus status,
     const string& reason)
 {
-    (void)reason;
-    mParent.notifyInternetStatusChanged(status);
+    mParent.notifyInternetStatusChanged(status, reason);
 }
 
 NetworkManagerConnectivityClient::NmInternetStatus
@@ -201,33 +221,63 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
 {
     LOG_ENTRY_FUNCTION();
     reason.clear();
-    std::lock_guard<std::mutex> lock(mLock);
-    if (mConnectivity == nullptr) {
+
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (mHasCachedStatus) {
+            reason = mCachedReason;
+            return mCachedStatus;
+        }
+    }
+
+    // Cold path only: no notification received yet, so seed the cache once.
+    Exchange::IConnectivityCheck* connectivity = acquireInterface();
+    if (connectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
         return Exchange::INetworkManager::INTERNET_UNKNOWN;
     }
 
     Exchange::IConnectivityCheck::StatusInfo info{};
-    if (auto r = mConnectivity->GetInternetStatus(info); r != Core::ERROR_NONE) {
+    const uint32_t r = connectivity->GetInternetStatus(info);
+    connectivity->Release();
+
+    if (r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr GetInternetStatus failed (%u)", r);
         return Exchange::INetworkManager::INTERNET_UNKNOWN;
     }
+
+    const NmInternetStatus mapped = mapStatus(info.status);
     if (info.status == Exchange::IConnectivityCheck::NO_INTERNET) {
         reason = info.reason;
     }
-    return mapStatus(info.status);
+
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        // A notification may have landed while the RPC was in flight; it is newer.
+        if (!mHasCachedStatus) {
+            mCachedStatus = mapped;
+            mCachedReason = reason;
+            mHasCachedStatus = true;
+        }
+    }
+    return mapped;
 }
 
 std::string NetworkManagerConnectivityClient::getCaptivePortalURI()
 {
     LOG_ENTRY_FUNCTION();
-    std::lock_guard<std::mutex> lock(mLock);
     std::string uri;
-    if (mConnectivity == nullptr) {
+
+    Exchange::IConnectivityCheck* connectivity = acquireInterface();
+    if (connectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning empty captive-portal URI");
         return uri;
     }
-    if (auto r = mConnectivity->GetCaptivePortalURI(uri); r != Core::ERROR_NONE) {
+
+    const uint32_t r = connectivity->GetCaptivePortalURI(uri);
+    connectivity->Release();
+
+    if (r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr GetCaptivePortalURI failed (%u)", r);
         uri.clear();
     }
