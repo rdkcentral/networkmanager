@@ -251,6 +251,7 @@ namespace WPEFramework
 
             struct WiFiStateChangeData {
                 Exchange::INetworkManager::WiFiState state;
+                string ssid;
             };
 
             struct WiFiSignalQualityChangeData {
@@ -372,7 +373,7 @@ namespace WPEFramework
                 void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
-                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
+                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid = "");
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
                 void logTelemetry(const std::string& eventName, const std::string& message);
 

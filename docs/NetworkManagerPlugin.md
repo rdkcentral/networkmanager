@@ -1966,6 +1966,7 @@ Triggered when WIFI connection state get changed. The possible states are define
 | params | object |  |
 | params.state | integer | WiFi State |
 | params.status | string | WiFi status |
+| params.ssid | string | The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected |
 
 ### Example
 
@@ -1975,7 +1976,8 @@ Triggered when WIFI connection state get changed. The possible states are define
   "method": "client.events.1.onWiFiStateChange",
   "params": {
     "state": 5,
-    "status": "WIFI_STATE_CONNECTED"
+    "status": "WIFI_STATE_CONNECTED",
+    "ssid": "myHomeSSID"
   }
 }
 ```

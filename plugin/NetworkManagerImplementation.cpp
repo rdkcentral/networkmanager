@@ -818,7 +818,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onWiFiStateChange Event");
                     const auto& eventData = std::get<WiFiStateChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onWiFiStateChange(eventData.state);
+                        callback->onWiFiStateChange(eventData.state, eventData.ssid);
                         callback->Release();
                     }
                 }
@@ -1351,29 +1351,48 @@ namespace WPEFramework
             m_stopThread.store(false);
         }
 
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
             LOG_ENTRY_FUNCTION();
+
+            std::string reportSSID;
+
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
+                if(!ssid.empty())
+                {
+                    setLastConnectedSSID(ssid);
+                    reportSSID = ssid;
+                }
+                else
+                {
+                    reportSSID = getLastConnectedSSID();
+                }
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
             {
                 stopWiFiSignalQualityMonitor();
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
+
+                if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
+                    reportSSID = getLastConnectedSSID(); /* previously connected SSID, or empty */
+                else if(INetworkManager::WiFiState::WIFI_STATE_SSID_NOT_FOUND == state)
+                    reportSSID = ssid;               /* SSID that was being attempted */
+                else
+                    reportSSID = ssid;                /* SSID currently being attempted */
             }
 
-            NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+            NMLOG_INFO("Posting onWiFiStateChange (%d) ssid: %s", state, reportSSID.c_str());
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state};
+                WiFiStateChangeData eventData{state, reportSSID};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }
