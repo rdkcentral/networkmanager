@@ -35,6 +35,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
+#include "NetworkManagerGnomeEvents.h"
 #include <libnm/NetworkManager.h>
 
 using namespace WPEFramework;
@@ -150,6 +151,11 @@ protected:
                 std::cerr << "Failed to create /etc/device.properties file." << std::endl;
             }
         }
+
+        /* Interface-state cache is a process-global static; reset the known
+           interfaces so each test starts from a deterministic empty state. */
+        Plugin::GnomeNetworkManagerEvents::removeInterfaceStateCache("eth0");
+        Plugin::GnomeNetworkManagerEvents::removeInterfaceStateCache("wlan0");
     }
 
     virtual ~NetworkManagerTest() override
@@ -353,59 +359,37 @@ TEST_F(NetworkManagerTest, GetPrimaryInterface_empty)
 
 TEST_F(NetworkManagerTest, GetInterfaceState_Failed)
 {
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(nullptr));
-
+    /* wlan0 not present in the event cache -> state unknown -> failure */
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
 TEST_F(NetworkManagerTest, GetInterfaceState_WifiEth)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("eth0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED)); // disabled
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("wlan0", NM_DEVICE_STATE_ACTIVATED, "66:77:88:99:AA:BB");
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("eth0", NM_DEVICE_STATE_UNMANAGED, "00:11:22:33:44:55"); // disabled
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_EQ(response, _T("{\"enabled\":true,\"success\":true}"));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"eth0\"}"), response));
     EXPECT_EQ(response, _T("{\"enabled\":false,\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
 }
 
 TEST_F(NetworkManagerTest, GetInterfaceState_WifiEthNotFound)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("wlan1"));
+    /* Only eth0 known to the cache; querying wlan0 -> not found -> failure */
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("eth0", NM_DEVICE_STATE_ACTIVATED, "00:11:22:33:44:55");
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"wlan0\"}"), response));
     EXPECT_EQ(response, _T("{\"success\":false}"));
+}
 
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
+TEST_F(NetworkManagerTest, GetInterfaceState_emptyInterface)
+{
+    /* Empty interface name is rejected before any cache lookup */
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetInterfaceState"), _T("{\"interface\":\"\"}"), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
 TEST_F(NetworkManagerTest, GetInterfaceState_unknown)
@@ -421,38 +405,19 @@ TEST_F(NetworkManagerTest, GetInterfaceState_unknown)
     EXPECT_EQ(isEnabled, false);
 }
 
-TEST_F(NetworkManagerTest, GetAvailableInterfaces_DevicesNull)
+TEST_F(NetworkManagerTest, GetAvailableInterfaces_emptyCache)
 {
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillOnce(::testing::Return(nullptr));
+    /* No interfaces reported by NM yet -> empty list is a valid (successful) result */
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("eth0") == std::string::npos);
+    EXPECT_TRUE(response.find("wlan0") == std::string::npos);
 }
 
 TEST_F(NetworkManagerTest, GetAvailableInterfaces_Enabled)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *ethDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
-    NMDevice* wifiDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, wifiDevice);
-    g_ptr_array_add(fakeDevices, ethDevice);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillOnce(::testing::Return(fakeDevices));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(ethDevice))
-        .WillOnce(::testing::Return("eth0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(wifiDevice))
-        .WillOnce(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_hw_address(ethDevice))
-        .WillOnce(::testing::Return("00:11:22:33:44:55"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_hw_address(wifiDevice))
-        .WillOnce(::testing::Return("66:77:88:99:AA:BB"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(ethDevice))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(wifiDevice))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNAVAILABLE));
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("eth0", NM_DEVICE_STATE_ACTIVATED, "00:11:22:33:44:55");
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("wlan0", NM_DEVICE_STATE_UNAVAILABLE, "66:77:88:99:AA:BB");
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
     EXPECT_TRUE(response.find("wlan0") != std::string::npos);
@@ -460,40 +425,16 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces_Enabled)
 
     std::string expectedResponse =
         _T("{\"interfaces\":[")
-        _T("{\"type\":\"WIFI\",\"name\":\"wlan0\",\"mac\":\"66:77:88:99:AA:BB\",\"enabled\":true,\"connected\":false},")
-        _T("{\"type\":\"ETHERNET\",\"name\":\"eth0\",\"mac\":\"00:11:22:33:44:55\",\"enabled\":true,\"connected\":true}")
+        _T("{\"type\":\"ETHERNET\",\"name\":\"eth0\",\"mac\":\"00:11:22:33:44:55\",\"enabled\":true,\"connected\":true},")
+        _T("{\"type\":\"WIFI\",\"name\":\"wlan0\",\"mac\":\"66:77:88:99:AA:BB\",\"enabled\":true,\"connected\":false}")
         _T("],\"success\":true}");
     EXPECT_EQ(response, expectedResponse);
-
-    g_object_unref(ethDevice);
-    g_object_unref(wifiDevice);
-    g_ptr_array_free(fakeDevices, TRUE);
 }
 
 TEST_F(NetworkManagerTest, GetAvailableInterfaces_disabled)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *ethDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
-    NMDevice* wifiDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, wifiDevice);
-    g_ptr_array_add(fakeDevices, ethDevice);
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillOnce(::testing::Return(fakeDevices));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(ethDevice))
-        .WillOnce(::testing::Return("eth0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(wifiDevice))
-        .WillOnce(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_hw_address(ethDevice))
-        .WillOnce(::testing::Return("00:11:22:33:44:55"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_hw_address(wifiDevice))
-        .WillOnce(::testing::Return("66:77:88:99:AA:BB"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(ethDevice))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(wifiDevice))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("eth0", NM_DEVICE_STATE_UNMANAGED, "00:11:22:33:44:55");
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("wlan0", NM_DEVICE_STATE_UNMANAGED, "66:77:88:99:AA:BB");
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
     EXPECT_TRUE(response.find("wlan0") != std::string::npos);
@@ -501,14 +442,25 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces_disabled)
 
     std::string expectedResponse =
         _T("{\"interfaces\":[")
-        _T("{\"type\":\"WIFI\",\"name\":\"wlan0\",\"mac\":\"66:77:88:99:AA:BB\",\"enabled\":false,\"connected\":false},")
-        _T("{\"type\":\"ETHERNET\",\"name\":\"eth0\",\"mac\":\"00:11:22:33:44:55\",\"enabled\":false,\"connected\":false}")
+        _T("{\"type\":\"ETHERNET\",\"name\":\"eth0\",\"mac\":\"00:11:22:33:44:55\",\"enabled\":false,\"connected\":false},")
+        _T("{\"type\":\"WIFI\",\"name\":\"wlan0\",\"mac\":\"66:77:88:99:AA:BB\",\"enabled\":false,\"connected\":false}")
         _T("],\"success\":true}");
     EXPECT_EQ(response, expectedResponse);
+}
 
-    g_object_unref(ethDevice);
-    g_object_unref(wifiDevice);
-    g_ptr_array_free(fakeDevices, TRUE);
+TEST_F(NetworkManagerTest, GetAvailableInterfaces_onlyEthernet)
+{
+    /* Only eth0 reported by NM; wlan0 (absent from cache) is omitted from the list */
+    Plugin::GnomeNetworkManagerEvents::updateInterfaceStateCache("eth0", NM_DEVICE_STATE_ACTIVATED, "00:11:22:33:44:55");
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
+    EXPECT_TRUE(response.find("wlan0") == std::string::npos);
+
+    std::string expectedResponse =
+        _T("{\"interfaces\":[")
+        _T("{\"type\":\"ETHERNET\",\"name\":\"eth0\",\"mac\":\"00:11:22:33:44:55\",\"enabled\":true,\"connected\":true}")
+        _T("],\"success\":true}");
+    EXPECT_EQ(response, expectedResponse);
 }
 
 TEST_F(NetworkManagerTest, GetIPSettings_unknown_iface)
