@@ -286,11 +286,11 @@ namespace WPEFramework
 
             if(ssid.ssid.empty() && _instance != NULL)
             {
-                NMLOG_WARNING("ssid is empty activating last connected ssid !");
                 const string lastConnectedSSID = _instance->getLastConnectedSSID();
+                NMLOG_WARNING("ssid is empty activating last connected ssid (%s) !", lastConnectedSSID.c_str());
                 if(_nmGdbusClient->activateKnownConnection(GnomeUtils::getWifiIfname(), lastConnectedSSID))
                     rc = Core::ERROR_NONE;
-	    }
+            }
             else if(ssid.ssid.size() <= 32)
             {
                 if(_nmGdbusClient->wifiConnect(ssid))

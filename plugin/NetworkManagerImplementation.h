@@ -481,7 +481,7 @@ namespace WPEFramework
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
-		mutable std::mutex m_lastConnectedSSIDMutex;
+                mutable std::mutex m_lastConnectedSSIDMutex;
                 std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;
         };
