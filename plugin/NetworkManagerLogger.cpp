@@ -111,7 +111,7 @@ namespace NetworkManagerLogger {
         }
         formattedLog[kFormatMessageSize - 1] = '\0';
 #ifdef USE_RDK_LOGGER
-        RDK_LOG(mapTordkLogLevel(level), RDKLOGGER_MODULE_NAME, "[%s +%d] %s\n", trimPath(file), line, formattedLog);
+        RDK_LOG(mapTordkLogLevel(level), RDKLOGGER_MODULE_NAME, "[%s +%d] %s : %s\n", trimPath(file), line, func, formattedLog);
 #else
         const char* levelMap[] = {"Fatal", "Error", "Warn", "Info", "Debug"};
         struct timeval tv;
