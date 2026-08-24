@@ -776,14 +776,15 @@ namespace WPEFramework
             if (m_switchToInitial == false && m_InternetState == INTERNET_FULLY_CONNECTED)
             {
                 std::unique_lock<std::mutex> lock(m_cmMutex);
-                NMLOG_INFO("ideal thread infinite wait strted while fully connected");
+                NMLOG_DEBUG("idle thread infinite wait started while fully connected");
                 m_cmCv.wait(lock, [this] { return m_wakeupMonitoring.load(); });
                 m_wakeupMonitoring = false;
-                NMLOG_INFO("connectivity monitor received signal. skipping infinite sec interval");
+                NMLOG_INFO("connectivity monitor received signal. skipping infinite interval");
             }
             else
             {
                 std::unique_lock<std::mutex> lock(m_cmMutex);
+                NMLOG_DEBUG("idle thread interval wait started");
                 if (m_cmCv.wait_for(lock, std::chrono::seconds(timeoutInSec), [this] { return m_wakeupMonitoring.load(); }))
                 {
                     NMLOG_INFO("connectivity monitor received signal. skipping %d sec interval", timeoutInSec);
