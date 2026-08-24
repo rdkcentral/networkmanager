@@ -230,17 +230,7 @@ namespace WPEFramework
             virtual uint32_t SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */) = 0;
 
             /* @brief Get Internet Connectivty Status */ 
-            virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */) = 0;
-
-            // Source-compatible overload for consumers that do not need the
-            // NO_INTERNET reason. The RPC contract remains the four-argument
-            // virtual method above; this only forwards locally and discards
-            // the optional detail.
-            uint32_t IsConnectedToInternet(string &ipversion, string &interface, InternetStatus& status)
-            {
-                string reason;
-                return IsConnectedToInternet(ipversion, interface, status, reason);
-            }
+            virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */ = EmptyReason()) = 0;
 
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             virtual uint32_t GetCaptivePortalURI(string &uri/* @out */) const = 0;
@@ -305,6 +295,12 @@ namespace WPEFramework
             // Allow other processes to register/unregister from our notifications
             virtual uint32_t Register(INetworkManager::INotification* notification) = 0;
             virtual uint32_t Unregister(INetworkManager::INotification* notification) = 0;
+	private:
+            static string& EmptyReason()
+            {
+                static string reason;
+                return reason;
+            }
         };
     }
 }
