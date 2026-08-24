@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [3.7.0] - 2026-08-21
+### Changed
+- Implemented a caching logic about the status of the interface & update based on events
+
 ## [3.6.0] - 2026-08-11
 ### Fixed
 - Fixed the issue with connecting to a SSID that is not present in scan list

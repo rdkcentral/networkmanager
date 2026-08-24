@@ -33,6 +33,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
+#include "NetworkManagerGnomeEvents.h"
 #include <libnm/NetworkManager.h>
 
 using namespace WPEFramework;
@@ -123,6 +124,10 @@ protected:
 
     virtual void SetUp() override
     {
+        /* Interface-state cache is a process-global static shared across suites;
+           clear the known interfaces so platform_init failure yields an empty cache. */
+        Plugin::GnomeNetworkManagerEvents::removeInterfaceStateCache("eth0");
+        Plugin::GnomeNetworkManagerEvents::removeInterfaceStateCache("wlan0");
     }
 
     virtual ~NetworkManagerInitTest() override
@@ -149,7 +154,10 @@ TEST_F(NetworkManagerInitTest, platformInit)
     NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(NetworkManagerLogger::DEBUG_LEVEL));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
-    EXPECT_TRUE(response.find("\"success\":false") != std::string::npos);
+    /* platform_init failed (no NMClient) -> event cache never populated -> empty list, still success */
+    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
+    EXPECT_TRUE(response.find("eth0") == std::string::npos);
+    EXPECT_TRUE(response.find("wlan0") == std::string::npos);
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T(""), response));
     EXPECT_EQ(response, _T("{\"interface\":\"\",\"success\":true}"));

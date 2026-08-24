@@ -23,6 +23,7 @@
 #include <thread>
 #include <string>
 #include <map>
+#include <mutex>
 #include <NetworkManager.h>
 #include "Module.h"
 #include "NetworkManagerGnomeEvents.h"
@@ -43,6 +44,49 @@ namespace WPEFramework
 
     extern NetworkManagerImplementation* _instance;
     static GnomeNetworkManagerEvents *_nmEventInstance = nullptr;
+
+    /* Gnome-owned interface-state cache (raw NMDeviceState + MAC per interface).
+       Written only by the event monitor; read by the proxy's pure readers. */
+    static std::map<std::string, GnomeNetworkManagerEvents::InterfaceStateInfo> _ifaceStateCache;
+    static std::mutex _ifaceStateCacheMutex;
+
+    bool GnomeNetworkManagerEvents::isInterfaceStateEnabled(NMDeviceState state)
+    {
+        return (state >= NM_DEVICE_STATE_UNAVAILABLE);
+    }
+
+    bool GnomeNetworkManagerEvents::isInterfaceStateConnected(NMDeviceState state)
+    {
+        return (state > NM_DEVICE_STATE_DISCONNECTED && state < NM_DEVICE_STATE_DEACTIVATING);
+    }
+
+    void GnomeNetworkManagerEvents::updateInterfaceStateCache(const std::string& iface, NMDeviceState state, const char* mac)
+    {
+        if (iface.empty())
+            return;
+        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
+        InterfaceStateInfo& info = _ifaceStateCache[iface];
+        info.state   = state;
+        info.present = true;
+        if (mac != nullptr && mac[0] != '\0')
+            info.mac = mac; // keep in sync when NM reports a new/randomized HW address
+    }
+
+    void GnomeNetworkManagerEvents::removeInterfaceStateCache(const std::string& iface)
+    {
+        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
+        _ifaceStateCache.erase(iface);
+    }
+
+    bool GnomeNetworkManagerEvents::getInterfaceStateCache(const std::string& iface, InterfaceStateInfo& out)
+    {
+        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
+        auto it = _ifaceStateCache.find(iface);
+        if (it == _ifaceStateCache.end() || !it->second.present)
+            return false;
+        out = it->second;
+        return true;
+    }
 
     static void primaryConnectionCb(NMClient *client, GParamSpec *param, NMEvents *nmEvents)
     {
@@ -293,8 +337,11 @@ namespace WPEFramework
             return;
         NMDeviceState deviceState;
         deviceState = nm_device_get_state(device);
-        std::string ifname = nm_device_get_iface(device);
+        const char* iface = nm_device_get_iface(device);
+        if (!iface) return;
+        std::string ifname = iface;
         NMDeviceStateReason reason = nm_device_get_state_reason(device);
+        updateInterfaceStateCache(ifname, deviceState, nm_device_get_hw_address(device));
         if(ifname == nmUtils::wlanIface())
         {
             if(!NM_IS_DEVICE_WIFI(device)) {
@@ -486,7 +533,9 @@ namespace WPEFramework
     {
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
-            std::string ifname = nm_device_get_iface(device);
+            const char* iface = nm_device_get_iface(device);
+            if (!iface) return;
+            std::string ifname = iface;
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
                 NMLOG_INFO("WIFI device added: %s", ifname.c_str());
@@ -499,6 +548,7 @@ namespace WPEFramework
             /* ip events added only for eth0 and wlan0 */
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
+                GnomeNetworkManagerEvents::updateInterfaceStateCache(ifname, nm_device_get_state(device), nm_device_get_hw_address(device));
                 g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                 g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
                 g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
@@ -546,7 +596,9 @@ namespace WPEFramework
     {
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
         {
-            std::string ifname = nm_device_get_iface(device);
+            const char* iface = nm_device_get_iface(device);
+            if (!iface) return;
+            std::string ifname = iface;
             if(ifname == nmUtils::wlanIface()) {
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                 NMLOG_INFO("WIFI device removed: %s", ifname.c_str());
@@ -558,6 +610,10 @@ namespace WPEFramework
             else {
                 return; // not a tracked interface
             }
+
+            /* Device is gone: drop it from the cache so the reads omit it
+               (matches the original live-device-list behaviour). */
+            GnomeNetworkManagerEvents::removeInterfaceStateCache(ifname);
 
             /* Disconnect all device-level signals (state, ip4/ip6-config changes). */
             g_signal_handlers_disconnect_by_data(device, nmEvents);
@@ -654,10 +710,13 @@ namespace WPEFramework
             NMDevice *device = NM_DEVICE(g_ptr_array_index(devices, count));
             if( ((device != NULL) && NM_IS_DEVICE(device)) )
             {
-                std::string ifname = nm_device_get_iface(device);
+                const char* iface = nm_device_get_iface(device);
+                if (!iface) continue;
+                std::string ifname = iface;
                 if((ifname == nmUtils::ethIface()) || (ifname == nmUtils::wlanIface()))
                 {
                     NMDeviceState devState =  nm_device_get_state(device);
+                    GnomeNetworkManagerEvents::updateInterfaceStateCache(ifname, devState, nm_device_get_hw_address(device));
 
                     if(devState > NM_DEVICE_STATE_DISCONNECTED && devState <= NM_DEVICE_STATE_ACTIVATED)
                     {
