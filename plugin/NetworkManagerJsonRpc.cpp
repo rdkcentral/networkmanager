@@ -21,6 +21,8 @@
 #include "INetworkManager.h"
 #include "NetworkManagerJsonEnum.h"
 
+#include <chrono>
+
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
 
@@ -164,10 +166,18 @@ namespace WPEFramework
 
             Exchange::INetworkManager::IInterfaceDetailsIterator* _interfaces{};
 
+            const auto tStart = std::chrono::steady_clock::now();
+
             if (_networkManager)
                 rc = _networkManager->GetAvailableInterfaces(_interfaces);
             else
                 rc = Core::ERROR_UNAVAILABLE;
+
+            const auto tAfterComRpc = std::chrono::steady_clock::now();
+            const long long comRpcUs = static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(tAfterComRpc - tStart).count());
+            NMLOG_DEBUG("[PERF] GetAvailableInterfaces COM-RPC call took %lld us", comRpcUs);
+            if (comRpcUs >= 1000000)
+                NMLOG_WARNING("[PERF] GetAvailableInterfaces COM-RPC call took %lld us (>= 1s)", comRpcUs);
 
             if (Core::ERROR_NONE == rc)
             {
@@ -192,6 +202,11 @@ namespace WPEFramework
                     response["interfaces"] = array;
                 }
             }
+
+            const auto tEnd = std::chrono::steady_clock::now();
+            NMLOG_DEBUG("[PERF] GetAvailableInterfaces iterator drain+serialize took %lld us, total %lld us",
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(tEnd - tAfterComRpc).count()),
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(tEnd - tStart).count()));
 
             returnJson(rc);
         }
@@ -241,6 +256,8 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
+            const auto tStart = std::chrono::steady_clock::now();
+
             if (parameters.HasLabel("interface"))
             {
                 const string interface = parameters["interface"].String();
@@ -258,6 +275,11 @@ namespace WPEFramework
             }
             else
                 rc = Core::ERROR_BAD_REQUEST;
+
+            const long long comRpcUs = static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - tStart).count());
+            NMLOG_DEBUG("[PERF] GetInterfaceState COM-RPC call took %lld us", comRpcUs);
+            if (comRpcUs >= 1000000)
+                NMLOG_WARNING("[PERF] GetInterfaceState COM-RPC call took %lld us (>= 1s)", comRpcUs);
 
             returnJson(rc);
         }

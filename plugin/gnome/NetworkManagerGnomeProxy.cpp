@@ -22,6 +22,7 @@
 #include "NetworkManagerGnomeUtils.h"
 #include <fstream>
 #include <sstream>
+#include <chrono>
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace std;
@@ -347,77 +348,37 @@ namespace WPEFramework
             std::vector<Exchange::INetworkManager::InterfaceDetails> interfaceList;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
 
-            if(m_nmContext == nullptr) {
-                NMLOG_FATAL("NMContext is null");
-                return Core::ERROR_GENERAL;
-            }
+            const auto tEntry = std::chrono::steady_clock::now();
 
-            NMClient *client = createProxyClient(m_nmContext);
-            if (client == nullptr) {
-                NMLOG_FATAL("Failed to create NMClient for GetAvailableInterfaces");
-                return Core::ERROR_GENERAL;
-            }
-
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
-            if (devices == NULL) {
-                NMLOG_ERROR("Failed to get device list.");
-                deleteProxyClient(client);
-                return rc;
-            }
-
-            for (guint j = 0; j < devices->len; j++)
+            /* Serve from the event-maintained cache; no per-call NMClient. An interface
+             * absent from the cache (not yet reported by NM) is simply omitted; an empty
+             * list is a valid result (ground reality), not an error. */
+            for (int i = 0; i < 2; ++i)
             {
-                NMDevice *device = NM_DEVICE(devices->pdata[j]);
-                if(device != NULL)
-                {
-                    const char* ifacePtr =  nm_device_get_iface(device);
-                    if(ifacePtr == nullptr)
-                        continue;
-                    std::string ifaceStr = ifacePtr;
-                    if(ifaceStr == wifiname || ifaceStr == ethname) // only wifi and ethenet taking
-                    {
-                        NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-                        Exchange::INetworkManager::InterfaceDetails interface{};
-                        const char* macAddr = nm_device_get_hw_address(device);
-                        if(macAddr != nullptr) {
-                            interface.mac = macAddr;
-                        }
-                        deviceState = nm_device_get_state(device);
-                        interface.enabled = (deviceState >= NM_DEVICE_STATE_UNAVAILABLE)? true : false;
-                        if(deviceState > NM_DEVICE_STATE_DISCONNECTED && deviceState < NM_DEVICE_STATE_DEACTIVATING)
-                            interface.connected = true;
-                        else
-                            interface.connected = false;
+                const std::string& ifname = (i == 0) ? ethname : wifiname;
+                GnomeNetworkManagerEvents::InterfaceStateInfo info;
+                if (!GnomeNetworkManagerEvents::getInterfaceStateCache(ifname, info))
+                    continue;
 
-                        if(ifaceStr == wifiname) {
-                            interface.type = INTERFACE_TYPE_WIFI;
-                            interface.name = wifiname;
-                            m_wlanConnected.store(interface.connected);
-                            m_wlanEnabled.store(interface.enabled);
-                        }
-                        else if(ifaceStr == ethname) {
-                            interface.type = INTERFACE_TYPE_ETHERNET;
-                            interface.name = ethname;
-                            m_ethConnected.store(interface.connected);
-                            m_ethEnabled.store(interface.enabled);
-                        }
+                Exchange::INetworkManager::InterfaceDetails interface{};
+                interface.type      = (i == 0) ? INTERFACE_TYPE_ETHERNET : INTERFACE_TYPE_WIFI;
+                interface.name      = ifname;
+                interface.mac       = info.mac;
+                interface.enabled   = GnomeNetworkManagerEvents::isInterfaceStateEnabled(info.state);
+                interface.connected = GnomeNetworkManagerEvents::isInterfaceStateConnected(info.state);
 
-                        interfaceList.push_back(interface);
-                        rc = Core::ERROR_NONE;
-                    }
-                }
+                interfaceList.push_back(interface);
             }
-
-            deleteProxyClient(client);
-
-            if (rc != Core::ERROR_NONE)
-                return rc;
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
             interfacesItr = Core::Service<Implementation>::Create<Exchange::INetworkManager::IInterfaceDetailsIterator>(interfaceList);
             if(interfacesItr == nullptr) {
                 return Core::ERROR_GENERAL;
             }
+            rc = Core::ERROR_NONE;
+
+            NMLOG_DEBUG("[PERF] GetAvailableInterfaces (impl) total %lld us",
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - tEntry).count()));
             return rc;
         }
 #if 0
@@ -641,8 +602,9 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetInterfaceState(const string& interface/* @in */, bool& isEnabled /* @out */)
         {
             isEnabled = false;
-            bool isIfaceFound = false;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
+
+            const auto tEntry = std::chrono::steady_clock::now();
 
             if(interface.empty() || (wifiname != interface && ethname != interface))
             {
@@ -650,56 +612,19 @@ namespace WPEFramework
                 return Core::ERROR_GENERAL;
             }
 
-            if(m_nmContext == nullptr)
+            /* Serve from the event-maintained cache; no per-call NMClient. */
+            GnomeNetworkManagerEvents::InterfaceStateInfo info;
+            if (!GnomeNetworkManagerEvents::getInterfaceStateCache(interface, info))
             {
-                NMLOG_WARNING("NMContext is null");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
-            NMClient *client = createProxyClient(m_nmContext);
-            if (client == nullptr) {
-                NMLOG_ERROR("Failed to create NMClient for GetInterfaceState");
-                return Core::ERROR_RPC_CALL_FAILED;
-            }
-
-            GPtrArray *devices = const_cast<GPtrArray *>(nm_client_get_devices(client));
-
-            if (devices == NULL) {
-                NMLOG_ERROR("Failed to get device list.");
-                deleteProxyClient(client);
+                NMLOG_WARNING("%s : state not known yet", interface.c_str());
                 return Core::ERROR_GENERAL;
             }
 
-            for (guint j = 0; j < devices->len; j++)
-            {
-                NMDevice *device = NM_DEVICE(devices->pdata[j]);
-                if(device != NULL)
-                {
-                    const char* iface = nm_device_get_iface(device);
-                    if(iface != NULL)
-                    {
-                        std::string ifaceStr;
-                        ifaceStr.assign(iface);
-                        NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-                        if(ifaceStr == interface)
-                        {
-                            isIfaceFound = true;
-                            deviceState = nm_device_get_state(device);
-                            isEnabled = (deviceState > NM_DEVICE_STATE_UNAVAILABLE) ? true : false;
-                            NMLOG_INFO("%s : %s", ifaceStr.c_str(), isEnabled?"enabled":"disabled");
-                            break;
-                        }
-                    }
-                }
-            }
-
-            deleteProxyClient(client);
-
-            if(isIfaceFound)
-                return Core::ERROR_NONE;
-            else
-                NMLOG_ERROR("%s : not found", interface.c_str());
-            return Core::ERROR_GENERAL;
+            isEnabled = GnomeNetworkManagerEvents::isInterfaceStateEnabled(info.state);
+            NMLOG_INFO("%s : %s", interface.c_str(), isEnabled?"enabled":"disabled");
+            NMLOG_DEBUG("[PERF] GetInterfaceState (impl) total %lld us",
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - tEntry).count()));
+            return Core::ERROR_NONE;
         }
 
         /* @brief Get IP Address Of the Interface */
