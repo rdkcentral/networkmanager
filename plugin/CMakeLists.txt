@@ -77,6 +77,12 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
+if(USE_CONNECTIVITYCHECKMGR)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
                                      
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp

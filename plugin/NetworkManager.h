@@ -276,6 +276,7 @@ namespace WPEFramework
             PluginHost::IShell *_service;
             PluginHost::IPlugin* _networkManagerImpl;
             Exchange::INetworkManager *_networkManager;
+            bool m_useConnectivityCheckMgr;
             Core::Sink<Notification> _notification;
             string m_publicIPAddress;
             string m_publicIPAddressType;
