@@ -492,7 +492,7 @@ namespace WPEFramework
                 response["interface"] = interface;
                 response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result
 					|| (m_useConnectivityCheckMgr &&
-                                            Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED == result);
+                                            Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED == result));
                 response["state"] = JsonValue(status);
                 response["status"] = status.Data();
                 if (result == Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE && !reason.empty())
