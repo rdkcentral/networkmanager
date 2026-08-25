@@ -298,7 +298,7 @@ namespace WPEFramework
 	private:
             static string& EmptyReason()
             {
-                static string reason;
+                static thread_local string reason;
                 return reason;
             }
         };
