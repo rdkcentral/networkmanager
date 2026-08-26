@@ -451,7 +451,6 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanEnabled;
                 std::atomic<bool> m_ethDisconnectedForSleep;
                 std::atomic<bool> m_wlanDisconnectedForSleep;
-                std::string m_lastConnectedSSID;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
                 mutable ConnectivityMonitor connectivityMonitor;
 
@@ -482,6 +481,7 @@ namespace WPEFramework
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
+                std::string m_lastConnectedSSID;
                 mutable std::mutex m_lastConnectedSSIDMutex;
                 std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;
