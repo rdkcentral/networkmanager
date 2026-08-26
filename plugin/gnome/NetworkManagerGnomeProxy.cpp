@@ -815,9 +815,8 @@ namespace WPEFramework
 
             if(ssid.ssid.empty())
             {
-                const string lastConnectedSSID = _instance->getLastConnectedSSID();
-                NMLOG_WARNING("ssid is empty activating last connected ssid (%s) !", lastConnectedSSID.c_str());
-                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), lastConnectedSSID))
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), _instance->getLastConnectedSSID()))
                 {
                     rc = Core::ERROR_NONE;
                 }
