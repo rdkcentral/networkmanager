@@ -467,9 +467,22 @@ namespace WPEFramework
                     m_defaultInterface = iface;
                 }
 
+                void setLastConnectedSSID(const std::string& ssid)
+                {
+                    std::lock_guard<std::mutex> lock(m_lastConnectedSSIDMutex);
+                    m_lastConnectedSSID = ssid;
+                }
+
+                std::string getLastConnectedSSID() const
+                {
+                    std::lock_guard<std::mutex> lock(m_lastConnectedSSIDMutex);
+                    return m_lastConnectedSSID;
+                }
+
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
+                mutable std::mutex m_lastConnectedSSIDMutex;
                 std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;
         };

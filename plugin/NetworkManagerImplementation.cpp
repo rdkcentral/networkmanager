@@ -1328,7 +1328,7 @@ namespace WPEFramework
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
                 if (!ssid.empty())
-                    m_lastConnectedSSID = ssid; // last connected ssid used in wifiConnect
+                    setLastConnectedSSID(ssid); // last connected ssid used in wifiConnect
 
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
@@ -1476,11 +1476,12 @@ namespace WPEFramework
             {
                 if (m_wlanDisconnectedForSleep.load())
                 {
-                    if (!m_lastConnectedSSID.empty())
+                    const std::string lastConnectedSSID = getLastConnectedSSID();
+                    if (!lastConnectedSSID.empty())
                     {
                         NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
-                               m_lastConnectedSSID.c_str());
-                        uint32_t rcWifiUp = ConnectToKnownSSID(m_lastConnectedSSID);
+                               lastConnectedSSID.c_str());
+                        uint32_t rcWifiUp = ConnectToKnownSSID(lastConnectedSSID);
                         if (rcWifiUp == Core::ERROR_NONE)
                         {
                             m_wlanDisconnectedForSleep.store(false);
