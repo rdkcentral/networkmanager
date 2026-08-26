@@ -1326,10 +1326,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
-
-                if (!ssid.empty())
-                    setLastConnectedSSID(ssid); // last connected ssid used in wifiConnect
-
+				
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
                     NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
