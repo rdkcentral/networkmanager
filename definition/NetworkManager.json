@@ -614,12 +614,18 @@
                     "state": {
                         "summary": "Internet state",
                         "type": "integer",
-                        "example": 3
+                        "example": 1
                     },
                     "status": {
                         "summary": "Internet status",
                         "type": "string",
-                        "example": "FULLY_CONNECTED"
+                        "example": "NO_INTERNET"
+                    },
+                    "reason": {
+                        "summary": "Reason for current status (present when status is NO_INTERNET)",
+                        "type": "string",
+                        "enum": ["NOT_CONFIGURED", "WAITING_INTERFACE", "WAITING_GATEWAY", "PROBE_FAILED"],
+                        "example": "PROBE_FAILED"
                     },
                     "success": {
                         "$ref": "#/definitions/success"

@@ -740,7 +740,7 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
-| result.reason | string | <sup>*(optional)*</sup> Reason for `NO_INTERNET`, when available |
+| result?.reason | string | <sup>*(optional)*</sup> Reason for current status (present when status is NO_INTERNET) |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -769,8 +769,9 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
     "ipversion": "IPv4",
     "interface": "wlan0",
     "connected": true,
-    "state": 3,
-    "status": "FULLY_CONNECTED",
+    "state": 1,
+    "status": "NO_INTERNET",
+    "reason": "PROBE_FAILED",
     "success": true
   }
 }

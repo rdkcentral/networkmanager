@@ -136,16 +136,16 @@ void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetSt
 
 void NetworkManagerConnectivityClient::registerEvents()
 {
-    std::lock_guard<std::mutex> regLock(mRegistrationLock);
-
-    if (mNotificationRegistered) {
-        return;
-    }
-
-    // AddRef'd copy keeps the proxy alive even if Operational(false) releases it concurrently.
-    Exchange::IConnectivityCheck* connectivity = acquireInterface();
-    if (connectivity == nullptr) {
-        return;
+    Exchange::IConnectivityCheck* connectivity = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (mConnectivity == nullptr || mNotificationRegistered) {
+            return;
+        }
+        // Claim the flag before dropping mLock so a concurrent caller cannot register twice.
+        mNotificationRegistered = true;
+        connectivity = mConnectivity;
+        connectivity->AddRef();
     }
 
     const uint32_t r = connectivity->Register(&mNotification);
@@ -153,33 +153,34 @@ void NetworkManagerConnectivityClient::registerEvents()
 
     if (r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u)", r);
+        std::lock_guard<std::mutex> lock(mLock);
+        mNotificationRegistered = false;
         return;
     }
 
-    mNotificationRegistered = true;
     NMLOG_INFO("registered for ConnectivityCheckMgr internet-status notifications");
 }
 
 void NetworkManagerConnectivityClient::unregisterEvents()
 {
-    std::lock_guard<std::mutex> regLock(mRegistrationLock);
-
-    if (!mNotificationRegistered) {
-        return;
-    }
-
-    Exchange::IConnectivityCheck* connectivity = acquireInterface();
-    if (connectivity == nullptr) {
+    Exchange::IConnectivityCheck* connectivity = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        if (!mNotificationRegistered) {
+            return;
+        }
         mNotificationRegistered = false;
-        return;
+        if (mConnectivity == nullptr) {
+            return;
+        }
+        connectivity = mConnectivity;
+        connectivity->AddRef();
     }
 
     if (const uint32_t r = connectivity->Unregister(&mNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr unregister(notification) failed (%u)", r);
     }
     connectivity->Release();
-
-    mNotificationRegistered = false;
 }
 
 void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,

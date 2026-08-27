@@ -117,11 +117,7 @@ private:
     Exchange::IConnectivityCheck*    mConnectivity{nullptr};
     Core::Sink<Notification>         mNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
-
-    // Serializes register/unregister; separate from mLock because Register()/Unregister()
-    // must never be called with mLock held (they can dispatch notifications synchronously).
-    std::mutex                       mRegistrationLock;
-    bool                             mNotificationRegistered{false};
+    bool                             mNotificationRegistered{false}; // guarded by mLock
 
     // Status cache kept current by OnInternetStatusChange, so the hot
     // isConnectedToInternet path needs no cross-process round trip.

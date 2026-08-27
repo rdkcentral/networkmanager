@@ -229,7 +229,7 @@ namespace WPEFramework
             /* @brief Set ConnectivityTest Endpoints */
             virtual uint32_t SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */) = 0;
 
-            /* @brief Get Internet Connectivty Status */ 
+            /* @brief Get Internet Connectivity Status */ 
             virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */ = EmptyReason()) = 0;
 
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
