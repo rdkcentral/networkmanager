@@ -92,7 +92,7 @@
             "example": ""
         },
         "count": {
-            "summary": "The number of requests to send. Default is 3.",
+            "summary": "The number of requests to send. Default is 1.",
             "type": "integer",
             "example": 10
         },
