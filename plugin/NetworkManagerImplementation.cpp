@@ -1515,10 +1515,10 @@ namespace WPEFramework
                 if (m_ethEnabled.load() && m_ethConnected.load())
                 {
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on eth0");
-                    if (ReacquireDHCPLease("eth0") != Core::ERROR_NONE)
-                    {
-                        NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
-                    }
+                    // if (ReacquireDHCPLease("eth0") != Core::ERROR_NONE)
+                    // {
+                    //     NMLOG_ERROR("OnPowerModeChanged: ReacquireDHCPLease(eth0) failed");
+                    // }
                 }
                 // DeepSleep → Standby wake (Network Standby ON): re-verify connectivity so internet status is re-published.
                 connectivityMonitor.switchToInitialCheck();
