@@ -557,6 +557,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_INPARAM();
             string ipversion{};
             string interface{};
+            string reason{};
             Exchange::INetworkManager::InternetStatus status{};
 
             if (parameters.HasLabel("ipversion"))
@@ -565,13 +566,15 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr != nullptr)
             {
-                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
+                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status, reason);
                 _nwmgr->Release();
 
                 if (Core::ERROR_NONE == rc)
                 {
                     response["ipversion"] = ipversion;
                     response["connectedToInternet"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == status);
+                    if (Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE == status && !reason.empty())
+                        response["reason"] = reason;
                 }
             }
 
@@ -584,6 +587,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_INPARAM();
             string ipversion{};
             string interface{};
+            string reason{};
             Exchange::INetworkManager::InternetStatus status{};
 
             if (parameters.HasLabel("ipversion"))
@@ -592,7 +596,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr != nullptr)
             {
-                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status);
+                rc = _nwmgr->IsConnectedToInternet(ipversion, interface, status, reason);
 
                 if (Core::ERROR_NONE == rc)
                 {

@@ -614,12 +614,18 @@
                     "state": {
                         "summary": "Internet state",
                         "type": "integer",
-                        "example": 3
+                        "example": 1
                     },
                     "status": {
                         "summary": "Internet status",
                         "type": "string",
-                        "example": "FULLY_CONNECTED"
+                        "example": "NO_INTERNET"
+                    },
+                    "reason": {
+                        "summary": "Reason for current status (present when status is NO_INTERNET)",
+                        "type": "string",
+                        "enum": ["NOT_CONFIGURED", "WAITING_INTERFACE", "WAITING_GATEWAY", "PROBE_FAILED"],
+                        "example": "PROBE_FAILED"
                     },
                     "success": {
                         "$ref": "#/definitions/success"
@@ -1434,6 +1440,36 @@
                     "ipaddress",
                     "ipversion",
                     "status"
+                ]
+            }
+        },
+        "onRouteChange":{
+            "summary": "Triggered when the default route changes and a new gateway/DNS becomes available for an interface.",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "interface":{
+                        "$ref": "#/definitions/interface"
+                    },
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
+                    },
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
+                    },
+                    "gateway": {
+                        "$ref": "#/definitions/gateway"
+                    },
+                    "primarydns": {
+                        "$ref": "#/definitions/primarydns"
+                    }
+                },
+                "required": [
+                    "interface",
+                    "ipversion",
+                    "ipaddress",
+                    "gateway",
+                    "primarydns"
                 ]
             }
         },

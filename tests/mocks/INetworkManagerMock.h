@@ -31,7 +31,7 @@ public:
     MOCK_METHOD(uint32_t, SetStunEndpoint, (string const endpoint, const uint32_t port, const uint32_t timeout, const uint32_t cacheLifetime), (override));
     MOCK_METHOD(uint32_t, GetConnectivityTestEndpoints, (IStringIterator*& endpoints), (const));
     MOCK_METHOD(uint32_t, SetConnectivityTestEndpoints, (IStringIterator* const endpoints), (override));
-    MOCK_METHOD(uint32_t, IsConnectedToInternet, (string& ipversion, string& interface, WPEFramework::Exchange::INetworkManager::InternetStatus& status), (override));
+    MOCK_METHOD(uint32_t, IsConnectedToInternet, (string& ipversion, string& interface, WPEFramework::Exchange::INetworkManager::InternetStatus& status, string& reason), (override));
     MOCK_METHOD(uint32_t, GetCaptivePortalURI, (string& uri), (const));
     MOCK_METHOD(uint32_t, GetPublicIP, (string& interface, string& ipversion, string& ipaddress), (override));
     MOCK_METHOD(uint32_t, Ping, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, string& response), (override));

@@ -20,6 +20,11 @@
 #include "NetworkManager.h"
 #include <random>
 
+#ifdef USE_CONNECTIVITYCHECKMGR
+#include <strings.h>
+#include "rfcapi.h"
+#endif
+
 namespace WPEFramework
 {
     namespace Plugin
@@ -40,6 +45,7 @@ namespace WPEFramework
               _service(nullptr),
               _networkManagerImpl(nullptr),
               _networkManager(nullptr),
+              m_useConnectivityCheckMgr(false),
               _notification(this)
         {
         }
@@ -95,6 +101,16 @@ namespace WPEFramework
                 }
                 else
                 {
+#ifdef USE_CONNECTIVITYCHECKMGR
+                    RFC_ParamData_t rfcParam = {0};
+                    const WDMP_STATUS rfcStatus = getRFCParameter(
+                            const_cast<char*>("NetworkManager"),
+                            const_cast<char*>("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable"),
+                            &rfcParam);
+                    if (rfcStatus == WDMP_SUCCESS || rfcStatus == WDMP_ERR_DEFAULT_VALUE) {
+                        m_useConnectivityCheckMgr = (strcasecmp(rfcParam.value, "true") == 0);
+                    }
+#endif
                     SYSLOG(Logging::Startup, (_T("Configuring successful")));
                 }
 

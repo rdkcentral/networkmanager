@@ -473,6 +473,7 @@ namespace WPEFramework
             Exchange::INetworkManager::InternetStatus result;
             string ipversion{};
             string interface{};
+            string reason{};
 
             if (parameters.HasLabel("ipversion"))
                 ipversion = parameters["ipversion"].String();
@@ -480,7 +481,7 @@ namespace WPEFramework
                 interface = parameters["interface"].String();
 
             if (_networkManager)
-                rc = _networkManager->IsConnectedToInternet(ipversion, interface, result);
+                rc = _networkManager->IsConnectedToInternet(ipversion, interface, result, reason);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
@@ -489,9 +490,13 @@ namespace WPEFramework
                 Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> status(result);
                 response["ipversion"] = ipversion;
                 response["interface"] = interface;
-                response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result);
+                response["connected"] = (Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED == result
+					|| (m_useConnectivityCheckMgr &&
+                                            Exchange::INetworkManager::InternetStatus::INTERNET_LIMITED == result));
                 response["state"] = JsonValue(status);
                 response["status"] = status.Data();
+                if (result == Exchange::INetworkManager::InternetStatus::INTERNET_NOT_AVAILABLE && !reason.empty())
+                    response["reason"] = reason;
             }
             returnJson(rc);
         }
@@ -1092,6 +1097,19 @@ namespace WPEFramework
 
             LOG_INPARAM();
             Notify(_T("onIPAddressChange"), parameters);
+        }
+
+        void NetworkManager::onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns)
+        {
+            JsonObject parameters;
+            parameters["interface"]  = interface;
+            parameters["ipversion"]  = ipversion;
+            parameters["ipaddress"]  = ipaddress;
+            parameters["gateway"]    = gateway;
+            parameters["primarydns"] = primarydns;
+
+            LOG_INPARAM();
+            Notify(_T("onRouteChange"), parameters);
         }
 
         void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
