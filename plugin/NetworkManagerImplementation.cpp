@@ -267,18 +267,22 @@ namespace WPEFramework
                 connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
             }
 
-            if (connectEndpts.size() < 1)
+            /* Only seed endpoints when none are active; endpoints restored from the
+             * EndpointManager cache on restart must not be overwritten. */
+            if (!m_useConnectivityCheckMgr && connectivityMonitor && connectivityMonitor->getConnectivityMonitorEndpoints().size() < 1)
             {
-                std::vector<std::string> backup;
-                NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
-                backup.push_back("http://clients3.google.com/generate_204");
-                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                if (connectEndpts.size() < 1)
+                {
+                    std::vector<std::string> backup;
+                    NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
+                    backup.push_back("http://clients3.google.com/generate_204");
                     connectivityMonitor->setConnectivityMonitorEndpoints(backup);
-            }
-            else if (!m_useConnectivityCheckMgr && connectivityMonitor && connectivityMonitor->getConnectivityMonitorEndpoints().size() < 1)
-            {
-                NMLOG_INFO("Use the connectivity endpoint from config");
-                connectivityMonitor->setConnectivityMonitorEndpoints(connectEndpts);
+                }
+                else
+                {
+                    NMLOG_INFO("Use the connectivity endpoint from config");
+                    connectivityMonitor->setConnectivityMonitorEndpoints(connectEndpts);
+                }
             }
 
             /* As all the configuration is set, lets instantiate platform */
@@ -367,8 +371,15 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetConnectivityTestEndpoints(IStringIterator*& endpoints/* @out */) const
         {
             LOG_ENTRY_FUNCTION();
+            /* Endpoints are owned by ConnectivityCheckMgr when delegation is active. */
+            if(m_useConnectivityCheckMgr)
+            {
+                NMLOG_WARNING("GetConnectivityTestEndpoints is not supported while connectivity is delegated to ConnectivityCheckMgr");
+                return Core::ERROR_NOT_SUPPORTED;
+            }
+
             std::vector<std::string> tmpEndpoints;
-            if(!m_useConnectivityCheckMgr && connectivityMonitor)
+            if(connectivityMonitor)
                 tmpEndpoints = connectivityMonitor->getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
             if(endpoints == nullptr) {
@@ -382,6 +393,13 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */)
         {
             LOG_ENTRY_FUNCTION();
+            /* Endpoints are owned by ConnectivityCheckMgr when delegation is active. */
+            if(m_useConnectivityCheckMgr)
+            {
+                NMLOG_WARNING("SetConnectivityTestEndpoints is not supported while connectivity is delegated to ConnectivityCheckMgr");
+                return Core::ERROR_NOT_SUPPORTED;
+            }
+
             std::vector<std::string> tmpEndpoints;
 
             if(endpoints && (endpoints->Count() >= 1))
@@ -395,7 +413,7 @@ namespace WPEFramework
                         tmpEndpoints.push_back(endpoint);
                     }
                 }
-                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                if(connectivityMonitor)
                     connectivityMonitor->setConnectivityMonitorEndpoints(tmpEndpoints);
             }
             return Core::ERROR_NONE;
@@ -1113,15 +1131,24 @@ namespace WPEFramework
                 return;
             }
 
+            /* Snapshot the callbacks with an extra reference and invoke them outside
+             * _notificationLock; see dispatchEvent for the rationale. */
+            std::list<Exchange::INetworkManager::INotification*> callbacks;
             _notificationLock.Lock();
+            for (auto* tmpCB : _notificationCallbacks) {
+                tmpCB->AddRef();
+                callbacks.push_back(tmpCB);
+            }
+            _notificationLock.Unlock();
+
             NMLOG_INFO("Posting onRouteChange %s %s ip=%s gw=%s dns=%s",
                 interface.c_str(), ipversion.c_str(), settings.ipaddress.c_str(),
                 settings.gateway.c_str(), settings.primarydns.c_str());
-            for (const auto callback : _notificationCallbacks) {
-                callback->onRouteChange(interface, settings.ipversion, settings.ipaddress,
+            for (const auto callback : callbacks) {
+                callback->onRouteChange(interface, ipversion, settings.ipaddress,
                                         settings.gateway, settings.primarydns);
+                callback->Release();
             }
-            _notificationLock.Unlock();
         }
 
         void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
