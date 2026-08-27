@@ -424,7 +424,7 @@ namespace WPEFramework
             NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(level));
             platform_logging(static_cast<NetworkManagerLogger::LogLevel>(level));
             NMLOG_DEBUG("loglevel %d", level);
-	        return Core::ERROR_NONE;
+            return Core::ERROR_NONE;
         }
 
         /* @brief Get the network manager plugin log level */
@@ -626,8 +626,8 @@ namespace WPEFramework
         }
 
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids,
-											                 const std::vector<std::string>& filterSsidslist,
-											                 const std::vector<std::string>& filterFrequencies)
+                                                            const std::vector<std::string>& filterSsidslist,
+                                                            const std::vector<std::string>& filterFrequencies)
         {
             LOG_ENTRY_FUNCTION();
             JsonArray result;
@@ -1037,7 +1037,7 @@ namespace WPEFramework
             NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
-			// Snapshot filter vectors under lock, then release before calling filterScanResults
+            // Snapshot filter vectors under lock, then release before calling filterScanResults
             // to ensure exception-safety (std::stod can throw).
             std::vector<std::string> ssidsSnapshot;
             std::vector<std::string> frequenciesSnapshot;
@@ -1164,7 +1164,7 @@ namespace WPEFramework
                     {
                         freqValue = value;
                     }
-		    else if (key == "LINKSPEED")
+                    else if (key == "LINKSPEED")
                     {
                         linkSpeed = value;
                     }
@@ -1326,7 +1326,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::WiFiSignalQuality newSignalQuality;
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
-				
+
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
                     NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
@@ -1376,8 +1376,6 @@ namespace WPEFramework
 
                 if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
                     reportSSID = getLastConnectedSSID(); /* previously connected SSID, or empty */
-                else if(INetworkManager::WiFiState::WIFI_STATE_SSID_NOT_FOUND == state)
-                    reportSSID = ssid;               /* SSID that was being attempted */
                 else
                     reportSSID = ssid;                /* SSID currently being attempted */
             }
@@ -1476,8 +1474,7 @@ namespace WPEFramework
                     const std::string lastConnectedSSID = getLastConnectedSSID();
                     if (!lastConnectedSSID.empty())
                     {
-                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
-                               lastConnectedSSID.c_str());
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'", lastConnectedSSID.c_str());
                         uint32_t rcWifiUp = ConnectToKnownSSID(lastConnectedSSID);
                         if (rcWifiUp == Core::ERROR_NONE)
                         {

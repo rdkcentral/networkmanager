@@ -1566,7 +1566,7 @@
                 "required": [
                     "state",
                     "status",
-		    "ssid"
+                    "ssid"
                 ]
             }
         },
