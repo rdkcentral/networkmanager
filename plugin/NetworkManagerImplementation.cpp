@@ -205,8 +205,8 @@ namespace WPEFramework
                 if(!connectivityClient)
                     connectivityClient.reset(new NetworkManagerConnectivityClient());
                 connectivityClient->SetInternetStatusChangeHandler(
-                    [this](const Exchange::INetworkManager::InternetStatus status) {
-                        OnDelegatedInternetStatusChange(status);
+                    [this](const Exchange::INetworkManager::InternetStatus status, const std::string& reason) {
+                        OnDelegatedInternetStatusChange(status, reason);
                     });
                 {
                     std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
@@ -931,7 +931,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onInternetStatusChange Event");
                     const auto& eventData = std::get<InternetStatusChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface);
+                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface, eventData.reason);
                         callback->Release();
                     }
                 }
@@ -1151,7 +1151,7 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason)
         {
             LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
@@ -1166,7 +1166,8 @@ namespace WPEFramework
             }
 #endif
             {
-                InternetStatusChangeData eventData{prevState, currState, interface};
+                const string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
+                InternetStatusChangeData eventData{prevState, currState, interface, noInternetReason};
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
@@ -1178,7 +1179,7 @@ namespace WPEFramework
 #endif
         }
 
-        void NetworkManagerImplementation::OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState)
+        void NetworkManagerImplementation::OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason)
         {
             LOG_ENTRY_FUNCTION();
 
@@ -1205,9 +1206,10 @@ namespace WPEFramework
             const string activeInterface = getDefaultInterface();
             NMLOG_INFO("Bridging ConnectivityCheckMgr internet-status event prev=%u curr=%u iface=%s",
                        static_cast<unsigned>(prevState), static_cast<unsigned>(currState), activeInterface.c_str());
-            ReportInternetStatusChange(prevState, currState, activeInterface);
+            ReportInternetStatusChange(prevState, currState, activeInterface, reason);
 #else
             (void)currState;
+            (void)reason;
 #endif
         }
 

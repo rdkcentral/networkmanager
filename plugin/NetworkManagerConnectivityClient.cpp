@@ -201,7 +201,7 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         return;
     }
 
-    handler(mapped);
+    handler(mapped, reason);
 }
 
 void NetworkManagerConnectivityClient::Notification::OnInternetStatusChange(
