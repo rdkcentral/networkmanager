@@ -2041,8 +2041,10 @@ namespace WPEFramework
             bool wpsComplete= false;
             bool wpsActionTriggerd = false;
 
+#if 0
             if(_instance != nullptr)
                 _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING, "");
+#endif
 
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
