@@ -104,6 +104,7 @@ private:
     void unregisterEvents();
     void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,
                                      const std::string& reason);
+    void completeInternetStatusChangeHandler();
     void openThreadLoop();
 
     /* Returns an AddRef'd proxy (nullptr when unavailable) so the caller can invoke
@@ -117,6 +118,9 @@ private:
     Exchange::IConnectivityCheck*    mConnectivity{nullptr};
     Core::Sink<Notification>         mNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
+    std::condition_variable          mHandlerDrainCv;
+    uint32_t                         mHandlersInFlight{0};
+    bool                             mHandlerClearInProgress{false};
     bool                             mNotificationRegistered{false}; // guarded by mLock
 
     // Status cache kept current by OnInternetStatusChange, so the hot
@@ -131,6 +135,8 @@ private:
     std::mutex                       mOpenMutex;
     std::condition_variable          mOpenCv;
     std::atomic<bool>                mStopOpenThread{false};
+
+    friend class NetworkManagerConnectivityClientTestAccess;
 };
 
 } // namespace Plugin

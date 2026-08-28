@@ -17,8 +17,12 @@
 * limitations under the License.
 **/
 #include <gtest/gtest.h>
+#include <atomic>
+#include <chrono>
+#include <future>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 #include <cstdio>
 
@@ -39,6 +43,20 @@
 
 using namespace WPEFramework;
 using ::testing::NiceMock;
+
+namespace WPEFramework {
+namespace Plugin {
+class NetworkManagerConnectivityClientTestAccess {
+public:
+    static void Notify(NetworkManagerConnectivityClient& client,
+                       const Exchange::IConnectivityCheck::InternetStatus status,
+                       const std::string& reason)
+    {
+        client.notifyInternetStatusChanged(status, reason);
+    }
+};
+} // namespace Plugin
+} // namespace WPEFramework
 
 class NetworkManagerEventTest : public ::testing::Test {
 protected:
@@ -219,9 +237,10 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChangeIncludesNoInternetReason)
                 return Core::ERROR_NONE;
             }));
 
-    plugin->onInternetStatusChange(Exchange::INetworkManager::INTERNET_UNKNOWN,
-                                   Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
-                                   "eth0", "PROBE_FAILED");
+    ASSERT_TRUE(NetworkManagerImpl.IsValid());
+    NetworkManagerImpl->ReportInternetStatusChange(Exchange::INetworkManager::INTERNET_UNKNOWN,
+                                                   Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
+                                                   "eth0", "PROBE_FAILED");
 
     EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
     EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
@@ -243,9 +262,10 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChangeOmitsReasonOutsideNoIntern
                 return Core::ERROR_NONE;
             }));
 
-    plugin->onInternetStatusChange(Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
-                                   Exchange::INetworkManager::INTERNET_FULLY_CONNECTED,
-                                   "eth0", "STALE_REASON");
+    ASSERT_TRUE(NetworkManagerImpl.IsValid());
+    NetworkManagerImpl->ReportInternetStatusChange(Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
+                                                   Exchange::INetworkManager::INTERNET_FULLY_CONNECTED,
+                                                   "eth0", "STALE_REASON");
 
     EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
     EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
@@ -608,6 +628,60 @@ TEST_F(NetworkManagerEventTest, onInternetStatusChange_LimitedInternet)
     server.stop();
 }
 */
+
+#ifdef USE_CONNECTIVITYCHECKMGR
+TEST(NetworkManagerConnectivityClientTest, ClearsHandlerAfterAdmittedCallbackCompletes)
+{
+    NetworkManagerConnectivityClient client;
+    std::promise<void> callbackEntered;
+    std::future<void> callbackEnteredFuture = callbackEntered.get_future();
+    std::promise<void> allowCallbackCompletion;
+    std::shared_future<void> allowCallbackCompletionFuture = allowCallbackCompletion.get_future().share();
+    std::promise<void> handlerCleared;
+    std::future<void> handlerClearedFuture = handlerCleared.get_future();
+
+    client.SetInternetStatusChangeHandler(
+        [&callbackEntered, allowCallbackCompletionFuture](const Exchange::INetworkManager::InternetStatus,
+                                                           const std::string&) {
+            callbackEntered.set_value();
+            allowCallbackCompletionFuture.wait();
+        });
+
+    std::thread notificationThread([&client] {
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+    });
+    EXPECT_EQ(std::future_status::ready, callbackEnteredFuture.wait_for(std::chrono::seconds(1)));
+
+    std::thread clearThread([&client, &handlerCleared] {
+        client.SetInternetStatusChangeHandler(nullptr);
+        handlerCleared.set_value();
+    });
+    EXPECT_EQ(std::future_status::timeout, handlerClearedFuture.wait_for(std::chrono::milliseconds(0)));
+
+    allowCallbackCompletion.set_value();
+    notificationThread.join();
+    clearThread.join();
+    EXPECT_EQ(std::future_status::ready, handlerClearedFuture.wait_for(std::chrono::milliseconds(0)));
+}
+
+TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
+{
+    NetworkManagerConnectivityClient client;
+    std::atomic<uint32_t> callbackCount{0};
+
+    client.SetInternetStatusChangeHandler(
+        [&callbackCount](const Exchange::INetworkManager::InternetStatus, const std::string&) {
+            ++callbackCount;
+        });
+    client.SetInternetStatusChangeHandler(nullptr);
+
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+
+    EXPECT_EQ(0u, callbackCount.load());
+}
+#endif
 TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
 {
     EXPECT_CALL(*p_curlWrapsImplMock, curl_multi_perform(::testing::_, ::testing::_))

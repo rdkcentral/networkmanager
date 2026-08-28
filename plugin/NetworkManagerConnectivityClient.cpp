@@ -130,8 +130,21 @@ Exchange::IConnectivityCheck* NetworkManagerConnectivityClient::acquireInterface
 
 void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
 {
-    std::lock_guard<std::mutex> lock(mLock);
-    mInternetStatusChangeHandler = std::move(handler);
+    std::unique_lock<std::mutex> lock(mLock);
+    mHandlerDrainCv.wait(lock, [this] { return !mHandlerClearInProgress; });
+
+    if (handler) {
+        mInternetStatusChangeHandler = std::move(handler);
+        return;
+    }
+
+    // Clearing is a drain barrier. It must not be called by the active handler.
+    mHandlerClearInProgress = true;
+    mInternetStatusChangeHandler = nullptr;
+    mHandlerDrainCv.wait(lock, [this] { return mHandlersInFlight == 0; });
+    mHandlerClearInProgress = false;
+    lock.unlock();
+    mHandlerDrainCv.notify_all();
 }
 
 void NetworkManagerConnectivityClient::registerEvents()
@@ -194,14 +207,40 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         mCachedStatus = mapped;
         mCachedReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
         mHasCachedStatus = true;
+        if (mHandlerClearInProgress) {
+            return;
+        }
         handler = mInternetStatusChangeHandler;
+        if (handler) {
+            ++mHandlersInFlight;
+        }
     }
 
     if (!handler) {
         return;
     }
 
+    struct HandlerCompletion {
+        explicit HandlerCompletion(NetworkManagerConnectivityClient& client)
+            : client(client) {}
+        ~HandlerCompletion()
+        {
+            client.completeInternetStatusChangeHandler();
+        }
+
+        NetworkManagerConnectivityClient& client;
+    } completion(*this);
+
     handler(mapped, reason);
+}
+
+void NetworkManagerConnectivityClient::completeInternetStatusChangeHandler()
+{
+    std::lock_guard<std::mutex> lock(mLock);
+    --mHandlersInFlight;
+    if (mHandlersInFlight == 0) {
+        mHandlerDrainCv.notify_all();
+    }
 }
 
 void NetworkManagerConnectivityClient::Notification::OnInternetStatusChange(
@@ -249,7 +288,7 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     Exchange::IConnectivityCheck* connectivity = acquireInterface();
     if (connectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
-        return Exchange::INetworkManager::INTERNET_UNKNOWN;
+         return Exchange::INetworkManager::INTERNET_UNKNOWN;
     }
 
     Exchange::IConnectivityCheck::StatusInfo info{};
