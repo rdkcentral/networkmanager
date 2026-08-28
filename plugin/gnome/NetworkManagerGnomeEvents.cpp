@@ -324,6 +324,7 @@ namespace WPEFramework
         if (!iface) return;
         std::string ifname = iface;
         NMDeviceStateReason reason = nm_device_get_state_reason(device);
+		NMLOG_INFO("WiFi callback before switch: deviceState=%d, stateReason=%d, wifiStateBefore=%s", static_cast<int>(deviceState), static_cast<int>(reason), wifiState.c_str());
         updateInterfaceStateCache(ifname, deviceState, nm_device_get_hw_address(device));
         if(ifname == nmUtils::wlanIface())
         {
@@ -360,6 +361,7 @@ namespace WPEFramework
                     GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_ERROR, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_CONFIG_FAILED:   // 802.1x supplicant configuration failed
+					NMLOG_INFO("Selected WIFI_STATE_CONNECTION_INTERRUPTED from SUPPLICANT_CONFIG_FAILED");
                     wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
                     GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED, attemptingSSID);
                     break;
@@ -443,6 +445,7 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_NEED_AUTH:
                         //GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
+						NMLOG_INFO("Selected WIFI_STATE_CONNECTION_INTERRUPTED from NEED_AUTH");
                         wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
                         break;
                     default:
