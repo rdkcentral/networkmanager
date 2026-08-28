@@ -283,7 +283,14 @@ namespace WPEFramework
                 virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
                 virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
                 virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
-                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */, const string reason /* @in */){};
+                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
+                // Additive notification carrying the optional no-internet reason. Defaults to
+                // forwarding to onInternetStatusChange() so pre-existing implementers keep working
+                // unmodified; new implementers can override this one to receive the reason.
+                virtual void onInternetStatusChangeWithReason(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */, const string reason /* @in */)
+                {
+                    onInternetStatusChange(prevState, currState, interface);
+                };
 
                 // WiFi Notifications that other processes can subscribe to
                 virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};

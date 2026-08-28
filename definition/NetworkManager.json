@@ -1503,27 +1503,32 @@
                     "prevState":{
                         "summary": "The previous internet connection state",
                         "type": "integer",
-                        "example": 1
+                        "example": 3
                     },
                     "prevStatus":{
                         "summary": "The previous internet connection status",
                         "type": "string",
-                        "example": "NO_INTERNET"
+                        "example": "FULLY_CONNECTED"
                     },
                     "state":{
                         "summary": "The internet connection state",
                         "type": "integer",
-                        "example": 4
+                        "example": 1
                     },
                     "status":{
                         "summary": "The internet connection status",
                         "type": "string",
-                        "example": "FULLY_CONNECTED"
+                        "example": "NO_INTERNET"
                     },
                     "interface":{
                         "summary": "The internet status change on default interface",
                         "type": "string",
                         "example": "wlan0"
+                    },
+                    "reason":{
+                        "summary": "The ConnectivityCheckMgr reason when status is NO_INTERNET",
+                        "type": "string",
+                        "example": "PROBE_FAILED"
                     }
                 },
                 "required": [

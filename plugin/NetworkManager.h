@@ -84,7 +84,7 @@ namespace WPEFramework
                     _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
+                void onInternetStatusChangeWithReason(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
                 {
                     _parent.onInternetStatusChange(prevState, currState, interface, reason);
                 }

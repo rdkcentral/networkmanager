@@ -931,7 +931,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onInternetStatusChange Event");
                     const auto& eventData = std::get<InternetStatusChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface, eventData.reason);
+                        callback->onInternetStatusChangeWithReason(eventData.prevState, eventData.currState, eventData.interface, eventData.reason);
                         callback->Release();
                     }
                 }
