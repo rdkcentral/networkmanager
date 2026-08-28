@@ -248,6 +248,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::InternetStatus prevState;
                 Exchange::INetworkManager::InternetStatus currState;
                 string interface;
+                string reason;
             };
 
             struct AvailableSSIDsData {
@@ -377,8 +378,8 @@ namespace WPEFramework
                 void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
                 void ReportRouteChange(const string& interface, const string& ipversion);
                 void ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings);
-                void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
-                void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState);
+                void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason = string());
+                void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason = string());
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);

@@ -84,9 +84,9 @@ namespace WPEFramework
                     _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface) override
+                void onInternetStatusChangeWithReason(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState, interface);
+                    _parent.onInternetStatusChange(prevState, currState, interface, reason);
                 }
 
                 void onAvailableSSIDs(const string jsonOfScanResults) override
@@ -266,7 +266,7 @@ namespace WPEFramework
             void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
             void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns);
-            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason);
             void onAvailableSSIDs(const string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
             void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);

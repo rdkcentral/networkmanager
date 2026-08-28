@@ -43,15 +43,17 @@ using ::testing::NiceMock;
 namespace {
 class InternetStatusNotificationProbe : public Exchange::INetworkManager::INotification {
 public:
-    void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState,
+    void onInternetStatusChangeWithReason(const Exchange::INetworkManager::InternetStatus prevState,
                                 const Exchange::INetworkManager::InternetStatus currState,
-                                const string interface) override
+                                const string interface,
+                                const string reason) override
     {
         std::lock_guard<std::mutex> lock(mutex);
         ++count;
         lastPrev = prevState;
         lastCurr = currState;
         lastInterface = interface;
+        lastReason = reason;
         cv.notify_all();
     }
 
@@ -85,6 +87,12 @@ public:
         return lastInterface;
     }
 
+    string LastReason() const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return lastReason;
+    }
+
     uint32_t AddRef() const override
     {
         return Core::ERROR_NONE;
@@ -110,6 +118,7 @@ private:
     Exchange::INetworkManager::InternetStatus lastPrev {Exchange::INetworkManager::INTERNET_UNKNOWN};
     Exchange::INetworkManager::InternetStatus lastCurr {Exchange::INetworkManager::INTERNET_UNKNOWN};
     string lastInterface;
+    string lastReason;
 };
 } // namespace
 
@@ -361,6 +370,47 @@ TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgePublishesAndDeduplic
     EXPECT_TRUE(notification.WaitForCount(2, std::chrono::milliseconds(1000)));
     EXPECT_EQ(notification.LastPrev(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_EQ(notification.LastCurr(), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
+
+    EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
+}
+
+TEST_F(NetworkManagerImplTest, DelegatedNoInternetReasonIsPublishedOnlyForNoInternet)
+{
+    InternetStatusNotificationProbe notification;
+    ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
+
+    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":true})";
+    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
+
+    NetworkManagerImplementation->setDefaultInterface("eth0");
+    NetworkManagerImplementation->OnDelegatedInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_NOT_AVAILABLE, "PROBE_FAILED");
+
+    EXPECT_TRUE(notification.WaitForCount(1, std::chrono::milliseconds(1000)));
+    EXPECT_EQ(notification.LastCurr(), Exchange::INetworkManager::INTERNET_NOT_AVAILABLE);
+    EXPECT_EQ(notification.LastReason(), "PROBE_FAILED");
+
+    NetworkManagerImplementation->OnDelegatedInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_FULLY_CONNECTED, "STALE_REASON");
+
+    EXPECT_TRUE(notification.WaitForCount(2, std::chrono::milliseconds(1000)));
+    EXPECT_EQ(notification.LastCurr(), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
+    EXPECT_TRUE(notification.LastReason().empty());
+
+    EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
+}
+
+TEST_F(NetworkManagerImplTest, BuiltInMonitorInternetStatusEventOmitsReason)
+{
+    InternetStatusNotificationProbe notification;
+    ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
+
+    NetworkManagerImplementation->ReportInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_UNKNOWN,
+        Exchange::INetworkManager::INTERNET_NOT_AVAILABLE, "eth0");
+
+    EXPECT_TRUE(notification.WaitForCount(1, std::chrono::milliseconds(1000)));
+    EXPECT_TRUE(notification.LastReason().empty());
 
     EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
 }

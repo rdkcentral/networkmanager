@@ -57,7 +57,7 @@ namespace Plugin {
 class NetworkManagerConnectivityClient : protected RPC::SmartInterfaceType<Exchange::IConnectivityCheck> {
 public:
     using NmInternetStatus = Exchange::INetworkManager::InternetStatus;
-    using InternetStatusChangeHandler = std::function<void(NmInternetStatus)>;
+    using InternetStatusChangeHandler = std::function<void(NmInternetStatus, const std::string&)>;
 
     NetworkManagerConnectivityClient();
     ~NetworkManagerConnectivityClient() override;

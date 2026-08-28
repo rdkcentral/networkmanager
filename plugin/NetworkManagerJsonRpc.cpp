@@ -1112,7 +1112,7 @@ namespace WPEFramework
             Notify(_T("onRouteChange"), parameters);
         }
 
-        void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
+        void NetworkManager::onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason)
         {
             JsonObject parameters;
             Core::JSON::EnumType<Exchange::INetworkManager::InternetStatus> prevStatus(prevState);
@@ -1122,6 +1122,9 @@ namespace WPEFramework
             parameters["state"] = JsonValue(currState);
             parameters["status"] = currStatus.Data();
             parameters["interface"] = interface;
+            if (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE && !reason.empty()) {
+                parameters["reason"] = reason;
+            }
 
             LOG_INPARAM();
             Notify(_T("onInternetStatusChange"), parameters);
