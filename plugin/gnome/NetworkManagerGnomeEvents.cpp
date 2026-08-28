@@ -459,7 +459,9 @@ namespace WPEFramework
                     break;
                 }
             }
-            NMLOG_INFO("wifi state: %s; reason: %d", wifiState.c_str(), static_cast<int>(reason));
+            // NMLOG_INFO("wifi state: %s; reason: %d", wifiState.c_str(), static_cast<int>(reason));
+			NMLOG_INFO("wifi state: %s; device state: %d; reason: %d", wifiState.c_str(), static_cast<int>(deviceState), static_cast<int>(reason));
+
         }
         else if(ifname == nmUtils::ethIface())
         {
