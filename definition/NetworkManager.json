@@ -609,7 +609,7 @@
                     "connected": {
                         "summary": "`true` if internet connectivity is detected, otherwise `false`",
                         "type": "boolean",
-                        "example": true
+                        "example": false
                     },
                     "state": {
                         "summary": "Internet state",

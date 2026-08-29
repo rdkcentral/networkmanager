@@ -21,7 +21,7 @@
 
 #include "Module.h"
 #include "INetworkManager.h"
-#include <interfaces/IConnectivityCheck.h>
+#include <interfaces_cpc/interfaces/IConnectivityCheck.h>
 #include <atomic>
 #include <condition_variable>
 #include <functional>

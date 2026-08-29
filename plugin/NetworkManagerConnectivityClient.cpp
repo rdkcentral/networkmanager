@@ -200,12 +200,14 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
                                                                    const std::string& reason)
 {
     const NmInternetStatus mapped = mapStatus(status);
+    // Only NO_INTERNET carries a meaningful reason; keep the handler consistent with the cache.
+    const std::string filteredReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
 
     InternetStatusChangeHandler handler;
     {
         std::lock_guard<std::mutex> lock(mLock);
         mCachedStatus = mapped;
-        mCachedReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
+        mCachedReason = filteredReason;
         mHasCachedStatus = true;
         if (mHandlerClearInProgress) {
             return;
@@ -231,7 +233,7 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         NetworkManagerConnectivityClient& client;
     } completion(*this);
 
-    handler(mapped, reason);
+    handler(mapped, filteredReason);
 }
 
 void NetworkManagerConnectivityClient::completeInternetStatusChangeHandler()
