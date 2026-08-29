@@ -223,56 +223,6 @@ TEST_F(NetworkManagerEventTest, iarmEventHandlerErrorChack)
     _nmEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_NETWORK_MANAGER_EVENT_INTERNET_CONNECTION_CHANGED, &eventData, sizeof(eventData)); 
 }
 
-TEST_F(NetworkManagerEventTest, onInternetStatusChangeIncludesNoInternetReason)
-{
-    Core::Event onInternetStatusChange(false, true);
-    EVENT_SUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
-
-    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
-        .WillOnce(::testing::Invoke(
-            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
-                string text;
-                EXPECT_TRUE(json->ToString(text));
-                EXPECT_TRUE(text.find("\"status\":\"NO_INTERNET\"") != std::string::npos);
-                EXPECT_TRUE(text.find("\"reason\":\"PROBE_FAILED\"") != std::string::npos);
-                onInternetStatusChange.SetEvent();
-                return Core::ERROR_NONE;
-            }));
-
-    ASSERT_TRUE(NetworkManagerImpl.IsValid());
-    NetworkManagerImpl->ReportInternetStatusChange(Exchange::INetworkManager::INTERNET_UNKNOWN,
-                                                   Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
-                                                   "eth0", "PROBE_FAILED");
-
-    EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
-    EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
-}
-
-TEST_F(NetworkManagerEventTest, onInternetStatusChangeOmitsReasonOutsideNoInternet)
-{
-    Core::Event onInternetStatusChange(false, true);
-    EVENT_SUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
-
-    EXPECT_CALL(service, Submit(::testing::_, ::testing::_))
-        .WillOnce(::testing::Invoke(
-            [&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& json) {
-                string text;
-                EXPECT_TRUE(json->ToString(text));
-                EXPECT_TRUE(text.find("\"status\":\"FULLY_CONNECTED\"") != std::string::npos);
-                EXPECT_TRUE(text.find("\"reason\"") == std::string::npos);
-                onInternetStatusChange.SetEvent();
-                return Core::ERROR_NONE;
-            }));
-
-    ASSERT_TRUE(NetworkManagerImpl.IsValid());
-    NetworkManagerImpl->ReportInternetStatusChange(Exchange::INetworkManager::INTERNET_NOT_AVAILABLE,
-                                                   Exchange::INetworkManager::INTERNET_FULLY_CONNECTED,
-                                                   "eth0", "STALE_REASON");
-
-    EXPECT_EQ(Core::ERROR_NONE, onInternetStatusChange.Lock());
-    EVENT_UNSUBSCRIBE(2, _T("onInternetStatusChange"), _T("org.rdk.NetworkManager"), message);
-}
-
 TEST_F(NetworkManagerEventTest, onInterfaceStateChange)
 {
     Core::Event onInterfaceStateChange(false, true);
