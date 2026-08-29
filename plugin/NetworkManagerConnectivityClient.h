@@ -21,6 +21,8 @@
 
 #include "Module.h"
 #include "INetworkManager.h"
+// IConnectivityCheck is generated/installed by entservices-cpc-apis under interfaces_cpc,
+// not the standard Thunder interfaces/ path.
 #include <interfaces_cpc/interfaces/IConnectivityCheck.h>
 #include <atomic>
 #include <condition_variable>
