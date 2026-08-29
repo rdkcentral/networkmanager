@@ -44,6 +44,7 @@
 using namespace WPEFramework;
 using ::testing::NiceMock;
 
+#ifdef USE_CONNECTIVITYCHECKMGR
 namespace WPEFramework {
 namespace Plugin {
 class NetworkManagerConnectivityClientTestAccess {
@@ -57,6 +58,7 @@ public:
 };
 } // namespace Plugin
 } // namespace WPEFramework
+#endif
 
 class NetworkManagerEventTest : public ::testing::Test {
 protected:
