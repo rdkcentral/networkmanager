@@ -698,6 +698,7 @@ namespace WPEFramework
                 if(defaultIface.empty())
                 {
                     NMLOG_WARNING("default interface not set");
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
                     if (InitialRetryCount == 0)
                         m_notify = true;
                     InitialRetryCount = 1;
