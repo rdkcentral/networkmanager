@@ -96,6 +96,10 @@ namespace WPEFramework
                 connectivityClient.reset();
             }
 #endif
+            if(!m_useConnectivityCheckMgr && connectivityMonitor)
+            {
+                connectivityMonitor->stopConnectivityMonitor();
+            }
             _instance = nullptr;
             platform_deinit();
             if(m_registrationThread.joinable())
