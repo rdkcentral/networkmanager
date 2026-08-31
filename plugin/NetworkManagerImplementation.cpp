@@ -1663,7 +1663,7 @@ namespace WPEFramework
                 // DeepSleep wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
                 if(!m_useConnectivityCheckMgr && connectivityMonitor)
                 {
-                    connectivityMonitor.switchToInitialCheck();
+                    connectivityMonitor->switchToInitialCheck();
                 }
             }
             sendAck();
@@ -1706,7 +1706,7 @@ namespace WPEFramework
                 // DeepSleep → Standby wake (Network Standby ON): re-verify connectivity so internet status is re-published.
                 if(!m_useConnectivityCheckMgr && connectivityMonitor)
                 {
-                    connectivityMonitor.switchToInitialCheck();
+                    connectivityMonitor->switchToInitialCheck();
                 }
             }
         }
