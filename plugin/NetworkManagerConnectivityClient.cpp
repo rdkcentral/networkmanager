@@ -19,6 +19,7 @@
 
 #include "NetworkManagerConnectivityClient.h"
 #include "NetworkManagerLogger.h"
+#include <chrono>
 #include <com/com.h>
 
 using namespace WPEFramework;
