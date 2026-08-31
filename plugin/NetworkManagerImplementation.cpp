@@ -96,9 +96,9 @@ namespace WPEFramework
                 connectivityClient.reset();
             }
 #endif
-            if(!m_useConnectivityCheckMgr && connectivityMonitor)
+            if(!m_useConnectivityCheckMgr)
             {
-                connectivityMonitor->stopConnectivityMonitor();
+                connectivityMonitor.stopConnectivityMonitor();
             }
             _instance = nullptr;
             platform_deinit();
@@ -193,10 +193,9 @@ namespace WPEFramework
 #ifdef USE_CONNECTIVITYCHECKMGR
             if(m_useConnectivityCheckMgr)
             {
-                /* Stop/destroy the built-in monitor (constructed by default) so it
-                 * does not run alongside the delegation client. */
-                if(connectivityMonitor)
-                    connectivityMonitor.reset();
+                /* Stop the built-in monitor (started by its constructor) so it does
+                 * not run alongside the delegation client. */
+                connectivityMonitor.stopConnectivityMonitor();
                 if(!connectivityClient)
                     connectivityClient.reset(new NetworkManagerConnectivityClient());
                 connectivityClient->SetInternetStatusChangeHandler(
@@ -247,19 +246,19 @@ namespace WPEFramework
 
             /* Only seed endpoints when none are active; endpoints restored from the
              * EndpointManager cache on restart must not be overwritten. */
-            if (!m_useConnectivityCheckMgr && connectivityMonitor && connectivityMonitor->getConnectivityMonitorEndpoints().size() < 1)
+            if (!m_useConnectivityCheckMgr && connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
             {
                 if (connectEndpts.size() < 1)
                 {
                     std::vector<std::string> backup;
                     NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
                     backup.push_back("http://clients3.google.com/generate_204");
-                    connectivityMonitor->setConnectivityMonitorEndpoints(backup);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
                 }
                 else
                 {
                     NMLOG_INFO("Use the connectivity endpoint from config");
-                    connectivityMonitor->setConnectivityMonitorEndpoints(connectEndpts);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
                 }
             }
 
@@ -351,8 +350,7 @@ namespace WPEFramework
             }
 
             std::vector<std::string> tmpEndpoints;
-            if(connectivityMonitor)
-                tmpEndpoints = connectivityMonitor->getConnectivityMonitorEndpoints();
+            tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
             if(endpoints == nullptr) {
                 return Core::ERROR_GENERAL;
@@ -385,8 +383,7 @@ namespace WPEFramework
                         tmpEndpoints.push_back(endpoint);
                     }
                 }
-                if(connectivityMonitor)
-                    connectivityMonitor->setConnectivityMonitorEndpoints(tmpEndpoints);
+                connectivityMonitor.setConnectivityMonitorEndpoints(tmpEndpoints);
             }
             return Core::ERROR_NONE;
         }
@@ -430,8 +427,7 @@ namespace WPEFramework
             else
 #endif
             {
-                result = connectivityMonitor ? connectivityMonitor->getInternetState(interface, curlIPversion, ipVersionNotSpecified)
-                                             : Exchange::INetworkManager::INTERNET_UNKNOWN;
+                result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
             }
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
@@ -453,7 +449,7 @@ namespace WPEFramework
                 uri = connectivityClient ? connectivityClient->getCaptivePortalURI() : std::string();
             else
 #endif
-                uri = connectivityMonitor ? connectivityMonitor->getCaptivePortalURI() : std::string();
+                uri = connectivityMonitor.getCaptivePortalURI();
             return Core::ERROR_NONE;
         }
 
@@ -962,8 +958,8 @@ namespace WPEFramework
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
-                    if(!m_useConnectivityCheckMgr && connectivityMonitor)
-                        connectivityMonitor->switchToInitialCheck();
+                    if(!m_useConnectivityCheckMgr)
+                        connectivityMonitor.switchToInitialCheck();
                 }
                 else if(interface == "wlan0")
                 {
@@ -980,8 +976,8 @@ namespace WPEFramework
                     {
                         // When WiFi is disconnected while Ethernet is connected, we don't need to trigger connectivity monitor.
                         // For WiFi-only state and WiFi disconnected, we should trigger connectivity monitor.
-                        if(!m_useConnectivityCheckMgr && connectivityMonitor)
-                            connectivityMonitor->switchToInitialCheck();
+                        if(!m_useConnectivityCheckMgr)
+                            connectivityMonitor.switchToInitialCheck();
                     }
                 }
             }
@@ -1072,8 +1068,8 @@ namespace WPEFramework
 
                 if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
-                    if(!m_useConnectivityCheckMgr && connectivityMonitor)
-                        connectivityMonitor->switchToInitialCheck();
+                    if(!m_useConnectivityCheckMgr)
+                        connectivityMonitor.switchToInitialCheck();
                 }
                 else
                     NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());
@@ -1661,9 +1657,9 @@ namespace WPEFramework
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
                 }
                 // DeepSleep wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
-                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                if(!m_useConnectivityCheckMgr)
                 {
-                    connectivityMonitor->switchToInitialCheck();
+                    connectivityMonitor.switchToInitialCheck();
                 }
             }
             sendAck();
@@ -1704,9 +1700,9 @@ namespace WPEFramework
                     }
                 }
                 // DeepSleep → Standby wake (Network Standby ON): re-verify connectivity so internet status is re-published.
-                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                if(!m_useConnectivityCheckMgr)
                 {
-                    connectivityMonitor->switchToInitialCheck();
+                    connectivityMonitor.switchToInitialCheck();
                 }
             }
         }
