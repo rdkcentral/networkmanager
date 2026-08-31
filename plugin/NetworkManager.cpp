@@ -103,11 +103,11 @@ namespace WPEFramework
                 {
 #ifdef USE_CONNECTIVITYCHECKMGR
                     RFC_ParamData_t rfcParam = {0};
-                    const WDMP_STATUS rfcStatus = getRFCParameter(
+                    const WDMP_STATUS rfcRetCode = getRFCParameter(
                             const_cast<char*>("NetworkManager"),
                             const_cast<char*>("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable"),
                             &rfcParam);
-                    if (rfcStatus == WDMP_SUCCESS || rfcStatus == WDMP_ERR_DEFAULT_VALUE) {
+                    if (rfcRetCode == WDMP_SUCCESS || rfcRetCode == WDMP_ERR_DEFAULT_VALUE) {
                         m_useConnectivityCheckMgr = (strcasecmp(rfcParam.value, "true") == 0);
                     }
 #endif
