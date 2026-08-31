@@ -51,7 +51,6 @@ endif ()
 
 set(PLUGIN_NETWORKMANAGER_LOGLEVEL "3" CACHE STRING "To configure default loglevel NetworkManager plugin")
 set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
-set(PLUGIN_NETWORKMANAGER_USE_CONNECTIVITYCHECKMGR "false" CACHE STRING "Config fallback to delegate connectivity to ConnectivityCheckMgr when the RFC flag is unset")
 
 set(PLUGIN_NETWORKMANAGER_AUTOSTART "false" CACHE STRING "Set the default AutoStart of NetworkManager Plugin")
 set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")

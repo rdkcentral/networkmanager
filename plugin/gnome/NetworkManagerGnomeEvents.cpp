@@ -254,9 +254,9 @@ namespace WPEFramework
             && !newCache.primarydns.empty()) {
             /* Values are already in hand from the snapshot we just built, so emit
                them directly instead of having ReportRouteChange re-query the cache. */
-            Exchange::INetworkManager::IPAddress settings = newCache.toIPAddress();
-            settings.ipversion = family;
-            _instance->ReportRouteChange(ifname, family, settings);
+            Exchange::INetworkManager::IPAddress ipaddress = newCache.toIPAddress();
+            ipaddress.ipversion = family;
+            _instance->ReportRouteChange(ifname, family, ipaddress);
         }
     }
 

@@ -65,11 +65,6 @@ namespace WPEFramework
             m_ethDisconnectedForSleep.store(false);
             m_wlanDisconnectedForSleep.store(false);
 
-            /* Default connectivity backend is the built-in monitor. Configure()
-             * may switch to ConnectivityCheckMgr delegation based on the RFC flag
-             * (see resolveConnectivityCheckMgrEnabled). */
-            connectivityMonitor.reset(new ConnectivityMonitor());
-
             /* Set NetworkManager Out-Process name to be NWMgrPlugin */
             Core::ProcessInfo().Name("NWMgrPlugin");
 
@@ -101,10 +96,6 @@ namespace WPEFramework
                 connectivityClient.reset();
             }
 #endif
-            if(!m_useConnectivityCheckMgr && connectivityMonitor)
-            {
-                connectivityMonitor->stopConnectivityMonitor();
-            }
             _instance = nullptr;
             platform_deinit();
             if(m_registrationThread.joinable())
@@ -215,24 +206,7 @@ namespace WPEFramework
                 }
                 NMLOG_INFO("Connectivity delegated to ConnectivityCheckMgr (runtime selection)");
             }
-            else
 #endif
-            {
-#ifdef USE_CONNECTIVITYCHECKMGR
-                if (connectivityClient) {
-                    connectivityClient->SetInternetStatusChangeHandler(nullptr);
-                    connectivityClient.reset();
-                }
-                {
-                    std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
-                    m_hasBridgedInternetStatus = false;
-                    m_lastBridgedInternetStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
-                }
-#endif
-                if(!connectivityMonitor)
-                    connectivityMonitor.reset(new ConnectivityMonitor());
-                NMLOG_INFO("Using built-in ConnectivityMonitor (runtime selection)");
-            }
 
             /* STUN configuration copy */
             m_stunEndpoint = config.stun.stunEndpoint.Value();
@@ -311,12 +285,6 @@ namespace WPEFramework
                            enabled ? "delegate" : "internal monitor");
                 return enabled;
             }
-            NMLOG_WARNING("getRFCParameter(ConnectivityCheckMgr.Enable) failed (status=%d); using config fallback",
-                          wdmpStatus);
-            bool enabled = config.useConnectivityCheckMgr.Value();
-            NMLOG_INFO("ConnectivityCheckMgr delegation (config fallback) = %s",
-                       enabled ? "enabled" : "disabled");
-            return enabled;
 #else
             (void)config;
             NMLOG_INFO("ConnectivityCheckMgr delegation not compiled in; using built-in monitor");
