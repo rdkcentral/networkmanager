@@ -472,7 +472,7 @@ namespace WPEFramework
                  * delegated to ConnectivityCheckMgr via connectivityClient;
                  * otherwise the built-in connectivityMonitor is used. */
                 bool m_useConnectivityCheckMgr {false};
-                mutable std::unique_ptr<ConnectivityMonitor> connectivityMonitor;
+                mutable ConnectivityMonitor connectivityMonitor;
 #ifdef USE_CONNECTIVITYCHECKMGR
                 mutable std::unique_ptr<NetworkManagerConnectivityClient> connectivityClient;
 #endif
