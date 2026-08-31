@@ -43,7 +43,7 @@ using ::testing::NiceMock;
 namespace {
 class InternetStatusNotificationProbe : public Exchange::INetworkManager::INotification {
 public:
-    void onInternetStatusChangeWithReason(const Exchange::INetworkManager::InternetStatus prevState,
+    void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState,
                                 const Exchange::INetworkManager::InternetStatus currState,
                                 const string interface,
                                 const string reason) override
