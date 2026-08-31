@@ -1661,7 +1661,10 @@ namespace WPEFramework
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
                 }
                 // DeepSleep wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
-                connectivityMonitor.switchToInitialCheck();
+                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                {
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
             sendAck();
         }
@@ -1701,7 +1704,10 @@ namespace WPEFramework
                     }
                 }
                 // DeepSleep → Standby wake (Network Standby ON): re-verify connectivity so internet status is re-published.
-                connectivityMonitor.switchToInitialCheck();
+                if(!m_useConnectivityCheckMgr && connectivityMonitor)
+                {
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
         }
 
