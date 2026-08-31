@@ -1480,7 +1480,7 @@ namespace WPEFramework
                 {
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
                 }
-                // DeepSleep → Standby wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
+                // DeepSleep wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
                 connectivityMonitor.switchToInitialCheck();
             }
             sendAck();
