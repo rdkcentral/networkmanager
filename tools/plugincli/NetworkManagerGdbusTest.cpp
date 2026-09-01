@@ -59,9 +59,9 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportAvailableSSIDs' cb");
         }
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
-            NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
+            NMLOG_INFO("calling 'ReportWiFiStateChange' cb (state=%d, ssid='%s')", state, ssid.c_str());
         }
         void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
