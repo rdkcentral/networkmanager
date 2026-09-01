@@ -205,7 +205,6 @@ namespace WPEFramework
                         Add(_T("connectivity"), &connectivityConf);
                         Add(_T("stun"), &stun);
                         Add(_T("loglevel"), &loglevel);
-                        Add(_T("useConnectivityCheckMgr"), &useConnectivityCheckMgr);
                     }
                 ~Configuration() override = default;
 
@@ -213,7 +212,6 @@ namespace WPEFramework
                 ConnectivityConf connectivityConf;
                 Stun stun;
                 Core::JSON::DecUInt32 loglevel;
-                Core::JSON::Boolean useConnectivityCheckMgr;
             };
 
             enum NMPublishEvents {

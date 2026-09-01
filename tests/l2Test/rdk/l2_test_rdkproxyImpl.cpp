@@ -351,9 +351,6 @@ TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgePublishesAndDeduplic
     InternetStatusNotificationProbe notification;
     ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
 
-    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":true})";
-    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
-
     NetworkManagerImplementation->setDefaultInterface("eth0");
     NetworkManagerImplementation->OnDelegatedInternetStatusChange(Exchange::INetworkManager::INTERNET_LIMITED);
 
@@ -378,9 +375,6 @@ TEST_F(NetworkManagerImplTest, DelegatedNoInternetReasonIsPublishedOnlyForNoInte
 {
     InternetStatusNotificationProbe notification;
     ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
-
-    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":true})";
-    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
 
     NetworkManagerImplementation->setDefaultInterface("eth0");
     NetworkManagerImplementation->OnDelegatedInternetStatusChange(
@@ -419,9 +413,6 @@ TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgeIgnoredWhenDelegatio
 {
     InternetStatusNotificationProbe notification;
     ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
-
-    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":false})";
-    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
 
     NetworkManagerImplementation->OnDelegatedInternetStatusChange(Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_FALSE(notification.WaitForCount(1, std::chrono::milliseconds(250)));
