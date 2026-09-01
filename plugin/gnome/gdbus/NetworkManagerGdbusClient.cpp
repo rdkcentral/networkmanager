@@ -2503,7 +2503,7 @@ namespace WPEFramework
                 {
                     NMLOG_INFO("'%s' already connected !", currentSSID.ssid.c_str());
                     if(_instance != nullptr)
-                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, currentSSID.ssid);
                     return true;
                 }
                 else
@@ -2989,7 +2989,7 @@ namespace WPEFramework
                     {
                         NMLOG_WARNING("WPS process failed - device in disconnected state");
                         if(_instance != nullptr)
-                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, ssidinfo.ssid);
                         break;
                     }
                     else if(devProperty.state > NM_DEVICE_STATE_NEED_AUTH)
@@ -2997,7 +2997,7 @@ namespace WPEFramework
                         NMLOG_INFO("WPS process completed successfully");
                         wpsComplete = true;
                         if(_instance != nullptr)
-                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, ssidinfo.ssid);
                         break;
                     }
 
@@ -3006,7 +3006,7 @@ namespace WPEFramework
                     {
                         NMLOG_ERROR("WPS process failed - timeout");
                         if(_instance != nullptr)
-                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, ssidinfo.ssid);
                         break;
                     }
                     continue;
@@ -3030,7 +3030,7 @@ namespace WPEFramework
                     NMLOG_INFO("WPS process stopped - already connected to WPS AP '%s'", ssidinfo.ssid.c_str());
                     wpsComplete = true;
                     if(_instance != nullptr)
-                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, ssidinfo.ssid);
                     break;
                 }
 
@@ -3066,13 +3066,13 @@ namespace WPEFramework
             {
                 NMLOG_WARNING("WPS AP not found");
                 if(_instance != nullptr)
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, ssidinfo.ssid);
             }
             else if(!wpsComplete && m_wpsActionTriggered)
             {
                 NMLOG_INFO("WPS process error");
                 if(_instance != nullptr)
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, ssidinfo.ssid);
             }
 
             NMLOG_INFO("WPS process thread exit");
