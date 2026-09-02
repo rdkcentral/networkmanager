@@ -525,7 +525,7 @@ namespace WPEFramework
             NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(level));
             platform_logging(static_cast<NetworkManagerLogger::LogLevel>(level));
             NMLOG_DEBUG("loglevel %d", level);
-	        return Core::ERROR_NONE;
+            return Core::ERROR_NONE;
         }
 
         /* @brief Get the network manager plugin log level */
@@ -727,8 +727,8 @@ namespace WPEFramework
         }
 
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids,
-											                 const std::vector<std::string>& filterSsidslist,
-											                 const std::vector<std::string>& filterFrequencies)
+                                                            const std::vector<std::string>& filterSsidslist,
+                                                            const std::vector<std::string>& filterFrequencies)
         {
             LOG_ENTRY_FUNCTION();
             JsonArray result;
@@ -919,7 +919,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onWiFiStateChange Event");
                     const auto& eventData = std::get<WiFiStateChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onWiFiStateChange(eventData.state);
+                        callback->onWiFiStateChange(eventData.state, eventData.ssid);
                         callback->Release();
                     }
                 }
@@ -1212,7 +1212,7 @@ namespace WPEFramework
             NMLOG_DEBUG("Discovered %d SSIDs before filtering as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_DEBUG, filterResult);
 
-			// Snapshot filter vectors under lock, then release before calling filterScanResults
+            // Snapshot filter vectors under lock, then release before calling filterScanResults
             // to ensure exception-safety (std::stod can throw).
             std::vector<std::string> ssidsSnapshot;
             std::vector<std::string> frequenciesSnapshot;
@@ -1339,7 +1339,7 @@ namespace WPEFramework
                     {
                         freqValue = value;
                     }
-		    else if (key == "LINKSPEED")
+                    else if (key == "LINKSPEED")
                     {
                         linkSpeed = value;
                     }
@@ -1502,9 +1502,6 @@ namespace WPEFramework
 
                 GetWiFiSignalQuality(ssid, strength, noise, snr, newSignalQuality);
 
-                if (!ssid.empty())
-                    setLastConnectedSSID(ssid); // last connected ssid used in wifiConnect
-
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
                     NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
@@ -1526,29 +1523,46 @@ namespace WPEFramework
             m_stopThread.store(false);
         }
 
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
             LOG_ENTRY_FUNCTION();
+
+            std::string reportSSID;
+
             /* start signal strength monitor when wifi connected */
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
+                if(!ssid.empty())
+                {
+                    setLastConnectedSSID(ssid);
+                    reportSSID = ssid;
+                }
+                else
+                {
+                    reportSSID = getLastConnectedSSID();
+                }
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
             {
                 stopWiFiSignalQualityMonitor();
                 m_wlanConnected.store(false); /* Any other state is considered as WiFi not connected. */
+
+                if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
+                    reportSSID = getLastConnectedSSID(); /* previously connected SSID, or empty */
+                else
+                    reportSSID = ssid;                /* SSID currently being attempted */
             }
 
-            NMLOG_INFO("Posting onWiFiStateChange (%d)", state);
+            NMLOG_INFO("Posting onWiFiStateChange (%d) ssid: %s", state, reportSSID.c_str());
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::WiFiState>(state).Data();
             NMLOG_INFO("NM_WIFI_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state};
+                WiFiStateChangeData eventData{state, reportSSID};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }
@@ -1635,8 +1649,7 @@ namespace WPEFramework
                     const std::string lastConnectedSSID = getLastConnectedSSID();
                     if (!lastConnectedSSID.empty())
                     {
-                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'",
-                               lastConnectedSSID.c_str());
+                        NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — reconnecting to '%s'", lastConnectedSSID.c_str());
                         uint32_t rcWifiUp = ConnectToKnownSSID(lastConnectedSSID);
                         if (rcWifiUp == Core::ERROR_NONE)
                         {

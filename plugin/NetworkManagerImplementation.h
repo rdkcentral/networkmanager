@@ -255,6 +255,7 @@ namespace WPEFramework
 
             struct WiFiStateChangeData {
                 Exchange::INetworkManager::WiFiState state;
+                string ssid;
             };
 
             struct WiFiSignalQualityChangeData {
@@ -379,7 +380,7 @@ namespace WPEFramework
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason = string());
                 void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason = string());
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
-                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
+                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
                 void logTelemetry(const std::string& eventName, const std::string& message);
 
@@ -462,7 +463,6 @@ namespace WPEFramework
                 std::atomic<bool> m_wlanEnabled;
                 std::atomic<bool> m_ethDisconnectedForSleep;
                 std::atomic<bool> m_wlanDisconnectedForSleep;
-                std::string m_lastConnectedSSID;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
                 /* Runtime connectivity backend selection (replaces the old
                  * USE_CONNECTIVITY_CHECK_MGR compile-time macro). When
@@ -505,6 +505,7 @@ namespace WPEFramework
             private:
                 string m_defaultInterface;
                 mutable std::mutex m_defaultInterfaceMutex;
+                std::string m_lastConnectedSSID;
                 mutable std::mutex m_lastConnectedSSIDMutex;
                 std::map<std::pair<std::string, std::string>, IpFamilyCache> m_ipCacheMap;
                 mutable std::mutex m_ipCacheMutex;

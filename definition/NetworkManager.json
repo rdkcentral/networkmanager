@@ -1597,11 +1597,17 @@
                         "summary": "WiFi status",
                         "type": "string",
                         "example": "WIFI_STATE_CONNECTED"
+                    },
+                    "ssid": {
+                        "summary": "The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected. The SSID will be empty when WPS initiated and no AP found with WPS enabled.",
+                        "type": "string",
+                        "example": "myHomeSSID"
                     }
                 },
                 "required": [
                     "state",
-                    "status"
+                    "status",
+                    "ssid"
                 ]
             }
         },

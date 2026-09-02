@@ -287,7 +287,7 @@ namespace WPEFramework
 
                 // WiFi Notifications that other processes can subscribe to
                 virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};
-                virtual void onWiFiStateChange(const WiFiState state /* @in */){};
+                virtual void onWiFiStateChange(const WiFiState state /* @in */, const string ssid /* @in */){};
                 virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */){};
                 virtual void onRouteChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const string gateway /* @in */, const string primarydns /* @in */){};
             };
