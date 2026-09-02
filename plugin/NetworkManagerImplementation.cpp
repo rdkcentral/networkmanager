@@ -291,8 +291,8 @@ namespace WPEFramework
 #else
             (void)config;
             NMLOG_INFO("ConnectivityCheckMgr delegation not compiled in; using built-in monitor");
-            return false;
 #endif
+            return false;
         }
 
         /* @brief Get STUN Endpoint to be used for identifying Public IP */
