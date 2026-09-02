@@ -24,6 +24,11 @@
 #include <cstdio>
 #include "NetworkManagerImplementation.h"
 
+#ifdef USE_CONNECTIVITYCHECKMGR
+#include <strings.h>
+#include "rfcapi.h"
+#endif
+
 #if USE_TELEMETRY
 #include "NetworkManagerJsonEnum.h"
 #include <telemetry_busmessage_sender.h>
@@ -83,7 +88,18 @@ namespace WPEFramework
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
             m_powerClient.reset();
-            connectivityMonitor.stopConnectivityMonitor();
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if (connectivityClient) {
+                // Clear the handler first so no in-flight callback can reach this
+                // (partially-destroyed) object, then tear down the COM-RPC client.
+                connectivityClient->SetInternetStatusChangeHandler(nullptr);
+                connectivityClient.reset();
+            }
+#endif
+            if(!m_useConnectivityCheckMgr)
+            {
+                connectivityMonitor.stopConnectivityMonitor();
+            }
             _instance = nullptr;
             platform_deinit();
             if(m_registrationThread.joinable())
@@ -171,6 +187,30 @@ namespace WPEFramework
             NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             NMLOG_DEBUG("loglevel %d", config.loglevel.Value());
 
+            /* Resolve the connectivity backend at runtime (replaces the old
+             * USE_CONNECTIVITY_CHECK_MGR compile-time macro). */
+            m_useConnectivityCheckMgr = resolveConnectivityCheckMgrEnabled(config);
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if(m_useConnectivityCheckMgr)
+            {
+                /* Stop the built-in monitor (started by its constructor) so it does
+                 * not run alongside the delegation client. */
+                connectivityMonitor.stopConnectivityMonitor();
+                if(!connectivityClient)
+                    connectivityClient.reset(new NetworkManagerConnectivityClient());
+                connectivityClient->SetInternetStatusChangeHandler(
+                    [this](const Exchange::INetworkManager::InternetStatus status, const std::string& reason) {
+                        OnDelegatedInternetStatusChange(status, reason);
+                    });
+                {
+                    std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
+                    m_hasBridgedInternetStatus = false;
+                    m_lastBridgedInternetStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
+                }
+                NMLOG_INFO("Connectivity delegated to ConnectivityCheckMgr (runtime selection)");
+            }
+#endif
+
             /* STUN configuration copy */
             m_stunEndpoint = config.stun.stunEndpoint.Value();
             m_stunPort = config.stun.port.Value();
@@ -204,18 +244,22 @@ namespace WPEFramework
                 connectEndpts.push_back(config.connectivityConf.endpoint_5.Value().c_str());
             }
 
-            /* check whether the endpoint is already loaded from Cache; if Yes, do not use the one from configuration */
-            if (connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
+            /* Only seed endpoints when none are active; endpoints restored from the
+             * EndpointManager cache on restart must not be overwritten. */
+            if (!m_useConnectivityCheckMgr && connectivityMonitor.getConnectivityMonitorEndpoints().size() < 1)
             {
-                NMLOG_INFO("Use the connectivity endpoint from config");
-                connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
-            }
-            else if (connectEndpts.size() < 1)
-            {
-                std::vector<std::string> backup;
-                NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
-                backup.push_back("http://clients3.google.com/generate_204");
-                connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                if (connectEndpts.size() < 1)
+                {
+                    std::vector<std::string> backup;
+                    NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
+                    backup.push_back("http://clients3.google.com/generate_204");
+                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                }
+                else
+                {
+                    NMLOG_INFO("Use the connectivity endpoint from config");
+                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                }
             }
 
             /* As all the configuration is set, lets instantiate platform */
@@ -224,6 +268,31 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
             return(Core::ERROR_NONE);
+        }
+
+        /* @brief Resolve whether internet-connectivity queries are delegated to the
+         *        ConnectivityCheckMgr plugin. Precedence: RFC feature flag (when the
+         *        RFC API is compiled in) -> config-line fallback -> default false. */
+        bool NetworkManagerImplementation::resolveConnectivityCheckMgrEnabled(const Configuration& config) const
+        {
+            LOG_ENTRY_FUNCTION();
+#ifdef USE_CONNECTIVITYCHECKMGR
+            RFC_ParamData_t rfcParam = {0};
+            WDMP_STATUS wdmpStatus = getRFCParameter(const_cast<char*>("NetworkManager"),
+                "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable",
+                &rfcParam);
+            if (wdmpStatus == WDMP_SUCCESS || wdmpStatus == WDMP_ERR_DEFAULT_VALUE)
+            {
+                bool enabled = (0 == strcasecmp(rfcParam.value, "true"));
+                NMLOG_INFO("RFC ConnectivityCheckMgr.Enable = '%s' -> %s", rfcParam.value,
+                           enabled ? "delegate" : "internal monitor");
+                return enabled;
+            }
+#else
+            (void)config;
+            NMLOG_INFO("ConnectivityCheckMgr delegation not compiled in; using built-in monitor");
+#endif
+            return false;
         }
 
         /* @brief Get STUN Endpoint to be used for identifying Public IP */
@@ -273,7 +342,15 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetConnectivityTestEndpoints(IStringIterator*& endpoints/* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            std::vector<std::string> tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
+            /* Endpoints are owned by ConnectivityCheckMgr when delegation is active. */
+            if(m_useConnectivityCheckMgr)
+            {
+                NMLOG_WARNING("GetConnectivityTestEndpoints is not supported while connectivity is delegated to ConnectivityCheckMgr");
+                return Core::ERROR_NOT_SUPPORTED;
+            }
+
+            std::vector<std::string> tmpEndpoints;
+            tmpEndpoints = connectivityMonitor.getConnectivityMonitorEndpoints();
             endpoints = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(tmpEndpoints));
             if(endpoints == nullptr) {
                 return Core::ERROR_GENERAL;
@@ -286,6 +363,13 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */)
         {
             LOG_ENTRY_FUNCTION();
+            /* Endpoints are owned by ConnectivityCheckMgr when delegation is active. */
+            if(m_useConnectivityCheckMgr)
+            {
+                NMLOG_WARNING("SetConnectivityTestEndpoints is not supported while connectivity is delegated to ConnectivityCheckMgr");
+                return Core::ERROR_NOT_SUPPORTED;
+            }
+
             std::vector<std::string> tmpEndpoints;
 
             if(endpoints && (endpoints->Count() >= 1))
@@ -305,9 +389,10 @@ namespace WPEFramework
         }
 
         /* @brief Get Internet Connectivty Status */
-        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */)
+        uint32_t NetworkManagerImplementation::IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */, string& reason /* @out */)
         {
             LOG_ENTRY_FUNCTION();
+            reason.clear();
             Exchange::INetworkManager::IPVersion curlIPversion = Exchange::INetworkManager::IP_ADDRESS_V4;
             bool ipVersionNotSpecified = false;
 
@@ -332,7 +417,18 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
-            result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if(m_useConnectivityCheckMgr)
+            {
+                (void)ipVersionNotSpecified;
+                result = connectivityClient ? connectivityClient->getInternetState(reason)
+                                            : Exchange::INetworkManager::INTERNET_UNKNOWN;
+            }
+            else
+#endif
+            {
+                result = connectivityMonitor.getInternetState(interface, curlIPversion, ipVersionNotSpecified);
+            }
             if (Exchange::INetworkManager::IP_ADDRESS_V6 == curlIPversion)
                 ipversion = "IPv6";
             else
@@ -348,7 +444,12 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetCaptivePortalURI(string &uri /* @out */) const
         {
             LOG_ENTRY_FUNCTION();
-            uri = connectivityMonitor.getCaptivePortalURI();
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if(m_useConnectivityCheckMgr)
+                uri = connectivityClient ? connectivityClient->getCaptivePortalURI() : std::string();
+            else
+#endif
+                uri = connectivityMonitor.getCaptivePortalURI();
             return Core::ERROR_NONE;
         }
 
@@ -798,7 +899,7 @@ namespace WPEFramework
                     NMLOG_INFO("Publishing onInternetStatusChange Event");
                     const auto& eventData = std::get<InternetStatusChangeData>(data);
                     for (const auto callback : callbacks) {
-                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface);
+                        callback->onInternetStatusChange(eventData.prevState, eventData.currState, eventData.interface, eventData.reason);
                         callback->Release();
                     }
                 }
@@ -857,7 +958,8 @@ namespace WPEFramework
                     m_ethConnected.store(false);
                     setDefaultInterface("wlan0"); // If WiFi is connected, make it the default interface
                     // As default interface is changed to wlan0, switch connectivity monitor to initial check
-                    connectivityMonitor.switchToInitialCheck();
+                    if(!m_useConnectivityCheckMgr)
+                        connectivityMonitor.switchToInitialCheck();
                 }
                 else if(interface == "wlan0")
                 {
@@ -874,7 +976,8 @@ namespace WPEFramework
                     {
                         // When WiFi is disconnected while Ethernet is connected, we don't need to trigger connectivity monitor.
                         // For WiFi-only state and WiFi disconnected, we should trigger connectivity monitor.
-                        connectivityMonitor.switchToInitialCheck();
+                        if(!m_useConnectivityCheckMgr)
+                            connectivityMonitor.switchToInitialCheck();
                     }
                 }
             }
@@ -965,7 +1068,8 @@ namespace WPEFramework
 
                 if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
-                    connectivityMonitor.switchToInitialCheck();
+                    if(!m_useConnectivityCheckMgr)
+                        connectivityMonitor.switchToInitialCheck();
                 }
                 else
                     NMLOG_DEBUG("No need to trigger connectivity monitor interface is %s", interface.c_str());
@@ -979,7 +1083,43 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion)
+        {
+            string iface = interface;
+            Exchange::INetworkManager::IPAddress settings{};
+            if (GetIPSettings(iface, ipversion, settings) != Core::ERROR_NONE) {
+                return;
+            }
+            ReportRouteChange(interface, ipversion, settings);
+        }
+
+        void NetworkManagerImplementation::ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings)
+        {
+            if (settings.ipaddress.empty() || settings.gateway.empty() || settings.primarydns.empty()) {
+                return;
+            }
+
+            /* Snapshot the callbacks with an extra reference and invoke them outside
+             * _notificationLock; see dispatchEvent for the rationale. */
+            std::list<Exchange::INetworkManager::INotification*> callbacks;
+            _notificationLock.Lock();
+            for (auto* tmpCB : _notificationCallbacks) {
+                tmpCB->AddRef();
+                callbacks.push_back(tmpCB);
+            }
+            _notificationLock.Unlock();
+
+            NMLOG_INFO("Posting onRouteChange %s %s ip=%s gw=%s dns=%s",
+                interface.c_str(), ipversion.c_str(), settings.ipaddress.c_str(),
+                settings.gateway.c_str(), settings.primarydns.c_str());
+            for (const auto callback : callbacks) {
+                callback->onRouteChange(interface, ipversion, settings.ipaddress,
+                                        settings.gateway, settings.primarydns);
+                callback->Release();
+            }
+        }
+
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason)
         {
             LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
@@ -994,7 +1134,8 @@ namespace WPEFramework
             }
 #endif
             {
-                InternetStatusChangeData eventData{prevState, currState, interface};
+                const string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
+                InternetStatusChangeData eventData{prevState, currState, interface, noInternetReason};
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
@@ -1003,6 +1144,40 @@ namespace WPEFramework
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();
             NMLOG_INFO("NM_INTERNET_STATUS = %s", stateStr.c_str());
             logTelemetry("NM_INTERNET_STATUS", stateStr);
+#endif
+        }
+
+        void NetworkManagerImplementation::OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason)
+        {
+            LOG_ENTRY_FUNCTION();
+
+#ifdef USE_CONNECTIVITYCHECKMGR
+            if (!m_useConnectivityCheckMgr) {
+                NMLOG_DEBUG("Ignoring delegated internet-status event because delegation is disabled");
+                return;
+            }
+
+            Exchange::INetworkManager::InternetStatus prevState = Exchange::INetworkManager::INTERNET_UNKNOWN;
+            {
+                std::lock_guard<std::mutex> lock(m_bridgedStatusMutex);
+                if (m_hasBridgedInternetStatus && m_lastBridgedInternetStatus == currState) {
+                    NMLOG_DEBUG("Skipping duplicate delegated internet-status event state=%u", static_cast<unsigned>(currState));
+                    return;
+                }
+                if (m_hasBridgedInternetStatus) {
+                    prevState = m_lastBridgedInternetStatus;
+                }
+                m_lastBridgedInternetStatus = currState;
+                m_hasBridgedInternetStatus = true;
+            }
+
+            const string activeInterface = getDefaultInterface();
+            NMLOG_INFO("Bridging ConnectivityCheckMgr internet-status event prev=%u curr=%u iface=%s",
+                       static_cast<unsigned>(prevState), static_cast<unsigned>(currState), activeInterface.c_str());
+            ReportInternetStatusChange(prevState, currState, activeInterface, reason);
+#else
+            (void)currState;
+            (void)reason;
 #endif
         }
 
@@ -1495,7 +1670,10 @@ namespace WPEFramework
                     NMLOG_INFO("OnPowerModePreChange: waking from DeepSleep — WiFi was not connected or was already down before sleep, skipping reconnect");
                 }
                 // DeepSleep wake (Network Standby OFF): re-verify connectivity so internet status is re-published.
-                connectivityMonitor.switchToInitialCheck();
+                if(!m_useConnectivityCheckMgr)
+                {
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
             sendAck();
         }
@@ -1535,7 +1713,10 @@ namespace WPEFramework
                     }
                 }
                 // DeepSleep → Standby wake (Network Standby ON): re-verify connectivity so internet status is re-published.
-                connectivityMonitor.switchToInitialCheck();
+                if(!m_useConnectivityCheckMgr)
+                {
+                    connectivityMonitor.switchToInitialCheck();
+                }
             }
         }
 

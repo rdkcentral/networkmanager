@@ -740,6 +740,7 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
+| result?.reason | string | <sup>*(optional)*</sup> Reason for current status (present when status is NO_INTERNET) |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -768,8 +769,9 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
     "ipversion": "IPv4",
     "interface": "wlan0",
     "connected": true,
-    "state": 3,
-    "status": "FULLY_CONNECTED",
+    "state": 1,
+    "status": "NO_INTERNET",
+    "reason": "PROBE_FAILED",
     "success": true
   }
 }
@@ -1787,6 +1789,7 @@ NetworkManager interface events:
 | :-------- | :-------- |
 | [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when an interface state is changed |
 | [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
+| [onRouteChange](#event.onRouteChange) | Triggered when the default route changes and a new gateway/DNS becomes available for an interface |
 | [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when the primary/active interface changes |
 | [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 | [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when scan completes or when scan cancelled |
@@ -1854,6 +1857,38 @@ Triggered when an IP Address is assigned or lost.
     "ipaddress": "192.168.1.101",
     "ipversion": "IPv4",
     "status": "ACQUIRED"
+  }
+}
+```
+
+<a name="event.onRouteChange"></a>
+## *onRouteChange [<sup>event</sup>](#head.Notifications)*
+
+Triggered when the default route changes and a new gateway/DNS becomes available for an interface.
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params.ipaddress | string | The IP address |
+| params.gateway | string | The gateway address |
+| params.primarydns | string | The primary DNS address |
+
+### Example
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onRouteChange",
+  "params": {
+    "interface": "wlan0",
+    "ipversion": "IPv4",
+    "ipaddress": "192.168.1.101",
+    "gateway": "192.168.1.1",
+    "primarydns": "192.168.1.1"
   }
 }
 ```

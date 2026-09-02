@@ -38,6 +38,9 @@ using namespace std;
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerConnectivity.h"
+#ifdef USE_CONNECTIVITYCHECKMGR
+#include "NetworkManagerConnectivityClient.h"
+#endif
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
 
@@ -243,6 +246,7 @@ namespace WPEFramework
                 Exchange::INetworkManager::InternetStatus prevState;
                 Exchange::INetworkManager::InternetStatus currState;
                 string interface;
+                string reason;
             };
 
             struct AvailableSSIDsData {
@@ -342,7 +346,7 @@ namespace WPEFramework
                 uint32_t SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */) override;
 
                 /* @brief Get Internet Connectivty Status */ 
-                uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */) override;
+                uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus &result /* @out */, string& reason /* @out */) override;
                 /* @brief Get Authentication URL if the device is behind Captive Portal */
                 uint32_t GetCaptivePortalURI(string &endpoints/* @out */) const override;
 
@@ -371,7 +375,10 @@ namespace WPEFramework
                 void ReportInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
                 void ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
                 void ReportIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
-                void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
+                void ReportRouteChange(const string& interface, const string& ipversion);
+                void ReportRouteChange(const string& interface, const string& ipversion, const Exchange::INetworkManager::IPAddress& settings);
+                void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason = string());
+                void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason = string());
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
                 void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
                 void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
@@ -388,6 +395,11 @@ namespace WPEFramework
                 void platform_init(void);
                 void platform_deinit(void);
                 void platform_logging(const NetworkManagerLogger::LogLevel& level);
+                /* Resolve whether connectivity is delegated to ConnectivityCheckMgr:
+                 * RFC flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
+                 * (when USE_CONNECTIVITYCHECKMGR is built in) takes precedence, then the config-line
+                 * fallback key, then default false (built-in monitor). */
+                bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
                 void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
@@ -452,7 +464,19 @@ namespace WPEFramework
                 std::atomic<bool> m_ethDisconnectedForSleep;
                 std::atomic<bool> m_wlanDisconnectedForSleep;
                 GMainContext *m_nmContext{nullptr};     /* isolated context for per-call NMClient creation */
+                /* Runtime connectivity backend selection (replaces the old
+                 * USE_CONNECTIVITY_CHECK_MGR compile-time macro). When
+                 * m_useConnectivityCheckMgr is true, connectivity queries are
+                 * delegated to ConnectivityCheckMgr via connectivityClient;
+                 * otherwise the built-in connectivityMonitor is used. */
+                bool m_useConnectivityCheckMgr {false};
                 mutable ConnectivityMonitor connectivityMonitor;
+#ifdef USE_CONNECTIVITYCHECKMGR
+                mutable std::unique_ptr<NetworkManagerConnectivityClient> connectivityClient;
+#endif
+                std::mutex m_bridgedStatusMutex;
+                Exchange::INetworkManager::InternetStatus m_lastBridgedInternetStatus {Exchange::INetworkManager::INTERNET_UNKNOWN};
+                bool m_hasBridgedInternetStatus {false};
 
                 string getDefaultInterface() const
                 {
