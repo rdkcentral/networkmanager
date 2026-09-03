@@ -21,6 +21,7 @@
 #include "NetworkManagerRDKProxy.h"
 #include "libIBus.h"
 #include <chrono>
+#include <set>
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
@@ -34,6 +35,10 @@ namespace WPEFramework
     namespace Plugin
     {
         NetworkManagerImplementation* _instance = nullptr;
+
+        /* SSIDs reported by the last scan; used when there is no connected SSID */
+        static Core::CriticalSection gScannedSsidsLock;
+        static std::set<string> gScannedSsids;
 
         Exchange::INetworkManager::WiFiState to_wifi_state(WiFiStatusCode_t code) {
             switch (code)
@@ -261,6 +266,7 @@ namespace WPEFramework
                         }
 
                         JsonArray ssids = eventDocument["getAvailableSSIDs"].Array();
+                        std::set<string> scannedSsids;
 
                         for (int i = 0; i < ssids.Length(); i++)
                         {
@@ -272,7 +278,19 @@ namespace WPEFramework
                             newObject["strength"] = object["signalStrength"];
                             newObject["frequency"] = object["frequency"];
                             ssidsUpdated.Add(newObject);
+
+                            string scannedSsid = object["ssid"].String();
+                            if (!scannedSsid.empty())
+                                scannedSsids.insert(scannedSsid);
                         }
+
+                        if (!scannedSsids.empty())
+                        {
+                            gScannedSsidsLock.Lock();
+                            gScannedSsids = scannedSsids;
+                            gScannedSsidsLock.Unlock();
+                        }
+
                         ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
                     }
@@ -1040,14 +1058,34 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             memset(&param, 0, sizeof(param));
 
-            /* Must add new method to get all the known SSIDs but for now RDK-NM supports only one active SSID. So we repurpose this method */
             retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getConnectedSSID, (void *)&param, sizeof(param));
 
             if(retVal == IARM_RESULT_SUCCESS)
             {
                 auto &connectedSsid = param.data.getConnectedSSID;
                 std::list<string> ssidList;
-                ssidList.push_back(string(connectedSsid.ssid));
+
+                if(connectedSsid.ssid[0] != '\0')
+                    ssidList.push_back(string(connectedSsid.ssid));
+                else
+                {
+                    /* WiFi is disconnected; fall back to the SSIDs found by the last scan */
+                    gScannedSsidsLock.Lock();
+                    ssidList.assign(gScannedSsids.begin(), gScannedSsids.end());
+                    gScannedSsidsLock.Unlock();
+
+                    if (ssidList.empty())
+                    {
+                        IARM_Bus_WiFiSrvMgr_SsidList_Param_t scanParam{};
+                        memset(&scanParam, 0, sizeof(scanParam));
+
+                        /* No scan result cached yet; trigger a scan so that the results are available subsequently */
+                        if (IARM_RESULT_SUCCESS != IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getAvailableSSIDsAsync, (void *)&scanParam, sizeof(IARM_Bus_WiFiSrvMgr_SsidList_Param_t)))
+                            NMLOG_ERROR ("getAvailableSSIDsAsync failed");
+                        else
+                            NMLOG_INFO ("known ssids not found; scan started");
+                    }
+                }
                 NMLOG_INFO ("GetKnownSSIDs Success");
 
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);

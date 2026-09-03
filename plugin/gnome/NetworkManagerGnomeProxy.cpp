@@ -766,19 +766,14 @@ namespace WPEFramework
             std::list<string> ssidList;
             if(wifi->getKnownSSIDs(ssidList))
             {
-                if (!ssidList.empty())
-                {
-                    ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
-                    if(ssids == nullptr) {
-                        return Core::ERROR_GENERAL;
-                    }
-                    rc = Core::ERROR_NONE;
-                }
-                else
-                {
+                if (ssidList.empty())
                     NMLOG_INFO("known ssids not found !");
-                    rc = Core::ERROR_GENERAL;
+
+                ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
+                if(ssids == nullptr) {
+                    return Core::ERROR_GENERAL;
                 }
+                rc = Core::ERROR_NONE;
             }
 
             return rc;
