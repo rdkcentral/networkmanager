@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 3.7.0**
+**Version: 4.0.0**
 
 **Status: :black_circle::black_circle::black_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 3.7.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 4.0.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -464,7 +464,7 @@ Gets the IP setting for the given interface.
 <a name="method.SetIPSettings"></a>
 ## *SetIPSettings [<sup>method</sup>](#head.Methods)*
 
-Sets the IP settings for the given interface.
+Sets the IP settings for the given interface. The `interface`, `ipversion`, and `autoconfig` parameters are mandatory. When `autoconfig` is `false`, the `ipaddress`, `prefix`, `gateway`, `primarydns`, and `secondarydns` parameters must also be provided.
 
 Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
@@ -476,11 +476,11 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | params.ipversion | string | Either IPv4 or IPv6 |
 | params.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
-| params.ipaddress | string | The IP address |
-| params.prefix | integer | The prefix number |
-| params.gateway | string | The gateway address |
-| params.primarydns | string | The primary DNS address |
-| params.secondarydns | string | The secondary DNS address |
+| params?.ipaddress | string | <sup>*(optional)*</sup> The IP address |
+| params?.prefix | integer | <sup>*(optional)*</sup> The prefix number |
+| params?.gateway | string | <sup>*(optional)*</sup> The gateway address |
+| params?.primarydns | string | <sup>*(optional)*</sup> The primary DNS address |
+| params?.secondarydns | string | <sup>*(optional)*</sup> The secondary DNS address |
 
 ### Result
 
@@ -501,7 +501,7 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
   "params": {
     "interface": "wlan0",
     "ipversion": "IPv4",
-    "autoconfig": true,
+    "autoconfig": false,
     "ipaddress": "192.168.1.101",
     "prefix": 24,
     "gateway": "192.168.1.1",
