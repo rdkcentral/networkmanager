@@ -14,6 +14,15 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.0.0] - 2026-09-03
+### Added
+- Implemented a new `onRouteChange` event notify availability of IP Route either from WiFi or Ethernet
+- Integrated new InternetConnectivityManager external component to identify the internet availability without having 204 endpoint
+- Publishing onInternetStatusChange event upon wake-up
+- Added mutex protection before accessing lastConnectedSSID
+- Changed the onWiFiStateChange event to include SSID name
+- Updated documentation for events and method descriptions.
+
 ## [3.7.0] - 2026-08-21
 ### Changed
 - Implemented a caching logic about the status of the interface & update based on events
