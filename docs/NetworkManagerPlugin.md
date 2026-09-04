@@ -885,7 +885,7 @@ Pings the specified endpoint with the specified number of packets.
 | params | object |  |
 | params.endpoint | string | The host name or IP address |
 | params.ipversion | string | Either IPv4 or IPv6 |
-| params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 3 |
+| params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 1 |
 | params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
