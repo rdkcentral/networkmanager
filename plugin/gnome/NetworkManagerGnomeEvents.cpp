@@ -863,7 +863,7 @@ namespace WPEFramework
 
     GnomeNetworkManagerEvents::GnomeNetworkManagerEvents()
     {
-        NMLOG_DEBUG("GnomeNetworkManagerEvents");
+        NMLOG_INFO("GnomeNetworkManagerEvents: creating event NMClient");
         GError *error = NULL;
         eventThrdID = nullptr;
         isEventThrdActive = false;
