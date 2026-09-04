@@ -76,14 +76,39 @@ set_target_properties(${MODULE_NAME} PROPERTIES
                                      CXX_STANDARD_REQUIRED YES
                                      FRAMEWORK FALSE)
 
+if(USE_CONNECTIVITYCHECKMGR)
+    target_link_libraries(${MODULE_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
                                      
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
-                            NetworkManagerConnectivity.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
+
+# The built-in ConnectivityMonitor is always compiled. The ConnectivityCheckMgr
+# delegation client (NetworkManagerConnectivityClient.cpp) is compiled only when
+# USE_CONNECTIVITYCHECKMGR is enabled; runtime selection between the two backends
+# is done in resolveConnectivityCheckMgrEnabled(). STUN is unaffected either way.
+target_sources(${MODULE_IMPL_NAME} PRIVATE
+                            NetworkManagerConnectivity.cpp)
+
+# Optional ConnectivityCheckMgr delegation. The USE_CONNECTIVITYCHECKMGR option,
+# rfcapi library discovery, and the USE_CONNECTIVITYCHECKMGR compile definition are
+# declared in the top-level CMakeLists.txt (mirroring USE_TELEMETRY). When enabled we
+# compile the delegation client and link the rfcapi library used to read the TR-181
+# feature flag.
+if(USE_CONNECTIVITYCHECKMGR)
+    target_sources(${MODULE_IMPL_NAME} PRIVATE NetworkManagerConnectivityClient.cpp)
+    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
 
 if(ENABLE_GNOME_NETWORKMANAGER)
     if(ENABLE_GNOME_GDBUS)

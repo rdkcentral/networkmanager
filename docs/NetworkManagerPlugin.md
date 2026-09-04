@@ -2,7 +2,7 @@
 <a name="head.NetworkManager_Plugin"></a>
 # NetworkManager Plugin
 
-**Version: 3.7.0**
+**Version: 4.0.0**
 
 **Status: :black_circle::black_circle::black_circle:**
 
@@ -23,7 +23,7 @@ org.rdk.NetworkManager interface for Thunder framework.
 <a name="head.Scope"></a>
 ## Scope
 
-This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 3.7.0). It includes detailed specification about its methods provided and notifications sent.
+This document describes purpose and functionality of the org.rdk.NetworkManager interface (version 4.0.0). It includes detailed specification about its methods provided and notifications sent.
 
 <a name="head.Case_Sensitivity"></a>
 ## Case Sensitivity
@@ -464,7 +464,7 @@ Gets the IP setting for the given interface.
 <a name="method.SetIPSettings"></a>
 ## *SetIPSettings [<sup>method</sup>](#head.Methods)*
 
-Sets the IP settings for the given interface.
+Sets the IP settings for the given interface. The `interface`, `ipversion`, and `autoconfig` parameters are mandatory. When `autoconfig` is `false`, the `ipaddress`, `prefix`, `gateway`, `primarydns`, and `secondarydns` parameters must also be provided.
 
 Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
@@ -476,11 +476,11 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
 | params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
 | params.ipversion | string | Either IPv4 or IPv6 |
 | params.autoconfig | boolean | `true` if DHCP is used, `false` if IP is configured manually |
-| params.ipaddress | string | The IP address |
-| params.prefix | integer | The prefix number |
-| params.gateway | string | The gateway address |
-| params.primarydns | string | The primary DNS address |
-| params.secondarydns | string | The secondary DNS address |
+| params?.ipaddress | string | <sup>*(optional)*</sup> The IP address |
+| params?.prefix | integer | <sup>*(optional)*</sup> The prefix number |
+| params?.gateway | string | <sup>*(optional)*</sup> The gateway address |
+| params?.primarydns | string | <sup>*(optional)*</sup> The primary DNS address |
+| params?.secondarydns | string | <sup>*(optional)*</sup> The secondary DNS address |
 
 ### Result
 
@@ -501,7 +501,7 @@ Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#e
   "params": {
     "interface": "wlan0",
     "ipversion": "IPv4",
-    "autoconfig": true,
+    "autoconfig": false,
     "ipaddress": "192.168.1.101",
     "prefix": 24,
     "gateway": "192.168.1.1",
@@ -740,6 +740,7 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
 | result.connected | boolean | `true` if internet connectivity is detected, otherwise `false` |
 | result.state | integer | Internet state |
 | result.status | string | Internet status |
+| result?.reason | string | <sup>*(optional)*</sup> Reason for current status (present when status is NO_INTERNET) |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -768,8 +769,9 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
     "ipversion": "IPv4",
     "interface": "wlan0",
     "connected": true,
-    "state": 3,
-    "status": "FULLY_CONNECTED",
+    "state": 1,
+    "status": "NO_INTERNET",
+    "reason": "PROBE_FAILED",
     "success": true
   }
 }
@@ -1787,6 +1789,7 @@ NetworkManager interface events:
 | :-------- | :-------- |
 | [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when an interface state is changed |
 | [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
+| [onRouteChange](#event.onRouteChange) | Triggered when the default route changes and a new gateway/DNS becomes available for an interface |
 | [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when the primary/active interface changes |
 | [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
 | [onAvailableSSIDs](#event.onAvailableSSIDs) | Triggered when scan completes or when scan cancelled |
@@ -1854,6 +1857,38 @@ Triggered when an IP Address is assigned or lost.
     "ipaddress": "192.168.1.101",
     "ipversion": "IPv4",
     "status": "ACQUIRED"
+  }
+}
+```
+
+<a name="event.onRouteChange"></a>
+## *onRouteChange [<sup>event</sup>](#head.Notifications)*
+
+Triggered when the default route changes and a new gateway/DNS becomes available for an interface.
+
+### Parameters
+
+| Name | Type | Description |
+| :-------- | :-------- | :-------- |
+| params | object |  |
+| params.interface | string | An interface, such as `eth0` or `wlan0`, depending upon availability of the given interface |
+| params.ipversion | string | Either IPv4 or IPv6 |
+| params.ipaddress | string | The IP address |
+| params.gateway | string | The gateway address |
+| params.primarydns | string | The primary DNS address |
+
+### Example
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "client.events.1.onRouteChange",
+  "params": {
+    "interface": "wlan0",
+    "ipversion": "IPv4",
+    "ipaddress": "192.168.1.101",
+    "gateway": "192.168.1.1",
+    "primarydns": "192.168.1.1"
   }
 }
 ```
@@ -1966,6 +2001,7 @@ Triggered when WIFI connection state get changed. The possible states are define
 | params | object |  |
 | params.state | integer | WiFi State |
 | params.status | string | WiFi status |
+| params.ssid | string | The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected |
 
 ### Example
 
@@ -1975,7 +2011,8 @@ Triggered when WIFI connection state get changed. The possible states are define
   "method": "client.events.1.onWiFiStateChange",
   "params": {
     "state": 5,
-    "status": "WIFI_STATE_CONNECTED"
+    "status": "WIFI_STATE_CONNECTED",
+    "ssid": "myHomeSSID"
   }
 }
 ```

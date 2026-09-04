@@ -597,7 +597,7 @@ namespace WPEFramework
                 if(enabled && interface == nmUtils::wlanIface() && _instance != NULL)
                 {
                     sleep(1); // wait for 1 sec to change the device state
-                    const string lastConnectedSSID = _instance->getLastConnectedSSID();
+                    const string lastConnectedSSID = getLastConnectedSSID();
                     NMLOG_INFO("Activating connection '%s' ...", lastConnectedSSID.c_str());
                     wifi->activateKnownConnection(nmUtils::wlanIface(), lastConnectedSSID);
                 }
@@ -822,9 +822,8 @@ namespace WPEFramework
 
             if(ssid.ssid.empty())
             {
-                const string lastConnectedSSID = _instance->getLastConnectedSSID();
-                NMLOG_WARNING("ssid is empty activating last connected ssid (%s) !", lastConnectedSSID.c_str());
-                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), lastConnectedSSID))
+                NMLOG_WARNING("ssid is empty activating last connected ssid !");
+                if(_instance != NULL && wifi->activateKnownConnection(nmUtils::wlanIface(), getLastConnectedSSID()))
                 {
                     rc = Core::ERROR_NONE;
                 }

@@ -241,6 +241,23 @@ namespace WPEFramework
                 _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
             }
         }
+
+        /* Coalesced "route ready" event: emit once address + gateway + primary DNS
+           are all populated for this family. The notify::addresses /
+           notify::gateway / notify::nameservers subscriptions on NMIPConfig all
+           funnel here, so a single emission per snapshot covers all three.
+           Each family emits independently — dual-stack consumers will see one
+           event per family. */
+        if (newCache.valid
+            && !newCache.globalAddresses.empty()
+            && !newCache.gateway.empty()
+            && !newCache.primarydns.empty()) {
+            /* Values are already in hand from the snapshot we just built, so emit
+               them directly instead of having ReportRouteChange re-query the cache. */
+            Exchange::INetworkManager::IPAddress ipAddress = newCache.toIPAddress();
+            ipAddress.ipversion = family;
+            _instance->ReportRouteChange(ifname, family, ipAddress);
+        }
     }
 
     static void ip4ChangedCb(NMIPConfig *ipConfig, GParamSpec *pspec, gpointer userData)
@@ -332,32 +349,40 @@ namespace WPEFramework
                 return;
             }
             std::string wifiState;
+            /* SSID NM is activating (pairing/connecting); empty once the activation is torn down */
+            std::string attemptingSSID = "";
+            if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
+            {
+                const char* connId = nm_active_connection_get_id(wifiActiveConn);
+                if(connId != NULL)
+                    attemptingSSID = connId;
+            }
             switch (reason)
             {
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_AVAILABLE:
                     wifiState = "WIFI_STATE_UNINSTALLED";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SSID_NOT_FOUND:
                     wifiState = "WIFI_STATE_SSID_NOT_FOUND";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_TIMEOUT:         // supplicant took too long to authenticate
                 case NM_DEVICE_STATE_REASON_NO_SECRETS:
                     wifiState = "WIFI_STATE_AUTHENTICATION_FAILED";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_AUTHENTICATION_FAILED, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_FAILED:          //  802.1x supplicant failed
                     wifiState = "WIFI_STATE_ERROR";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_ERROR);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_ERROR, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_CONFIG_FAILED:   // 802.1x supplicant configuration failed
                     wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED, attemptingSSID);
                     break;
                 case NM_DEVICE_STATE_REASON_SUPPLICANT_DISCONNECT:      // 802.1x supplicant disconnected
                     wifiState = "WIFI_STATE_INVALID_CREDENTIALS";
-                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS);
+                    GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_INVALID_CREDENTIALS, attemptingSSID);
                     break;
                 default:
                 {
@@ -365,14 +390,14 @@ namespace WPEFramework
                     {
                     case NM_DEVICE_STATE_UNKNOWN:
                         wifiState = "WIFI_STATE_UNINSTALLED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_UNINSTALLED, attemptingSSID);
                         refreshIpFamilyCache(device, false);
                         refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_UNMANAGED:
                         wifiState = "WIFI_STATE_DISABLED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISABLED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISABLED, attemptingSSID);
                         refreshIpFamilyCache(device, false);
                         refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
@@ -381,23 +406,23 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_UNAVAILABLE:
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, attemptingSSID);
                         refreshIpFamilyCache(device, false);
                         refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_PREPARE:
                         wifiState = "WIFI_STATE_PAIRING";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_PAIRING);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_PAIRING, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_CONFIG:
                         wifiState = "WIFI_STATE_CONNECTING";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTING, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
                         wifiState = "NM_DEVICE_STATE_IP_CHECK";
@@ -409,7 +434,7 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
 #if USE_TELEMETRY
                         {
                             static std::string lastWlanGatewayMac;
@@ -427,11 +452,11 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_DEACTIVATING:
                         wifiState = "WIFI_STATE_CONNECTION_LOST";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_LOST);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_LOST, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_FAILED:
                         wifiState = "WIFI_STATE_CONNECTION_FAILED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_NEED_AUTH:
                         //GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
@@ -901,6 +926,15 @@ namespace WPEFramework
                 _instance->ReportActiveInterfaceChange(oldIface, newIface);
             NMLOG_INFO("old interface - %s new interface - %s", oldIface.c_str(), newIface.c_str());
             oldIface = newIface;
+
+            /* Default-route owner changed (e.g. eth0↔wlan0 failover). The new primary
+               already has its IP/gateway/DNS in the cache from prior refreshIpFamilyCache,
+               so emit a coalesced route-ready event for both families — ReportRouteChange
+               is a no-op for whichever family isn't fully populated. */
+            if (_instance != nullptr && !newIface.empty() && newIface != "Unknown") {
+                _instance->ReportRouteChange(newIface, "IPv4");
+                _instance->ReportRouteChange(newIface, "IPv6");
+            }
         }
     }
 
@@ -936,11 +970,11 @@ namespace WPEFramework
             _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
     }
 
-    void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state)
+    void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state, std::string ssid)
     {
         if(_instance != nullptr)
         {
-            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state), ssid);
 #ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
             // Handle WiFi state changes for MfrMgr integration
             NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();

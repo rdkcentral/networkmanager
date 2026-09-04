@@ -36,8 +36,8 @@ if (NOT WPEFramework_FOUND AND NOT Thunder_FOUND)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-set(VERSION_MAJOR 3)
-set(VERSION_MINOR 7)
+set(VERSION_MAJOR 4)
+set(VERSION_MINOR 0)
 set(VERSION_PATCH 0)
 
 add_compile_definitions(NETWORKMANAGER_MAJOR_VERSION=${VERSION_MAJOR})
@@ -55,6 +55,7 @@ option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
 option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
+option(USE_CONNECTIVITYCHECKMGR "Enable ConnectivityCheckMgr delegation (compiles the delegation client and reads the TR-181 RFC feature flag via rfcapi)" OFF)
 option(ENABLE_ETHERNET_CONNECTION_HANDLING
        "Enable pre-sleep Ethernet deactivation" OFF)
 
@@ -76,6 +77,16 @@ if (USE_TELEMETRY)
     add_compile_definitions(USE_TELEMETRY=1)
     message("Telemetry support enabled")
 endif(USE_TELEMETRY)
+
+# Optional ConnectivityCheckMgr delegation. Compiles the delegation client and pulls
+# in the rfcapi library used to read the TR-181 RFC feature flag at runtime, e.g.
+# Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable.
+if (USE_CONNECTIVITYCHECKMGR)
+    find_library(RFCAPI_LIBRARY rfcapi REQUIRED)
+    find_path(RFCAPI_INCLUDE_DIR rfcapi.h)
+    add_compile_definitions(USE_CONNECTIVITYCHECKMGR=1)
+    message(STATUS "ConnectivityCheckMgr delegation enabled (rfcapi lib=${RFCAPI_LIBRARY}, include=${RFCAPI_INCLUDE_DIR})")
+endif(USE_CONNECTIVITYCHECKMGR)
 
 add_subdirectory(interface)
 add_subdirectory(definition)

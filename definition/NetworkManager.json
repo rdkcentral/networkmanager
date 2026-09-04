@@ -8,7 +8,7 @@
         "status": "production",
         "description": "A Unified `NetworkManager` plugin that allows you to manage Ethernet and Wifi interfaces on the device.",
         "sourcelocation": "https://github.com/rdkcentral/networkmanager/blob/main/definition/NetworkManager.json",
-        "version": "3.7.0"
+        "version": "4.0.0"
     },
     "definitions": {
         "success": {
@@ -29,7 +29,7 @@
         "autoconfig": {
             "summary": "`true` if DHCP is used, `false` if IP is configured manually",
             "type": "boolean",
-            "example": true
+            "example": false
         },
         "dhcpserver": {
             "summary": "The DHCP Server address",
@@ -409,9 +409,9 @@
             }
         },
         "SetIPSettings":{
-            "summary": "Sets the IP settings for the given interface.",
+            "summary": "Sets the IP settings for the given interface. The `interface`, `ipversion`, and `autoconfig` parameters are mandatory. When `autoconfig` is `false`, the `ipaddress`, `prefix`, `gateway`, `primarydns`, and `secondarydns` parameters must also be provided.",
             "events":{
-                "onAddressChange" : "Triggered when the device connects to router.",
+                "onIPAddressChange" : "Triggered when the device connects to router.",
                 "onInternetStatusChange" : "Triggered when each IP address is lost or acquired."
             },
             "params": {
@@ -445,12 +445,7 @@
                 "required": [
                     "interface",
                     "ipversion",
-                    "autoconfig",
-                    "ipaddress",
-                    "prefix",
-                    "gateway",
-                    "primarydns",
-                    "secondarydns"
+                    "autoconfig"
                 ]
             },
             "result": {
@@ -609,17 +604,23 @@
                     "connected": {
                         "summary": "`true` if internet connectivity is detected, otherwise `false`",
                         "type": "boolean",
-                        "example": true
+                        "example": false
                     },
                     "state": {
                         "summary": "Internet state",
                         "type": "integer",
-                        "example": 3
+                        "example": 1
                     },
                     "status": {
                         "summary": "Internet status",
                         "type": "string",
-                        "example": "FULLY_CONNECTED"
+                        "example": "NO_INTERNET"
+                    },
+                    "reason": {
+                        "summary": "Reason for current status (present when status is NO_INTERNET)",
+                        "type": "string",
+                        "enum": ["NOT_CONFIGURED", "WAITING_INTERFACE", "WAITING_GATEWAY", "PROBE_FAILED"],
+                        "example": "PROBE_FAILED"
                     },
                     "success": {
                         "$ref": "#/definitions/success"
@@ -968,7 +969,7 @@
             "summary": "Remove given SSID from saved SSIDs. This method just removes an entry from the list and of the list is having only one entry thats being removed, it will initiate a disconnect.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to DISCONNECTED",
-                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
             "params": {
@@ -998,7 +999,7 @@
             "summary": "Connects to a saved SSID. The `ssid` parameter is mandatory. Returns failure if `ssid` is not specified or not found in the saved SSIDs list.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED .",
-                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
             "params": {
@@ -1025,7 +1026,7 @@
             }
         },
         "WiFiConnect":{
-            "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.",
+            "summary": "Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the last connected SSID. See `AddToKnownSSIDs`.",
             "events":{
                 "onWiFiStateChange" : "Triggered when Wifi state changes to CONNECTING, CONNECTED ."
             },
@@ -1121,7 +1122,7 @@
             "summary": "Disconnects from the currently connected SSID. A event will be posted upon completion",
             "events":{
                 "onWIFIStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected).",
-                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
             "result": {
@@ -1186,7 +1187,7 @@
             "summary": "Initiates a connection using Wifi Protected Setup (WPS). An existing connection will be disconnected before attempting to initiate a new connection. Failure in WPS pairing will trigger an error event.\n\nIf the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the serialized pin using the Manufacturer (MFR) API. If the `method` parameter is set to `PIN`, then RDK use the pin supplied as part of the request. If the `method` parameter is set to `PBC`, then RDK uses Push Button Configuration (PBC) to obtain the pin.",
             "events":{
                 "onWIFIStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected), CONNECTING, CONNECTED.",
-                "onAddressChange" : "Triggered when an IP Address is assigned or lost",
+                "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
             "params": {
@@ -1405,7 +1406,7 @@
                 ]
             }
         },
-        "onAddressChange":{
+        "onIPAddressChange":{
             "summary": "Triggered when an IP Address is assigned or lost.",
             "params": {
                 "type": "object",
@@ -1434,6 +1435,36 @@
                     "ipaddress",
                     "ipversion",
                     "status"
+                ]
+            }
+        },
+        "onRouteChange":{
+            "summary": "Triggered when the default route changes and a new gateway/DNS becomes available for an interface.",
+            "params": {
+                "type": "object",
+                "properties": {
+                    "interface":{
+                        "$ref": "#/definitions/interface"
+                    },
+                    "ipversion": {
+                        "$ref": "#/definitions/ipversion"
+                    },
+                    "ipaddress": {
+                        "$ref": "#/definitions/ipaddress"
+                    },
+                    "gateway": {
+                        "$ref": "#/definitions/gateway"
+                    },
+                    "primarydns": {
+                        "$ref": "#/definitions/primarydns"
+                    }
+                },
+                "required": [
+                    "interface",
+                    "ipversion",
+                    "ipaddress",
+                    "gateway",
+                    "primarydns"
                 ]
             }
         },
@@ -1467,27 +1498,32 @@
                     "prevState":{
                         "summary": "The previous internet connection state",
                         "type": "integer",
-                        "example": 1
+                        "example": 3
                     },
                     "prevStatus":{
                         "summary": "The previous internet connection status",
                         "type": "string",
-                        "example": "NO_INTERNET"
+                        "example": "FULLY_CONNECTED"
                     },
                     "state":{
                         "summary": "The internet connection state",
                         "type": "integer",
-                        "example": 4
+                        "example": 1
                     },
                     "status":{
                         "summary": "The internet connection status",
                         "type": "string",
-                        "example": "FULLY_CONNECTED"
+                        "example": "NO_INTERNET"
                     },
                     "interface":{
                         "summary": "The internet status change on default interface",
                         "type": "string",
                         "example": "wlan0"
+                    },
+                    "reason":{
+                        "summary": "The ConnectivityCheckMgr reason when status is NO_INTERNET",
+                        "type": "string",
+                        "example": "PROBE_FAILED"
                     }
                 },
                 "required": [
@@ -1556,11 +1592,17 @@
                         "summary": "WiFi status",
                         "type": "string",
                         "example": "WIFI_STATE_CONNECTED"
+                    },
+                    "ssid": {
+                        "summary": "The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected. The SSID will be empty when WPS initiated and no AP found with WPS enabled.",
+                        "type": "string",
+                        "example": "myHomeSSID"
                     }
                 },
                 "required": [
                     "state",
-                    "status"
+                    "status",
+                    "ssid"
                 ]
             }
         },
