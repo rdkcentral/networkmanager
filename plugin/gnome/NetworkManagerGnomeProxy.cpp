@@ -767,7 +767,10 @@ namespace WPEFramework
             if(wifi->getKnownSSIDs(ssidList))
             {
                 if (ssidList.empty())
+                {
                     NMLOG_INFO("known ssids not found !");
+                    ssidList.push_back(string());
+                }
 
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);
                 if(ssids == nullptr) {
