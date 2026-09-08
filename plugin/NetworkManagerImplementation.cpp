@@ -1689,6 +1689,7 @@ namespace WPEFramework
 
                 if (m_wlanEnabled.load() && m_wlanConnected.load())
                 {
+#if 0
                     // Waking from DeepSleep with Network Standby ON: the AP may have
                     // changed channel while the device slept (802.11 CSA).  Trigger an
                     // active scan so the driver discovers the AP on its new channel.
@@ -1697,7 +1698,7 @@ namespace WPEFramework
                     {
                         NMLOG_ERROR("OnPowerModeChanged: StartWiFiScan failed");
                     }
-
+#endif
                     NMLOG_INFO("OnPowerModeChanged: waking from DeepSleep, requesting DHCP lease on wlan0");
                     if (ReacquireDHCPLease("wlan0") != Core::ERROR_NONE)
                     {
