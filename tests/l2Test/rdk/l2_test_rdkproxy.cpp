@@ -711,11 +711,10 @@ TEST_F(NetworkManagerTest, GetKnownSSIDs_Success)
 {
     IARM_Bus_WiFiSrvMgr_Param_t mockParam = {};
     mockParam.status = true;
-    strncpy(mockParam.data.getConnectedSSID.ssid, "TestNetwork", SSID_SIZE - 1);
-    mockParam.data.getConnectedSSID.securityMode = NET_WIFI_SECURITY_WPA_WPA2_PSK;
+    strncpy(mockParam.data.getPairedSSID.ssid, "TestNetwork", SSID_SIZE - 1);
     
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getPairedSSID),
                                                 ::testing::NotNull(), ::testing::_))
         .WillOnce(::testing::DoAll(
             ::testing::Invoke([&mockParam](const char*, const char*, void* arg, size_t) {
@@ -731,7 +730,7 @@ TEST_F(NetworkManagerTest, GetKnownSSIDs_Success)
 TEST_F(NetworkManagerTest, GetKnownSSIDs_Failed)
 {
     EXPECT_CALL(*p_iarmBusImplMock, IARM_Bus_Call(::testing::StrEq(IARM_BUS_NM_SRV_MGR_NAME),
-                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getConnectedSSID),
+                                                ::testing::StrEq(IARM_BUS_WIFI_MGR_API_getPairedSSID),
                                                 ::testing::NotNull(), ::testing::_))
         .WillOnce(::testing::Return(IARM_RESULT_IPCCORE_FAIL));
 
