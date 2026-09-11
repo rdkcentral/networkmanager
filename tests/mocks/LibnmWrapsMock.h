@@ -90,6 +90,18 @@ extern "C" void __real_nm_client_add_and_activate_connection_async(NMClient *cli
 extern "C" NMActiveConnection* __real_nm_client_add_and_activate_connection_finish(NMClient *client,
                                                                                  GAsyncResult *result,
                                                                                  GError **error);
+extern "C" void __real_nm_client_add_and_activate_connection2(NMClient *client,
+                                                              NMConnection *partial,
+                                                              NMDevice *device,
+                                                              const char *specific_object,
+                                                              GVariant *options,
+                                                              GCancellable *cancellable,
+                                                              GAsyncReadyCallback callback,
+                                                              gpointer user_data);
+extern "C" NMActiveConnection* __real_nm_client_add_and_activate_connection2_finish(NMClient *client,
+                                                                                     GAsyncResult *result,
+                                                                                     GVariant **out_result,
+                                                                                     GError **error);
 extern "C" GVariant* __real_nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                                GAsyncResult *result,
                                                                GError **error);
@@ -217,6 +229,16 @@ public:
             .WillByDefault(::testing::Invoke(
             [&](NMClient* client, GAsyncResult* result, GError** error) -> NMActiveConnection* {
                 return __real_nm_client_add_and_activate_connection_finish(client, result, error);
+            }));
+        ON_CALL(*this, nm_client_add_and_activate_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, NMConnection* partial, NMDevice* device, const char* specific_object, GVariant* options, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                __real_nm_client_add_and_activate_connection2(client, partial, device, specific_object, options, cancellable, callback, user_data);
+            }));
+        ON_CALL(*this, nm_client_add_and_activate_connection2_finish(::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillByDefault(::testing::Invoke(
+            [&](NMClient* client, GAsyncResult* result, GVariant** out_result, GError** error) -> NMActiveConnection* {
+                return __real_nm_client_add_and_activate_connection2_finish(client, result, out_result, error);
             }));
         ON_CALL(*this, nm_remote_connection_update2_finish(::testing::_, ::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
@@ -572,6 +594,7 @@ public:
     MOCK_METHOD(void, nm_client_activate_connection_async, (NMClient *client, NMConnection *connection, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(NMActiveConnection*, nm_client_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
     MOCK_METHOD(void, nm_client_add_and_activate_connection_async, (NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
+    MOCK_METHOD(void, nm_client_add_and_activate_connection2, (NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
 
     MOCK_METHOD(gboolean, nm_remote_connection_commit_changes, (NMRemoteConnection *connection, gboolean save_to_disk, GCancellable *cancellable, GError **error), (override));
     MOCK_METHOD(const char*, nm_setting_ip_config_get_dhcp_hostname, (NMSettingIPConfig *setting), (override));
@@ -580,6 +603,7 @@ public:
     MOCK_METHOD(NMSettingWireless*, nm_connection_get_setting_wireless, (NMConnection *connection), (override));
     MOCK_METHOD(GBytes*, nm_setting_wireless_get_ssid, (NMSettingWireless *setting), (override));
     MOCK_METHOD(NMActiveConnection*, nm_client_add_and_activate_connection_finish, (NMClient *client, GAsyncResult *result, GError **error), (override));
+    MOCK_METHOD(NMActiveConnection*, nm_client_add_and_activate_connection2_finish, (NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error), (override));
     MOCK_METHOD(GVariant*, nm_remote_connection_update2_finish, (NMRemoteConnection *connection, GAsyncResult *result, GError **error), (override));
     MOCK_METHOD(void, nm_remote_connection_update2, (NMRemoteConnection *connection, GVariant *settings, NMSettingsUpdate2Flags flags, GVariant *args, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));
     MOCK_METHOD(void, nm_client_add_connection2, (NMClient *client, GVariant *settings, NMSettingsAddConnection2Flags flags, GVariant *args, gboolean ignore_out_result, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data), (override));

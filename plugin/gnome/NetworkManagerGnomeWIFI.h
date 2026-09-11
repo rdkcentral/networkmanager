@@ -103,6 +103,7 @@ namespace WPEFramework
             NMClient *m_client;
             GMainLoop *m_loop;
             gboolean m_createNewConnection;
+            gboolean m_useConnection2 = false;
             GMainContext *m_nmContext = nullptr;
             char* m_objectPath = nullptr;
             NMDevice *m_wifidevice;
