@@ -1366,14 +1366,14 @@ namespace WPEFramework
                     if(ssidInfo.bssid.empty())
                     {
                         NMLOG_INFO("'%s' Already connected !", connectedApInfo.ssid.c_str());
-                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, connectedApInfo.ssid);
                         deleteClientConnection();
                         return true;
                     }
                     else if (strcasecmp(ssidInfo.bssid.c_str(), connectedApInfo.bssid.c_str()) == 0)
                     {
                         NMLOG_INFO("Already connected to the requested SSID '%s' with matching BSSID", ssidInfo.ssid.c_str());
-                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, connectedApInfo.ssid);
                         deleteClientConnection();
                         return true;
                     }
@@ -2042,7 +2042,7 @@ namespace WPEFramework
             bool wpsActionTriggerd = false;
 
             if(_instance != nullptr)
-                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
+                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING, "");
 
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
@@ -2105,7 +2105,7 @@ namespace WPEFramework
                     if(state <= NM_DEVICE_STATE_DISCONNECTED)
                     {
                         if(_instance != nullptr)
-                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, wifiConnectInfo.ssid);
                         // TODO post correct error code insted of WIFI_STATE_SSID_NOT_FOUND
                         // sedning WIFI_STATE_SSID_NOT_FOUND to avoid UI stuck issue
                         break;
@@ -2124,7 +2124,7 @@ namespace WPEFramework
                         // wifi state stuck in betwen disconnected and connected
                         NMLOG_ERROR("WPS process failed");
                         if(_instance != nullptr)
-                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                            _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, wifiConnectInfo.ssid);
                         // TODO post correct error code insted of WIFI_STATE_SSID_NOT_FOUND
                         // sedning WIFI_STATE_SSID_NOT_FOUND to avoid UI stuck issue
                     }
@@ -2155,7 +2155,7 @@ namespace WPEFramework
                             wpsComplete = true;
                             //TODO Post SSID connected event ?
                             if(_instance != nullptr)
-                                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
+                                _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTED, wpsApInfo.ssid);
 
                         }
                         else
@@ -2254,13 +2254,13 @@ namespace WPEFramework
             {
                 NMLOG_WARNING("WPS AP not found");
                 if(_instance != nullptr)
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND);
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_SSID_NOT_FOUND, "");
             }
             else if(!wpsComplete)
             {
                 NMLOG_INFO("WPS process Error");
                 if(_instance != nullptr)
-                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                    _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, wifiConnectInfo.ssid);
             }
 
             if(wpsContext != NULL)

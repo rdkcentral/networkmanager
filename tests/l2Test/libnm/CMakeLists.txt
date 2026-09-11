@@ -48,6 +48,12 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${PROXY_STUB_SOURCES}
 )
 
+if(USE_CONNECTIVITYCHECKMGR)
+    target_sources(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
+        ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivityClient.cpp
+    )
+endif()
+
 set_target_properties(${NM_LIBNM_PROXY_L2_TEST} PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED YES
@@ -182,5 +188,12 @@ target_link_libraries(${NM_LIBNM_PROXY_L2_TEST} PRIVATE
     ${LIBNM_LIBRARIES}
     ${GIO_LIBRARIES}
 )
+
+if(USE_CONNECTIVITYCHECKMGR)
+    target_link_libraries(${NM_LIBNM_PROXY_L2_TEST} PRIVATE ${RFCAPI_LIBRARY})
+    if(RFCAPI_INCLUDE_DIR)
+        target_include_directories(${NM_LIBNM_PROXY_L2_TEST} PRIVATE ${RFCAPI_INCLUDE_DIR})
+    endif()
+endif()
 
 install(TARGETS ${NM_LIBNM_PROXY_L2_TEST} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)

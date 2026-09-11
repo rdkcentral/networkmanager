@@ -690,7 +690,7 @@ namespace WPEFramework
     {
         NMLOG_DEBUG("wifi state changed: %d ; NM wifi: %s", state, wifiStateStr.c_str());
         if(_instance != nullptr)
-            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state));
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state), "");
     }
 
     void NetworkManagerEvents::onAddressChangeCb(std::string iface, bool acquired, bool isIPv6, std::string ipAddress)

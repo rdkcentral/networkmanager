@@ -50,7 +50,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportIPAddressChange' cb");
         }
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason)
         {
             NMLOG_INFO("calling 'ReportInternetStatusChange' cb");
         }
@@ -58,7 +58,7 @@ namespace WPEFramework
         {
             NMLOG_INFO("calling 'ReportAvailableSSIDs' cb");
         }
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
         {
             NMLOG_INFO("calling 'ReportWiFiStateChange' cb");
         }

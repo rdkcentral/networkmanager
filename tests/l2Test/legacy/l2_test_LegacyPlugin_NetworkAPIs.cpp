@@ -472,10 +472,10 @@ TEST_F(NetworkTest, isConnectedToInternet) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result) -> uint32_t
+                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result, string&) -> uint32_t
                     {
                     result = WPEFramework::Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
                     return Core::ERROR_NONE;
@@ -505,10 +505,10 @@ TEST_F(NetworkTest, getInternetConnectionState) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
-    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-            [&](const string&, const string&, Exchange::INetworkManager::InternetStatus& status) {
+            [&](const string&, const string&, Exchange::INetworkManager::InternetStatus& status, string&) {
                 status = Exchange::INetworkManager::InternetStatus::INTERNET_CAPTIVE_PORTAL;
                 return Core::ERROR_NONE;
             }));

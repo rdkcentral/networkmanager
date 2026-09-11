@@ -229,8 +229,9 @@ namespace WPEFramework
             /* @brief Set ConnectivityTest Endpoints */
             virtual uint32_t SetConnectivityTestEndpoints(IStringIterator* const endpoints /* @in */) = 0;
 
-            /* @brief Get Internet Connectivty Status */ 
-            virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */) = 0;
+            /* @brief Get Internet Connectivity Status */ 
+            virtual uint32_t IsConnectedToInternet(string &ipversion /* @inout */, string &interface /* @inout */, InternetStatus& status /* @out */, string& reason /* @out */ = EmptyReason()) = 0;
+
             /* @brief Get Authentication URL if the device is behind Captive Portal */ 
             virtual uint32_t GetCaptivePortalURI(string &uri/* @out */) const = 0;
 
@@ -282,17 +283,24 @@ namespace WPEFramework
                 virtual void onInterfaceStateChange(const InterfaceState state /* @in */, const string interface /* @in */){};
                 virtual void onActiveInterfaceChange(const string prevActiveInterface /* @in */, const string currentActiveInterface /* @in */){};
                 virtual void onIPAddressChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const IPStatus status /* @in */){};
-                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */){};
+                virtual void onInternetStatusChange(const InternetStatus prevState /* @in */, const InternetStatus currState /* @in */, const string interface /* @in */, const string reason /* @in */){};
 
                 // WiFi Notifications that other processes can subscribe to
                 virtual void onAvailableSSIDs(const string jsonOfScanResults /* @in */){};
-                virtual void onWiFiStateChange(const WiFiState state /* @in */){};
+                virtual void onWiFiStateChange(const WiFiState state /* @in */, const string ssid /* @in */){};
                 virtual void onWiFiSignalQualityChange(const string ssid /* @in */, const int strength /* @in */, const int noise /* @in */, const int snr /* @in */, const WiFiSignalQuality quality /* @in */){};
+                virtual void onRouteChange(const string interface /* @in */, const string ipversion /* @in */, const string ipaddress /* @in */, const string gateway /* @in */, const string primarydns /* @in */){};
             };
 
             // Allow other processes to register/unregister from our notifications
             virtual uint32_t Register(INetworkManager::INotification* notification) = 0;
             virtual uint32_t Unregister(INetworkManager::INotification* notification) = 0;
+	private:
+            static string& EmptyReason()
+            {
+                static thread_local string reason;
+                return reason;
+            }
         };
     }
 }

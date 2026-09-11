@@ -286,7 +286,7 @@ namespace WPEFramework
 
             if(ssid.ssid.empty() && _instance != NULL)
             {
-                const string lastConnectedSSID = _instance->getLastConnectedSSID();
+                const string lastConnectedSSID = getLastConnectedSSID();
                 NMLOG_WARNING("ssid is empty activating last connected ssid (%s) !", lastConnectedSSID.c_str());
                 if(_nmGdbusClient->activateKnownConnection(GnomeUtils::getWifiIfname(), lastConnectedSSID))
                     rc = Core::ERROR_NONE;

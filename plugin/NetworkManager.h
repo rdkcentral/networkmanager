@@ -79,9 +79,14 @@ namespace WPEFramework
                     _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface) override
+                void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState, interface);
+                    _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
+                }
+
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
+                {
+                    _parent.onInternetStatusChange(prevState, currState, interface, reason);
                 }
 
                 void onAvailableSSIDs(const string jsonOfScanResults) override
@@ -89,9 +94,9 @@ namespace WPEFramework
                     _parent.onAvailableSSIDs(jsonOfScanResults);
                 }
 
-                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state) override
+                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid) override
                 {
-                    _parent.onWiFiStateChange(state);
+                    _parent.onWiFiStateChange(state, ssid);
                 }
 
                 void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
@@ -260,9 +265,10 @@ namespace WPEFramework
             void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
             void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
-            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface);
+            void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason);
             void onAvailableSSIDs(const string jsonOfScanResults);
-            void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state);
+            void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
             void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
         private:
@@ -270,6 +276,7 @@ namespace WPEFramework
             PluginHost::IShell *_service;
             PluginHost::IPlugin* _networkManagerImpl;
             Exchange::INetworkManager *_networkManager;
+            bool m_useConnectivityCheckMgr;
             Core::Sink<Notification> _notification;
             string m_publicIPAddress;
             string m_publicIPAddressType;
