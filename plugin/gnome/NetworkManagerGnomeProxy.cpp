@@ -311,11 +311,13 @@ namespace WPEFramework
         void NetworkManagerImplementation::platform_init()
         {
             ::_instance = this;
+            NMLOG_INFO("platform_init: start");
 
             // Create an isolated GMainContext for per-call NMClient creation.
             m_nmContext = g_main_context_new();
 
             // Create a temporary client for one-time init work
+            NMLOG_INFO("platform_init: creating init NMClient");
             NMClient *initClient = createProxyClient(m_nmContext);
             if (initClient == NULL) {
                 NMLOG_FATAL("Error initializing NMClient during platform_init");
@@ -323,6 +325,7 @@ namespace WPEFramework
                 m_nmContext = nullptr;
                 return;
             }
+            NMLOG_INFO("platform_init: init NMClient created");
 
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
             modifyDefaultConnConfig(initClient);
@@ -334,12 +337,16 @@ namespace WPEFramework
 
             NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
 
+            NMLOG_INFO("platform_init: deleting init NMClient");
             deleteProxyClient(initClient);
+            NMLOG_INFO("platform_init: init NMClient deleted");
 
             // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();
+            NMLOG_INFO("platform_init: event instance ready, starting monitor");
             nmEvent->startNetworkMangerEventMonitor();
             wifi = wifiManager::getInstance();
+            NMLOG_INFO("platform_init: end");
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)
