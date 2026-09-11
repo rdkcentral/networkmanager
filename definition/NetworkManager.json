@@ -69,7 +69,7 @@
         "port":{
             "summary": "STUN server port",
             "type": "integer",
-            "example": "3478"
+            "example": 3478
         },
         "endpoint":{
             "summary": "The host name or IP address",
@@ -79,7 +79,7 @@
         "cacheLifetime":{
             "summary": "STUN server cache timeout",
             "type": "integer",
-            "example": "0"
+            "example": 0
         },
         "state": {
             "summary": "The given State",
@@ -104,7 +104,7 @@
         "timeout":{
             "summary": "Timeout",
             "type": "integer",
-            "example": "30"
+            "example": 30
         },
         "ssid":{
             "summary": "The WiFi SSID Name",
@@ -710,8 +710,10 @@
                     "count": {
                         "$ref": "#/definitions/count"
                     },
-                    "timeout": {
-                        "$ref": "#/definitions/timeout"
+                    "timeout":{
+                        "summary": "Timeout in seconds. Default is 1",
+                        "type": "integer",
+                        "example": 5
                     },
                     "guid": {
                         "$ref": "#/definitions/guid"
@@ -1121,7 +1123,7 @@
         "WiFiDisconnect":{
             "summary": "Disconnects from the currently connected SSID. A event will be posted upon completion",
             "events":{
-                "onWIFIStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected).",
+                "onWiFiStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected).",
                 "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
@@ -1186,7 +1188,7 @@
         "StartWPS":{
             "summary": "Initiates a connection using Wifi Protected Setup (WPS). An existing connection will be disconnected before attempting to initiate a new connection. Failure in WPS pairing will trigger an error event.\n\nIf the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the serialized pin using the Manufacturer (MFR) API. If the `method` parameter is set to `PIN`, then RDK use the pin supplied as part of the request. If the `method` parameter is set to `PBC`, then RDK uses Push Button Configuration (PBC) to obtain the pin.",
             "events":{
-                "onWIFIStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected), CONNECTING, CONNECTED.",
+                "onWiFiStateChange" : "Triggered when Wifi state changes to DISCONNECTED (only if currently connected), CONNECTING, CONNECTED.",
                 "onIPAddressChange" : "Triggered when an IP Address is assigned or lost",
                 "onInternetStatusChange" : "Triggered when internet connection state changed"
             },
@@ -1229,7 +1231,7 @@
         "StopWPS":{
             "summary": "Cancels the in-progress WPS pairing operation. The operation forcefully stops the in-progress pairing attempt and aborts the current scan. WPS pairing must be in-progress for the operation to succeed.",
             "events":{
-                "onWIFIStateChange" : "Triggered when Wifi state changes to DISCONNECTED."
+                "onWiFiStateChange" : "Triggered when Wifi state changes to DISCONNECTED."
             },
             "result": {
                 "type": "object",
@@ -1586,7 +1588,7 @@
                     "state":{
                         "summary": "WiFi State",
                         "type": "integer",
-                        "example": "5"
+                        "example": 5
                     },
                     "status": {
                         "summary": "WiFi status",

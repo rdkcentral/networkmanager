@@ -448,7 +448,7 @@ Gets the IP setting for the given interface.
   "result": {
     "interface": "wlan0",
     "ipversion": "IPv4",
-    "autoconfig": true,
+    "autoconfig": false,
     "dhcpserver": "192.168.1.1",
     "ipaddress": "192.168.1.101",
     "prefix": 24,
@@ -466,7 +466,7 @@ Gets the IP setting for the given interface.
 
 Sets the IP settings for the given interface. The `interface`, `ipversion`, and `autoconfig` parameters are mandatory. When `autoconfig` is `false`, the `ipaddress`, `prefix`, `gateway`, `primarydns`, and `secondarydns` parameters must also be provided.
 
-Also see: [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+Also see: [onIPAddressChange](#event.onIPAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
 ### Parameters
 
@@ -768,7 +768,7 @@ Seeks whether the device has internet connectivity. This API might take up to 5s
   "result": {
     "ipversion": "IPv4",
     "interface": "wlan0",
-    "connected": true,
+    "connected": false,
     "state": 1,
     "status": "NO_INTERNET",
     "reason": "PROBE_FAILED",
@@ -886,7 +886,7 @@ Pings the specified endpoint with the specified number of packets.
 | params.endpoint | string | The host name or IP address |
 | params.ipversion | string | Either IPv4 or IPv6 |
 | params?.count | integer | <sup>*(optional)*</sup> The number of requests to send. Default is 1 |
-| params?.timeout | integer | <sup>*(optional)*</sup> Timeout |
+| params?.timeout | integer | <sup>*(optional)*</sup> Timeout in seconds. Default is 1 |
 | params?.guid | string | <sup>*(optional)*</sup> The globally unique identifier |
 
 ### Result
@@ -919,7 +919,7 @@ Pings the specified endpoint with the specified number of packets.
     "endpoint": "45.57.221.20",
     "ipversion": "IPv4",
     "count": 10,
-    "timeout": 30,
+    "timeout": 5,
     "guid": "..."
   }
 }
@@ -1201,7 +1201,7 @@ Saves the SSID, passphrase, and security mode for upcoming and future sessions. 
 
 Remove given SSID from saved SSIDs. This method just removes an entry from the list and of the list is having only one entry thats being removed, it will initiate a disconnect.
 
-Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onIPAddressChange](#event.onIPAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
 ### Parameters
 
@@ -1249,7 +1249,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 
 Connects to a saved SSID. The `ssid` parameter is mandatory. Returns failure if `ssid` is not specified or not found in the saved SSIDs list.
 
-Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onIPAddressChange](#event.onIPAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
 ### Parameters
 
@@ -1295,7 +1295,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onAddressChange](#even
 <a name="method.WiFiConnect"></a>
 ## *WiFiConnect [<sup>method</sup>](#head.Methods)*
 
-Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the saved SSID and password. See `AddToKnownSSIDs`.
+Initiates request to connect to the specified SSID with the given passphrase. Passphrase can be `null` when the network security is `NONE`. The security mode is decided based on the highest security mode provided by the SSID. Also when called with no arguments, this method attempts to connect to the last connected SSID. See `AddToKnownSSIDs`.
 
 Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
@@ -1373,7 +1373,7 @@ Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
 Disconnects from the currently connected SSID. A event will be posted upon completion.
 
-Also see: [onWIFIStateChange](#event.onWIFIStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onIPAddressChange](#event.onIPAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
 ### Parameters
 
@@ -1471,7 +1471,7 @@ Initiates a connection using Wifi Protected Setup (WPS). An existing connection 
 
 If the `method` parameter is set to `SERIALIZED_PIN`, then RDK retrieves the serialized pin using the Manufacturer (MFR) API. If the `method` parameter is set to `PIN`, then RDK use the pin supplied as part of the request. If the `method` parameter is set to `PBC`, then RDK uses Push Button Configuration (PBC) to obtain the pin.
 
-Also see: [onWIFIStateChange](#event.onWIFIStateChange), [onAddressChange](#event.onAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
+Also see: [onWiFiStateChange](#event.onWiFiStateChange), [onIPAddressChange](#event.onIPAddressChange), [onInternetStatusChange](#event.onInternetStatusChange)
 
 ### Parameters
 
@@ -1523,7 +1523,7 @@ Also see: [onWIFIStateChange](#event.onWIFIStateChange), [onAddressChange](#even
 
 Cancels the in-progress WPS pairing operation. The operation forcefully stops the in-progress pairing attempt and aborts the current scan. WPS pairing must be in-progress for the operation to succeed.
 
-Also see: [onWIFIStateChange](#event.onWIFIStateChange)
+Also see: [onWiFiStateChange](#event.onWiFiStateChange)
 
 ### Parameters
 
@@ -1788,7 +1788,7 @@ NetworkManager interface events:
 | Event | Description |
 | :-------- | :-------- |
 | [onInterfaceStateChange](#event.onInterfaceStateChange) | Triggered when an interface state is changed |
-| [onAddressChange](#event.onAddressChange) | Triggered when an IP Address is assigned or lost |
+| [onIPAddressChange](#event.onIPAddressChange) | Triggered when an IP Address is assigned or lost |
 | [onRouteChange](#event.onRouteChange) | Triggered when the default route changes and a new gateway/DNS becomes available for an interface |
 | [onActiveInterfaceChange](#event.onActiveInterfaceChange) | Triggered when the primary/active interface changes |
 | [onInternetStatusChange](#event.onInternetStatusChange) | Triggered when internet connection state changed |
@@ -1831,8 +1831,8 @@ Triggered when an interface state is changed. The possible states are
 }
 ```
 
-<a name="event.onAddressChange"></a>
-## *onAddressChange [<sup>event</sup>](#head.Notifications)*
+<a name="event.onIPAddressChange"></a>
+## *onIPAddressChange [<sup>event</sup>](#head.Notifications)*
 
 Triggered when an IP Address is assigned or lost.
 
@@ -1851,7 +1851,7 @@ Triggered when an IP Address is assigned or lost.
 ```json
 {
   "jsonrpc": "2.0",
-  "method": "client.events.1.onAddressChange",
+  "method": "client.events.1.onIPAddressChange",
   "params": {
     "interface": "wlan0",
     "ipaddress": "192.168.1.101",
@@ -1934,6 +1934,7 @@ Triggered when internet connection state changed.The possible internet connectio
 | params.state | integer | The internet connection state |
 | params.status | string | The internet connection status |
 | params.interface | string | The internet status change on default interface |
+| params?.reason | string | <sup>*(optional)*</sup> The ConnectivityCheckMgr reason when status is NO_INTERNET |
 
 ### Example
 
@@ -1942,11 +1943,12 @@ Triggered when internet connection state changed.The possible internet connectio
   "jsonrpc": "2.0",
   "method": "client.events.1.onInternetStatusChange",
   "params": {
-    "prevState": 1,
-    "prevStatus": "NO_INTERNET",
-    "state": 4,
-    "status": "FULLY_CONNECTED",
-    "interface": "wlan0"
+    "prevState": 3,
+    "prevStatus": "FULLY_CONNECTED",
+    "state": 1,
+    "status": "NO_INTERNET",
+    "interface": "wlan0",
+    "reason": "PROBE_FAILED"
   }
 }
 ```
@@ -2001,7 +2003,7 @@ Triggered when WIFI connection state get changed. The possible states are define
 | params | object |  |
 | params.state | integer | WiFi State |
 | params.status | string | WiFi status |
-| params.ssid | string | The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected |
+| params.ssid | string | The SSID associated with the Wi-Fi profile causing the state transition. Disconnected state, contains the SSID associated with the connection that was disconnected. The SSID will be empty when WPS initiated and no AP found with WPS enabled |
 
 ### Example
 
