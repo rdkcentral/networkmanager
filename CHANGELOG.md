@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [3.6.1] - 2026-09-11
+### Changed
+- Removed the explicit ReScan upon Wake-Up from DeepSleep because the Gnome NW sends SCAN requests with "AllowRoam" false which leads supplicant to not to connect to WiFi; it ends-up scan-only
+
 ## [3.6.0] - 2026-08-11
 ### Fixed
 - Fixed the issue with connecting to a SSID that is not present in scan list
