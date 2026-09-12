@@ -1044,7 +1044,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             /* Must add new method to get all the known SSIDs but for now RDK-NM supports only one saved SSID. */
             retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getPairedSSID, (void *)&param, sizeof(param));
 
-            if((retVal == IARM_RESULT_SUCCESS) && param.status)
+            if(retVal == IARM_RESULT_SUCCESS)
             {
                 auto &pairedSsid = param.data.getPairedSSID;
                 std::list<string> ssidList;

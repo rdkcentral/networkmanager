@@ -1806,8 +1806,6 @@ namespace WPEFramework
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
-            std::string ssidPrint{};
-
             if(!createClientNewConnection())
                 return false;
 
@@ -1815,47 +1813,40 @@ namespace WPEFramework
             if(connections == nullptr)
             {
                 NMLOG_ERROR("nm connections list null ");
+                deleteClientConnection();
+                return false;
             }
-            else
+            for (guint i = 0; i < connections->len; i++)
             {
-                for (guint i = 0; i < connections->len; i++)
+                NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
+                if(NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
                 {
-                    NMConnection *connection = NM_CONNECTION(connections->pdata[i]);
-                    if(NM_IS_SETTING_WIRELESS(nm_connection_get_setting_wireless(connection)))
+                    GBytes *ssidBytes = nm_setting_wireless_get_ssid(nm_connection_get_setting_wireless(connection));
+                    if (ssidBytes)
                     {
-                        GBytes *ssidBytes = nm_setting_wireless_get_ssid(nm_connection_get_setting_wireless(connection));
-                        if (ssidBytes)
+                        char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidBytes, NULL), g_bytes_get_size(ssidBytes));
+                        if(ssidStr != nullptr)
                         {
-                            char* ssidStr = nm_utils_ssid_to_utf8((const guint8*)g_bytes_get_data(ssidBytes, NULL), g_bytes_get_size(ssidBytes));
-                            if(ssidStr != nullptr)
-                            {
-                                ssids.push_back(string(ssidStr));
-                                ssidPrint += ssidStr;
-                                ssidPrint += ", ";
-                                free(ssidStr);
-                            }
-                            else
-                            {
-                                NMLOG_ERROR("Invalid ssid length Error");
-                                continue;
-                            }
+                            ssids.push_back(string(ssidStr));
+                            free(ssidStr);
                         }
                         else
                         {
-                            /* hidden ssid */
-                            NMLOG_WARNING("wifi connection list have hidden ssid also !");
+                            NMLOG_ERROR("Invalid ssid length Error");
+                            continue;
                         }
+                    }
+                    else
+                    {
+                        /* hidden ssid */
+                        NMLOG_WARNING("wifi connection list have hidden ssid also !");
                     }
                 }
             }
-            deleteClientConnection();
-            if (!ssids.empty())
-            {
-                NMLOG_INFO("known wifi connections are %s", ssidPrint.c_str());
-            }
-            else
+            if (ssids.empty())
                 ssids.push_back(string(""));
 
+            deleteClientConnection();
             return true;
         }
 
