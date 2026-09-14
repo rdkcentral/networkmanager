@@ -752,7 +752,7 @@ namespace WPEFramework
                 // Remove any whitespace, newlines, etc.
                 line.erase(line.find_last_not_of("\r\n\t") + 1);
                 line.erase(0, line.find_first_not_of("\r\n\t"));
-                hostname = line;
+                hostname = std::move(line);
                 file.close();
 
                 NMLOG_INFO("Read persistent hostname: '%s'", hostname.c_str());
