@@ -1504,11 +1504,7 @@ namespace WPEFramework
                 NMLOG_INFO("creating new connection '%s' persist=%d", ssidInfo.ssid.c_str(), ssidInfo.persist);
                 m_connection = nm_simple_connection_new();
 
-                const char *apPath = NULL;
-                if (AccessPoint)
-                {
-                    apPath = nm_object_get_path(NM_OBJECT(AccessPoint));
-                }
+                const char *apPath = nm_object_get_path(NM_OBJECT(AccessPoint));
                 if (!apPath)
                 {
                     NMLOG_WARNING("AccessPoint object path is NULL");
@@ -1545,7 +1541,6 @@ namespace WPEFramework
                     GVariant *options = g_variant_builder_end(&optionsBuilder);
 
                     m_createNewConnection = false;
-                    m_useConnection2 = true;
                     nm_client_add_and_activate_connection2(m_client,
                                                           m_connection,
                                                           m_wifidevice,
