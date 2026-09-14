@@ -423,10 +423,11 @@ namespace WPEFramework
 
             // Copy passphrase - only if not empty
             if (!passphrase.empty()) {
-                strncpy(setParam.wifiCredentials.cPassword, passphrase.c_str(), sizeof(setParam.wifiCredentials.cPassword));
+                    strncpy(setParam.wifiCredentials.cPassword, passphrase.c_str(), sizeof(setParam.wifiCredentials.cPassword) - 1);
+                    setParam.wifiCredentials.cPassword[sizeof(setParam.wifiCredentials.cPassword) - 1] = '\0';
                 NMLOG_DEBUG("WiFi passphrase set for MfrMgr save");
             } else {
-                param.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
+                    setParam.wifiCredentials.cPassword[0] = '\0'; // Ensure empty string
                 NMLOG_DEBUG("Empty passphrase - setting empty string in MfrMgr");
             }
 
