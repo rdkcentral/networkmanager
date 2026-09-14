@@ -406,9 +406,7 @@ namespace WPEFramework
                 wifiInfo.frequency = ((double)freq/1000);
                 wifiInfo.rate = bitrate;
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
-                if(noise <= 0 && noise >= DEFAULT_NOISE)
-                    wifiInfo.noise = noise;
-                else
+                    // TODO add noise: retrieve noise from AP proxy and assign here
                     wifiInfo.noise = 0;
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
@@ -418,7 +416,6 @@ namespace WPEFramework
                 // NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.m_rate.c_str());
                 // NMLOG_DEBUG("securityMode : %d", wifiInfo.m_securityMode);
  
-                // TODO add noice
                 ret = true;
             }
             else {
