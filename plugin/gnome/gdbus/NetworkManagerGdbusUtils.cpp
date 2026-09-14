@@ -514,14 +514,12 @@ namespace WPEFramework
                                         &error);
             if(listProxy == NULL)
             {
-                if (!error) {
-                    NMLOG_ERROR("ListConnections failed: %s", error->message);
+                    if (error) {
+                        NMLOG_ERROR("ListConnections failed: %s", error->message);
                     g_error_free(error);
+                }
                     g_object_unref(sProxy);
                     return false;
-                }
-                else
-                    NMLOG_ERROR("ListConnections proxy failed no error message");
             }
 
             g_variant_get(listProxy, "(^ao)", &paths);
