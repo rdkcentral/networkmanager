@@ -59,7 +59,6 @@ namespace WPEFramework
 
             // Serialize concurrent wifi operations from different threads
             m_opMutex.lock();
-            m_useConnection2 = false;
 
             g_main_context_push_thread_default(m_nmContext);
 
@@ -669,13 +668,8 @@ namespace WPEFramework
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
             NMActiveConnection *activeConnection = NULL;
-            GVariant *resultDetails = NULL;
 
-            if (_wifiManager->m_useConnection2) {
-                NMLOG_DEBUG("nm_client_add_and_activate_connection2_finish");
-                activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(_wifiManager->m_client), result, &resultDetails, &error);
-            }
-            else if (_wifiManager->m_createNewConnection) {
+            if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
                 activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
             }
@@ -696,6 +690,35 @@ namespace WPEFramework
                     } else {
                         NMLOG_ERROR("Failed to activate connection: %s", error->message);
                     }
+                }
+                g_error_free(error);
+            }
+            else {
+                _wifiManager->m_isSuccess = true;
+            }
+
+            if(activeConnection)
+                g_object_unref(activeConnection);
+            g_main_loop_quit(_wifiManager->m_loop);
+        }
+
+        static void wifiConnectConnection2Cb(GObject *client, GAsyncResult *result, gpointer user_data)
+        {
+            GError *error = NULL;
+            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
+            NMActiveConnection *activeConnection = NULL;
+            GVariant *resultDetails = NULL;
+
+            NMLOG_DEBUG("nm_client_add_and_activate_connection2_finish");
+            activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(_wifiManager->m_client), result, &resultDetails, &error);
+
+            if (error) {
+                _wifiManager->m_isSuccess = false;
+                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+                    NMLOG_DEBUG("Connection2 operation was cancelled");
+                }
+                else {
+                    NMLOG_ERROR("Failed to add/activate connection2: %s", error->message);
                 }
                 g_error_free(error);
             }
@@ -1529,7 +1552,7 @@ namespace WPEFramework
                                                           m_objectPath,
                                                           options,
                                                           m_cancellable,
-                                                          wifiConnectCb,
+                                                          wifiConnectConnection2Cb,
                                                           this);
                     g_variant_unref(options);
                 }
