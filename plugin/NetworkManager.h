@@ -64,9 +64,9 @@ namespace WPEFramework
 
             public:
 
-                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface) override
+                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, string interface) override
                 {
-                    _parent.onInterfaceStateChange(state, interface);
+                    _parent.onInterfaceStateChange(state, std::move(interface));
                 }
 
                 void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface) override
@@ -74,9 +74,9 @@ namespace WPEFramework
                     _parent.onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
                 }
 
-                void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status) override
+                void onIPAddressChange(string interface, string ipversion, string ipaddress, const Exchange::INetworkManager::IPStatus status) override
                 {
-                    _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
+                    _parent.onIPAddressChange(std::move(interface), std::move(ipversion), std::move(ipaddress), status);
                 }
 
                 void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns) override
@@ -89,14 +89,14 @@ namespace WPEFramework
                     _parent.onInternetStatusChange(prevState, currState, interface, reason);
                 }
 
-                void onAvailableSSIDs(const string jsonOfScanResults) override
+                void onAvailableSSIDs(string jsonOfScanResults) override
                 {
-                    _parent.onAvailableSSIDs(jsonOfScanResults);
+                    _parent.onAvailableSSIDs(std::move(jsonOfScanResults));
                 }
 
-                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid) override
+                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid) override
                 {
-                    _parent.onWiFiStateChange(state, ssid);
+                    _parent.onWiFiStateChange(state, std::move(ssid));
                 }
 
                 void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
