@@ -324,7 +324,7 @@ namespace WPEFramework
             }
 
             if (!endpoint.empty())
-                m_stunEndpoint = endpoint;
+                m_stunEndpoint = std::move(endpoint);
 
             if (0 != port)
                 m_stunPort = port;

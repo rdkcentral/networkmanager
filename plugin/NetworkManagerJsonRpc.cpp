@@ -199,7 +199,7 @@ namespace WPEFramework
                     }
 
                     _interfaces->Release();
-                    response["interfaces"] = array;
+                    response["interfaces"] = std::move(array);
                 }
             }
 
@@ -417,7 +417,7 @@ namespace WPEFramework
                     while (endpoints->Next(entry) == true) { array.Add(entry); }
 
                     endpoints->Release();
-                    response["endpoints"] = array;
+                    response["endpoints"] = std::move(array);
                 }
             }
             returnJson(rc);
@@ -608,7 +608,7 @@ namespace WPEFramework
             {
                 JsonObject reply;
                 reply.FromString(result);
-                response = reply;
+                response = std::move(reply);
             }
             LOG_OUTPARAM();
             return rc;
@@ -636,7 +636,7 @@ namespace WPEFramework
                 {
                     JsonObject reply;
                     reply.FromString(result);
-                    response = reply;
+                    response = std::move(reply);
                 }
             }
             returnJson(rc);
