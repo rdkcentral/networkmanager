@@ -76,22 +76,22 @@ namespace WPEFramework
 
                 void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status) override
                 {
-                    _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
+                    _parent.onIPAddressChange(std::move(interface), std::move(ipversion), std::move(ipaddress), status);
                 }
 
                 void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns) override
                 {
-                    _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
+                    _parent.onRouteChange(std::move(interface), std::move(ipversion), std::move(ipaddress), std::move(gateway), std::move(primarydns));
                 }
 
                 void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState, interface, reason);
+                    _parent.onInternetStatusChange(prevState, currState, std::move(interface), std::move(reason));
                 }
 
                 void onAvailableSSIDs(const string jsonOfScanResults) override
                 {
-                    _parent.onAvailableSSIDs(jsonOfScanResults);
+                    _parent.onAvailableSSIDs(std::move(jsonOfScanResults));
                 }
 
                 void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid) override
