@@ -253,12 +253,12 @@ namespace WPEFramework
                     std::vector<std::string> backup;
                     NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
                     backup.push_back("http://clients3.google.com/generate_204");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(std::move(backup));
                 }
                 else
                 {
                     NMLOG_INFO("Use the connectivity endpoint from config");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(std::move(connectEndpts));
                 }
             }
 
@@ -1222,7 +1222,7 @@ namespace WPEFramework
             m_filterVectorsLock.Unlock();
 
             // Call filterScanResults outside the lock with snapshots (exception-safe)
-            filterScanResults(filterResult, ssidsSnapshot, frequenciesSnapshot);
+            filterScanResults(filterResult, std::move(ssidsSnapshot), std::move(frequenciesSnapshot));
             filterResult.ToString(jsonOfFilterScanResults);
 
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
