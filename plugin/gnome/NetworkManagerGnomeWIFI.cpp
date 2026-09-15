@@ -1806,8 +1806,6 @@ namespace WPEFramework
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
-            std::string ssidPrint{};
-
             if(!createClientNewConnection())
                 return false;
 
@@ -1830,8 +1828,6 @@ namespace WPEFramework
                         if(ssidStr != nullptr)
                         {
                             ssids.push_back(string(ssidStr));
-                            ssidPrint += ssidStr;
-                            ssidPrint += ", ";
                             free(ssidStr);
                         }
                         else
@@ -1847,15 +1843,11 @@ namespace WPEFramework
                     }
                 }
             }
-            if (!ssids.empty())
-            {
-                NMLOG_INFO("known wifi connections are %s", ssidPrint.c_str());
-                deleteClientConnection();
-                return true;
-            }
+            if (ssids.empty())
+                ssids.push_back(string(""));
 
             deleteClientConnection();
-            return false;
+            return true;
         }
 
         static void wifiScanCb(GObject *object, GAsyncResult *result, gpointer user_data)

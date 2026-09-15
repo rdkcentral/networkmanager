@@ -541,8 +541,6 @@ namespace WPEFramework
 
             g_strfreev(paths);
             g_object_unref(sProxy);
-            if(pathsList.empty())
-                return false;
 
             return true;
         }
