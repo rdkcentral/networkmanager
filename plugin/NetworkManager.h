@@ -265,9 +265,9 @@ namespace WPEFramework
             void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
             void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
-            void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns);
-            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason);
-            void onAvailableSSIDs(const string jsonOfScanResults);
+            void onRouteChange(string interface, string ipversion, string ipaddress, string gateway, string primarydns);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, string reason);
+            void onAvailableSSIDs(string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
             void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 
