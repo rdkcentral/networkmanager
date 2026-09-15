@@ -84,24 +84,24 @@ namespace WPEFramework
                     _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, string reason) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState, interface, reason);
+                    _parent.onInternetStatusChange(prevState, currState, std::move(interface), std::move(reason));
                 }
 
-                void onAvailableSSIDs(const string jsonOfScanResults) override
+                void onAvailableSSIDs(string jsonOfScanResults) override
                 {
-                    _parent.onAvailableSSIDs(jsonOfScanResults);
+                    _parent.onAvailableSSIDs(std::move(jsonOfScanResults));
                 }
 
-                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid) override
+                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid) override
                 {
-                    _parent.onWiFiStateChange(state, ssid);
+                    _parent.onWiFiStateChange(state, std::move(ssid));
                 }
 
-                void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                void onWiFiSignalQualityChange(string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
-                    _parent.onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
+                    _parent.onWiFiSignalQualityChange(std::move(ssid), strength, noise, snr, quality);
                 }
 
                 // The activated/deactived methods are part of the RPC::IRemoteConnection::INotification
