@@ -195,7 +195,7 @@ namespace WPEFramework
                         each["enabled"] = entry.enabled;
                         each["connected"] = entry.connected;
 
-                        array.Add(JsonValue(each));
+                        array.Add(JsonValue(std::move(each)));
                     }
 
                     _interfaces->Release();
@@ -608,7 +608,7 @@ namespace WPEFramework
             {
                 JsonObject reply;
                 reply.FromString(result);
-                response = reply;
+                response = std::move(reply);
             }
             LOG_OUTPARAM();
             return rc;
@@ -636,7 +636,7 @@ namespace WPEFramework
                 {
                     JsonObject reply;
                     reply.FromString(result);
-                    response = reply;
+                    response = std::move(reply);
                 }
             }
             returnJson(rc);
