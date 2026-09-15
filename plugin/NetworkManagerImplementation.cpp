@@ -1135,7 +1135,7 @@ namespace WPEFramework
 #endif
             {
                 const string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
-                InternetStatusChangeData eventData{prevState, currState, interface, noInternetReason};
+                InternetStatusChangeData eventData{prevState, currState, interface, std::move(noInternetReason)};
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
@@ -1229,7 +1229,7 @@ namespace WPEFramework
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
             {
-                AvailableSSIDsData eventData{jsonOfFilterScanResults};
+                AvailableSSIDsData eventData{std::move(jsonOfFilterScanResults)};
                 enqueueEvent(NM_ON_AVAILABLESSIDS, std::move(eventData));
             }
         }
@@ -1562,7 +1562,7 @@ namespace WPEFramework
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state, reportSSID};
+                WiFiStateChangeData eventData{state, std::move(reportSSID)};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }
@@ -1571,7 +1571,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             {
-                WiFiSignalQualityChangeData eventData{ssid, strength, noise, snr, quality};
+                WiFiSignalQualityChangeData eventData{std::move(ssid), strength, noise, snr, quality};
                 NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
                 enqueueEvent(NM_ON_WIFISIGNALQUALITY_CHANGE, std::move(eventData));
             }
