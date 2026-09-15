@@ -608,7 +608,7 @@ namespace WPEFramework
             {
                 JsonObject reply;
                 reply.FromString(result);
-                response = reply;
+                response = std::move(reply);
             }
             LOG_OUTPARAM();
             return rc;
