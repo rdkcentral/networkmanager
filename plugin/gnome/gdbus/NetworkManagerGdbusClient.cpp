@@ -1728,7 +1728,7 @@ namespace WPEFramework
             if(ssids.empty())
             {
                 NMLOG_WARNING("no Known SSID list empty");
-                return false;
+                ssids.push_back(string(""));
             }
             return true;
         }
