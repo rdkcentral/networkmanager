@@ -541,8 +541,8 @@ namespace WPEFramework
                 response["ipaddress"] = ipaddress;
                 response["ipversion"] = ipversion;
 
-                m_publicIPAddress = ipaddress;
-                m_publicIPAddressType = ipversion;
+                m_publicIPAddress = std::move(ipaddress);
+                m_publicIPAddressType = std::move(ipversion);
                 if (!m_publicIPAddress.empty())
                 {
                     PublishToThunderAboutInternet();
