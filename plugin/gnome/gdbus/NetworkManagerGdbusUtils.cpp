@@ -664,10 +664,13 @@ namespace WPEFramework
         std::array<guint8, 16> GnomeUtils::ip6StrToNBO(const std::string &ipAddress)
         {
             struct in6_addr addr6;
-            inet_pton(AF_INET6, ipAddress.c_str(), &addr6);
-            std::array<guint8, 16> ip6{};
-            std::memcpy(ip6.data(), &addr6, 16);
-            return ip6;
+            if (inet_pton(AF_INET6, ipAddress.c_str(), &addr6) <= 0)
+            {
+            return std::array<guint8, 16>{};
+            }
+        std::array<guint8, 16> ip6{};
+        std::memcpy(ip6.data(), &addr6, 16);
+        return ip6;
         }
 
         // Helper function to convert a raw IPv4 address to human-readable format
