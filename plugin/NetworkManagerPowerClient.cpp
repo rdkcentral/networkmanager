@@ -204,6 +204,7 @@ void NetworkManagerPowerClient::powerThreadLoop()
                         sendPowerModePreChangeComplete(e.transactionId);
                     }
                 }
+                lock.lock();
                 break;
             }
 
