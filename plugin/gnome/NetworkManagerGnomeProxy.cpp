@@ -367,7 +367,7 @@ namespace WPEFramework
                 interface.enabled   = GnomeNetworkManagerEvents::isInterfaceStateEnabled(info.state);
                 interface.connected = GnomeNetworkManagerEvents::isInterfaceStateConnected(info.state);
 
-                interfaceList.push_back(interface);
+                interfaceList.push_back(std::move(interface));
             }
 
             using Implementation = RPC::IteratorType<Exchange::INetworkManager::IInterfaceDetailsIterator>;
@@ -592,7 +592,7 @@ namespace WPEFramework
                     sleep(1); // wait for 1 sec to change the device state
                     const string lastConnectedSSID = getLastConnectedSSID();
                     NMLOG_INFO("Activating connection '%s' ...", lastConnectedSSID.c_str());
-                    wifi->activateKnownConnection(nmUtils::wlanIface(), lastConnectedSSID);
+                    wifi->activateKnownConnection(nmUtils::wlanIface(), std::move(lastConnectedSSID));
                 }
             }
 
@@ -666,7 +666,7 @@ namespace WPEFramework
             {
                 NMLOG_DEBUG("no %s address on %s", family.c_str(), interface.c_str());
             }
-            result.ipversion = family;
+            result.ipversion = std::move(family);
 
             return Core::ERROR_NONE;
         }
@@ -741,7 +741,7 @@ namespace WPEFramework
             m_filterSsidslist.clear();
             m_filterFrequencies.clear();
             m_filterSsidslist = filteredSsids;
-            m_filterFrequencies = filteredFrequencies;
+            m_filterFrequencies = std::move(filteredFrequencies);
             m_filterVectorsLock.Unlock();
 
             nmEvent->setwifiScanOptions(true);

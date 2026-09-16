@@ -111,7 +111,7 @@ namespace WPEFramework
                 return; // if not good don't report the evnet
             }
 
-            GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
+            GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(std::move(newIface));
         }
         else
         {
@@ -187,7 +187,7 @@ namespace WPEFramework
                     uint32_t prefix = nm_ip_address_get_prefix(addr);
                     if (isIPv6) {
                         if (isIPv6LinkLocal(addrString)) {
-                            newCache.linkLocalAddresses.insert(addrString);
+                            newCache.linkLocalAddresses.insert(std::move(addrString));
                         } else if (isIPv6ULA(addrString)) {
                             newCache.uniqueLocalAddresses.insert(addrString);
                         } else {
@@ -406,7 +406,7 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_UNAVAILABLE:
                     case NM_DEVICE_STATE_DISCONNECTED:
                         wifiState = "WIFI_STATE_DISCONNECTED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, attemptingSSID);
+                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_DISCONNECTED, std::move(attemptingSSID));
                         refreshIpFamilyCache(device, false);
                         refreshIpFamilyCache(device, true);
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, nmUtils::wlanIface());
@@ -646,7 +646,7 @@ namespace WPEFramework
             if (_instance) {
                 for (const char* family : {"IPv4", "IPv6"}) {
                     IpFamilyCache empty;
-                    std::set<std::string> oldKeys = _instance->swapIpCache(ifname, family, empty);
+                    std::set<std::string> oldKeys = _instance->swapIpCache(ifname, family, std::move(empty));
                     for (const auto& key : oldKeys) {
                         _instance->ReportIPAddressChange(ifname, family, key, Exchange::INetworkManager::IP_LOST);
                     }
@@ -967,14 +967,14 @@ namespace WPEFramework
 
         NMLOG_DEBUG("%s interface state changed - %s", iface.c_str(), state.c_str());
         if(_instance != nullptr && (iface == nmUtils::wlanIface() || iface == nmUtils::ethIface()))
-            _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), iface);
+            _instance->ReportInterfaceStateChange(static_cast<Exchange::INetworkManager::InterfaceState>(newState), std::move(iface));
     }
 
     void GnomeNetworkManagerEvents::onWIFIStateChanged(uint8_t state, std::string ssid)
     {
         if(_instance != nullptr)
         {
-            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state), ssid);
+            _instance->ReportWiFiStateChange(static_cast<Exchange::INetworkManager::WiFiState>(state), std::move(ssid));
 #ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
             // Handle WiFi state changes for MfrMgr integration
             NetworkManagerMfrManager* mfrManager = NetworkManagerMfrManager::getInstance();
