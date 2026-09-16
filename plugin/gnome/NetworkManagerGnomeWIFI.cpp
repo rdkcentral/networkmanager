@@ -2208,8 +2208,7 @@ namespace WPEFramework
                     }
                     if(loop != NULL) {
                         g_main_loop_unref(loop);
-                        loop = NULL;
-                    }
+                        }
                     if(connection != NULL) {
                         g_object_unref(connection);
                         connection = NULL;
