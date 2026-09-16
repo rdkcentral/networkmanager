@@ -702,53 +702,35 @@ namespace WPEFramework
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
-        static void wifiConnectTempCb(GObject *client, GAsyncResult *result, gpointer user_data)
+        static void wifiConnectConnection2Cb(GObject *client, GAsyncResult *result, gpointer user_data)
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            NMRemoteConnection *remoteConnection = NULL;
+            NMActiveConnection *activeConnection = NULL;
+            GVariant *resultDetails = NULL;
 
-            remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+            NMLOG_DEBUG("nm_client_add_and_activate_connection2_finish");
+            activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(_wifiManager->m_client), result, &resultDetails, &error);
 
             if (error) {
+                _wifiManager->m_isSuccess = false;
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-                    NMLOG_DEBUG("Add temporary connection was cancelled");
+                    NMLOG_DEBUG("Connection2 operation was cancelled");
                 }
                 else {
-                    NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
+                    NMLOG_ERROR("Failed to add/activate connection2: %s", error->message);
                 }
-                _wifiManager->m_isSuccess = false;
                 g_error_free(error);
-                g_main_loop_quit(_wifiManager->m_loop);
-                return;
+            }
+            else {
+                _wifiManager->m_isSuccess = true;
             }
 
-            if (remoteConnection) {
-                NMLOG_DEBUG("Temporary connection added, now activating...");
-
-                // Check if client is still valid before activating
-                if (_wifiManager->m_client == NULL) {
-                    NMLOG_WARNING("Client was destroyed, cannot activate connection");
-                    _wifiManager->m_isSuccess = false;
-                    g_object_unref(remoteConnection);
-                    g_main_loop_quit(_wifiManager->m_loop);
-                    return;
-                }
-
-                // Now activate the temporary connection
-                nm_client_activate_connection_async(_wifiManager->m_client,
-                                                  NM_CONNECTION(remoteConnection),
-                                                  _wifiManager->m_wifidevice,
-                                                  _wifiManager->m_objectPath,
-                                                  _wifiManager->m_cancellable,
-                                                  wifiConnectCb,
-                                                  _wifiManager);
-                g_object_unref(remoteConnection);
-            } else {
-                NMLOG_ERROR("Failed to add temporary connection - no connection returned");
-                _wifiManager->m_isSuccess = false;
-                g_main_loop_quit(_wifiManager->m_loop);
-            }
+            if(activeConnection)
+                g_object_unref(activeConnection);
+            if(resultDetails)
+                g_variant_unref(resultDetails);
+            g_main_loop_quit(_wifiManager->m_loop);
         }
 
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
@@ -1553,20 +1535,21 @@ namespace WPEFramework
                 }
                 else
                 {
-                    // Create temporary connection - add to memory only, do not save to disk
+                    GVariantBuilder optionsBuilder;
+                    g_variant_builder_init(&optionsBuilder, G_VARIANT_TYPE_VARDICT);
+                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("volatile"));
+                    GVariant *options = g_variant_builder_end(&optionsBuilder);
+
                     m_createNewConnection = false;
-                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
-                    // Use nm_client_add_connection2 without NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK
-                    // This creates an in-memory only connection that won't persist
-                    nm_client_add_connection2(m_client,
-                                            connSettings,
-                                            NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
-                                            NULL,
-                                            TRUE,
-                                            m_cancellable,
-                                            wifiConnectTempCb,
-                                            this);
-                    g_variant_unref(connSettings);
+                    nm_client_add_and_activate_connection2(m_client,
+                                                          m_connection,
+                                                          m_wifidevice,
+                                                          m_objectPath,
+                                                          options,
+                                                          m_cancellable,
+                                                          wifiConnectConnection2Cb,
+                                                          this);
+                    g_variant_unref(options);
                 }
                 if(m_connection)
                     g_object_unref(m_connection);

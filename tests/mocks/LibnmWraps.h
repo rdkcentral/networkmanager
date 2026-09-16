@@ -87,6 +87,18 @@ public:
     virtual NMActiveConnection *nm_client_add_and_activate_connection_finish(NMClient *client,
                                                                             GAsyncResult *result,
                                                                             GError **error) = 0;
+    virtual void nm_client_add_and_activate_connection2(NMClient *client,
+                                                       NMConnection *partial,
+                                                       NMDevice *device,
+                                                       const char *specific_object,
+                                                       GVariant *options,
+                                                       GCancellable *cancellable,
+                                                       GAsyncReadyCallback callback,
+                                                       gpointer user_data) = 0;
+    virtual NMActiveConnection *nm_client_add_and_activate_connection2_finish(NMClient *client,
+                                                                             GAsyncResult *result,
+                                                                             GVariant **out_result,
+                                                                             GError **error) = 0;
     virtual GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                         GAsyncResult *result,
                                                         GError **error) = 0;
@@ -179,6 +191,18 @@ public:
     static NMActiveConnection *nm_client_add_and_activate_connection_finish(NMClient *client,
                                                                           GAsyncResult *result,
                                                                           GError **error);
+    static void nm_client_add_and_activate_connection2(NMClient *client,
+                                                     NMConnection *partial,
+                                                     NMDevice *device,
+                                                     const char *specific_object,
+                                                     GVariant *options,
+                                                     GCancellable *cancellable,
+                                                     GAsyncReadyCallback callback,
+                                                     gpointer user_data);
+    static NMActiveConnection *nm_client_add_and_activate_connection2_finish(NMClient *client,
+                                                                            GAsyncResult *result,
+                                                                            GVariant **out_result,
+                                                                            GError **error);
     static GVariant *nm_remote_connection_update2_finish(NMRemoteConnection *connection,
                                                        GAsyncResult *result,
                                                        GError **error);

@@ -114,7 +114,7 @@ namespace WPEFramework
                                                              "org.freedesktop.NetworkManager.Device",
                                                              "ActiveConnection"),
                                                              G_DBUS_CALL_FLAGS_NONE,
-                                                             -1,
+                                                             5000, // 5 second timeout
                                                              NULL,
                                                              &error);
             if (!props_variant) {
@@ -186,12 +186,46 @@ namespace WPEFramework
                 return false;
             }
 
+            // Skip MFR save path for non-persistent (volatile/unsaved) profiles.
+            error = NULL;
+            GVariant *unsaved_props_variant = g_dbus_proxy_call_sync(connection_proxy,
+                                                                      "org.freedesktop.DBus.Properties.Get",
+                                                                      g_variant_new("(ss)",
+                                                                      "org.freedesktop.NetworkManager.Settings.Connection",
+                                                                      "Unsaved"),
+                                                                      G_DBUS_CALL_FLAGS_NONE,
+                                                                      5000, // 5 second timeout
+                                                                      NULL,
+                                                                      &error);
+            if (unsaved_props_variant) {
+                GVariant *unsaved_value_variant = NULL;
+                g_variant_get(unsaved_props_variant, "(v)", &unsaved_value_variant);
+                if (unsaved_value_variant && g_variant_is_of_type(unsaved_value_variant, G_VARIANT_TYPE_BOOLEAN)) {
+                    const gboolean is_unsaved_profile = g_variant_get_boolean(unsaved_value_variant);
+                    if (is_unsaved_profile) {
+                        NMLOG_INFO("Skipping MfrMgr credential save: active connection profile is volatile/unsaved");
+                        g_variant_unref(unsaved_value_variant);
+                        g_variant_unref(unsaved_props_variant);
+                        g_object_unref(connection_proxy);
+                        return false;
+                    }
+                }
+                if (unsaved_value_variant) {
+                    g_variant_unref(unsaved_value_variant);
+                }
+                g_variant_unref(unsaved_props_variant);
+            } else if (error) {
+                NMLOG_WARNING("Failed to query profile persistence (Unsaved): %s", error->message);
+                g_error_free(error);
+                error = NULL;
+            }
+
             // Get connection settings (without secrets)
             GVariant *settings_variant = g_dbus_proxy_call_sync(connection_proxy,
                                                                 "GetSettings",
                                                                 NULL,
                                                                 G_DBUS_CALL_FLAGS_NONE,
-                                                                -1,
+                                                                5000, // 5 second timeout
                                                                 NULL,
                                                                 &error);
             if (!settings_variant) {
