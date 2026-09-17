@@ -671,11 +671,11 @@ namespace WPEFramework
 
             if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
-                activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(client), result, NULL, &error);
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
-                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(client), result, &error);
             }
 
             // Check if operation was cancelled - this is expected during cleanup
@@ -699,37 +699,6 @@ namespace WPEFramework
 
             if(activeConnection)
                 g_object_unref(activeConnection);
-            g_main_loop_quit(_wifiManager->m_loop);
-        }
-
-        static void wifiConnectConnection2Cb(GObject *client, GAsyncResult *result, gpointer user_data)
-        {
-            GError *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            NMActiveConnection *activeConnection = NULL;
-            GVariant *resultDetails = NULL;
-
-            NMLOG_DEBUG("nm_client_add_and_activate_connection2_finish");
-            activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(_wifiManager->m_client), result, &resultDetails, &error);
-
-            if (error) {
-                _wifiManager->m_isSuccess = false;
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-                    NMLOG_DEBUG("Connection2 operation was cancelled");
-                }
-                else {
-                    NMLOG_ERROR("Failed to add/activate connection2: %s", error->message);
-                }
-                g_error_free(error);
-            }
-            else {
-                _wifiManager->m_isSuccess = true;
-            }
-
-            if(activeConnection)
-                g_object_unref(activeConnection);
-            if(resultDetails)
-                g_variant_unref(resultDetails);
             g_main_loop_quit(_wifiManager->m_loop);
         }
 
@@ -1207,7 +1176,7 @@ namespace WPEFramework
                     }
                     m_isSuccess = false;
                     m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
+                    nm_client_add_and_activate_connection2 (m_client, ethConn, nmDevice, NULL, NULL, m_cancellable, wifiConnectCb, this);
                     g_object_unref(ethConn);
                     wait(m_loop);
                     deleteClientConnection();
@@ -1301,7 +1270,7 @@ namespace WPEFramework
                     else
                     {
                         m_createNewConnection = true;
-                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
+                        nm_client_add_and_activate_connection2 (m_client, ethConn, nmDevice, NULL, NULL, m_cancellable, wifiConnectCb, this);
                         g_object_unref(ethConn);
                         wait(m_loop);
                     }
@@ -1528,29 +1497,22 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
-                if (ssidInfo.persist)
-                {
-                    m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
-                }
-                else
-                {
-                    GVariantBuilder optionsBuilder;
-                    g_variant_builder_init(&optionsBuilder, G_VARIANT_TYPE_VARDICT);
-                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("volatile"));
-                    GVariant *options = g_variant_builder_end(&optionsBuilder);
 
-                    m_createNewConnection = false;
-                    nm_client_add_and_activate_connection2(m_client,
-                                                          m_connection,
-                                                          m_wifidevice,
-                                                          m_objectPath,
-                                                          options,
-                                                          m_cancellable,
-                                                          wifiConnectConnection2Cb,
-                                                          this);
-                    g_variant_unref(options);
-                }
+                GVariantBuilder optionsBuilder;
+                g_variant_builder_init(&optionsBuilder, G_VARIANT_TYPE_VARDICT);
+                m_createNewConnection = true;
+
+                if (ssidInfo.persist)
+                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("disk"));
+                else
+                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("volatile"));
+
+                /* Get options */
+                GVariant *options = g_variant_builder_end(&optionsBuilder);
+
+                nm_client_add_and_activate_connection2 (m_client, m_connection, m_wifidevice, m_objectPath, options, m_cancellable, wifiConnectCb, this);
+                g_variant_unref(options);
+
                 if(m_connection)
                     g_object_unref(m_connection);
             }
