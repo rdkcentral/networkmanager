@@ -2606,11 +2606,15 @@ namespace WPEFramework
             std::string otherInterface;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
             const char *specObject = NULL;
-            if (!createClientNewConnection())                                                                                     return false;
-                                                                                                                              if(interface.empty() || (wifiname != interface && ethname != interface))
-            {                                                                                                                     NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
+            if (!createClientNewConnection())
+                return false;
+
+            if(interface.empty() || (wifiname != interface && ethname != interface))
+            {
+                NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
                 deleteClientConnection();
-                return false;                                                                                                 }
+                return false;
+            }
             otherInterface = (interface == wifiname)?ethname:wifiname;
 
             // Retrieve the active connections by interface name
