@@ -1849,11 +1849,14 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_new_connection_persist_true_uses_lega
         .WillOnce(::testing::Return(reinterpret_cast<const char*>("/org/freedesktop/NetworkManager/AccessPoint/1")));
 
     NMActiveConnection *dummyActiveConnection = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection_finish(::testing::_, ::testing::_, ::testing::_))
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection2_finish(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Return(dummyActiveConnection));
 
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
-        .WillOnce(::testing::Invoke([](NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+        .WillOnce(::testing::Invoke([](NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+                const char *persist = nullptr;
+                EXPECT_TRUE(g_variant_lookup(options, "persist", "&s", &persist));
+                EXPECT_STREQ("disk", persist);
                 if (callback) {
                     GObject* source_object = G_OBJECT(client);
                     GAsyncResult* result = nullptr;
@@ -1861,7 +1864,7 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_new_connection_persist_true_uses_lega
                 }
         }));
 
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_)).Times(0);
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_and_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_)).Times(0);
 
     EXPECT_CALL(*p_gLibWrapsImplMock, g_main_loop_is_running(::testing::_))
         .WillRepeatedly(::testing::Return(true));
