@@ -1796,7 +1796,7 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_with_connection_not_valid)
     g_ptr_array_free(fakeDevices, TRUE);
 }
 
-TEST_F(NetworkManagerWifiTest, WiFiConnect_new_connection_persist_true_uses_legacy_add_and_activate)
+TEST_F(NetworkManagerWifiTest, WiFiConnect_new_connection_persist_true_uses_add_and_activate_connection2)
 {
     GPtrArray* fakeDevices = g_ptr_array_new();
     NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
