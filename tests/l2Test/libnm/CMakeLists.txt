@@ -156,6 +156,8 @@ target_link_options(${NM_LIBNM_PROXY_L2_TEST} PUBLIC
     -Wl,-wrap,nm_client_add_connection2
     -Wl,-wrap,nm_client_add_connection2_finish
     -Wl,-wrap,nm_client_add_and_activate_connection_finish
+    -Wl,-wrap,nm_client_add_and_activate_connection2
+    -Wl,-wrap,nm_client_add_and_activate_connection2_finish
     -Wl,-wrap,nm_device_wifi_get_access_points
     -Wl,-wrap,nm_device_get_available_connections
     -Wl,-wrap,nm_object_get_path
