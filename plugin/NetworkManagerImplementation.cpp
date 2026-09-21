@@ -1797,14 +1797,14 @@ namespace WPEFramework
 
         std::set<std::string> NetworkManagerImplementation::swapIpCache(
             const std::string& iface, const std::string& ipFamily,
-            IpFamilyCache&& newCache)
+            const IpFamilyCache& newCache)
         {
             std::set<std::string> oldKeys;
             std::lock_guard<std::mutex> lock(m_ipCacheMutex);
             IpFamilyCache& cache = m_ipCacheMap[{iface, ipFamily}];
             for (const auto& kv : cache.globalAddresses)
                 oldKeys.insert(kv.first);
-            cache = std::move(newCache);
+            cache = newCache;
             return oldKeys;
         }
 
