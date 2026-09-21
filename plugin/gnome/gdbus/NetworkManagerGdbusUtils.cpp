@@ -349,7 +349,6 @@ namespace WPEFramework
         {
             guint32 flags= 0, wpaFlags= 0, rsnFlags= 0, freq= 0, bitrate= 0;
             uint8_t strength = 0;
-            gint16  noise = 0;
             NM80211Mode mode = NM_802_11_MODE_UNKNOWN;
             bool ret = false;
             GVariant* ssidVariant = NULL;
