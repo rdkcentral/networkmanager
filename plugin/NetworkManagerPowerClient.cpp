@@ -185,6 +185,8 @@ void NetworkManagerPowerClient::powerThreadLoop()
     NMLOG_DEBUG("power event thread started");
     while (true) {
         PowerEvent event{};
+        std::vector<PowerEvent> pending;
+        bool stopping = false;
         {
             std::unique_lock<std::mutex> lock(mQueueMutex);
             mQueueCv.wait(lock, [this]{ return !mEventQueue.empty() || mStopThread.load(); });
@@ -193,23 +195,24 @@ void NetworkManagerPowerClient::powerThreadLoop()
                 // Drain remaining events with fast acks before exiting so
                 // PowerManager is never left waiting on a stale transaction.
                 // CHANGED events have no ack protocol — skip them.
-                std::vector<PowerEvent> pending;
                 while (!mEventQueue.empty()) {
                     pending.push_back(mEventQueue.front());
                     mEventQueue.pop();
                 }
-                lock.unlock();
-                for (const auto& e : pending) {
-                    if (e.type == PowerEvent::EventType::PRE_CHANGE) {
-                        sendPowerModePreChangeComplete(e.transactionId);
-                    }
-                }
-                lock.lock();
-                break;
+                stopping = true;
+            } else {
+                event = mEventQueue.front();
+                mEventQueue.pop();
             }
+        }
 
-            event = mEventQueue.front();
-            mEventQueue.pop();
+        if (stopping) {
+            for (const auto& e : pending) {
+                if (e.type == PowerEvent::EventType::PRE_CHANGE) {
+                    sendPowerModePreChangeComplete(e.transactionId);
+                }
+            }
+            break;
         }
         // Lock released — process event on this thread (blocking is fine here)
 
