@@ -458,10 +458,6 @@ namespace WPEFramework
                         wifiState = "WIFI_STATE_CONNECTION_FAILED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, attemptingSSID);
                         break;
-                    case NM_DEVICE_STATE_NEED_AUTH:
-                        //GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
-                        wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
-                        break;
                     default:
                         wifiState = "Un handiled: " ;
                         wifiState += std::to_string(deviceState);
