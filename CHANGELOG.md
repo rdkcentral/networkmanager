@@ -14,6 +14,11 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.4.0] - 2026-09-18
+### Changed
+- When WiFiConnect is called, We used to have `disk` or `memory` based on `persist` true or false respectively.
+- Now it is changed to use `volatile` option when it is false.  ie `disk` or `volatile` based on `persist` true or false.
+
 ## [4.3.0] - 2026-09-15
 ### Fixed
 - GetKnownSSIDs method is fixed to return empty when no saved profile found
