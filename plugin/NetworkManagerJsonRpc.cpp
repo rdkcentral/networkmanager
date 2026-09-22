@@ -195,11 +195,11 @@ namespace WPEFramework
                         each["enabled"] = entry.enabled;
                         each["connected"] = entry.connected;
 
-                        array.Add(JsonValue(each));
+                        array.Add(JsonValue(std::move(each)));
                     }
 
                     _interfaces->Release();
-                    response["interfaces"] = array;
+                    response["interfaces"] = std::move(array);
                 }
             }
 
@@ -417,7 +417,7 @@ namespace WPEFramework
                     while (endpoints->Next(entry) == true) { array.Add(entry); }
 
                     endpoints->Release();
-                    response["endpoints"] = array;
+                    response["endpoints"] = std::move(array);
                 }
             }
             returnJson(rc);
@@ -541,8 +541,8 @@ namespace WPEFramework
                 response["ipaddress"] = ipaddress;
                 response["ipversion"] = ipversion;
 
-                m_publicIPAddress = ipaddress;
-                m_publicIPAddressType = ipversion;
+                m_publicIPAddress = std::move(ipaddress);
+                m_publicIPAddressType = std::move(ipversion);
                 if (!m_publicIPAddress.empty())
                 {
                     PublishToThunderAboutInternet();
@@ -608,7 +608,7 @@ namespace WPEFramework
             {
                 JsonObject reply;
                 reply.FromString(result);
-                response = reply;
+                response = std::move(reply);
             }
             LOG_OUTPARAM();
             return rc;
@@ -636,7 +636,7 @@ namespace WPEFramework
                 {
                     JsonObject reply;
                     reply.FromString(result);
-                    response = reply;
+                    response = std::move(reply);
                 }
             }
             returnJson(rc);

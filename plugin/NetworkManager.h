@@ -64,9 +64,9 @@ namespace WPEFramework
 
             public:
 
-                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface) override
+                void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, string interface) override
                 {
-                    _parent.onInterfaceStateChange(state, interface);
+                    _parent.onInterfaceStateChange(state, std::move(interface));
                 }
 
                 void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface) override
@@ -74,34 +74,34 @@ namespace WPEFramework
                     _parent.onActiveInterfaceChange(prevActiveInterface, currentActiveinterface);
                 }
 
-                void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status) override
+                void onIPAddressChange(string interface, string ipversion, string ipaddress, const Exchange::INetworkManager::IPStatus status) override
                 {
-                    _parent.onIPAddressChange(interface, ipversion, ipaddress, status);
+                    _parent.onIPAddressChange(std::move(interface), std::move(ipversion), std::move(ipaddress), status);
                 }
 
                 void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns) override
                 {
-                    _parent.onRouteChange(interface, ipversion, ipaddress, gateway, primarydns);
+                    _parent.onRouteChange(std::move(interface), std::move(ipversion), std::move(ipaddress), std::move(gateway), std::move(primarydns));
                 }
 
-                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason) override
+                void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, string reason) override
                 {
-                    _parent.onInternetStatusChange(prevState, currState, interface, reason);
+                    _parent.onInternetStatusChange(prevState, currState, std::move(interface), std::move(reason));
                 }
 
-                void onAvailableSSIDs(const string jsonOfScanResults) override
+                void onAvailableSSIDs(string jsonOfScanResults) override
                 {
-                    _parent.onAvailableSSIDs(jsonOfScanResults);
+                    _parent.onAvailableSSIDs(std::move(jsonOfScanResults));
                 }
 
-                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid) override
+                void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid) override
                 {
-                    _parent.onWiFiStateChange(state, ssid);
+                    _parent.onWiFiStateChange(state, std::move(ssid));
                 }
 
-                void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
+                void onWiFiSignalQualityChange(string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality) override
                 {
-                    _parent.onWiFiSignalQualityChange(ssid, strength, noise, snr, quality);
+                    _parent.onWiFiSignalQualityChange(std::move(ssid), strength, noise, snr, quality);
                 }
 
                 // The activated/deactived methods are part of the RPC::IRemoteConnection::INotification
@@ -265,9 +265,9 @@ namespace WPEFramework
             void onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface);
             void onActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface);
             void onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status);
-            void onRouteChange(const string interface, const string ipversion, const string ipaddress, const string gateway, const string primarydns);
-            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string reason);
-            void onAvailableSSIDs(const string jsonOfScanResults);
+            void onRouteChange(string interface, string ipversion, string ipaddress, string gateway, string primarydns);
+            void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, string reason);
+            void onAvailableSSIDs(string jsonOfScanResults);
             void onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
             void onWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
 

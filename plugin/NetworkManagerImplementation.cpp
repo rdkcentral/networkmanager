@@ -253,12 +253,12 @@ namespace WPEFramework
                     std::vector<std::string> backup;
                     NMLOG_INFO("Connectivity endpoints are empty in config; use the default");
                     backup.push_back("http://clients3.google.com/generate_204");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(backup);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(std::move(backup));
                 }
                 else
                 {
                     NMLOG_INFO("Use the connectivity endpoint from config");
-                    connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
+                    connectivityMonitor.setConnectivityMonitorEndpoints(std::move(connectEndpts));
                 }
             }
 
@@ -324,7 +324,7 @@ namespace WPEFramework
             }
 
             if (!endpoint.empty())
-                m_stunEndpoint = endpoint;
+                m_stunEndpoint = std::move(endpoint);
 
             if (0 != port)
                 m_stunPort = port;
@@ -1008,7 +1008,7 @@ namespace WPEFramework
             }
 
             {
-                InterfaceStateChangeData eventData{state, interface};
+                InterfaceStateChangeData eventData{state, std::string(interface)};
                 NMLOG_INFO("Posting onInterfaceChange %s - %u", interface.c_str(), (unsigned)state);
                 enqueueEvent(NM_ON_INTERFACESTATE_CHANGE, std::move(eventData));
             }
@@ -1135,7 +1135,7 @@ namespace WPEFramework
 #endif
             {
                 const string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
-                InternetStatusChangeData eventData{prevState, currState, interface, noInternetReason};
+                InternetStatusChangeData eventData{prevState, currState, interface, std::move(noInternetReason)};
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
@@ -1222,14 +1222,14 @@ namespace WPEFramework
             m_filterVectorsLock.Unlock();
 
             // Call filterScanResults outside the lock with snapshots (exception-safe)
-            filterScanResults(filterResult, ssidsSnapshot, frequenciesSnapshot);
+            filterScanResults(filterResult, std::move(ssidsSnapshot), std::move(frequenciesSnapshot));
             filterResult.ToString(jsonOfFilterScanResults);
 
             NMLOG_INFO("Posting onAvailableSSIDs event with %d SSIDs as,", filterResult.Length());
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
             {
-                AvailableSSIDsData eventData{jsonOfFilterScanResults};
+                AvailableSSIDsData eventData{std::move(jsonOfFilterScanResults)};
                 enqueueEvent(NM_ON_AVAILABLESSIDS, std::move(eventData));
             }
         }
@@ -1562,7 +1562,7 @@ namespace WPEFramework
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state, reportSSID};
+                WiFiStateChangeData eventData{state, std::move(reportSSID)};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }
@@ -1571,7 +1571,7 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             {
-                WiFiSignalQualityChangeData eventData{ssid, strength, noise, snr, quality};
+                WiFiSignalQualityChangeData eventData{std::move(ssid), strength, noise, snr, quality};
                 NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
                 enqueueEvent(NM_ON_WIFISIGNALQUALITY_CHANGE, std::move(eventData));
             }
@@ -1797,14 +1797,14 @@ namespace WPEFramework
 
         std::set<std::string> NetworkManagerImplementation::swapIpCache(
             const std::string& iface, const std::string& ipFamily,
-            IpFamilyCache newCache)
+            const IpFamilyCache& newCache)
         {
             std::set<std::string> oldKeys;
             std::lock_guard<std::mutex> lock(m_ipCacheMutex);
             IpFamilyCache& cache = m_ipCacheMap[{iface, ipFamily}];
             for (const auto& kv : cache.globalAddresses)
                 oldKeys.insert(kv.first);
-            cache = std::move(newCache);
+            cache = newCache;
             return oldKeys;
         }
 
