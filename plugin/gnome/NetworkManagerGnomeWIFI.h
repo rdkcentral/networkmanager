@@ -33,7 +33,7 @@
 #include <mutex>
 #include <vector>
 
-#define WPS_RETRY_WAIT_IN_MS        10 // 10 sec
+#define WPS_RETRY_WAIT_TIME         10
 #define WPS_RETRY_COUNT             12
 #define WPS_PROCESS_WAIT_IN_MS      5
 

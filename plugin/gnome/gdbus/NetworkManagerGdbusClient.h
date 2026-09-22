@@ -30,7 +30,7 @@
 #include "NetworkManagerGdbusUtils.h"
 #include "INetworkManager.h"
 
-#define GDBUS_WPS_RETRY_WAIT_IN_MS        10 // 10 sec
+#define GDBUS_WPS_RETRY_WAIT_TIME         10 
 #define GDBUS_WPS_RETRY_COUNT             12
 
 namespace WPEFramework
