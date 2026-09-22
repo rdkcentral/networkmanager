@@ -634,21 +634,15 @@ namespace WPEFramework
             return false;
         }
 
-        string defaultIface = _instance->getDefaultInterface();
-
-        if(defaultIface.empty())
-        {
-            NMLOG_WARNING("default interface not set");
-            return false;
-        }
-
         m_notify = true;
         m_switchToInitial = true;
         m_wakeupMonitoring = true;
         m_cmCv.notify_one();
 
+        string defaultIface = _instance->getDefaultInterface();
         NMLOG_INFO("switching to initial check - eth %s - wlan %s - default interface %s",
-                    _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down", defaultIface.c_str());
+                    _instance->m_ethConnected.load()? "up":"down", _instance->m_wlanConnected.load()? "up":"down",
+                    defaultIface.empty() ? "none" : defaultIface.c_str());
 
         return true;
     }
@@ -704,6 +698,7 @@ namespace WPEFramework
                 if(defaultIface.empty())
                 {
                     NMLOG_WARNING("default interface not set");
+                    currentInternetState = INTERNET_NOT_AVAILABLE;
                     if (InitialRetryCount == 0)
                         m_notify = true;
                     InitialRetryCount = 1;
