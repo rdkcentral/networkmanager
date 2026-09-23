@@ -455,7 +455,7 @@ namespace WPEFramework
                                    Exchange::INetworkManager::IPAddress& out) const;
                 std::set<std::string> swapIpCache(const std::string& iface,
                                                   const std::string& ipFamily,
-                                                  const IpFamilyCache& newCache);
+                                                  IpFamilyCache&& newCache);
 
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
