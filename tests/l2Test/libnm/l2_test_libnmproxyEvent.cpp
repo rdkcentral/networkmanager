@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <sys/stat.h>
 #include <fstream>
+#include <utility>
 
 #include "FactoriesImplementation.h"
 #include "WrapsMock.h"
@@ -555,7 +556,7 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_ipv4_cache_eth0)
     cache.valid = true;
     cache.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
     cache.gateway = "192.168.1.1";
-    Plugin::_instance->swapIpCache("eth0", "IPv4", cache);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", std::move(cache));
 
     /* Verify cache is populated */
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv4\"}"), response));
@@ -586,7 +587,7 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_ipv6_cache_wlan0)
     cache.valid = true;
     cache.globalAddresses["2001:db8::1"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
     cache.gateway = "fe80::1";
-    Plugin::_instance->swapIpCache("wlan0", "IPv6", cache);
+    Plugin::_instance->swapIpCache("wlan0", "IPv6", std::move(cache));
 
     /* Verify cache is populated */
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"wlan0\",\"ipversion\":\"IPv6\"}"), response));
@@ -615,12 +616,12 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_both_ip_family_caches)
     Plugin::IpFamilyCache cache4;
     cache4.valid = true;
     cache4.globalAddresses["192.168.1.50"] = Plugin::GlobalAddressInfo(24, Plugin::ADDR_GLOBAL);
-    Plugin::_instance->swapIpCache("eth0", "IPv4", cache4);
+    Plugin::_instance->swapIpCache("eth0", "IPv4", std::move(cache4));
 
     Plugin::IpFamilyCache cache6;
     cache6.valid = true;
     cache6.globalAddresses["2001:db8::99"] = Plugin::GlobalAddressInfo(64, Plugin::ADDR_GLOBAL);
-    Plugin::_instance->swapIpCache("eth0", "IPv6", cache6);
+    Plugin::_instance->swapIpCache("eth0", "IPv6", std::move(cache6));
 
     /* Trigger disconnect — refreshIpFamilyCache is called for BOTH families */
     NMDevice *DummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));

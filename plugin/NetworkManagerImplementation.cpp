@@ -1797,7 +1797,7 @@ namespace WPEFramework
 
         std::set<std::string> NetworkManagerImplementation::swapIpCache(
             const std::string& iface, const std::string& ipFamily,
-            const IpFamilyCache& newCache)
+            const IpFamilyCache&& newCache)
         {
             std::set<std::string> oldKeys;
             std::lock_guard<std::mutex> lock(m_ipCacheMutex);
