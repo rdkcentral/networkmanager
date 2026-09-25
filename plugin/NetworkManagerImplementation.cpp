@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
+#include <utility>
 #include "NetworkManagerImplementation.h"
 
 #ifdef USE_CONNECTIVITYCHECKMGR
@@ -307,7 +308,7 @@ namespace WPEFramework
         }
 
         /* @brief Set STUN Endpoint to be used to identify Public IP */
-        uint32_t NetworkManagerImplementation::SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
+        uint32_t NetworkManagerImplementation::SetStunEndpoint (string endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */)
         {
             LOG_ENTRY_FUNCTION();
 
@@ -324,7 +325,7 @@ namespace WPEFramework
             }
 
             if (!endpoint.empty())
-                m_stunEndpoint = endpoint;
+                m_stunEndpoint = std::move(endpoint);
 
             if (0 != port)
                 m_stunPort = port;
@@ -561,7 +562,7 @@ namespace WPEFramework
 
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
-            executeExternally(NETMGR_PING, commandToExecute, tempResult);
+            executeExternally(NETMGR_PING, std::move(commandToExecute), tempResult);
 
             JsonObject temp;
             temp.FromString(tempResult);
@@ -593,7 +594,7 @@ namespace WPEFramework
 
             NMLOG_DEBUG ("The Command is %s", cmd);
             string commandToExecute(cmd);
-            executeExternally(NETMGR_TRACE, commandToExecute, tempResult);
+            executeExternally(NETMGR_TRACE, std::move(commandToExecute), tempResult);
 
             JsonObject temp;
             temp["endpoint"] = endpoint;
@@ -775,7 +776,7 @@ namespace WPEFramework
                 if (ssidMatches && freqMatches)
                     result.Add(object);
             }
-            ssids = result;
+            ssids = std::move(result);
             NMLOG_DEBUG("After filtering, found %d SSIDs.", ssids.Length());
         }
 
@@ -1015,7 +1016,7 @@ namespace WPEFramework
             return;
         }
 
-        void NetworkManagerImplementation::ReportActiveInterfaceChange(const string prevActiveInterface, const string currentActiveinterface)
+        void NetworkManagerImplementation::ReportActiveInterfaceChange(string prevActiveInterface, const string currentActiveinterface)
         {
             LOG_ENTRY_FUNCTION();
 
@@ -1031,7 +1032,7 @@ namespace WPEFramework
             }
 
             {
-                ActiveInterfaceChangeData eventData{prevActiveInterface, currentActiveinterface};
+                ActiveInterfaceChangeData eventData{std::move(prevActiveInterface), currentActiveinterface};
                 NMLOG_INFO("Posting onActiveInterfaceChange %s", currentActiveinterface.c_str());
                 enqueueEvent(NM_ON_ACTIVEINTERFACE_CHANGE, std::move(eventData));
             }
@@ -1119,7 +1120,7 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, const string& reason)
         {
             LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
@@ -1134,8 +1135,8 @@ namespace WPEFramework
             }
 #endif
             {
-                const string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
-                InternetStatusChangeData eventData{prevState, currState, interface, noInternetReason};
+                string noInternetReason = (currState == Exchange::INetworkManager::INTERNET_NOT_AVAILABLE) ? reason : string();
+                InternetStatusChangeData eventData{prevState, currState, std::move(interface), std::move(noInternetReason)};
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
@@ -1229,7 +1230,7 @@ namespace WPEFramework
             logSSIDs(LOG_LEVEL_INFO, filterResult);
 
             {
-                AvailableSSIDsData eventData{jsonOfFilterScanResults};
+                AvailableSSIDsData eventData{std::move(jsonOfFilterScanResults)};
                 enqueueEvent(NM_ON_AVAILABLESSIDS, std::move(eventData));
             }
         }
@@ -1504,7 +1505,7 @@ namespace WPEFramework
 
                 if (oldSignalQuality != newSignalQuality) {
                     oldSignalQuality = newSignalQuality;
-                    NetworkManagerImplementation::ReportWiFiSignalQualityChange(ssid, strength, noise, snr, newSignalQuality);
+                    NetworkManagerImplementation::ReportWiFiSignalQualityChange(std::move(ssid), strength, noise, snr, newSignalQuality);
                 }
 
                 if (newSignalQuality == Exchange::INetworkManager::WIFI_SIGNAL_DISCONNECTED) {
@@ -1523,7 +1524,7 @@ namespace WPEFramework
             m_stopThread.store(false);
         }
 
-        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
+        void NetworkManagerImplementation::ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid)
         {
             LOG_ENTRY_FUNCTION();
 
@@ -1552,7 +1553,7 @@ namespace WPEFramework
                 if(INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED == state)
                     reportSSID = getLastConnectedSSID(); /* previously connected SSID, or empty */
                 else
-                    reportSSID = ssid;                /* SSID currently being attempted */
+                    reportSSID = std::move(ssid);     /* SSID currently being attempted */
             }
 
             NMLOG_INFO("Posting onWiFiStateChange (%d) ssid: %s", state, reportSSID.c_str());
@@ -1562,16 +1563,16 @@ namespace WPEFramework
             logTelemetry("NM_WIFI_STATUS", stateStr);
 #endif
             {
-                WiFiStateChangeData eventData{state, reportSSID};
+                WiFiStateChangeData eventData{state, std::move(reportSSID)};
                 enqueueEvent(NM_ON_WIFISTATE_CHANGE, std::move(eventData));
             }
         }
 
-        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
+        void NetworkManagerImplementation::ReportWiFiSignalQualityChange(string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality)
         {
             LOG_ENTRY_FUNCTION();
             {
-                WiFiSignalQualityChangeData eventData{ssid, strength, noise, snr, quality};
+                WiFiSignalQualityChangeData eventData{std::move(ssid), strength, noise, snr, quality};
                 NMLOG_INFO("Posting onWiFiSignalQualityChange %d", strength);
                 enqueueEvent(NM_ON_WIFISIGNALQUALITY_CHANGE, std::move(eventData));
             }
@@ -1797,7 +1798,7 @@ namespace WPEFramework
 
         std::set<std::string> NetworkManagerImplementation::swapIpCache(
             const std::string& iface, const std::string& ipFamily,
-            IpFamilyCache newCache)
+            IpFamilyCache&& newCache)
         {
             std::set<std::string> oldKeys;
             std::lock_guard<std::mutex> lock(m_ipCacheMutex);

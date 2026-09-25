@@ -349,7 +349,6 @@ namespace WPEFramework
         {
             guint32 flags= 0, wpaFlags= 0, rsnFlags= 0, freq= 0, bitrate= 0;
             uint8_t strength = 0;
-            gint16  noise = 0;
             NM80211Mode mode = NM_802_11_MODE_UNKNOWN;
             bool ret = false;
             GVariant* ssidVariant = NULL;
@@ -406,9 +405,7 @@ namespace WPEFramework
                 wifiInfo.frequency = ((double)freq/1000);
                 wifiInfo.rate = bitrate;
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
-                if(noise <= 0 && noise >= DEFAULT_NOISE)
-                    wifiInfo.noise = noise;
-                else
+                    // TODO add noise: retrieve noise from AP proxy and assign here
                     wifiInfo.noise = 0;
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
@@ -418,7 +415,6 @@ namespace WPEFramework
                 // NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.m_rate.c_str());
                 // NMLOG_DEBUG("securityMode : %d", wifiInfo.m_securityMode);
  
-                // TODO add noice
                 ret = true;
             }
             else {
@@ -514,14 +510,12 @@ namespace WPEFramework
                                         &error);
             if(listProxy == NULL)
             {
-                if (!error) {
-                    NMLOG_ERROR("ListConnections failed: %s", error->message);
+                    if (error) {
+                        NMLOG_ERROR("ListConnections failed: %s", error->message);
                     g_error_free(error);
+                }
                     g_object_unref(sProxy);
                     return false;
-                }
-                else
-                    NMLOG_ERROR("ListConnections proxy failed no error message");
             }
 
             g_variant_get(listProxy, "(^ao)", &paths);
@@ -663,9 +657,12 @@ namespace WPEFramework
         // Convert an IPv6 string address to an array of bytes
         std::array<guint8, 16> GnomeUtils::ip6StrToNBO(const std::string &ipAddress)
         {
-            struct in6_addr addr6;
-            inet_pton(AF_INET6, ipAddress.c_str(), &addr6);
             std::array<guint8, 16> ip6{};
+            struct in6_addr addr6{};
+            if (inet_pton(AF_INET6, ipAddress.c_str(), &addr6) != 1) {
+                NMLOG_ERROR("Invalid IPv6 address format: %s", ipAddress.c_str());
+                return ip6;
+            }
             std::memcpy(ip6.data(), &addr6, 16);
             return ip6;
         }
@@ -750,7 +747,7 @@ namespace WPEFramework
                 // Remove any whitespace, newlines, etc.
                 line.erase(line.find_last_not_of("\r\n\t") + 1);
                 line.erase(0, line.find_first_not_of("\r\n\t"));
-                hostname = line;
+                hostname = std::move(line);
                 file.close();
 
                 NMLOG_INFO("Read persistent hostname: '%s'", hostname.c_str());
