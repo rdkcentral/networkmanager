@@ -22,6 +22,7 @@
 #include "NetworkManagerJsonEnum.h"
 
 #include <chrono>
+#include <utility>
 
 #define LOG_INPARAM() { string json; parameters.ToString(json); NMLOG_INFO("params=%s", json.c_str() ); }
 #define LOG_OUTPARAM() { string json; response.ToString(json); NMLOG_INFO("response=%s", json.c_str() ); }
@@ -390,7 +391,7 @@ namespace WPEFramework
             uint32_t cacheTimeout = parameters["cacheLifetime"].Number();
 
             if (_networkManager)
-                rc = _networkManager->SetStunEndpoint(endpoint, port, bindTimeout, cacheTimeout);
+                rc = _networkManager->SetStunEndpoint(std::move(endpoint), port, bindTimeout, cacheTimeout);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
@@ -541,8 +542,8 @@ namespace WPEFramework
                 response["ipaddress"] = ipaddress;
                 response["ipversion"] = ipversion;
 
-                m_publicIPAddress = ipaddress;
-                m_publicIPAddressType = ipversion;
+                m_publicIPAddress = std::move(ipaddress);
+                m_publicIPAddressType = std::move(ipversion);
                 if (!m_publicIPAddress.empty())
                 {
                     PublishToThunderAboutInternet();
@@ -599,7 +600,7 @@ namespace WPEFramework
                     guid = parameters["guid"].String();
 
                 if (_networkManager)
-                    rc = _networkManager->Ping(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, result);
+                    rc = _networkManager->Ping(std::move(ipversion), std::move(endpoint), noOfRequest, timeOutInSeconds, std::move(guid), result);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
             }
@@ -608,7 +609,7 @@ namespace WPEFramework
             {
                 JsonObject reply;
                 reply.FromString(result);
-                response = reply;
+                response = std::move(reply);
             }
             LOG_OUTPARAM();
             return rc;
@@ -622,13 +623,13 @@ namespace WPEFramework
         
             if (parameters.HasLabel("endpoint"))
             {
-                const string ipversion      = parameters["ipversion"].String();
-                const string endpoint       = parameters["endpoint"].String();
+                string ipversion             = parameters["ipversion"].String();
+                string endpoint              = parameters["endpoint"].String();
                 const uint32_t noOfRequest  = parameters["packets"].Number();
-                const string guid           = parameters["guid"].String();
+                string guid                 = parameters["guid"].String();
 
                 if (_networkManager)
-                    rc = _networkManager->Trace(ipversion, endpoint, noOfRequest, guid, result);
+                    rc = _networkManager->Trace(std::move(ipversion), std::move(endpoint), noOfRequest, std::move(guid), result);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
 
@@ -636,7 +637,7 @@ namespace WPEFramework
                 {
                     JsonObject reply;
                     reply.FromString(result);
-                    response = reply;
+                    response = std::move(reply);
                 }
             }
             returnJson(rc);
@@ -1064,13 +1065,13 @@ namespace WPEFramework
             returnJson(rc);
         }
 
-        void NetworkManager::onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, const string interface)
+        void NetworkManager::onInterfaceStateChange(const Exchange::INetworkManager::InterfaceState state, string interface)
         {
             Core::JSON::EnumType<Exchange::INetworkManager::InterfaceState> iState{state};
             JsonObject parameters;
             parameters["state"] = JsonValue(state);
             parameters["status"] = iState.Data();
-            parameters["interface"] = interface;
+            parameters["interface"] = std::move(interface);
 
             LOG_INPARAM();
             Notify(_T("onInterfaceStateChange"), parameters);
@@ -1086,7 +1087,7 @@ namespace WPEFramework
             Notify(_T("onActiveInterfaceChange"), parameters);
         }
 
-        void NetworkManager::onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
+        void NetworkManager::onIPAddressChange(const string interface, string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
         {
             Core::JSON::EnumType<Exchange::INetworkManager::IPStatus> iStatus{status};
             JsonObject parameters;
@@ -1137,7 +1138,7 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManager::onAvailableSSIDs(const string jsonOfScanResults)
+        void NetworkManager::onAvailableSSIDs(string jsonOfScanResults)
         {
             JsonObject parameters;
             JsonArray scanResults;
@@ -1148,7 +1149,7 @@ namespace WPEFramework
             Notify(_T("onAvailableSSIDs"), parameters);
         }
 
-        void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid)
+        void NetworkManager::onWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid)
         {
             JsonObject parameters;
             Core::JSON::EnumType<Exchange::INetworkManager::WiFiState> iState{state};
