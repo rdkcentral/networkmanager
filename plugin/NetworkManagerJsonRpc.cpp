@@ -1087,7 +1087,7 @@ namespace WPEFramework
             Notify(_T("onActiveInterfaceChange"), parameters);
         }
 
-        void NetworkManager::onIPAddressChange(const string interface, string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
+        void NetworkManager::onIPAddressChange(const string interface, const string ipversion, const string ipaddress, const Exchange::INetworkManager::IPStatus status)
         {
             Core::JSON::EnumType<Exchange::INetworkManager::IPStatus> iStatus{status};
             JsonObject parameters;

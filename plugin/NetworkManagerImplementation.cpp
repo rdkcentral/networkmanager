@@ -1120,7 +1120,7 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason)
+        void NetworkManagerImplementation::ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, string interface, const string& reason)
         {
             LOG_ENTRY_FUNCTION();
 #if USE_TELEMETRY
