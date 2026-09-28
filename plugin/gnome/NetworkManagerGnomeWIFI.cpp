@@ -1983,7 +1983,7 @@ namespace WPEFramework
 
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
-                sleep(WPS_RETRY_WAIT_IN_MS);
+                sleep(WPS_RETRY_WAIT_TIME);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
                 {
                     NMLOG_INFO("stop wps process reuested");
@@ -2056,7 +2056,7 @@ namespace WPEFramework
                     }
 
                     NMLOG_INFO("WPS process not completed yet, state: %d", state);
-                    if(retry >= WPS_RETRY_COUNT - 1) // 3 times retry to check the status
+                    if(retry >= WPS_RETRY_COUNT - 1) // last monitoring attempt
                     {
                         // wifi state stuck in betwen disconnected and connected
                         NMLOG_ERROR("WPS process failed");
@@ -2161,7 +2161,7 @@ namespace WPEFramework
                     }
 
                     wpsActionTriggerd = true;
-                    retry = WPS_RETRY_COUNT - 3; // expecting wps process will be completed in 30 sec(3 10sec retry) (Ex: retry = 10-3)
+                    retry = WPS_RETRY_COUNT - 3; // leave 20 sec (2 retries) to verify the connection result
                 }
                 else if(!wpsActionTriggerd)
                 {

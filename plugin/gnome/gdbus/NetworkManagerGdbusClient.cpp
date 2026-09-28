@@ -2968,7 +2968,7 @@ namespace WPEFramework
             {
                 if(m_wpsProcessRun.load() == false) // stop wps process if requested
                     break;
-                sleep(GDBUS_WPS_RETRY_WAIT_IN_MS);
+                sleep(GDBUS_WPS_RETRY_WAIT_TIME);
                 if(m_wpsProcessRun.load() == false)
                     break;
 
@@ -3000,7 +3000,7 @@ namespace WPEFramework
                     }
 
                     NMLOG_INFO("WPS process not completed yet, device state: %d", devProperty.state);
-                    if(retry >= GDBUS_WPS_RETRY_COUNT - 1) // Last retry attempt
+                    if(retry >= GDBUS_WPS_RETRY_COUNT - 1) // last monitoring attempt
                     {
                         NMLOG_ERROR("WPS process failed - timeout");
                         if(_instance != nullptr)
@@ -3053,7 +3053,7 @@ namespace WPEFramework
 
                 // Mark WPS action as triggered and adjust retry count
                 m_wpsActionTriggered = true;
-                retry = GDBUS_WPS_RETRY_COUNT - 3; // Expecting WPS process will be completed in 30 sec (3 * 10sec retry)
+                retry = GDBUS_WPS_RETRY_COUNT - 3; // leave 20 sec (2 retries) to verify the connection result
 
                 /* security mode will be updated in wifi connect function, if not mathing to wpa-psk */
                 wifiConnect(ssidinfo, true); // isWps = true
