@@ -14,6 +14,11 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.5.0] - 2026-09-28
+### Changed
+- Increased amount of time we wait for WPS button to be pressed to 120 from 90; to match with legacy devices
+- Removed publishing of `WIFI_STATE_CONNECTION_INTERRUPTED` when connecting with Password which is inappropriate event
+
 ## [4.4.0] - 2026-09-18
 ### Changed
 - When WiFiConnect is called, We used to have `disk` or `memory` based on `persist` true or false respectively.
