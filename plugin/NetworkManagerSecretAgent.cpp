@@ -33,7 +33,7 @@
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerSecretAgent.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -374,5 +374,5 @@ namespace WPEFramework
             return true;
         }
 
-    } // WPEFramework
+    } // Thunder
 } // Plugin

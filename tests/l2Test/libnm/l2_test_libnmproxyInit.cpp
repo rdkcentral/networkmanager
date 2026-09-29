@@ -36,7 +36,7 @@
 #include "NetworkManagerGnomeEvents.h"
 #include <libnm/NetworkManager.h>
 
-using namespace WPEFramework;
+using namespace Thunder;
 using ::testing::NiceMock;
 
 class NetworkManagerInitTest : public ::testing::Test {
@@ -75,7 +75,7 @@ protected:
         ON_CALL(service, ConfigLine())
             .WillByDefault(::testing::Return(
                 "{"
-                " \"locator\":\"libWPEFrameworkNetworkManager.so\"," 
+                " \"locator\":\"libThunderNetworkManager.so\"," 
                 " \"classname\":\"NetworkManager\"," 
                 " \"callsign\":\"org.rdk.NetworkManager\"," 
                 " \"startuporder\":55," 
@@ -83,7 +83,7 @@ protected:
                 " \"configuration\":{"
                 "  \"root\":{"
                 "   \"outofprocess\":true,"
-                "   \"locator\":\"libWPEFrameworkNetworkManagerImpl.so\""
+                "   \"locator\":\"libThunderNetworkManagerImpl.so\""
                 "  },"
                 "  \"connectivity\":{"
                 "   \"endpoint_1\":\"http://clients3.google.com/generate_204\","

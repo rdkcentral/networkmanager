@@ -23,7 +23,7 @@
 
 #include "Module.h"
 
-class FactoriesImplementation : public WPEFramework::PluginHost::IFactories {
+class FactoriesImplementation : public Thunder::PluginHost::IFactories {
 public:
     FactoriesImplementation(const FactoriesImplementation&) = delete;
     FactoriesImplementation& operator=(const FactoriesImplementation&) = delete;
@@ -47,20 +47,20 @@ public:
         ON_CALL(*this, JSONRPC())
             .WillByDefault(::testing::Invoke(
                 [&]() {
-                    return (WPEFramework::Core::ProxyType<WPEFramework::Web::JSONBodyType<WPEFramework::Core::JSONRPC::Message>>(_jsonRPCFactory.Element()));
+                    return (Thunder::Core::ProxyType<Thunder::Web::JSONBodyType<Thunder::Core::JSONRPC::Message>>(_jsonRPCFactory.Element()));
                 }));
     }
 
     virtual ~FactoriesImplementation() = default;
 
-    MOCK_METHOD(WPEFramework::Core::ProxyType<WPEFramework::Web::Request>, Request, (), (override));
-    MOCK_METHOD(WPEFramework::Core::ProxyType<WPEFramework::Web::Response>, Response, (), (override));
-    MOCK_METHOD(WPEFramework::Core::ProxyType<WPEFramework::Web::FileBody>, FileBody, (), (override));
-    MOCK_METHOD(WPEFramework::Core::ProxyType<WPEFramework::Web::JSONBodyType<WPEFramework::Core::JSONRPC::Message>>, JSONRPC, (), (override));
+    MOCK_METHOD(Thunder::Core::ProxyType<Thunder::Web::Request>, Request, (), (override));
+    MOCK_METHOD(Thunder::Core::ProxyType<Thunder::Web::Response>, Response, (), (override));
+    MOCK_METHOD(Thunder::Core::ProxyType<Thunder::Web::FileBody>, FileBody, (), (override));
+    MOCK_METHOD(Thunder::Core::ProxyType<Thunder::Web::JSONBodyType<Thunder::Core::JSONRPC::Message>>, JSONRPC, (), (override));
 
 private:
-    WPEFramework::Core::ProxyPoolType<WPEFramework::Web::Request> _requestFactory;
-    WPEFramework::Core::ProxyPoolType<WPEFramework::Web::Response> _responseFactory;
-    WPEFramework::Core::ProxyPoolType<WPEFramework::Web::FileBody> _fileBodyFactory;
-    WPEFramework::Core::ProxyPoolType<WPEFramework::PluginHost::JSONRPCMessage> _jsonRPCFactory;
+    Thunder::Core::ProxyPoolType<Thunder::Web::Request> _requestFactory;
+    Thunder::Core::ProxyPoolType<Thunder::Web::Response> _responseFactory;
+    Thunder::Core::ProxyPoolType<Thunder::Web::FileBody> _fileBodyFactory;
+    Thunder::Core::ProxyPoolType<Thunder::PluginHost::JSONRPCMessage> _jsonRPCFactory;
 };

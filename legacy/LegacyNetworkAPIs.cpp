@@ -21,7 +21,7 @@
 #include "NetworkManagerJsonEnum.h"
 
 using namespace std;
-using namespace WPEFramework::Plugin;
+using namespace Thunder::Plugin;
 #define API_VERSION_NUMBER_MAJOR 2
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
@@ -44,7 +44,7 @@ using namespace WPEFramework::Plugin;
         return Core::ERROR_NONE;                    \
     }
 
-namespace WPEFramework
+namespace Thunder
 {
     class Job : public Core::IDispatch {
     public:
@@ -138,7 +138,7 @@ namespace WPEFramework
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
-                    m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Network"), query);
+                    m_networkmanager = make_shared<Thunder::JSONRPC::SmartLinkType<Thunder::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Network"), query);
 
                     subscribeToEvents();
                 }
@@ -760,7 +760,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
+            ::Thunder::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
             JsonArray array = parameters["endpoints"].Array();
 
             if (0 == array.Length() || 5 < array.Length())

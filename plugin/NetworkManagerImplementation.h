@@ -66,7 +66,7 @@ typedef struct _GMainContext GMainContext;
 #define ROUTE_METRIC_PRIORITY_HIGH                 1
 #define ROUTE_METRIC_PRIORITY_LOW                  100
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {

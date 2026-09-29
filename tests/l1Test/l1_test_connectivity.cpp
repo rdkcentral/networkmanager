@@ -22,9 +22,9 @@
 #include <gmock/gmock.h>
 
 using namespace std;
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
-namespace WPEFramework
+using namespace Thunder;
+using namespace Thunder::Plugin;
+namespace Thunder
 {
    namespace Plugin
     {
@@ -38,7 +38,7 @@ namespace WPEFramework
 
 class ConnectivityMonitorTest : public ::testing::Test {
 protected:
-   WPEFramework::Plugin::ConnectivityMonitor cm;
+   Thunder::Plugin::ConnectivityMonitor cm;
 };
 
 TEST_F(ConnectivityMonitorTest, StartConnectivityMonitor_Success) {

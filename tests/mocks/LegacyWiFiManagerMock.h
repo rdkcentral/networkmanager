@@ -23,31 +23,31 @@
 #include <gmock/gmock.h>
 #include "Module.h"
 
-class StubWiFi : public WPEFramework::Plugin::WiFiManager {
+class StubWiFi : public Thunder::Plugin::WiFiManager {
 public:
     void onWiFiStateChange(const JsonObject& parameters) {
-        WPEFramework::Plugin::WiFiManager::onWiFiStateChange(parameters); // Call the method on this object
+        Thunder::Plugin::WiFiManager::onWiFiStateChange(parameters); // Call the method on this object
     }
 
     void onAvailableSSIDs(const JsonObject& parameters) {
-        WPEFramework::Plugin::WiFiManager::onAvailableSSIDs(parameters); // Call the method on this object
+        Thunder::Plugin::WiFiManager::onAvailableSSIDs(parameters); // Call the method on this object
     }
 
     void onWiFiSignalQualityChange(const JsonObject& parameters) {
-        WPEFramework::Plugin::WiFiManager::onWiFiSignalQualityChange(parameters); // Call the method on this object
+        Thunder::Plugin::WiFiManager::onWiFiSignalQualityChange(parameters); // Call the method on this object
     }
 
     string Information() const
     {
-        WPEFramework::Plugin::WiFiManager::Information();
+        Thunder::Plugin::WiFiManager::Information();
         return(string());
     }
 
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
-    MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
-    MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(const std::string, Initialize, (Thunder::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, Deinitialize, (Thunder::PluginHost::IShell*), (override));
     MOCK_METHOD(void, subscribeToEvents, (), ());
     MOCK_METHOD(uint32_t, cancelWPSPairing, (const JsonObject& parameters, JsonObject& response), ());
 };

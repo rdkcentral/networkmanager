@@ -22,7 +22,7 @@
 #include "NetworkManagerJsonEnum.h"
 
 using namespace std;
-using namespace WPEFramework::Plugin;
+using namespace Thunder::Plugin;
 #define API_VERSION_NUMBER_MAJOR 2
 #define API_VERSION_NUMBER_MINOR 0
 #define API_VERSION_NUMBER_PATCH 0
@@ -76,7 +76,7 @@ typedef enum _SsidSecurity
     NET_WIFI_SECURITY_NOT_SUPPORTED = 99,
 } SsidSecurity;
 
-namespace WPEFramework
+namespace Thunder
 {
     class Job : public Core::IDispatch {
     public:
@@ -173,7 +173,7 @@ namespace WPEFramework
                 if(PluginHost::IShell::state::ACTIVATED  == state)
                 {
                     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T("127.0.0.1:9998")));
-                    m_networkmanager = make_shared<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
+                    m_networkmanager = make_shared<Thunder::JSONRPC::SmartLinkType<Thunder::Core::JSON::IElement> >(_T(NETWORK_MANAGER_CALLSIGN), _T("org.rdk.Wifi"), query);
                     subscribeToEvents();
                 }
                 else
@@ -445,7 +445,7 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
+            ::Thunder::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
@@ -604,9 +604,9 @@ namespace WPEFramework
 
             if (parameters.HasLabel("method"))
             {
-                if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::STRING)
+                if (parameters["method"].Content() == Thunder::Core::JSON::Variant::type::STRING)
                     method.FromString(parameters["method"].String());
-                else if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::NUMBER)
+                else if (parameters["method"].Content() == Thunder::Core::JSON::Variant::type::NUMBER)
                     method = static_cast <Exchange::INetworkManager::WiFiWPS> (parameters["method"].Number());
 
                 if ((Exchange::INetworkManager::WIFI_WPS_PIN == method) && parameters.HasLabel("pin"))

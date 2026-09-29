@@ -40,7 +40,7 @@ public:
 	virtual void* Acquire(const std::string& className, const uint32_t interfaceId, const uint32_t versionId) = 0;
 };
 
-namespace WPEFramework {
+namespace Thunder {
 namespace RPC {
     class Object {
     public:

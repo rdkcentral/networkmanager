@@ -26,7 +26,7 @@
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -50,4 +50,4 @@ namespace WPEFramework
                 std::atomic<bool> isSecurityAgentRegistered;
         };
     } // Plugin
-} // WPEFramework
+} // Thunder

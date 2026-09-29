@@ -23,14 +23,14 @@
 #include <gmock/gmock.h>
 #include "Module.h"
 
-class MockIInterfaceDetailsIterator : public WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator {
+class MockIInterfaceDetailsIterator : public Thunder::Exchange::INetworkManager::IInterfaceDetailsIterator {
 public:
-    MOCK_METHOD(bool, Next, (WPEFramework::Exchange::INetworkManager::InterfaceDetails&), (override));
-    MOCK_METHOD(bool, Previous, (WPEFramework::Exchange::INetworkManager::InterfaceDetails&), (override));
+    MOCK_METHOD(bool, Next, (Thunder::Exchange::INetworkManager::InterfaceDetails&), (override));
+    MOCK_METHOD(bool, Previous, (Thunder::Exchange::INetworkManager::InterfaceDetails&), (override));
     MOCK_METHOD(void, Reset, (const uint32_t position), (override));
     MOCK_METHOD(bool, IsValid, (), (const, override));
     MOCK_METHOD(uint32_t, Count, (), (const, override));
-    MOCK_METHOD(WPEFramework::Exchange::INetworkManager::InterfaceDetails, Current, (), (const, override));
+    MOCK_METHOD(Thunder::Exchange::INetworkManager::InterfaceDetails, Current, (), (const, override));
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));

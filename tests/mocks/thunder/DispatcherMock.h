@@ -24,20 +24,20 @@
 
 #include "Module.h"
 
- class DispatcherMock: public WPEFramework::PluginHost::ILocalDispatcher{
+ class DispatcherMock: public Thunder::PluginHost::ILocalDispatcher{
  public:
          virtual ~DispatcherMock() = default;
          MOCK_METHOD(uint32_t, AddRef, (), (const, override));
          MOCK_METHOD(uint32_t, Release, (), (const, override));
          MOCK_METHOD(void*, QueryInterface, (const uint32_t interfaceNummer), (override));
-         MOCK_METHOD(void, Activate, (WPEFramework::PluginHost::IShell* service));
+         MOCK_METHOD(void, Activate, (Thunder::PluginHost::IShell* service));
          MOCK_METHOD(void, Deactivate, ());
          MOCK_METHOD(void, Dropped, (const uint32_t));
          MOCK_METHOD(uint32_t, Invoke, (const uint32_t channelId, const uint32_t id, const string& token, const string& method, const string& parameters, string& response), (override));
-         MOCK_METHOD(WPEFramework::Core::hresult, Invoke, (WPEFramework::PluginHost::IDispatcher::ICallback* callback, const uint32_t channelId, const uint32_t id, const string& token, const string& method, const string& parameters /* @restrict:(4M-1) */, string& response /* @restrict:(4M-1) @out */), (override));
-         MOCK_METHOD(WPEFramework::Core::hresult, Revoke, (WPEFramework::PluginHost::IDispatcher::ICallback* callback), (override));
-         MOCK_METHOD(WPEFramework::Core::hresult, Validate, (const string& token, const string& method, const string& paramaters /* @restrict:(4M-1) */), (const, override));
-         MOCK_METHOD(WPEFramework::PluginHost::ILocalDispatcher*, Local, (), (override));
+         MOCK_METHOD(Thunder::Core::hresult, Invoke, (Thunder::PluginHost::IDispatcher::ICallback* callback, const uint32_t channelId, const uint32_t id, const string& token, const string& method, const string& parameters /* @restrict:(4M-1) */, string& response /* @restrict:(4M-1) @out */), (override));
+         MOCK_METHOD(Thunder::Core::hresult, Revoke, (Thunder::PluginHost::IDispatcher::ICallback* callback), (override));
+         MOCK_METHOD(Thunder::Core::hresult, Validate, (const string& token, const string& method, const string& paramaters /* @restrict:(4M-1) */), (const, override));
+         MOCK_METHOD(Thunder::PluginHost::ILocalDispatcher*, Local, (), (override));
 };
 
 #endif //DISPATCHERMOCK_H

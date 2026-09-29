@@ -26,7 +26,7 @@
 #include "NetworkManagerGdbusMgr.h"
 #include "INetworkManager.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -81,4 +81,4 @@ namespace WPEFramework
     };
 
     }   // Plugin
-}   // WPEFramework
+}   // Thunder

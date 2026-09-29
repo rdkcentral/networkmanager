@@ -29,7 +29,7 @@
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -783,4 +783,4 @@ namespace WPEFramework
     }
 
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

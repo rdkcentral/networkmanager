@@ -61,7 +61,7 @@ struct deviceInfo
         return FALSE;                                       \
     }
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -95,5 +95,5 @@ namespace WPEFramework
         };
 
     } // Plugin
-} // WPEFramework
+} // Thunder
 

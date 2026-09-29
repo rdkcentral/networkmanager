@@ -29,12 +29,12 @@
 #include <list>
 #include <string>
 
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
-using namespace WPEFramework::Exchange;
+using namespace Thunder;
+using namespace Thunder::Plugin;
+using namespace Thunder::Exchange;
 using namespace std;
 
-namespace WPEFramework
+namespace Thunder
 {
    namespace Plugin
     {
@@ -95,7 +95,7 @@ void displayMenu()
     std::cout << "-------------------------------------" << std::endl;
 }
 
-WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
+Thunder::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
 {
     int securityChoice;
     std::cout << "Select Security Type:" << std::endl;
@@ -106,14 +106,14 @@ WPEFramework::Exchange::INetworkManager::WIFISecurityMode getSecurityType()
 
     switch (securityChoice) {
         case 1:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
+            return Thunder::Exchange::INetworkManager::WIFI_SECURITY_WPA_PSK;
         case 2:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_SAE;
+            return Thunder::Exchange::INetworkManager::WIFI_SECURITY_SAE;
         case 3:
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_NONE;
+            return Thunder::Exchange::INetworkManager::WIFI_SECURITY_NONE;
         default:
             std::cout << "Invalid choice. Defaulting to open." << std::endl;
-            return WPEFramework::Exchange::INetworkManager::WIFI_SECURITY_NONE;
+            return Thunder::Exchange::INetworkManager::WIFI_SECURITY_NONE;
     }
 }
 
@@ -180,7 +180,7 @@ int main()
                 std::getline(std::cin, ssid);
                 std::cout << "Enter passphrase: ";
                 std::getline(std::cin, passphrase);
-                WPEFramework::Exchange::INetworkManager::WIFISecurityMode securityType = getSecurityType();
+                Thunder::Exchange::INetworkManager::WIFISecurityMode securityType = getSecurityType();
                 Exchange::INetworkManager::WiFiConnectTo ssidinfo = {
                     .ssid = ssid,
                     .passphrase = passphrase,
@@ -232,7 +232,7 @@ int main()
                 std::cout << "Enter passphrase: ";
                 std::getline(std::cin, passphrase);
 
-                WPEFramework::Exchange::INetworkManager::WIFISecurityMode securityType = getSecurityType();
+                Thunder::Exchange::INetworkManager::WIFISecurityMode securityType = getSecurityType();
 
                 std::cout << "Persist SSID info? (1 for yes, 0 for no): ";
                 std::cin >> persist;

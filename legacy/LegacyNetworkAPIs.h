@@ -26,7 +26,7 @@
 #include "NetworkManagerTimer.h"
 #include "INetworkManager.h"
 
-namespace WPEFramework {
+namespace Thunder {
     namespace Plugin {
         // This is a server for a JSONRPC communication channel.
         // For a plugin to be capable to handle JSONRPC, inherit from PluginHost::JSONRPC.
@@ -103,8 +103,8 @@ namespace WPEFramework {
 
         private:
             PluginHost::IShell* m_service;
-            std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
-            //WPEFramework::Exchange::INetworkManager* m_nwmgr;
+            std::shared_ptr<Thunder::JSONRPC::SmartLinkType<Thunder::Core::JSON::IElement>> m_networkmanager;
+            //Thunder::Exchange::INetworkManager* m_nwmgr;
             NetworkManagerTimer m_timer;
 
             bool m_subsIfaceStateChange;
@@ -113,4 +113,4 @@ namespace WPEFramework {
             bool m_subsInternetChange;
         };
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

@@ -34,8 +34,8 @@
 #include "InterfaceIteratorMock.h"
 
 using namespace std;
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using IStringIterator = RPC::IIteratorType<string,RPC::ID_STRINGITERATOR>;
 using ::testing::NiceMock;
 
@@ -64,7 +64,7 @@ protected:
           , m_subsInternetChange(true)
     {
         ServiceMock* service = new ServiceMock();
-        WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
+        Thunder::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
         ServiceMock* mockShell = new ServiceMock();
         
         EXPECT_CALL(*service, AddRef()).Times(1);
@@ -133,7 +133,7 @@ TEST_F(NetworkTest, getInterfaces)
                 }));
     EXPECT_CALL(*mockNetworkManager, GetAvailableInterfaces(::testing::_))
         .WillOnce(testing::DoAll(
-                    ::testing::Invoke([&mockIterator](WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator*& iterator) -> uint32_t {
+                    ::testing::Invoke([&mockIterator](Thunder::Exchange::INetworkManager::IInterfaceDetailsIterator*& iterator) -> uint32_t {
                         iterator = &mockIterator;
                         return 0;
                         })));
@@ -313,11 +313,11 @@ TEST_F(NetworkTest, getIPSettings) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    WPEFramework::Exchange::INetworkManager::IPAddress address{};
+    Thunder::Exchange::INetworkManager::IPAddress address{};
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
                     address.primarydns = "75.75.75.76";
                     address.secondarydns = "75.75.76.76";
                     address.dhcpserver = "192.168.0.1";
@@ -354,11 +354,11 @@ TEST_F(NetworkTest, getIPSettingsIPv6) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    WPEFramework::Exchange::INetworkManager::IPAddress address{};
+    Thunder::Exchange::INetworkManager::IPAddress address{};
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
                     address.ipaddress = "2001:0db8:85a3:0000:0000:8a2e:0370:7334";
                     address.ipversion = "IPv6";
                     address.prefix = 64;
@@ -395,11 +395,11 @@ TEST_F(NetworkTest, getIPSettingsErrorEmptyString) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    WPEFramework::Exchange::INetworkManager::IPAddress address{};
+    Thunder::Exchange::INetworkManager::IPAddress address{};
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
                     address.ipaddress = "";
                     address.ipversion = "IPv4";
                     address.prefix = 34;
@@ -432,11 +432,11 @@ TEST_F(NetworkTest, getIPSettings2) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    WPEFramework::Exchange::INetworkManager::IPAddress address{};
+    Thunder::Exchange::INetworkManager::IPAddress address{};
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t                     {
                     address.primarydns = "75.75.75.76";
                     address.secondarydns = "75.75.76.76";
                     address.dhcpserver = "192.168.0.1";
@@ -475,9 +475,9 @@ TEST_F(NetworkTest, isConnectedToInternet) {
     EXPECT_CALL(*mockNetworkManager, IsConnectedToInternet(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , string&, WPEFramework::Exchange::INetworkManager::InternetStatus& result, string&) -> uint32_t
+                    [&](string& , string&, Thunder::Exchange::INetworkManager::InternetStatus& result, string&) -> uint32_t
                     {
-                    result = WPEFramework::Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
+                    result = Thunder::Exchange::INetworkManager::InternetStatus::INTERNET_FULLY_CONNECTED;
                     return Core::ERROR_NONE;
                     }));
     EXPECT_CALL(*mockNetworkManager, Release())
@@ -817,7 +817,7 @@ TEST_F(NetworkTest, getStbIp) {
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
                     address.ipaddress = "192.168.0.1";
                     address.ipversion = "IPv4";
                     address.prefix = 24;
@@ -852,7 +852,7 @@ TEST_F(NetworkTest, getSTBIPFamily) {
     EXPECT_CALL(*mockNetworkManager, GetIPSettings(::testing::_, ::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& , const string&, WPEFramework::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
+                    [&](string& , const string&, Thunder::Exchange::INetworkManager::IPAddress& address) -> uint32_t {
                     address.ipaddress = "192.168.0.1";
                     address.ipversion = "IPv4";
                     address.prefix = 24;

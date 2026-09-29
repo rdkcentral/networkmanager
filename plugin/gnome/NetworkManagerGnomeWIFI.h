@@ -37,7 +37,7 @@
 #define WPS_RETRY_COUNT             12
 #define WPS_PROCESS_WAIT_IN_MS      5
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -116,4 +116,4 @@ namespace WPEFramework
             SecretAgent m_secretAgent;
         };
     }   // Plugin
-}   // WPEFramework
+}   // Thunder

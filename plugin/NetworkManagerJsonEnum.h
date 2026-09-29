@@ -21,7 +21,7 @@
 #include <core/Enumerate.h>
 #include "INetworkManager.h"
 
-namespace WPEFramework {
+namespace Thunder {
 
 ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::InterfaceType)
     { Exchange::INetworkManager::InterfaceType::INTERFACE_TYPE_ETHERNET, _TXT("ETHERNET") },

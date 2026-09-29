@@ -22,9 +22,9 @@
 #include <chrono>
 #include <com/com.h>
 
-using namespace WPEFramework;
-using namespace WPEFramework::Exchange;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Exchange;
+using namespace Thunder::Plugin;
 
 // ---------------------------------------------------------------------------
 // NetworkManagerConnectivityClient

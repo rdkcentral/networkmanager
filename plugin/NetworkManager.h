@@ -28,7 +28,7 @@
 #include <atomic>
 #include <mutex>
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {

@@ -26,7 +26,7 @@
 /* include NetworkManager.h for the defines, but we don't link against libnm. */
 #include <libnm/nm-dbus-interface.h>
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {

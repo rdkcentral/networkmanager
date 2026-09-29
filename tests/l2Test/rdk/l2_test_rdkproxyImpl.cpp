@@ -35,8 +35,8 @@
 #include "INetworkManager.h"
 
 using namespace std;
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using IStringIterator = RPC::IIteratorType<string,RPC::ID_STRINGITERATOR>;
 using ::testing::NiceMock;
 

@@ -41,11 +41,11 @@
 #include "NetworkManager.h"
 #include "ConnectivityMockServer.h"
 
-using namespace WPEFramework;
+using namespace Thunder;
 using ::testing::NiceMock;
 
 #ifdef USE_CONNECTIVITYCHECKMGR
-namespace WPEFramework {
+namespace Thunder {
 namespace Plugin {
 class NetworkManagerConnectivityClientTestAccess {
 public:
@@ -57,7 +57,7 @@ public:
     }
 };
 } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder
 #endif
 
 class NetworkManagerEventTest : public ::testing::Test {
@@ -103,7 +103,7 @@ protected:
         ON_CALL(service, ConfigLine())
             .WillByDefault(::testing::Return(
                 "{"
-                " \"locator\":\"libWPEFrameworkNetworkManager.so\"," 
+                " \"locator\":\"libThunderNetworkManager.so\"," 
                 " \"classname\":\"NetworkManager\"," 
                 " \"callsign\":\"org.rdk.NetworkManager\"," 
                 " \"startuporder\":55," 
@@ -111,7 +111,7 @@ protected:
                 " \"configuration\":{"
                 "  \"root\":{"
                 "   \"outofprocess\":true,"
-                "   \"locator\":\"libWPEFrameworkNetworkManagerImpl.so\""
+                "   \"locator\":\"libThunderNetworkManagerImpl.so\""
                 "  },"
                 "  \"connectivity\":{"
                 "   \"endpoint_1\":\"http://localhost:8080/generate_204\","

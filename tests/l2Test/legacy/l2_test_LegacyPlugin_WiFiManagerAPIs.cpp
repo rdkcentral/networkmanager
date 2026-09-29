@@ -31,8 +31,8 @@
 #include "mockauthservices.h"
  
 using namespace std;
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using ::testing::NiceMock;
 
 #define WPA_SUPPLICANT_CONF "/opt/secure/wifi/wpa_supplicant.conf/wpa_supplicant.conf"
@@ -55,7 +55,7 @@ protected:
           , INIT_CONX(1, 0)
     {
         ServiceMock* service = new ServiceMock();
-        WPEFramework::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
+        Thunder::PluginHost::IAuthenticate* mock_security_agent = new MockIAuthenticate();
         ServiceMock* mockShell = new ServiceMock();
 
         EXPECT_CALL(*service, AddRef()).Times(1);

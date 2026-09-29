@@ -39,10 +39,10 @@
 #include "NetworkManager.h"
 #include <libnm/NetworkManager.h>
 
-using namespace WPEFramework;
+using namespace Thunder;
 using ::testing::NiceMock;
 
-namespace WPEFramework { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
+namespace Thunder { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
 
 class NetworkManagerEventTest : public ::testing::Test {
 protected:
@@ -104,7 +104,7 @@ protected:
         ON_CALL(service, ConfigLine())
             .WillByDefault(::testing::Return(
                 "{"
-                " \"locator\":\"libWPEFrameworkNetworkManager.so\"," 
+                " \"locator\":\"libThunderNetworkManager.so\"," 
                 " \"classname\":\"NetworkManager\"," 
                 " \"callsign\":\"org.rdk.NetworkManager\"," 
                 " \"startuporder\":55," 
@@ -202,12 +202,12 @@ protected:
 TEST_F(NetworkManagerEventTest, onInterfaceStateChangeCb)
 {
     // Testing all interface state change events for Ethernet interface
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, "eth0");
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, "eth0");
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, "eth0");
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, "eth0");
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, "eth0");
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_DOWN, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, "eth0");
+    Thunder::Plugin::GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_DISABLED, "eth0");
 }
 
 TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
@@ -258,9 +258,9 @@ TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
 
     g_ptr_array_free(fakeDevices, TRUE);
 
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(nullptr, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(nullptr, nullptr, nullptr);
     NMDeviceWifi *deviceWifiDummy = static_cast<NMDeviceWifi*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(deviceWifiDummy, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::onAvailableSSIDsCb(deviceWifiDummy, nullptr, nullptr);
 
     g_object_unref(deviceDummy);
     g_object_unref(deviceWifiDummy);
@@ -269,7 +269,7 @@ TEST_F(NetworkManagerEventTest, onAvailableSSIDsCb)
 
 TEST_F(NetworkManagerEventTest, onWIFIStateChanged)
 {
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::onWIFIStateChanged(1);
+    Thunder::Plugin::GnomeNetworkManagerEvents::onWIFIStateChanged(1);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb)
@@ -316,19 +316,19 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb)
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_DISCONNECT));
 
     // Test with nullptr and with mock device
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(nullptr, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(nullptr, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
 
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
     g_object_unref(ethDummyDevice);
     g_object_unref(wifiDummyDevice);
 }
@@ -342,7 +342,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_activated)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_disconnected)
@@ -354,7 +354,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_disconnected)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unmanaged)
@@ -366,7 +366,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unmanaged)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_prepare)
@@ -378,7 +378,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_prepare)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_config)
@@ -390,7 +390,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_config)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_config)
@@ -402,7 +402,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_config)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_check)
@@ -414,7 +414,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_check)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_secondaries)
@@ -426,7 +426,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_secondaries)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_deactivating)
@@ -438,7 +438,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_deactivating)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_failed)
@@ -450,7 +450,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_failed)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_need_auth)
@@ -462,7 +462,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_need_auth)
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unknown)
@@ -474,7 +474,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_unknown)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
 }
 
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_unmanaged)
@@ -486,7 +486,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_unmanaged)
         .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
 
@@ -499,7 +499,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_disconnected)
         .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
 
@@ -512,7 +512,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_prepare)
         .WillOnce(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
 
@@ -525,7 +525,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_ipconfig)
         .WillOnce(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
 
@@ -538,7 +538,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_eth0_activated)
         .WillOnce(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
     g_object_unref(DummyDevice);
 }
 
@@ -570,7 +570,7 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_ipv4_cache_eth0)
         .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
     g_object_unref(DummyDevice);
 
     /* Cache should now be empty — GetIPSettings returns success but no address fields */
@@ -600,7 +600,7 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_ipv6_cache_wlan0)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(DummyDevice), nullptr, nullptr);
     g_object_unref(DummyDevice);
 
     /* Cache should now be empty */
@@ -630,7 +630,7 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_both_ip_family_caches)
         .WillRepeatedly(::testing::Return("eth0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
+    Thunder::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(DummyDevice, nullptr, nullptr);
     g_object_unref(DummyDevice);
 
     /* Both families should be cleared */

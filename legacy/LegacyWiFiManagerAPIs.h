@@ -22,7 +22,7 @@
 #include "Module.h"
 #include "NetworkManagerTimer.h"
 
-namespace WPEFramework {
+namespace Thunder {
 
     namespace Plugin {
         // This is a server for a JSONRPC communication channel.
@@ -90,11 +90,11 @@ namespace WPEFramework {
 
         private:
             PluginHost::IShell* m_service;
-            std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
+            std::shared_ptr<Thunder::JSONRPC::SmartLinkType<Thunder::Core::JSON::IElement>> m_networkmanager;
             NetworkManagerTimer m_timer;
             bool m_subsWiFiStateChange;
             bool m_subsAvailableSSIDs;
             bool m_subsWiFiStrengthChange;
         };
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

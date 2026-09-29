@@ -29,7 +29,7 @@
 #include <thread>
 #include <vector>
 
-namespace WPEFramework {
+namespace Thunder {
 namespace Plugin {
 
 /**
@@ -172,4 +172,4 @@ private:
 };
 
 } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

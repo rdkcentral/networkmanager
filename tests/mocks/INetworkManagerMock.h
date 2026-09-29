@@ -20,9 +20,9 @@
 #include <gmock/gmock.h>
 #include "Module.h"
 
-class MockINetworkManager : public WPEFramework::Exchange::INetworkManager {
+class MockINetworkManager : public Thunder::Exchange::INetworkManager {
 public:
-    MOCK_METHOD(uint32_t, GetAvailableInterfaces, (WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator*& interfaces), (override));
+    MOCK_METHOD(uint32_t, GetAvailableInterfaces, (Thunder::Exchange::INetworkManager::IInterfaceDetailsIterator*& interfaces), (override));
     MOCK_METHOD(uint32_t, GetPrimaryInterface, (string& interface), (override));                                              MOCK_METHOD(uint32_t, SetInterfaceState, (const string& interface, const bool enabled), (override));
     MOCK_METHOD(uint32_t, GetInterfaceState, (const string& interface, bool& enabled), (override));
     MOCK_METHOD(uint32_t, GetIPSettings, (string& interface, const string& ipversion, IPAddress& address), (override));
@@ -31,7 +31,7 @@ public:
     MOCK_METHOD(uint32_t, SetStunEndpoint, (string const endpoint, const uint32_t port, const uint32_t timeout, const uint32_t cacheLifetime), (override));
     MOCK_METHOD(uint32_t, GetConnectivityTestEndpoints, (IStringIterator*& endpoints), (const));
     MOCK_METHOD(uint32_t, SetConnectivityTestEndpoints, (IStringIterator* const endpoints), (override));
-    MOCK_METHOD(uint32_t, IsConnectedToInternet, (string& ipversion, string& interface, WPEFramework::Exchange::INetworkManager::InternetStatus& status, string& reason), (override));
+    MOCK_METHOD(uint32_t, IsConnectedToInternet, (string& ipversion, string& interface, Thunder::Exchange::INetworkManager::InternetStatus& status, string& reason), (override));
     MOCK_METHOD(uint32_t, GetCaptivePortalURI, (string& uri), (const));
     MOCK_METHOD(uint32_t, GetPublicIP, (string& interface, string& ipversion, string& ipaddress), (override));
     MOCK_METHOD(uint32_t, Ping, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, string& response), (override));
@@ -47,15 +47,15 @@ public:
     MOCK_METHOD(uint32_t, GetConnectedSSID, (WiFiSSIDInfo& ssidInfo), (override));
     MOCK_METHOD(uint32_t, StartWPS, (const WiFiWPS& method, const string& pin), (override));
     MOCK_METHOD(uint32_t, StopWPS, (), (override));
-    MOCK_METHOD(uint32_t, GetWifiState, (WPEFramework::Exchange::INetworkManager::WiFiState& state), (override));
-    MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, int& strength, int& noise, int& snr, WPEFramework::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
+    MOCK_METHOD(uint32_t, GetWifiState, (Thunder::Exchange::INetworkManager::WiFiState& state), (override));
+    MOCK_METHOD(uint32_t, GetWiFiSignalQuality, (string& ssid, int& strength, int& noise, int& snr, Thunder::Exchange::INetworkManager::WiFiSignalQuality& quality), (override));
     MOCK_METHOD(uint32_t, GetSupportedSecurityModes, (ISecurityModeIterator*& modes), (const));
     MOCK_METHOD(uint32_t, SetLogLevel, (const Logging& level), (override));
     MOCK_METHOD(uint32_t, SetHostname, (const string& hostname), (override));
     MOCK_METHOD(uint32_t, GetLogLevel, (Logging& level), (override));
     MOCK_METHOD(uint32_t, Configure, (const string configLine), (override));
-    MOCK_METHOD(uint32_t, Register, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
-    MOCK_METHOD(uint32_t, Unregister, (WPEFramework::Exchange::INetworkManager::INotification* notification), (override));
+    MOCK_METHOD(uint32_t, Register, (Thunder::Exchange::INetworkManager::INotification* notification), (override));
+    MOCK_METHOD(uint32_t, Unregister, (Thunder::Exchange::INetworkManager::INotification* notification), (override));
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));

@@ -33,7 +33,7 @@
 #define GDBUS_WPS_RETRY_WAIT_TIME         10 
 #define GDBUS_WPS_RETRY_COUNT             12
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -88,4 +88,4 @@ namespace WPEFramework
                 DbusMgr m_dbus;
         };
     } // Plugin
-} // WPEFramework
+} // Thunder

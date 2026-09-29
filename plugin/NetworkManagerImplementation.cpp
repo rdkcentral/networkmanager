@@ -34,15 +34,15 @@
 #include <telemetry_busmessage_sender.h>
 #endif
 
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
 #define SSID_COMMAND        "wpa_cli status"
 #define SIGNAL_POLL_COMMAND "wpa_cli signal_poll"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -70,7 +70,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
+            SYSLOG(::Thunder::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
             /* Start dedicated event dispatch thread */
@@ -175,12 +175,12 @@ namespace WPEFramework
             Configuration config;
             if(configLine.empty())
             {
-                SYSLOG(::WPEFramework::Logging::Shutdown, (_T("config line is empty")));
+                SYSLOG(::Thunder::Logging::Shutdown, (_T("config line is empty")));
                 return Core::ERROR_GENERAL;
             }
             else
             {
-                SYSLOG(::WPEFramework::Logging::Startup, (_T("Loading incoming configuration")));
+                SYSLOG(::Thunder::Logging::Startup, (_T("Loading incoming configuration")));
                 config.FromString(configLine);
             }
 

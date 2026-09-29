@@ -41,7 +41,7 @@ typedef enum _SsidSecurity
     NET_WIFI_SECURITY_NOT_SUPPORTED = 99,
 } SsidSecurity;
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -63,4 +63,4 @@ namespace WPEFramework
             bool saveWiFiSettingsToMfrSync(const std::string& ssid, const std::string& passphrase, int security);
         };
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

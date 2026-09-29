@@ -52,7 +52,7 @@ enum nsm_connectivity_httpcode {
 #define NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS      5000   // ms
 #define NM_CONNECTIVITY_MONITOR_RETRY_COUNT         3      // 3 retry
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -156,4 +156,4 @@ namespace WPEFramework
             EndpointManager m_endpoint;
         };
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

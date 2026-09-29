@@ -29,7 +29,7 @@
 #include "NetworkManagerGdbusUtils.h"
 #include "../NetworkManagerGnomeUtils.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -3371,5 +3371,5 @@ namespace WPEFramework
             return success;
         }
 
-    } // WPEFramework
+    } // Thunder
 } // Plugin

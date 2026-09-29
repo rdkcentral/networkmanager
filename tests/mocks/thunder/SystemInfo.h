@@ -23,7 +23,7 @@
 
 #include "Module.h"
 
-class SystemInfo : public WPEFramework::PluginHost::ISubSystem {
+class SystemInfo : public Thunder::PluginHost::ISubSystem {
 private:
     SystemInfo(const SystemInfo&) = delete;
     SystemInfo& operator=(const SystemInfo&) = delete;
@@ -35,7 +35,7 @@ public:
         // Defaults:
         ON_CALL(*this, Set(::testing::_, ::testing::_))
             .WillByDefault(::testing::Invoke(
-                [&](const subsystem type, WPEFramework::Core::IUnknown* information) {
+                [&](const subsystem type, Thunder::Core::IUnknown* information) {
                     _subsystems.emplace(type, information);
 
                     if (type >= NEGATIVE_START) {
@@ -46,8 +46,8 @@ public:
                 }));
         ON_CALL(*this, Get(::testing::_))
             .WillByDefault(::testing::Invoke(
-                [&](const subsystem type) -> const WPEFramework::Core::IUnknown* {
-                    const WPEFramework::Core::IUnknown* result(nullptr);
+                [&](const subsystem type) -> const Thunder::Core::IUnknown* {
+                    const Thunder::Core::IUnknown* result(nullptr);
 
                     auto it = _subsystems.find(type);
                     if (it != _subsystems.end()) {
@@ -65,19 +65,19 @@ public:
     virtual ~SystemInfo() = default;
 
 public:
-    MOCK_METHOD(void, Register, (WPEFramework::PluginHost::ISubSystem::INotification * notification), (override));
-    MOCK_METHOD(void, Unregister, (WPEFramework::PluginHost::ISubSystem::INotification * notification), (override));
+    MOCK_METHOD(void, Register, (Thunder::PluginHost::ISubSystem::INotification * notification), (override));
+    MOCK_METHOD(void, Unregister, (Thunder::PluginHost::ISubSystem::INotification * notification), (override));
     MOCK_METHOD(string, BuildTreeHash, (), (const, override));
-    MOCK_METHOD(void, Set, (const subsystem type, WPEFramework::Core::IUnknown* information), (override));
-    MOCK_METHOD(const WPEFramework::Core::IUnknown*, Get, (const subsystem type), (const, override));
+    MOCK_METHOD(void, Set, (const subsystem type, Thunder::Core::IUnknown* information), (override));
+    MOCK_METHOD(const Thunder::Core::IUnknown*, Get, (const subsystem type), (const, override));
     MOCK_METHOD(bool, IsActive, (const subsystem type), (const, override));
     MOCK_METHOD(string, Version, (), (const, override));
 
     BEGIN_INTERFACE_MAP(SystemInfo)
-    INTERFACE_ENTRY(WPEFramework::PluginHost::ISubSystem)
+    INTERFACE_ENTRY(Thunder::PluginHost::ISubSystem)
     END_INTERFACE_MAP
 
 private:
-    std::map<subsystem, WPEFramework::Core::IUnknown*> _subsystems;
+    std::map<subsystem, Thunder::Core::IUnknown*> _subsystems;
     uint32_t _flags;
 };

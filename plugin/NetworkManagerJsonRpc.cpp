@@ -39,7 +39,7 @@
 
 using namespace NetworkManagerLogger;
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -427,7 +427,7 @@ namespace WPEFramework
         {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
-            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
+            ::Thunder::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* endpointsIter{};
             JsonArray array = parameters["endpoints"].Array();
 
             if (0 == array.Length() || 5 < array.Length())
@@ -757,7 +757,7 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
 
-            ::WPEFramework::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
+            ::Thunder::RPC::IIteratorType<string, RPC::ID_STRINGITERATOR>* _ssids{};
 
             if (_networkManager)
                 rc = _networkManager->GetKnownSSIDs(_ssids);
@@ -956,9 +956,9 @@ namespace WPEFramework
 
             if (parameters.HasLabel("method"))
             {
-                if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::STRING)
+                if (parameters["method"].Content() == Thunder::Core::JSON::Variant::type::STRING)
                     method.FromString(parameters["method"].String());
-                else if (parameters["method"].Content() == WPEFramework::Core::JSON::Variant::type::NUMBER)
+                else if (parameters["method"].Content() == Thunder::Core::JSON::Variant::type::NUMBER)
                     method = static_cast <Exchange::INetworkManager::WiFiWPS> (parameters["method"].Number());
 
                 if ((Exchange::INetworkManager::WIFI_WPS_PIN == method) && parameters.HasLabel("pin"))

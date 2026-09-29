@@ -23,39 +23,39 @@
 #include <gmock/gmock.h>
 #include "Module.h"
 
-class StubNetwork : public WPEFramework::Plugin::Network {
+class StubNetwork : public Thunder::Plugin::Network {
 public:
     void onInterfaceStateChange(const JsonObject& parameters) {
-        WPEFramework::Plugin::Network::ReportonInterfaceStateChange(parameters); // Call the method on this object
+        Thunder::Plugin::Network::ReportonInterfaceStateChange(parameters); // Call the method on this object
     }
 
     void onActiveInterfaceChange(const JsonObject& parameters) {
         EXPECT_EQ(parameters["prevActiveInterface"].String(), "eth0");
         EXPECT_EQ(parameters["currentActiveInterface"].String(), "wlan0");
-        WPEFramework::Plugin::Network::ReportonActiveInterfaceChange(parameters);
+        Thunder::Plugin::Network::ReportonActiveInterfaceChange(parameters);
     }
 
     void onIPAddressChange(const JsonObject& parameters) {
-        WPEFramework::Plugin::Network::ReportonIPAddressChange(parameters);
+        Thunder::Plugin::Network::ReportonIPAddressChange(parameters);
     }
 
     void onInternetStatusChange(const JsonObject& parameters) {
         EXPECT_EQ(parameters["state"].String(), "CONNECTED");
         EXPECT_EQ(parameters["status"].String(), "OK");
-        WPEFramework::Plugin::Network::ReportonInternetStatusChange(parameters);
+        Thunder::Plugin::Network::ReportonInternetStatusChange(parameters);
     }
 
     string Information() const
     {
-        WPEFramework::Plugin::Network::Information();
+        Thunder::Plugin::Network::Information();
         return(string());
     }
 
     MOCK_METHOD(uint32_t, AddRef, (), (const, override));
     MOCK_METHOD(uint32_t, Release, (), (const, override));
     MOCK_METHOD(void*, QueryInterface, (uint32_t), (override));
-    MOCK_METHOD(const std::string, Initialize, (WPEFramework::PluginHost::IShell*), (override));
-    MOCK_METHOD(void, Deinitialize, (WPEFramework::PluginHost::IShell*), (override));
+    MOCK_METHOD(const std::string, Initialize, (Thunder::PluginHost::IShell*), (override));
+    MOCK_METHOD(void, Deinitialize, (Thunder::PluginHost::IShell*), (override));
     MOCK_METHOD(void, ReportonInterfaceStateChange, (const JsonObject&), ());
     MOCK_METHOD(void, ReportonActiveInterfaceChange, (const JsonObject&), ());
     MOCK_METHOD(void, ReportonIPAddressChange, (const JsonObject&), ());

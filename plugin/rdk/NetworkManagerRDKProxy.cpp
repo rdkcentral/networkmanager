@@ -22,14 +22,14 @@
 #include "libIBus.h"
 #include <chrono>
 
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using namespace std;
 
-namespace WPEC = WPEFramework::Core;
-namespace WPEJ = WPEFramework::Core::JSON;
+namespace WPEC = Thunder::Core;
+namespace WPEJ = Thunder::Core::JSON;
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -362,7 +362,7 @@ namespace WPEFramework
             NMLOG_INFO("threadEventRegistration successfully subscribed to IARM event for NetworkManager Plugin");
             /*
             * Read current network state and post the event.
-            * Useful if NetworkManager plugin or WPEFramework is restarted
+            * Useful if NetworkManager plugin or Thunder is restarted
             * or netsrvmgr misses to post iarm events during bootup.
             */
             getInitialConnectionState();
@@ -524,11 +524,11 @@ namespace WPEFramework
                 IARM_Bus_RegisterEventHandler(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_EVENT_onAvailableSSIDs, NetworkManagerInternalEventHandler);
                 /*
                 * Read current network state and post the event.
-                * Useful if NetworkManager plugin or WPEFramework is restarted
+                * Useful if NetworkManager plugin or Thunder is restarted
                 * or netsrvmgr misses to post iarm events during bootup.
                 */
                 std::thread connStateThread = std::thread(&NetworkManagerImplementation::getInitialConnectionState, this);
-                connStateThread.join(); // seprate thread will not use the wpeframework thread pool
+                connStateThread.join(); // seprate thread will not use the thunder thread pool
             }
         }
 

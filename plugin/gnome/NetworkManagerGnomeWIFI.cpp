@@ -34,7 +34,7 @@
 #endif
 
 using namespace std;
-namespace WPEFramework
+namespace Thunder
 {
 
     namespace Plugin
@@ -2684,4 +2684,4 @@ namespace WPEFramework
             return rc;
         }
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

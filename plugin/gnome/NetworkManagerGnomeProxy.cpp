@@ -23,11 +23,11 @@
 #include <fstream>
 #include <sstream>
 #include <chrono>
-using namespace WPEFramework;
-using namespace WPEFramework::Plugin;
+using namespace Thunder;
+using namespace Thunder::Plugin;
 using namespace std;
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {

@@ -31,7 +31,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h> // for struct in_addr
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -763,5 +763,5 @@ namespace WPEFramework
             return false;
         }
     } // Plugin
-} // WPEFramework
+} // Thunder
 

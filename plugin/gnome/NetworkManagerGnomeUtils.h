@@ -25,7 +25,7 @@
 #include <atomic>
 #include "Module.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {

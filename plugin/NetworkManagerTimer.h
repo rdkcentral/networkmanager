@@ -17,7 +17,7 @@
 * limitations under the License.
 **/
 
-namespace WPEFramework {
+namespace Thunder {
 
     namespace Plugin {
         class NetworkManagerTimer {
@@ -120,7 +120,7 @@ namespace WPEFramework {
                     }
                 }
 
-                WPEFramework::Core::TimerType<NetworkManagerTimerJob> baseTimer;
+                Thunder::Core::TimerType<NetworkManagerTimerJob> baseTimer;
                 NetworkManagerTimerJob m_timerJob;
                 bool m_isActive;
                 bool m_isSingleShot;

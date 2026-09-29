@@ -31,7 +31,7 @@
 #include <gio/gio.h>
 #include "libIBus.h"
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -495,4 +495,4 @@ namespace WPEFramework
         }
 
     } // namespace Plugin
-} // namespace WPEFramework
+} // namespace Thunder

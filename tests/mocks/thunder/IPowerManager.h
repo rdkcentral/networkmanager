@@ -31,7 +31,7 @@
 
 #include <core/core.h>
 
-namespace WPEFramework {
+namespace Thunder {
 namespace Exchange {
 
     struct EXTERNAL IPowerManager : virtual public Core::IUnknown {
@@ -82,4 +82,4 @@ namespace Exchange {
     };
 
 } // namespace Exchange
-} // namespace WPEFramework
+} // namespace Thunder

@@ -24,7 +24,7 @@
 #include "Module.h"
 
 template<typename ELEMENT, const uint32_t INTERFACE_ID>
-class MockStringIterator : public WPEFramework::RPC::IStringIterator{
+class MockStringIterator : public Thunder::RPC::IStringIterator{
 public:
     MOCK_METHOD(bool, Next, (ELEMENT&), (override));
     MOCK_METHOD(bool, Previous, (ELEMENT&), (override));

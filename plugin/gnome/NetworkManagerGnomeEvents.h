@@ -24,7 +24,7 @@
 #include <iostream>
 #include <atomic>
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -85,4 +85,4 @@ namespace WPEFramework
     };
 
     }   // Plugin
-}   // WPEFramework
+}   // Thunder

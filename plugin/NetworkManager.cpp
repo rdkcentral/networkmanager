@@ -25,7 +25,7 @@
 #include "rfcapi.h"
 #endif
 
-namespace WPEFramework
+namespace Thunder
 {
     namespace Plugin
     {
@@ -61,7 +61,7 @@ namespace WPEFramework
          * This should aim to be as fast as possible
          *
          * Even if we're running in Out Of Process mode, this will still run in the
-         * main WPEFramework process - the new process is actually spawned from this method
+         * main Thunder process - the new process is actually spawned from this method
          */
         const string NetworkManager::Initialize(PluginHost::IShell *service)
         {
@@ -87,7 +87,7 @@ namespace WPEFramework
             // _service->Root to launch WPEProcess, and a larger library that is only ever run inside WPEProcess only (we do this for Cobalt and WebKitBrowser)
             _networkManager = service->Root<Exchange::INetworkManager>(_connectionId, 25000, _T("NetworkManagerImplementation"));
 
-            // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
+            // Still running inside the main Thunder process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
             {
                 // Register Notifications
@@ -136,7 +136,7 @@ namespace WPEFramework
                 _service->Unregister(&_notification);
                 _service = nullptr;
 
-                // Returning a string signals that we failed to initialize - WPEFramework will print this as an error message
+                // Returning a string signals that we failed to initialize - Thunder will print this as an error message
                 message = _T("Failed to initialize NetworkManager");
             }
 
@@ -147,7 +147,7 @@ namespace WPEFramework
         /**
          * Clean up the plugin when we're deactivated. Should release any resources we were holding
          *
-         * Note again this code runs inside the main WPEFramework daemon even if the plugin is set to run out-of-process
+         * Note again this code runs inside the main Thunder daemon even if the plugin is set to run out-of-process
          */
         void NetworkManager::Deinitialize(PluginHost::IShell *service)
         {
