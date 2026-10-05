@@ -101,6 +101,7 @@ namespace WPEFramework
                 }
                 else
                 {
+                    NMLOG_INFO("NetworkManager configured successfully");
 #ifdef USE_CONNECTIVITYCHECKMGR
                     RFC_ParamData_t rfcParam = {0};
                     const WDMP_STATUS rfcRetCode = getRFCParameter(
@@ -122,6 +123,7 @@ namespace WPEFramework
                 // Register all custom JSON-RPC methods
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
                 RegisterAllMethods();
+                NMLOG_INFO("JSONRPC Methods registered successfully");
 
 
                 // Get IPlugin interface for this plugin
