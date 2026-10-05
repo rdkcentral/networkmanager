@@ -313,32 +313,33 @@ namespace WPEFramework
             NMLOG_INFO("Platform initialization started");
             ::_instance = this;
             // Create an isolated GMainContext for per-call NMClient creation.
-            m_nmContext = g_main_context_new();
+            // m_nmContext = g_main_context_new();
 
-            // Create a temporary client for one-time init work
-            NMClient *initClient = createProxyClient(m_nmContext);
-            if (initClient == NULL) {
-                NMLOG_FATAL("Error initializing NMClient during platform_init");
-                g_main_context_unref(m_nmContext);
-                m_nmContext = nullptr;
-                return;
-            }
-            NMLOG_INFO("Temporary NMClient initialized successfully");
-            nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
-            modifyDefaultConnConfig(initClient);
-            NMLOG_INFO("Default connection configuration modified successfully");
-            NMDeviceState ethState = ifaceState(initClient, nmUtils::ethIface());
-            NMLOG_INFO("Ethernet interface state is %d", ethState);
-            if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
-                setDefaultInterface(nmUtils::ethIface());
-            else
-                setDefaultInterface(nmUtils::wlanIface());
+            // // Create a temporary client for one-time init work
+            // NMClient *initClient = createProxyClient(m_nmContext);
+            // if (initClient == NULL) {
+            //     NMLOG_FATAL("Error initializing NMClient during platform_init");
+            //     g_main_context_unref(m_nmContext);
+            //     m_nmContext = nullptr;
+            //     return;
+            // }
+            // NMLOG_INFO("Temporary NMClient initialized successfully");
+            // nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
+            // modifyDefaultConnConfig(initClient);
+            // NMLOG_INFO("Default connection configuration modified successfully");
+            // NMDeviceState ethState = ifaceState(initClient, nmUtils::ethIface());
+            // NMLOG_INFO("Ethernet interface state is %d", ethState);
+            // if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
+            //     setDefaultInterface(nmUtils::ethIface());
+            // else
+            //     setDefaultInterface(nmUtils::wlanIface());
 
-            NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
+            // NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
 
-            deleteProxyClient(initClient);
-            NMLOG_INFO("Temporary NMClient deleted successfully");
+            // deleteProxyClient(initClient);
+            // NMLOG_INFO("Temporary NMClient deleted successfully");
             // getInitialConnectionState function not called here, as event monitor will report the initial state
+            setDefaultInterface(nmUtils::ethIface());
             nmEvent = GnomeNetworkManagerEvents::getInstance();
             nmEvent->startNetworkMangerEventMonitor();
             NMLOG_INFO("NetworkManager event monitor started successfully");
