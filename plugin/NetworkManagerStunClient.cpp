@@ -214,7 +214,7 @@ namespace details {
       if (addr->ai_family != protocol_family)
         continue;
 
-      std::string const s = sockaddr_to_string2(addr->ai_addr, addr->ai_family);
+      std::string s = sockaddr_to_string2(addr->ai_addr, addr->ai_family);
 
       if (already_seen.find(s) == std::end(already_seen)) {
         struct sockaddr_storage temp = {};
@@ -230,7 +230,7 @@ namespace details {
         }
 
         addrs.push_back(temp);
-        already_seen.insert(s);
+        already_seen.insert(std::move(s));
       }
     }
 

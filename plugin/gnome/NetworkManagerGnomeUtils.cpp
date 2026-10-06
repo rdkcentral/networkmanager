@@ -25,6 +25,7 @@
 #include <regex>
 #include <sstream>
 #include <fstream>
+#include <utility>
 #include <NetworkManager.h>
 #include <libnm/NetworkManager.h>
 #include "Module.h"
@@ -274,9 +275,9 @@ namespace WPEFramework
             }
             file.close();
 
-            m_wlanifname = wifiIfname;
-            m_ethifname = ethIfname;
-            m_deviceHostname = deviceHostname;
+            m_wlanifname = std::move(wifiIfname);
+            m_ethifname = std::move(ethIfname);
+            m_deviceHostname = std::move(deviceHostname);
             NMLOG_INFO("/etc/device.properties eth: %s, wlan: %s, default hostname: %s", m_ethifname.c_str(), m_wlanifname.c_str(), m_deviceHostname.c_str());
             return true;
         }
@@ -392,7 +393,7 @@ namespace WPEFramework
                 // Remove any whitespace, newlines, etc.
                 line.erase(line.find_last_not_of("\r\n\t") + 1);
                 line.erase(0, line.find_first_not_of("\r\n\t"));
-                hostname = line;
+                hostname = std::move(line);
                 file.close();
 
                 NMLOG_INFO("Read persistent hostname: '%s'", hostname.c_str());
@@ -426,7 +427,7 @@ namespace WPEFramework
 
                 if (iss >> ip >> hwType >> flags >> hwAddr) {
                     if (ip == gatewayIp && hwAddr != "00:00:00:00:00:00") {
-                        mac = hwAddr;
+                        mac = std::move(hwAddr);
                         NMLOG_INFO("Resolved gateway IP %s to MAC %s", gatewayIp.c_str(), mac.c_str());
                         break;
                     }
