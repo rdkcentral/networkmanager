@@ -33,7 +33,6 @@
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
 #include <set>
-#include <utility>
 
 #ifdef ENABLE_MIGRATION_MFRMGR_SUPPORT
 #include "NetworkManagerGnomeMfrMgr.h"

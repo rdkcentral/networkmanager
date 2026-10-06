@@ -591,7 +591,7 @@ namespace WPEFramework
                 if(enabled && interface == nmUtils::wlanIface() && _instance != NULL)
                 {
                     sleep(1); // wait for 1 sec to change the device state
-                    const string lastConnectedSSID = getLastConnectedSSID();
+                    string lastConnectedSSID = getLastConnectedSSID();
                     NMLOG_INFO("Activating connection '%s' ...", lastConnectedSSID.c_str());
                     wifi->activateKnownConnection(nmUtils::wlanIface(), std::move(lastConnectedSSID));
                 }
