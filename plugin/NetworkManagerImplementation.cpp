@@ -266,9 +266,7 @@ namespace WPEFramework
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
-            NMLOG_INFO("Platform initialized successfully");
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
-            NMLOG_INFO("Power client initialized successfully");
             return(Core::ERROR_NONE);
         }
 
