@@ -70,6 +70,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NMPROF Implementation ctor begin")));
             SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
@@ -82,6 +83,7 @@ namespace WPEFramework
                 // Initialize Telemetry T2 for NwMgrPlugin
                 t2_init("NwMgrPlugin");
             #endif
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("NMPROF Implementation ctor end")));
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -172,6 +174,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::Configure(const string configLine)
         {
             LOG_ENTRY_FUNCTION();
+            NMLOG_INFO("NMPROF Configure begin");
             Configuration config;
             if(configLine.empty())
             {
@@ -189,15 +192,23 @@ namespace WPEFramework
 
             /* Resolve the connectivity backend at runtime (replaces the old
              * USE_CONNECTIVITY_CHECK_MGR compile-time macro). */
+            NMLOG_INFO("NMPROF resolveConnectivityCheckMgrEnabled begin");
             m_useConnectivityCheckMgr = resolveConnectivityCheckMgrEnabled(config);
+            NMLOG_INFO("NMPROF resolveConnectivityCheckMgrEnabled end");
 #ifdef USE_CONNECTIVITYCHECKMGR
             if(m_useConnectivityCheckMgr)
             {
                 /* Stop the built-in monitor (started by its constructor) so it does
                  * not run alongside the delegation client. */
+                NMLOG_INFO("NMPROF stopConnectivityMonitor begin");
                 connectivityMonitor.stopConnectivityMonitor();
+                NMLOG_INFO("NMPROF stopConnectivityMonitor end");
                 if(!connectivityClient)
+                {
+                    NMLOG_INFO("NMPROF connectivityClient create begin");
                     connectivityClient.reset(new NetworkManagerConnectivityClient());
+                    NMLOG_INFO("NMPROF connectivityClient create end");
+                }
                 connectivityClient->SetInternetStatusChangeHandler(
                     [this](const Exchange::INetworkManager::InternetStatus status, const std::string& reason) {
                         OnDelegatedInternetStatusChange(status, reason);
@@ -263,10 +274,17 @@ namespace WPEFramework
             }
 
             /* As all the configuration is set, lets instantiate platform */
+            NMLOG_INFO("NMPROF platform_init begin");
             NetworkManagerImplementation::platform_init();
+            NMLOG_INFO("NMPROF platform_init end");
             /* change gnome networkmanager or netsrvmgr logg level */
+            NMLOG_INFO("NMPROF platform_logging begin");
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
+            NMLOG_INFO("NMPROF platform_logging end");
+            NMLOG_INFO("NMPROF powerClient create begin");
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
+            NMLOG_INFO("NMPROF powerClient create end");
+            NMLOG_INFO("NMPROF Configure end");
             return(Core::ERROR_NONE);
         }
 

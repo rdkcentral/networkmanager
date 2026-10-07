@@ -310,23 +310,35 @@ namespace WPEFramework
 
         void NetworkManagerImplementation::platform_init()
         {
+            NMLOG_INFO("NMPROF platform_init(gnome) begin");
             ::_instance = this;
 
             // Create an isolated GMainContext for per-call NMClient creation.
+            NMLOG_INFO("NMPROF g_main_context_new begin");
             m_nmContext = g_main_context_new();
+            NMLOG_INFO("NMPROF g_main_context_new end");
 
             // Create a temporary client for one-time init work
+            NMLOG_INFO("NMPROF createProxyClient(nm_client_new #1) begin");
             NMClient *initClient = createProxyClient(m_nmContext);
+            NMLOG_INFO("NMPROF createProxyClient(nm_client_new #1) end");
             if (initClient == NULL) {
                 NMLOG_FATAL("Error initializing NMClient during platform_init");
                 g_main_context_unref(m_nmContext);
                 m_nmContext = nullptr;
+                NMLOG_INFO("NMPROF platform_init(gnome) end (NMClient failure)");
                 return;
             }
 
+            NMLOG_INFO("NMPROF getDeviceProperties begin");
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
+            NMLOG_INFO("NMPROF getDeviceProperties end");
+            NMLOG_INFO("NMPROF modifyDefaultConnConfig begin");
             modifyDefaultConnConfig(initClient);
+            NMLOG_INFO("NMPROF modifyDefaultConnConfig end");
+            NMLOG_INFO("NMPROF ifaceState begin");
             NMDeviceState ethState = ifaceState(initClient, nmUtils::ethIface());
+            NMLOG_INFO("NMPROF ifaceState end");
             if(ethState > NM_DEVICE_STATE_DISCONNECTED && ethState < NM_DEVICE_STATE_DEACTIVATING)
                 setDefaultInterface(nmUtils::ethIface());
             else
@@ -334,12 +346,21 @@ namespace WPEFramework
 
             NMLOG_INFO("default interface is %s",  getDefaultInterface().c_str());
 
+            NMLOG_INFO("NMPROF deleteProxyClient begin");
             deleteProxyClient(initClient);
+            NMLOG_INFO("NMPROF deleteProxyClient end");
 
             // getInitialConnectionState function not called here, as event monitor will report the initial state
+            NMLOG_INFO("NMPROF GnomeNetworkManagerEvents::getInstance(nm_client_new #2) begin");
             nmEvent = GnomeNetworkManagerEvents::getInstance();
+            NMLOG_INFO("NMPROF GnomeNetworkManagerEvents::getInstance(nm_client_new #2) end");
+            NMLOG_INFO("NMPROF startNetworkMangerEventMonitor begin");
             nmEvent->startNetworkMangerEventMonitor();
+            NMLOG_INFO("NMPROF startNetworkMangerEventMonitor end");
+            NMLOG_INFO("NMPROF wifiManager::getInstance begin");
             wifi = wifiManager::getInstance();
+            NMLOG_INFO("NMPROF wifiManager::getInstance end");
+            NMLOG_INFO("NMPROF platform_init(gnome) end");
         }
 
         uint32_t NetworkManagerImplementation::GetAvailableInterfaces (Exchange::INetworkManager::IInterfaceDetailsIterator*& interfacesItr/* @out */)

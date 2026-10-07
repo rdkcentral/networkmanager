@@ -34,13 +34,13 @@ NetworkManagerPowerClient::NetworkManagerPowerClient(INetworkPowerCallback& call
     , mPreChangeNotification(*this)
     , mChangedNotification(*this)
 {
-    NMLOG_INFO("NetworkManagerPowerClient ctor");
+    NMLOG_INFO("NMPROF NetworkManagerPowerClient ctor");
     if (auto r = Open(RPC::CommunicationTimeOut, Connector(), "org.rdk.PowerManager"); r == Core::ERROR_NONE) {
         // Connected; Operational() will be called by the framework when the proxy is ready
     } else {
         NMLOG_ERROR("failed to open link to PowerManager (error %u)", r);
     }
-    NMLOG_INFO("NetworkManagerPowerClient ctor ends");
+    NMLOG_INFO("NMPROF NetworkManagerPowerClient ctor ends");
 }
 
 NetworkManagerPowerClient::~NetworkManagerPowerClient()

@@ -71,6 +71,7 @@ namespace WPEFramework
             ASSERT(_networkManager == nullptr);
 
             // Syslog Startup messages are always printed by default
+            SYSLOG(Logging::Startup, (_T("NMPROF Initialize begin")));
             SYSLOG(Logging::Startup, (_T("Initializing NetworkManager")));
             NetworkManagerLogger::Init();
             // Register the Connection::Notification first. Do this before we start our actual plugin
@@ -85,7 +86,9 @@ namespace WPEFramework
             //
             // Ideally for large, complex plugins we would actually split the plugin into two libraries - a thin library that just calls
             // _service->Root to launch WPEProcess, and a larger library that is only ever run inside WPEProcess only (we do this for Cobalt and WebKitBrowser)
+            SYSLOG(Logging::Startup, (_T("NMPROF Root spawn WPEProcess begin")));
             _networkManager = service->Root<Exchange::INetworkManager>(_connectionId, 25000, _T("NetworkManagerImplementation"));
+            SYSLOG(Logging::Startup, (_T("NMPROF Root spawn WPEProcess end")));
 
             // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
@@ -94,6 +97,7 @@ namespace WPEFramework
                 SYSLOG(Logging::Startup, (_T("Registering Notification to NetworkManager")));
                 _networkManager->Register(&_notification);
 
+                SYSLOG(Logging::Startup, (_T("NMPROF Configure begin")));
                 SYSLOG(Logging::Startup, (_T("Configuring NetworkManager")));
                 if (_networkManager->Configure(service->ConfigLine()) != Core::ERROR_NONE)
                 {
@@ -113,20 +117,28 @@ namespace WPEFramework
 #endif
                     SYSLOG(Logging::Startup, (_T("Configuring successful")));
                 }
+                SYSLOG(Logging::Startup, (_T("NMPROF Configure end")));
 
                 // Set the plugin log level
+                SYSLOG(Logging::Startup, (_T("NMPROF GetLogLevel/SetLevel begin")));
                 Exchange::INetworkManager::Logging _loglevel;
                 _networkManager->GetLogLevel(_loglevel);
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
+                SYSLOG(Logging::Startup, (_T("NMPROF GetLogLevel/SetLevel end")));
 
                 // Register all custom JSON-RPC methods
+                SYSLOG(Logging::Startup, (_T("NMPROF RegisterAllMethods begin")));
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
                 RegisterAllMethods();
+                SYSLOG(Logging::Startup, (_T("NMPROF RegisterAllMethods end")));
 
 
                 // Get IPlugin interface for this plugin
+                SYSLOG(Logging::Startup, (_T("NMPROF QueryInterface IPlugin begin")));
                 SYSLOG(Logging::Startup, (_T("Retrieve ComRPC Interface for NetworkManager")));
                 _networkManagerImpl = _networkManager->QueryInterface<PluginHost::IPlugin>();
+                SYSLOG(Logging::Startup, (_T("NMPROF QueryInterface IPlugin end")));
+                SYSLOG(Logging::Startup, (_T("NMPROF Initialize end")));
             }
             else
             {
