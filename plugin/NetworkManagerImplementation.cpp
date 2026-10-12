@@ -1355,9 +1355,6 @@ namespace WPEFramework
             if(INetworkManager::WiFiState::WIFI_STATE_CONNECTED == state)
             {
                 m_wlanConnected.store(true);
-				WiFiSSIDInfo ssidInfo{};
-                if (Core::ERROR_NONE == GetConnectedSSID(ssidInfo) && !ssidInfo.ssid.empty())
-                    m_lastConnectedSSID = ssidInfo.ssid; // last connected ssid used in wifiConnect
                 startWiFiSignalQualityMonitor(DEFAULT_WIFI_SIGNAL_TEST_INTERVAL_SEC);
             }
             else
