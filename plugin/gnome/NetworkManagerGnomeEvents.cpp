@@ -799,6 +799,18 @@ namespace WPEFramework
         return G_SOURCE_REMOVE;
     }
 
+    static void releaseClient(NMClient *&client, GMainLoop *loop, GMainContext *context)
+    {
+        GObject *busyWatcher = nm_client_get_context_busy_watcher(client);
+        g_object_add_weak_pointer(busyWatcher, reinterpret_cast<gpointer *>(&busyWatcher));
+        g_clear_object(&client);
+        while (busyWatcher)
+            g_main_context_iteration(context, TRUE);
+        if (loop)
+            g_main_loop_unref(loop);
+        g_main_context_unref(context);
+    }
+
     void* GnomeNetworkManagerEvents::networkMangerEventMonitor(void *arg)
     {
         if(arg == nullptr)
@@ -824,19 +836,9 @@ namespace WPEFramework
         }
 
         GMainLoop *loop = g_main_loop_new(context, FALSE);
-        auto releaseClient = [&]() {
-            GObject *busyWatcher = nm_client_get_context_busy_watcher(nmEvents->client);
-            g_object_add_weak_pointer(busyWatcher, reinterpret_cast<gpointer *>(&busyWatcher));
-            g_clear_object(&nmEvents->client);
-            while (busyWatcher)
-                g_main_context_iteration(context, TRUE);
-            if (loop)
-                g_main_loop_unref(loop);
-            g_main_context_unref(context);
-        };
         if (loop == nullptr) {
             NMLOG_FATAL("GMain loop failed Fatal Error: Event will not work");
-            releaseClient();
+            releaseClient(nmEvents->client, loop, context);
             return nullptr;
         }
         _nmEventInstance = monitor;
@@ -864,7 +866,7 @@ namespace WPEFramework
             NMLOG_ERROR("Failed to get device list.");
             monitor->cleanupSignalHandlers();
             _nmEventInstance = nullptr;
-            releaseClient();
+            releaseClient(nmEvents->client, loop, context);
             return nullptr;
         }
 
@@ -948,7 +950,7 @@ namespace WPEFramework
         }
         monitor->cleanupSignalHandlers();
         _nmEventInstance = nullptr;
-        releaseClient();
+        releaseClient(nmEvents->client, loop, context);
         return nullptr;
     }
 

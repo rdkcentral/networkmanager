@@ -1058,14 +1058,13 @@ namespace WPEFramework
                     m_wlanEnabled.store(true);
                 }
 
-                // Availability of an IP address does not identify the primary route on GNOME libnm.
-#if !defined(NM_BACKEND_GNOME_LIBNM)
+                // FIXME : Availability of IP address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
+                bool isDefaultIface;
                 if (m_ethConnected.load() && m_wlanConnected.load())
                     setDefaultInterface("eth0");
                 else
                     setDefaultInterface(interface);
-#endif
-                bool isDefaultIface = (getDefaultInterface() == interface);
+                isDefaultIface = (getDefaultInterface() == interface);
 
                 if(isDefaultIface) {
                     // As default interface is connected, switch connectivity monitor to initial check any way
