@@ -46,6 +46,7 @@ namespace WPEFramework
 
         NetworkManagerImplementation::NetworkManagerImplementation()
         {
+            NMLOG_INFO("NetworkManagerImplementation ctor");
             /* Initialize STUN Endpoints */
             m_stunEndpoint = "stun.l.google.com";
             m_stunPort = 19302;
@@ -65,7 +66,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("[NWMGR] NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
             /* Start dedicated event dispatch thread */
@@ -77,6 +78,7 @@ namespace WPEFramework
                 // Initialize Telemetry T2 for NwMgrPlugin
                 t2_init("NwMgrPlugin");
             #endif
+            NMLOG_INFO("NetworkManagerImplementation ctor ends");
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
@@ -217,9 +219,10 @@ namespace WPEFramework
                 backup.push_back("http://clients3.google.com/generate_204");
                 connectivityMonitor.setConnectivityMonitorEndpoints(backup);
             }
-
+            NMLOG_INFO("Connectivity monitor endpoints configured");
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
+            NMLOG_INFO("Platform initialized");
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
