@@ -21,13 +21,13 @@
 # nm_interface_handler.sh
 #
 # This script manages Ethernet and Wi-Fi interfaces based on marker files.
-# If specific marker files exist, it marks eth0 or wlan0 as unmanaged
-# in NetworkManager, preventing automatic configuration.
+# If specific marker files exist, it writes a NetworkManager config drop-in
+# (/run/NetworkManager/conf.d/20-rdk-iface-disable.conf) that sets matching
+# interfaces to managed=0 while their marker files exist.
+# This soft setting allows the plugin to re-enable an interface at runtime.
 #
-# Invocation:
-# Called automatically during system startup as part of the thunder-startup-services
-# WPEFramework NetworkManager plugin service using ExecStartPre in:
-#    wpeframework-networkmanager.service
+# Called by ExecStartPre in NetworkManager.service and
+# wpeframework-networkmanager.service.
 
 . /etc/device.properties
 
@@ -48,6 +48,12 @@ NSM_WIFI_MARKER="/opt/persistent/wifi_disallowed"
 NM_WIFI_MARKER="/opt/persistent/wifi.interface.disable"
 WIFI_INTERFACE="$WIFI_INTERFACE"
 
+NM_DROPIN_DIR="/run/NetworkManager/conf.d"
+NM_DROPIN="$NM_DROPIN_DIR/20-rdk-iface-disable.conf"
+
+mkdir -p "$NM_DROPIN_DIR"
+rm -f "$NM_DROPIN"
+
 if [ "$BOOT_TYPE" = "BOOT_MIGRATION" ]; then
     echo "`/bin/timestamp` :$0: migration boot removing ethernet and wifi disable marker file" >> /opt/logs/NMMonitor.log
     rm -f "$NSM_ETH_MARKER"
@@ -64,16 +70,29 @@ if [ -f "$NSM_WIFI_MARKER" ]; then
     mv "$NSM_WIFI_MARKER" "$NM_WIFI_MARKER"
 fi
 
-# If networkmanager Ethernet marker exists, make eth0 unmanaged
+# If networkmanager Ethernet marker exists, set eth0 unmanaged by default
 if [ -f "$NM_ETH_MARKER" ]; then
-    echo "`/bin/timestamp` :$0: disabling eth0 interface " >>  /opt/logs/NMMonitor.log
-    nmcli device disconnect "$ETH_INTERFACE"
-    nmcli dev set "$ETH_INTERFACE" managed no
+    echo "`/bin/timestamp` :$0: disabling $ETH_INTERFACE interface " >>  /opt/logs/NMMonitor.log
 fi
 
-# If networkmanager Wi-Fi marker exists, make wlan0 unmanaged
+# If networkmanager Wi-Fi marker exists, set wlan0 unmanaged by default
 if [ -f "$NM_WIFI_MARKER" ]; then
-    echo "`/bin/timestamp` :$0: disabling wlan0 interface " >>  /opt/logs/NMMonitor.log
-    nmcli device disconnect "$WIFI_INTERFACE"
-    nmcli dev set "$WIFI_INTERFACE" managed no
+    echo "`/bin/timestamp` :$0: disabling $WIFI_INTERFACE interface " >>  /opt/logs/NMMonitor.log
+fi
+
+if [ -f "$NM_ETH_MARKER" ] || [ -f "$NM_WIFI_MARKER" ]; then
+    {
+        if [ -f "$NM_ETH_MARKER" ]; then
+            echo "[device-rdk-eth]"
+            echo "match-device=interface-name:$ETH_INTERFACE"
+            echo "managed=0"
+            echo ""
+        fi
+        if [ -f "$NM_WIFI_MARKER" ]; then
+            echo "[device-rdk-wifi]"
+            echo "match-device=interface-name:$WIFI_INTERFACE"
+            echo "managed=0"
+            echo ""
+        fi
+    } >> "$NM_DROPIN"
 fi
