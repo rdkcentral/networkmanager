@@ -91,7 +91,7 @@ namespace WPEFramework
             return true;
         }
 
-        NMLOG_DEBUG("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+        NMLOG_INFO("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
 
         if (!sIPv4) {
             sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
@@ -200,7 +200,7 @@ namespace WPEFramework
         {
             activeConnId = nm_active_connection_get_id(primaryConn);
             connectionTyp = nm_active_connection_get_connection_type(primaryConn);
-            NMLOG_DEBUG("active connection - %s (%s)", activeConnId, connectionTyp);
+            NMLOG_INFO("active connection - %s (%s)", activeConnId, connectionTyp);
 
             if (connectionTyp != nullptr && 0 == strncmp("802-3-ethernet", connectionTyp, sizeof("802-3-ethernet")) && string("eth0_missing") != nmUtils::ethIface())
                 newIface = nmUtils::ethIface();
@@ -813,6 +813,7 @@ namespace WPEFramework
 
     void* GnomeNetworkManagerEvents::networkMangerEventMonitor(void *arg)
     {
+        GError *error = nullptr;
         if(arg == nullptr)
         {
             NMLOG_FATAL("function argument error: nm event monitor failed");
@@ -820,9 +821,14 @@ namespace WPEFramework
         }
 
         GnomeNetworkManagerEvents *monitor = static_cast<GnomeNetworkManagerEvents *>(arg);
+
         NMEvents *nmEvents = &monitor->nmEvents;
         GMainContext *context = g_main_context_new();
-        GError *error = nullptr;
+        if (context == nullptr) {
+            NMLOG_FATAL("Failed to create GMainContext");
+            return nullptr;
+        }
+
         g_main_context_push_thread_default(context);
         nmEvents->client = nm_client_new(NULL, &error);
         g_main_context_pop_thread_default(context);
@@ -841,8 +847,10 @@ namespace WPEFramework
             releaseClient(nmEvents->client, loop, context);
             return nullptr;
         }
+
         _nmEventInstance = monitor;
-        NMLOG_DEBUG("libnm client connection success version: %s", nm_client_get_version(nmEvents->client));
+
+        NMLOG_INFO("libnm client connection success version: %s", nm_client_get_version(nmEvents->client));
         primaryConnectionCb(nmEvents->client, NULL, nmEvents);
         g_signal_connect (nmEvents->client, "notify::" NM_CLIENT_NM_RUNNING,G_CALLBACK (managerRunningCb), nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
@@ -982,12 +990,12 @@ namespace WPEFramework
         }
 
         if (eventThrdID) {
+            NMLOG_INFO("gnome event monitor stopping..");
             g_thread_join(eventThrdID);  // Wait for the thread to finish
             eventThrdID = NULL;  // Reset the thread ID
             NMLOG_WARNING("gnome event monitor stopped");
         }
         isEventThrdActive = false;
-
     }
 
     void GnomeNetworkManagerEvents::cleanupSignalHandlers()

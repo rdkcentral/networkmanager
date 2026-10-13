@@ -1058,7 +1058,7 @@ namespace WPEFramework
                     m_wlanEnabled.store(true);
                 }
 
-                // FIXME : Availability of IP address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
+                // FIXME : Availability of ip address for a given interface does not mean that its the default interface. This hardcoding will work for RDKProxy but not for Gnome.
                 bool isDefaultIface;
                 if (m_ethConnected.load() && m_wlanConnected.load())
                     setDefaultInterface("eth0");
