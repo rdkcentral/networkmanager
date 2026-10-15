@@ -72,7 +72,7 @@ namespace WPEFramework
         {
             return;
         }
-
+#if 0
         static NMDeviceState ifaceState(NMClient *client, const char* interface)
         {
             NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
@@ -95,7 +95,7 @@ namespace WPEFramework
             deviceState = nm_device_get_state(device);
             return deviceState;
         }
-
+#endif
         /* @brief Set the dhcp hostname */
         uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
         {

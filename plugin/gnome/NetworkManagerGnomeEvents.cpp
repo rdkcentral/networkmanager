@@ -44,11 +44,6 @@ namespace WPEFramework
     extern NetworkManagerImplementation* _instance;
     static GnomeNetworkManagerEvents *_nmEventInstance = nullptr;
 
-    /* Gnome-owned interface-state cache (raw NMDeviceState + MAC per interface).
-       Written only by the event monitor; read by the proxy's pure readers. */
-    static std::map<std::string, GnomeNetworkManagerEvents::InterfaceStateInfo> _ifaceStateCache;
-    static std::mutex _ifaceStateCacheMutex;
-
     bool setHostname(NMConnection *connection, const std::string& hostname)
     {
         GError *error = NULL;
@@ -976,10 +971,11 @@ namespace WPEFramework
 
     GnomeNetworkManagerEvents::GnomeNetworkManagerEvents()
     {
-        NMLOG_DEBUG("GnomeNetworkManagerEvents");
+        NMLOG_INFO("GnomeNetworkManagerEvents ctor");
         eventThrdID = nullptr;
         isEventThrdActive = false;
         doScanNotify = false;
+        NMLOG_INFO("GnomeNetworkManagerEvents ctor ends");
     }
 
     /* Gnome networkmanger new events */
