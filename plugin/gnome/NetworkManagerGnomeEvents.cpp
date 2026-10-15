@@ -149,44 +149,6 @@ namespace WPEFramework
         checkAndSetHostname(connection);
     }
 
-    bool GnomeNetworkManagerEvents::isInterfaceStateEnabled(NMDeviceState state)
-    {
-        return (state >= NM_DEVICE_STATE_UNAVAILABLE);
-    }
-
-    bool GnomeNetworkManagerEvents::isInterfaceStateConnected(NMDeviceState state)
-    {
-        return (state > NM_DEVICE_STATE_DISCONNECTED && state < NM_DEVICE_STATE_DEACTIVATING);
-    }
-
-    void GnomeNetworkManagerEvents::updateInterfaceStateCache(const std::string& iface, NMDeviceState state, const char* mac)
-    {
-        if (iface.empty())
-            return;
-        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
-        InterfaceStateInfo& info = _ifaceStateCache[iface];
-        info.state   = state;
-        info.present = true;
-        if (mac != nullptr && mac[0] != '\0')
-            info.mac = mac; // keep in sync when NM reports a new/randomized HW address
-    }
-
-    void GnomeNetworkManagerEvents::removeInterfaceStateCache(const std::string& iface)
-    {
-        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
-        _ifaceStateCache.erase(iface);
-    }
-
-    bool GnomeNetworkManagerEvents::getInterfaceStateCache(const std::string& iface, InterfaceStateInfo& out)
-    {
-        std::lock_guard<std::mutex> lock(_ifaceStateCacheMutex);
-        auto it = _ifaceStateCache.find(iface);
-        if (it == _ifaceStateCache.end() || !it->second.present)
-            return false;
-        out = it->second;
-        return true;
-    }
-
     static void primaryConnectionCb(NMClient *client, GParamSpec *param, NMEvents *nmEvents)
     {
         NMActiveConnection *primaryConn;
