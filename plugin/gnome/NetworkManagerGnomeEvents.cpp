@@ -91,7 +91,7 @@ namespace WPEFramework
             return true;
         }
 
-        NMLOG_INFO("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+        NMLOG_DEBUG("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
 
         if (!sIPv4) {
             sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
