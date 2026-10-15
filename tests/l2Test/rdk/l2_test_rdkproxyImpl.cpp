@@ -22,14 +22,10 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include "NetworkManagerImplementation.h"
 #include "NetworkManager.h"
-#ifdef USE_CONNECTIVITYCHECKMGR
-#include "NetworkManagerConnectivityClient.h"
-#endif
 #include "IarmBusMock.h"
 #include "ServiceMock.h"
 #include "Module.h"
@@ -45,112 +41,19 @@ using IStringIterator = RPC::IIteratorType<string,RPC::ID_STRINGITERATOR>;
 using ::testing::NiceMock;
 
 namespace {
-#ifdef USE_CONNECTIVITYCHECKMGR
-class ConnectivityStatusProxy : public Exchange::IConnectivityCheck {
-public:
-    uint32_t AddRef() const override { return ++m_refCount; }
-    uint32_t Release() const override { return --m_refCount; }
-
-    void* QueryInterface(const uint32_t id) override
-    {
-        if (id == Exchange::IConnectivityCheck::ID || id == Core::IUnknown::ID) {
-            return static_cast<Exchange::IConnectivityCheck*>(this);
-        }
-        return nullptr;
-    }
-
-    uint32_t GetInternetStatus(StatusInfo& info) const override
-    {
-        ++passiveQueryCount;
-        if (armed) {
-            armed = false;
-            ++probeRequestCount;
-        }
-        info.status = status;
-        info.reason.clear();
-        return Core::ERROR_NONE;
-    }
-
-    uint32_t GetCaptivePortalURI(string& uri) const override
-    {
-        uri.clear();
-        return Core::ERROR_NONE;
-    }
-
-    uint32_t GetDiagnostics(DiagnosticInfo&) const override { return Core::ERROR_NONE; }
-    uint32_t ExecuteProbe(StatusInfo&) override { return Core::ERROR_NONE; }
-    uint32_t ExternalProbe(ExternalProbeState& state) override
-    {
-        state = NOT_VALID;
-        return Core::ERROR_NONE;
-    }
-    uint32_t Configure(const string&) override { return Core::ERROR_NONE; }
-    uint32_t Register(INotification* sink) override
-    {
-        notification = sink;
-        return Core::ERROR_NONE;
-    }
-    uint32_t Unregister(INotification* sink) override
-    {
-        if (notification == sink) {
-            notification = nullptr;
-        }
-        return Core::ERROR_NONE;
-    }
-    uint32_t RegisterLimitedInternet(ILimitedInternetNotification* sink) override
-    {
-        limitedInternetNotification = sink;
-        return Core::ERROR_NONE;
-    }
-    uint32_t UnregisterLimitedInternet(ILimitedInternetNotification* sink) override
-    {
-        if (limitedInternetNotification == sink) {
-            limitedInternetNotification = nullptr;
-        }
-        return Core::ERROR_NONE;
-    }
-    uint32_t SetNetworkManagerProxy(Core::IUnknown*) override { return Core::ERROR_NONE; }
-    uint32_t SetPowerManagerProxy(Core::IUnknown*) override { return Core::ERROR_NONE; }
-
-    void publish(InternetStatus newStatus, const string& reason)
-    {
-        status = newStatus;
-        if (notification != nullptr) {
-            notification->OnInternetStatusChange(newStatus, reason);
-        }
-    }
-
-    void expireThreshold()
-    {
-        armed = true;
-        if (limitedInternetNotification != nullptr) {
-            limitedInternetNotification->OnLimitedInternetThresholdExpired();
-        }
-    }
-
-    mutable std::atomic<uint32_t> passiveQueryCount{0};
-    std::atomic<uint32_t> probeRequestCount{0};
-    mutable InternetStatus status{FULLY_CONNECTED};
-    mutable bool armed{false};
-    INotification* notification{nullptr};
-    ILimitedInternetNotification* limitedInternetNotification{nullptr};
-
-private:
-    mutable std::atomic<uint32_t> m_refCount{1};
-};
-#endif
-
 class InternetStatusNotificationProbe : public Exchange::INetworkManager::INotification {
 public:
     void onInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState,
                                 const Exchange::INetworkManager::InternetStatus currState,
-                                const string interface) override
+                                const string interface,
+                                const string reason) override
     {
         std::lock_guard<std::mutex> lock(mutex);
         ++count;
         lastPrev = prevState;
         lastCurr = currState;
         lastInterface = interface;
+        lastReason = reason;
         cv.notify_all();
     }
 
@@ -184,6 +87,12 @@ public:
         return lastInterface;
     }
 
+    string LastReason() const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        return lastReason;
+    }
+
     uint32_t AddRef() const override
     {
         return Core::ERROR_NONE;
@@ -209,53 +118,9 @@ private:
     Exchange::INetworkManager::InternetStatus lastPrev {Exchange::INetworkManager::INTERNET_UNKNOWN};
     Exchange::INetworkManager::InternetStatus lastCurr {Exchange::INetworkManager::INTERNET_UNKNOWN};
     string lastInterface;
+    string lastReason;
 };
 } // namespace
-
-#ifdef USE_CONNECTIVITYCHECKMGR
-TEST(NetworkManagerConnectivityClientTest, PendingStatusHeldUntilExpiryAndQuery)
-{
-    ConnectivityStatusProxy proxy;
-    NetworkManagerConnectivityClient client(&proxy);
-    std::vector<Exchange::INetworkManager::InternetStatus> emitted;
-    client.SetInternetStatusChangeHandler([&](Exchange::INetworkManager::InternetStatus s) { emitted.push_back(s); });
-    std::string reason;
-
-    proxy.publish(Exchange::IConnectivityCheck::FULLY_CONNECTED, "");
-    ASSERT_EQ(emitted.size(), 1u);
-
-    // Pending-quiet LIMITED_INTERNET is held: no emit, previous status still returned.
-    proxy.publish(Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
-    EXPECT_EQ(emitted.size(), 1u);
-    EXPECT_EQ(client.getInternetStateForQuery(reason), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
-    EXPECT_EQ(proxy.probeRequestCount.load(), 0u);
-
-    // Query after expiry promotes, emits once and requests the probe once.
-    proxy.expireThreshold();
-    EXPECT_EQ(client.getInternetStateForQuery(reason), Exchange::INetworkManager::INTERNET_LIMITED);
-    ASSERT_EQ(emitted.size(), 2u);
-    EXPECT_EQ(emitted.back(), Exchange::INetworkManager::INTERNET_LIMITED);
-    EXPECT_EQ(proxy.probeRequestCount.load(), 1u);
-
-    EXPECT_EQ(client.getInternetStateForQuery(reason), Exchange::INetworkManager::INTERNET_LIMITED);
-    EXPECT_EQ(proxy.probeRequestCount.load(), 1u);
-}
-
-TEST(NetworkManagerConnectivityClientTest, OtherStatusClearsPendingHold)
-{
-    ConnectivityStatusProxy proxy;
-    NetworkManagerConnectivityClient client(&proxy);
-    std::string reason;
-
-    proxy.publish(Exchange::IConnectivityCheck::FULLY_CONNECTED, "");
-    proxy.publish(Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
-    proxy.publish(Exchange::IConnectivityCheck::FULLY_CONNECTED, "");
-    proxy.expireThreshold();
-
-    EXPECT_EQ(client.getInternetStateForQuery(reason), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
-    EXPECT_EQ(proxy.probeRequestCount.load(), 0u);
-}
-#endif
 
 class NetworkManagerImplTest : public ::testing::Test {
 protected:
@@ -377,7 +242,7 @@ TEST_F(NetworkManagerImplTest, GetConnectivityTestEndpoints)
 {
     // Set up mock endpoints in the ConnectivityMonitor
     std::vector<std::string> mockEndpoints = {"http://clients3.google.com/generate_204", "http://example.com"};
-    NetworkManagerImplementation->connectivityMonitor->setConnectivityMonitorEndpoints(mockEndpoints);
+    NetworkManagerImplementation->connectivityMonitor.setConnectivityMonitorEndpoints(mockEndpoints);
 
     // Call GetConnectivityTestEndpoints
     RPC::IIteratorType<string,RPC::ID_STRINGITERATOR>* endpoints = nullptr;
@@ -412,7 +277,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_EmptyEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were not set
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
     printf("Retrieved Endpoints Size: %zu %s\n", retrievedEndpoints.size(), retrievedEndpoints[0].c_str());
 	EXPECT_TRUE(retrievedEndpoints.empty() != true && retrievedEndpoints[0] == "http://clients3.google.com/generate_204"); // default endpoint should remain
 
@@ -432,7 +297,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_ValidEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were set correctly
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
     EXPECT_EQ(retrievedEndpoints, validEndpoints);
 
     // Clean up
@@ -452,7 +317,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_InvalidEndpoints) {
     EXPECT_EQ(result, Core::ERROR_NONE);
 
     // Verify the endpoints were not set
-    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
+    std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
     EXPECT_TRUE(retrievedEndpoints.size() == 1 && retrievedEndpoints[0] == "1234567890");
 
     // Clean up
@@ -473,7 +338,7 @@ TEST_F(NetworkManagerImplTest, SetConnectivityTestEndpoints_TooManyEndpoints) {
 	// Verify the result
 	EXPECT_EQ(result, Core::ERROR_NONE);
 
-	std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor->getConnectivityMonitorEndpoints();
+	std::vector<std::string> retrievedEndpoints = NetworkManagerImplementation->connectivityMonitor.getConnectivityMonitorEndpoints();
 	EXPECT_EQ((int)retrievedEndpoints.size(), 12);
 	
 	// Clean up
@@ -485,9 +350,6 @@ TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgePublishesAndDeduplic
 {
     InternetStatusNotificationProbe notification;
     ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
-
-    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":true})";
-    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
 
     NetworkManagerImplementation->setDefaultInterface("eth0");
     NetworkManagerImplementation->OnDelegatedInternetStatusChange(Exchange::INetworkManager::INTERNET_LIMITED);
@@ -509,13 +371,48 @@ TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgePublishesAndDeduplic
     EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
 }
 
-TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgeIgnoredWhenDelegationDisabled)
+TEST_F(NetworkManagerImplTest, DelegatedNoInternetReasonIsPublishedOnlyForNoInternet)
 {
     InternetStatusNotificationProbe notification;
     ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
 
-    const string configLine = R"({"loglevel":3,"useConnectivityCheckMgr":false})";
-    ASSERT_EQ(interface->Configure(configLine), Core::ERROR_NONE);
+    NetworkManagerImplementation->setDefaultInterface("eth0");
+    NetworkManagerImplementation->OnDelegatedInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_NOT_AVAILABLE, "PROBE_FAILED");
+
+    EXPECT_TRUE(notification.WaitForCount(1, std::chrono::milliseconds(1000)));
+    EXPECT_EQ(notification.LastCurr(), Exchange::INetworkManager::INTERNET_NOT_AVAILABLE);
+    EXPECT_EQ(notification.LastReason(), "PROBE_FAILED");
+
+    NetworkManagerImplementation->OnDelegatedInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_FULLY_CONNECTED, "STALE_REASON");
+
+    EXPECT_TRUE(notification.WaitForCount(2, std::chrono::milliseconds(1000)));
+    EXPECT_EQ(notification.LastCurr(), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
+    EXPECT_TRUE(notification.LastReason().empty());
+
+    EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
+}
+
+TEST_F(NetworkManagerImplTest, BuiltInMonitorInternetStatusEventOmitsReason)
+{
+    InternetStatusNotificationProbe notification;
+    ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
+
+    NetworkManagerImplementation->ReportInternetStatusChange(
+        Exchange::INetworkManager::INTERNET_UNKNOWN,
+        Exchange::INetworkManager::INTERNET_NOT_AVAILABLE, "eth0");
+
+    EXPECT_TRUE(notification.WaitForCount(1, std::chrono::milliseconds(1000)));
+    EXPECT_TRUE(notification.LastReason().empty());
+
+    EXPECT_EQ(interface->Unregister(&notification), Core::ERROR_NONE);
+}
+
+TEST_F(NetworkManagerImplTest, DelegatedInternetStatusBridgeIgnoredWhenDelegationDisabled)
+{
+    InternetStatusNotificationProbe notification;
+    ASSERT_EQ(interface->Register(&notification), Core::ERROR_NONE);
 
     NetworkManagerImplementation->OnDelegatedInternetStatusChange(Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_FALSE(notification.WaitForCount(1, std::chrono::milliseconds(250)));

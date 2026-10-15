@@ -21,10 +21,11 @@
 
 #include "Module.h"
 #include "INetworkManager.h"
-#include <interfaces/IConnectivityCheck.h>
+// IConnectivityCheck is generated/installed by entservices-cpc-apis under interfaces_cpc,
+// not the standard Thunder interfaces/ path.
+#include <interfaces_cpc/interfaces/IConnectivityCheck.h>
 #include <atomic>
 #include <condition_variable>
-#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -58,10 +59,9 @@ namespace Plugin {
 class NetworkManagerConnectivityClient : protected RPC::SmartInterfaceType<Exchange::IConnectivityCheck> {
 public:
     using NmInternetStatus = Exchange::INetworkManager::InternetStatus;
-    using InternetStatusChangeHandler = std::function<void(NmInternetStatus)>;
+    using InternetStatusChangeHandler = std::function<void(NmInternetStatus, const std::string&)>;
 
     NetworkManagerConnectivityClient();
-    explicit NetworkManagerConnectivityClient(Exchange::IConnectivityCheck* connectivity);
     ~NetworkManagerConnectivityClient() override;
 
     NetworkManagerConnectivityClient(const NetworkManagerConnectivityClient&) = delete;
@@ -70,8 +70,11 @@ public:
     /** Returns true when the ConnectivityCheckMgr COMRPC proxy is available. */
     bool IsValid() const;
 
-    /** Status for an application IsConnectedToInternet query; promotes a pending status after threshold expiry. */
-    NmInternetStatus getInternetStateForQuery(std::string& reason);
+    /** Delegated internet status, mapped to NetworkManager's InternetStatus. */
+    NmInternetStatus getInternetState();
+
+    /** Delegated internet status and its current NO_INTERNET reason. */
+    NmInternetStatus getInternetState(std::string& reason);
 
     /** Delegated captive-portal URI (empty when unavailable / not captive). */
     std::string getCaptivePortalURI();
@@ -119,8 +122,8 @@ private:
     void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,
                                      const std::string& reason);
     void notifyLimitedInternetThresholdExpired();
+    void completeInternetStatusChangeHandler();
     void openThreadLoop();
-    NmInternetStatus queryInternetState(std::string& reason, bool& succeeded);
 
     /* Returns an AddRef'd proxy (nullptr when unavailable) so the caller can invoke
      * ConnectivityCheckMgr without holding mLock across the blocking COM-RPC call. */
@@ -134,17 +137,16 @@ private:
     Core::Sink<Notification>         mNotification;
     Core::Sink<LimitedInternetNotification> mLimitedInternetNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
+    std::condition_variable          mHandlerDrainCv;
+    uint32_t                         mHandlersInFlight{0};
+    bool                             mHandlerClearInProgress{false};
     bool                             mNotificationRegistered{false}; // guarded by mLock
-    uint64_t                         m_statusRevision{0};               // guarded by mLock
 
     // Status cache kept current by OnInternetStatusChange, so the hot
     // isConnectedToInternet path needs no cross-process round trip.
     NmInternetStatus                 mCachedStatus{Exchange::INetworkManager::INTERNET_UNKNOWN};
     std::string                      mCachedReason;
     bool                             mHasCachedStatus{false};
-
-    // PENDING handling: hold the prior status on a pending-quiet LIMITED_INTERNET,
-    // then promote it on the first app query after threshold expiry. Guarded by mLock.
     bool                             mHoldPendingStatus{false};
     bool                             mPendingExpired{false};
 
@@ -154,6 +156,8 @@ private:
     std::mutex                       mOpenMutex;
     std::condition_variable          mOpenCv;
     std::atomic<bool>                mStopOpenThread{false};
+
+    friend class NetworkManagerConnectivityClientTestAccess;
 };
 
 } // namespace Plugin

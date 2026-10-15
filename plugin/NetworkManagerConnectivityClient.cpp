@@ -19,6 +19,7 @@
 
 #include "NetworkManagerConnectivityClient.h"
 #include "NetworkManagerLogger.h"
+#include <chrono>
 #include <com/com.h>
 
 using namespace WPEFramework;
@@ -35,17 +36,6 @@ NetworkManagerConnectivityClient::NetworkManagerConnectivityClient()
 {
     NMLOG_INFO("ConnectivityCheckMgr client created; opening link asynchronously");
     mOpenThread = std::thread(&NetworkManagerConnectivityClient::openThreadLoop, this);
-}
-
-NetworkManagerConnectivityClient::NetworkManagerConnectivityClient(Exchange::IConnectivityCheck* connectivity)
-    : mConnectivity(connectivity)
-    , mLimitedInternetNotification(*this)
-    , mNotification(*this)
-{
-    if (mConnectivity != nullptr) {
-        mConnectivity->AddRef();
-        registerEvents();
-    }
 }
 
 NetworkManagerConnectivityClient::~NetworkManagerConnectivityClient()
@@ -115,7 +105,6 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
             mPendingExpired = false;
             mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
             mCachedReason.clear();
-            ++m_statusRevision;
         }
         // Register without holding mLock: Register() can dispatch a synchronous
         // notification on some Thunder builds, which would deadlock if mLock is held.
@@ -133,7 +122,6 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
         mPendingExpired = false;
         mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
         mCachedReason.clear();
-        ++m_statusRevision;
     }
 }
 
@@ -148,8 +136,21 @@ Exchange::IConnectivityCheck* NetworkManagerConnectivityClient::acquireInterface
 
 void NetworkManagerConnectivityClient::SetInternetStatusChangeHandler(InternetStatusChangeHandler handler)
 {
-    std::lock_guard<std::mutex> lock(mLock);
-    mInternetStatusChangeHandler = std::move(handler);
+    std::unique_lock<std::mutex> lock(mLock);
+    mHandlerDrainCv.wait(lock, [this] { return !mHandlerClearInProgress; });
+
+    if (handler) {
+        mInternetStatusChangeHandler = std::move(handler);
+        return;
+    }
+
+    // Clearing is a drain barrier. It must not be called by the active handler.
+    mHandlerClearInProgress = true;
+    mInternetStatusChangeHandler = nullptr;
+    mHandlerDrainCv.wait(lock, [this] { return mHandlersInFlight == 0; });
+    mHandlerClearInProgress = false;
+    lock.unlock();
+    mHandlerDrainCv.notify_all();
 }
 
 void NetworkManagerConnectivityClient::registerEvents()
@@ -166,15 +167,17 @@ void NetworkManagerConnectivityClient::registerEvents()
         connectivity->AddRef();
     }
 
-    const uint32_t rp = (r == Core::ERROR_NONE) ? connectivity->RegisterLimitedInternet(&mLimitedInternetNotification) : r;
-    if (r == Core::ERROR_NONE && rp != Core::ERROR_NONE) {
+    const uint32_t r = connectivity->Register(&mNotification);
+    const uint32_t limitedInternetResult = r == Core::ERROR_NONE
+        ? connectivity->RegisterLimitedInternet(&mLimitedInternetNotification)
+        : r;
+    if (r == Core::ERROR_NONE && limitedInternetResult != Core::ERROR_NONE) {
         connectivity->Unregister(&mNotification);
     }
     connectivity->Release();
 
-    if (rp != Core::ERROR_NONE) {
-        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u/%u)", r, rp
-        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u)", r);
+    if (limitedInternetResult != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u/%u)", r, limitedInternetResult);
         std::lock_guard<std::mutex> lock(mLock);
         mNotificationRegistered = false;
         return;
@@ -196,14 +199,14 @@ void NetworkManagerConnectivityClient::unregisterEvents()
             return;
         }
         connectivity = mConnectivity;
-     
-    if (const uint32_t r = connectivity->UnregisterLimitedInternet(&mLimitedInternetNotification); r != Core::ERROR_NONE) {
-        NMLOG_ERROR("ConnectivityCheckMgr unregister(limited-internet notification) failed (%u)", r);
-    }   connectivity->AddRef();
+        connectivity->AddRef();
     }
 
     if (const uint32_t r = connectivity->Unregister(&mNotification); r != Core::ERROR_NONE) {
         NMLOG_ERROR("ConnectivityCheckMgr unregister(notification) failed (%u)", r);
+    }
+    if (const uint32_t r = connectivity->UnregisterLimitedInternet(&mLimitedInternetNotification); r != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr unregister(limited-internet notification) failed (%u)", r);
     }
     connectivity->Release();
 }
@@ -212,6 +215,8 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
                                                                    const std::string& reason)
 {
     const NmInternetStatus mapped = mapStatus(status);
+    // Only NO_INTERNET carries a meaningful reason; keep the handler consistent with the cache.
+    const std::string filteredReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
 
     InternetStatusChangeHandler handler;
     {
@@ -219,7 +224,6 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         if (status == Exchange::IConnectivityCheck::LIMITED_INTERNET
             && reason == CONNECTIVITY_PENDING_QUIET_REASON
             && mHasCachedStatus) {
-            // Keep exposing the prior status until threshold expiry and an app query.
             mHoldPendingStatus = true;
             mPendingExpired = false;
             return;
@@ -227,17 +231,42 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         mHoldPendingStatus = false;
         mPendingExpired = false;
         mCachedStatus = mapped;
-        mCachedReason = (status == Exchange::IConnectivityCheck::NO_INTERNET) ? reason : std::string();
+        mCachedReason = filteredReason;
         mHasCachedStatus = true;
-        ++m_statusRevision;
+        if (mHandlerClearInProgress) {
+            return;
+        }
         handler = mInternetStatusChangeHandler;
+        if (handler) {
+            ++mHandlersInFlight;
+        }
     }
 
     if (!handler) {
         return;
     }
 
-    handler(mapped);
+    struct HandlerCompletion {
+        explicit HandlerCompletion(NetworkManagerConnectivityClient& client)
+            : client(client) {}
+        ~HandlerCompletion()
+        {
+            client.completeInternetStatusChangeHandler();
+        }
+
+        NetworkManagerConnectivityClient& client;
+    } completion(*this);
+
+    handler(mapped, filteredReason);
+}
+
+void NetworkManagerConnectivityClient::completeInternetStatusChangeHandler()
+{
+    std::lock_guard<std::mutex> lock(mLock);
+    --mHandlersInFlight;
+    if (mHandlersInFlight == 0) {
+        mHandlerDrainCv.notify_all();
+    }
 }
 
 void NetworkManagerConnectivityClient::Notification::OnInternetStatusChange(
@@ -274,11 +303,20 @@ NetworkManagerConnectivityClient::mapStatus(Exchange::IConnectivityCheck::Intern
 }
 
 NetworkManagerConnectivityClient::NmInternetStatus
-NetworkManagerConnectivityClient::getInternetStateForQuery(std::string& reason)
+NetworkManagerConnectivityClient::getInternetState()
 {
-    uint64_t revision = 0;
-    bool promote = false;
+    std::string reason;
+    return getInternetState(reason);
+}
+
+NetworkManagerConnectivityClient::NmInternetStatus
+NetworkManagerConnectivityClient::getInternetState(std::string& reason)
+{
+    LOG_ENTRY_FUNCTION();
+    reason.clear();
+
     InternetStatusChangeHandler handler;
+    bool promotePendingStatus = false;
     {
         std::lock_guard<std::mutex> lock(mLock);
         if (mPendingExpired) {
@@ -287,22 +325,28 @@ NetworkManagerConnectivityClient::getInternetStateForQuery(std::string& reason)
             mCachedStatus = Exchange::INetworkManager::INTERNET_LIMITED;
             mCachedReason.clear();
             mHasCachedStatus = true;
-            ++m_statusRevision;
-            handler = mInternetStatusChangeHandler;
-            promote = true;
+            if (!mHandlerClearInProgress && mInternetStatusChangeHandler) {
+                handler = mInternetStatusChangeHandler;
+                ++mHandlersInFlight;
+            }
+            promotePendingStatus = true;
         } else if (mHasCachedStatus) {
             reason = mCachedReason;
             return mCachedStatus;
         }
-        revision = m_statusRevision;
     }
 
-    if (promote) {
-        reason.clear();
+    if (promotePendingStatus) {
         if (handler) {
-            handler(Exchange::INetworkManager::INTERNET_LIMITED);
+            struct HandlerCompletion {
+                explicit HandlerCompletion(NetworkManagerConnectivityClient& client)
+                    : client(client) {}
+                ~HandlerCompletion() { client.completeInternetStatusChangeHandler(); }
+                NetworkManagerConnectivityClient& client;
+            } completion(*this);
+            handler(Exchange::INetworkManager::INTERNET_LIMITED, std::string());
         }
-        // The probe verdict arrives asynchronously via OnInternetStatusChange.
+
         Exchange::IConnectivityCheck* connectivity = acquireInterface();
         if (connectivity != nullptr) {
             Exchange::IConnectivityCheck::StatusInfo info{};
@@ -315,36 +359,11 @@ NetworkManagerConnectivityClient::getInternetStateForQuery(std::string& reason)
         return Exchange::INetworkManager::INTERNET_LIMITED;
     }
 
-    bool succeeded = false;
-    NmInternetStatus mapped = queryInternetState(reason, succeeded);
-    std::lock_guard<std::mutex> lock(mLock);
-    if (revision != m_statusRevision) {
-        // A notification arrived during the RPC; it is newer than this response.
-        if (mHasCachedStatus) {
-            reason = mCachedReason;
-            return mCachedStatus;
-        }
-    } else if (succeeded) {
-        mCachedStatus = mapped;
-        mCachedReason = reason;
-        mHasCachedStatus = true;
-        ++m_statusRevision;
-    }
-    return mapped;
-}
-
-NetworkManagerConnectivityClient::NmInternetStatus
-NetworkManagerConnectivityClient::queryInternetState(std::string& reason,
-                                                     bool& succeeded)
-{
-    LOG_ENTRY_FUNCTION();
-    reason.clear();
-    succeeded = false;
-
+    // Cold path only: no notification received yet, so seed the cache once.
     Exchange::IConnectivityCheck* connectivity = acquireInterface();
     if (connectivity == nullptr) {
         NMLOG_WARNING("ConnectivityCheckMgr not available; returning INTERNET_UNKNOWN");
-        return Exchange::INetworkManager::INTERNET_UNKNOWN;
+         return Exchange::INetworkManager::INTERNET_UNKNOWN;
     }
 
     Exchange::IConnectivityCheck::StatusInfo info{};
@@ -355,13 +374,21 @@ NetworkManagerConnectivityClient::queryInternetState(std::string& reason,
         NMLOG_ERROR("ConnectivityCheckMgr GetInternetStatus failed (%u)", r);
         return Exchange::INetworkManager::INTERNET_UNKNOWN;
     }
-    succeeded = true;
 
     const NmInternetStatus mapped = mapStatus(info.status);
     if (info.status == Exchange::IConnectivityCheck::NO_INTERNET) {
         reason = info.reason;
     }
 
+    {
+        std::lock_guard<std::mutex> lock(mLock);
+        // A notification may have landed while the RPC was in flight; it is newer.
+        if (!mHasCachedStatus) {
+            mCachedStatus = mapped;
+            mCachedReason = reason;
+            mHasCachedStatus = true;
+        }
+    }
     return mapped;
 }
 

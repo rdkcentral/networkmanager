@@ -55,6 +55,87 @@ public:
     {
         client.notifyInternetStatusChanged(status, reason);
     }
+
+    static void SetConnectivity(NetworkManagerConnectivityClient& client,
+                                Exchange::IConnectivityCheck* connectivity)
+    {
+        client.mStopOpenThread = true;
+        client.mOpenCv.notify_one();
+        if (client.mOpenThread.joinable()) {
+            client.mOpenThread.join();
+        }
+        std::lock_guard<std::mutex> lock(client.mLock);
+        connectivity->AddRef();
+        client.mConnectivity = connectivity;
+    }
+
+    static void ExpireLimitedInternetThreshold(NetworkManagerConnectivityClient& client)
+    {
+        client.notifyLimitedInternetThresholdExpired();
+    }
+};
+
+class ConnectivityStatusProxy : public Exchange::IConnectivityCheck {
+public:
+    uint32_t AddRef() const override { return ++m_refCount; }
+    uint32_t Release() const override { return --m_refCount; }
+
+    void* QueryInterface(const uint32_t id) override
+    {
+        if (id == ID || id == Core::IUnknown::ID) {
+            return static_cast<Exchange::IConnectivityCheck*>(this);
+        }
+        return nullptr;
+    }
+
+    uint32_t GetInternetStatus(StatusInfo& info) const override
+    {
+        ++getStatusCount;
+        if (armed) {
+            armed = false;
+            ++probeTriggerCount;
+        }
+        info.status = status;
+        info.reason.clear();
+        return Core::ERROR_NONE;
+    }
+
+    uint32_t GetCaptivePortalURI(string& uri) const override
+    {
+        uri.clear();
+        return Core::ERROR_NONE;
+    }
+
+    uint32_t Register(INotification* sink) override
+    {
+        notification = sink;
+        return Core::ERROR_NONE;
+    }
+    uint32_t Unregister(INotification* sink) override
+    {
+        if (notification == sink) notification = nullptr;
+        return Core::ERROR_NONE;
+    }
+    uint32_t RegisterLimitedInternet(ILimitedInternetNotification* sink) override
+    {
+        limitedInternetNotification = sink;
+        return Core::ERROR_NONE;
+    }
+    uint32_t UnregisterLimitedInternet(ILimitedInternetNotification* sink) override
+    {
+        if (limitedInternetNotification == sink) limitedInternetNotification = nullptr;
+        return Core::ERROR_NONE;
+    }
+
+    mutable std::atomic<uint32_t> getStatusCount{0};
+    mutable std::atomic<uint32_t> probeTriggerCount{0};
+    mutable bool armed{false};
+    InternetStatus status{FULLY_CONNECTED};
+    INotification* notification{nullptr};
+    ILimitedInternetNotification* limitedInternetNotification{nullptr};
+
+private:
+    mutable std::atomic<uint32_t> m_refCount{1};
 };
 } // namespace Plugin
 } // namespace WPEFramework
@@ -632,6 +713,40 @@ TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
         client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
 
     EXPECT_EQ(0u, callbackCount.load());
+}
+
+TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfterExpiry)
+{
+    NetworkManagerConnectivityClient client;
+    ConnectivityStatusProxy connectivity;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    ASSERT_EQ(changes.size(), 2u);
+    EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
 }
 #endif
 TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
