@@ -186,7 +186,6 @@ namespace WPEFramework
 
             nmUtils::getDeviceProperties(); // get interface name form '/etc/device.proprties'
             setDefaultInterface(nmUtils::wlanIface());
-            NMLOG_INFO("default interface seeded to %s", nmUtils::wlanIface());
 
             // getInitialConnectionState function not called here, as event monitor will report the initial state
             nmEvent = GnomeNetworkManagerEvents::getInstance();

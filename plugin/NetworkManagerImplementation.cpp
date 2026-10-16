@@ -263,7 +263,7 @@ namespace WPEFramework
                     connectivityMonitor.setConnectivityMonitorEndpoints(connectEndpts);
                 }
             }
-            NMLOG_INFO("Connectivity monitor endpoints configured");
+
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
             NMLOG_INFO("Platform initialized");
