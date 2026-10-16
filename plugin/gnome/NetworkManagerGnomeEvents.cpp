@@ -125,29 +125,31 @@ namespace WPEFramework
         return true;
     }
 
-    static void checkAndSetHostname(NMRemoteConnection *connection)
+    static std::string resolveHostname()
     {
-        if (connection == nullptr)
+        std::string hostname;
+        if (!nmUtils::readPersistentHostname(hostname))
+            hostname = nmUtils::deviceHostname();
+        if (hostname.empty())
+            NMLOG_WARNING("Hostname is empty. No modification will be made to NM connections.");
+        return hostname;
+    }
+
+    static void checkAndSetHostname(NMRemoteConnection *connection, const std::string& hostname)
+    {
+        if (connection == nullptr || hostname.empty())
             return;
 
         const char *iface = nm_connection_get_interface_name(NM_CONNECTION(connection));
         if (iface == nullptr || (iface != std::string(nmUtils::ethIface()) && iface != std::string(nmUtils::wlanIface())))
             return;
 
-        std::string hostname;
-        if (!nmUtils::readPersistentHostname(hostname))
-            hostname = nmUtils::deviceHostname();
-        if (hostname.empty()) {
-            NMLOG_WARNING("Hostname is empty. No modification will be made to NM connections.");
-            return;
-        }
-
         setHostname(NM_CONNECTION(connection), hostname);
     }
 
     static void connectionAddedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
     {
-        checkAndSetHostname(connection);
+        checkAndSetHostname(connection, resolveHostname());
     }
 
     bool GnomeNetworkManagerEvents::isInterfaceStateEnabled(NMDeviceState state)
@@ -858,9 +860,10 @@ namespace WPEFramework
 
         g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_ADDED, G_CALLBACK(connectionAddedCb), nmEvents);
         const GPtrArray *connections = nm_client_get_connections(nmEvents->client);
-        if (connections != nullptr) {
+        if (connections != nullptr && connections->len > 0) {
+            const std::string hostname = resolveHostname();
             for (guint index = 0; index < connections->len; ++index)
-                checkAndSetHostname(NM_REMOTE_CONNECTION(connections->pdata[index]));
+                checkAndSetHostname(NM_REMOTE_CONNECTION(connections->pdata[index]), hostname);
         }
 
         const GPtrArray *devices = nullptr;
