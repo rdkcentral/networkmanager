@@ -143,8 +143,18 @@ namespace WPEFramework
             return;
 
         const char *iface = nm_connection_get_interface_name(NM_CONNECTION(connection));
-        if (iface == nullptr || (iface != std::string(nmUtils::ethIface()) && iface != std::string(nmUtils::wlanIface())))
+        if (iface == nullptr) {
+            NMLOG_WARNING("Interface name is null");
             return;
+        }
+
+        // Hostname update is required only for auto-generated Ethernet connections.
+        // Other WIFI connections handle hostname during connection setup.
+        if (iface != std::string(nmUtils::ethIface()))
+        {
+            NMLOG_DEBUG("Interface '%s' is not the Ethernet interface. Skipping hostname set.", iface);
+            return;
+        }
 
         setHostname(NM_CONNECTION(connection), hostname);
     }
@@ -990,8 +1000,8 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::stopNetworkMangerEventMonitor()
     {
-        if (!isEventThrdActive || eventThrdID == nullptr) {
-            NMLOG_INFO("gnome event monitor is not active or thread ID is null");
+        if (eventThrdID == nullptr) {
+            NMLOG_INFO("gnome event monitor thread not started");
             return;
         }
         stopRequested.store(true);
