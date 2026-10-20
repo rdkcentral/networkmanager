@@ -41,6 +41,7 @@ namespace WPEFramework
     } NMEvents;
 
     bool setHostname(NMConnection *connection, const std::string& hostname);
+    extern std::mutex hostnameMutex;
 
     class GnomeNetworkManagerEvents
     {

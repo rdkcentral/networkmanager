@@ -50,6 +50,8 @@ namespace WPEFramework
     static std::map<std::string, GnomeNetworkManagerEvents::InterfaceStateInfo> _ifaceStateCache;
     static std::mutex _ifaceStateCacheMutex;
 
+    std::mutex hostnameMutex;
+
     bool setHostname(NMConnection *connection, const std::string& hostname)
     {
         GError *error = NULL;
@@ -149,6 +151,8 @@ namespace WPEFramework
 
     static void connectionAddedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
     {
+        std::lock_guard<std::mutex> hostnameLock(hostnameMutex);
+        NMLOG_INFO("hostname lock acquired: connection added");
         checkAndSetHostname(connection, resolveHostname());
     }
 
@@ -840,12 +844,14 @@ namespace WPEFramework
                 g_error_free(error);
             g_clear_object(&nmEvents->client);
             g_main_context_unref(context);
+            monitor->isEventThrdActive = false;
             return nullptr;
         }
 
         GMainLoop *loop = g_main_loop_new(context, FALSE);
         if (loop == nullptr) {
             NMLOG_FATAL("GMain loop failed Fatal Error: Event will not work");
+            monitor->isEventThrdActive = false;
             releaseClient(nmEvents->client, loop, context);
             return nullptr;
         }
@@ -857,14 +863,15 @@ namespace WPEFramework
         g_signal_connect (nmEvents->client, "notify::" NM_CLIENT_NM_RUNNING,G_CALLBACK (managerRunningCb), nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_PRIMARY_CONNECTION, G_CALLBACK(primaryConnectionCb), nmEvents);
-
-        g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_ADDED, G_CALLBACK(connectionAddedCb), nmEvents);
         const GPtrArray *connections = nm_client_get_connections(nmEvents->client);
         if (connections != nullptr && connections->len > 0) {
+            std::lock_guard<std::mutex> hostnameLock(hostnameMutex);
+            NMLOG_INFO("hostname lock acquired: startup hostname update");
             const std::string hostname = resolveHostname();
             for (guint index = 0; index < connections->len; ++index)
                 checkAndSetHostname(NM_REMOTE_CONNECTION(connections->pdata[index]), hostname);
         }
+        g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_ADDED, G_CALLBACK(connectionAddedCb), nmEvents);
 
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
@@ -969,6 +976,11 @@ namespace WPEFramework
     {
         NMLOG_DEBUG("starting gnome event monitor");
         if(!isEventThrdActive) {
+            if (eventThrdID) {
+                NMLOG_INFO("joining previous gnome event monitor thread");
+                g_thread_join(eventThrdID);
+                eventThrdID = nullptr;
+            }
             isEventThrdActive = true;
             stopRequested.store(false);
             eventThrdID = g_thread_new("nm_event_thrd", GnomeNetworkManagerEvents::networkMangerEventMonitor, this);
@@ -978,7 +990,8 @@ namespace WPEFramework
 
     void GnomeNetworkManagerEvents::stopNetworkMangerEventMonitor()
     {
-        if (!isEventThrdActive) {
+        if (!isEventThrdActive || eventThrdID == nullptr) {
+            NMLOG_INFO("gnome event monitor is not active or thread ID is null");
             return;
         }
         stopRequested.store(true);
@@ -995,7 +1008,7 @@ namespace WPEFramework
         if (eventThrdID) {
             NMLOG_INFO("gnome event monitor stopping..");
             g_thread_join(eventThrdID);  // Wait for the thread to finish
-            eventThrdID = NULL;  // Reset the thread ID
+            eventThrdID = nullptr;  // Reset the thread ID
             NMLOG_WARNING("gnome event monitor stopped");
         }
         isEventThrdActive = false;
