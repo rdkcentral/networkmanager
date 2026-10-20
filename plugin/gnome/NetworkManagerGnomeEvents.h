@@ -23,6 +23,7 @@
 #include <string.h>
 #include <iostream>
 #include <atomic>
+#include <mutex>
 
 namespace WPEFramework
 {

@@ -110,6 +110,9 @@ namespace WPEFramework
                 return Core::ERROR_BAD_REQUEST;
             }
 
+            // Held across profile commits and persistence so automatic hostname sync cannot interleave.
+            std::lock_guard<std::mutex> hostnameLock(hostnameMutex);
+
             NMClient *client = createProxyClient(m_nmContext);
             if (client == nullptr) {
                 NMLOG_ERROR("Failed to create NMClient for SetHostname");
