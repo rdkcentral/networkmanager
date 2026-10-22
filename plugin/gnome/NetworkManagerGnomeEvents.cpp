@@ -149,6 +149,12 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
+					    if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
+                        {
+                            const char* connId = nm_active_connection_get_id(wifiActiveConn);
+                            if(connId != NULL && connId[0] != '\0' && _instance != nullptr)
+                                _instance->m_lastConnectedSSID = connId; // last connected ssid used in wifiConnect
+                        }
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED);
                         break;
