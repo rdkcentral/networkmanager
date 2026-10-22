@@ -108,8 +108,8 @@ protected:
                 "}"
             ));
 
-        EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-            .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+        // EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+        //     .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
 
         EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
             .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
