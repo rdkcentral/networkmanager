@@ -66,9 +66,11 @@ set(NM_CLASS_L1_TEST "class_l1_test")
 add_executable(${NM_CLASS_L1_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_stunclient.cpp
     ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_connectivity.cpp
+    ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_diagnostics.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerDiagnostics.cpp
 )
 
 target_link_libraries(${NM_CLASS_L1_TEST} PRIVATE
