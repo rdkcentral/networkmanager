@@ -77,6 +77,8 @@ namespace WPEFramework
             m_eventThreadStop.store(false);
             m_eventThread = std::thread(&NetworkManagerImplementation::eventThreadFunction, this);
             NMLOG_INFO("Event dispatch thread started");
+
+            m_diagnostics.reset(new Diagnostics::Engine(std::make_shared<Diagnostics::ProcessRunner>()));
             
             #if USE_TELEMETRY
                 // Initialize Telemetry T2 for NwMgrPlugin
@@ -87,6 +89,8 @@ namespace WPEFramework
         NetworkManagerImplementation::~NetworkManagerImplementation()
         {
             NMLOG_INFO("NetworkManager Out-Of-Process Shutdown/Cleanup");
+            // Kills running ping/traceroute children and releases callbacks without calling Completed().
+            m_diagnostics.reset();
             m_powerClient.reset();
 #ifdef USE_CONNECTIVITYCHECKMGR
             if (connectivityClient) {
@@ -539,191 +543,141 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
+        uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, DiagnosticsDone done, std::function<void()> dropped)
+        {
+            if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
+            {
+                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected", ipversion.c_str(), endpoint.size());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            const bool ipv6 = (ipversion == "IPv6");
+            Diagnostics::Engine::Job job;
+            job.argv = Diagnostics::PingArgs(ipv6, count, timeout, endpoint);
+            job.deadline = Diagnostics::PingDeadline(count, timeout);
+            job.onDone = [endpoint, done](const Diagnostics::ProcessResult& result) {
+                const string response = Diagnostics::PingResponse(result, endpoint);
+                NMLOG_DEBUG("Response is, %s", response.c_str());
+                done(Core::ERROR_NONE, response);
+            };
+            job.onDrop = std::move(dropped);
+
+            const uint32_t rc = m_diagnostics->Submit(Diagnostics::Engine::Kind::PING, std::move(job));
+            if (rc != Core::ERROR_NONE)
+                NMLOG_WARNING("Ping to %s not started: %u", endpoint.c_str(), rc);
+            return rc;
+        }
+
+        uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, DiagnosticsDone done, std::function<void()> dropped)
+        {
+            if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
+            {
+                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected", ipversion.c_str(), endpoint.size());
+                return Core::ERROR_BAD_REQUEST;
+            }
+
+            const bool ipv6 = (ipversion == "IPv6");
+            Diagnostics::Engine::Job job;
+            job.argv = Diagnostics::TraceArgs(ipv6, nqueries, endpoint);
+            job.deadline = Diagnostics::TraceDeadline(nqueries);
+            job.onDone = [endpoint, done](const Diagnostics::ProcessResult& result) {
+                if (result.timedOut)
+                {
+                    done(Core::ERROR_TIMEDOUT, string());
+                    return;
+                }
+                const string response = Diagnostics::TraceResponse(result, endpoint);
+                NMLOG_DEBUG("Response is, %s", response.c_str());
+                done(Core::ERROR_NONE, response);
+            };
+            job.onDrop = std::move(dropped);
+
+            const uint32_t rc = m_diagnostics->Submit(Diagnostics::Engine::Kind::TRACE, std::move(job));
+            if (rc != Core::ERROR_NONE)
+                NMLOG_WARNING("Trace to %s not started: %u", endpoint.c_str(), rc);
+            return rc;
+        }
+
+        uint32_t NetworkManagerImplementation::PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IDiagnosticsCallback* callback)
+        {
+            LOG_ENTRY_FUNCTION();
+            if (callback == nullptr)
+                return Core::ERROR_BAD_REQUEST;
+
+            callback->AddRef();
+            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
+                [callback](const uint32_t result, const string& response) { callback->Completed(result, response); callback->Release(); },
+                [callback]() { callback->Release(); });
+            if (rc != Core::ERROR_NONE)
+                callback->Release();
+            return rc;
+        }
+
+        uint32_t NetworkManagerImplementation::TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, IDiagnosticsCallback* callback)
+        {
+            LOG_ENTRY_FUNCTION();
+            if (callback == nullptr)
+                return Core::ERROR_BAD_REQUEST;
+
+            callback->AddRef();
+            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
+                [callback](const uint32_t result, const string& response) { callback->Completed(result, response); callback->Release(); },
+                [callback]() { callback->Release(); });
+            if (rc != Core::ERROR_NONE)
+                callback->Release();
+            return rc;
+        }
+
+        namespace {
+            struct SyncResult {
+                std::mutex lock;
+                std::condition_variable signal;
+                bool done = false;
+                uint32_t result = Core::ERROR_UNAVAILABLE;
+                string response;
+
+                void Set(const uint32_t rc, const string& text)
+                {
+                    std::lock_guard<std::mutex> guard(lock);
+                    done = true;
+                    result = rc;
+                    response = text;
+                    signal.notify_all();
+                }
+                uint32_t Wait(string& text)
+                {
+                    std::unique_lock<std::mutex> guard(lock);
+                    signal.wait(guard, [this] { return done; });
+                    text = response;
+                    return result;
+                }
+            };
+        }
+
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            char cmd[100] = "";
-            string tempResult = "";
-            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
-            {
-                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
-                return Core::ERROR_BAD_REQUEST;
-            }
-            if(0 == strcasecmp("IPv6", ipversion.c_str()))
-            {
-                snprintf(cmd, sizeof(cmd), "ping6 -c %d -W %d -i 0.002 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
-            }
-            else
-            {
-                snprintf(cmd, sizeof(cmd), "ping  -c %d -W %d -i 0.002 '%s' 2>&1", noOfRequest, timeOutInSeconds, endpoint.c_str());
-            }
-
-            NMLOG_DEBUG ("The Command is %s", cmd);
-            string commandToExecute(cmd);
-            executeExternally(NETMGR_PING, commandToExecute, tempResult);
-
-            JsonObject temp;
-            temp.FromString(tempResult);
-            temp["endpoint"] = endpoint;
-            temp.ToString(response);
-
-            return Core::ERROR_NONE;
+            auto sync = std::make_shared<SyncResult>();
+            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
+                [sync](const uint32_t result, const string& text) { sync->Set(result, text); },
+                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); });
+            return (rc == Core::ERROR_NONE) ? sync->Wait(response) : rc;
         }
 
-        /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
         uint32_t NetworkManagerImplementation::Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            char cmd[256] = "";
-            string tempResult = "";
-            if (endpoint.empty() || (ipversion != "IPv4" && ipversion != "IPv6"))
-            {
-                NMLOG_WARNING("Invalid arguments: endpoint=%s, ipversion=%s", endpoint.c_str(), ipversion.c_str());
-                return Core::ERROR_BAD_REQUEST;
-            }
-            if(0 == strcasecmp("IPv6", ipversion.c_str()))
-            {
-                snprintf(cmd, 256, "traceroute6 -w 3 -m 6 -q %d %s 64 2>&1", noOfRequest, endpoint.c_str());
-            }
-            else
-            {
-                snprintf(cmd, 256, "traceroute -w 3 -m 6 -q %d %s 52 2>&1", noOfRequest, endpoint.c_str());
-            }
-
-            NMLOG_DEBUG ("The Command is %s", cmd);
-            string commandToExecute(cmd);
-            executeExternally(NETMGR_TRACE, commandToExecute, tempResult);
-
-            JsonObject temp;
-            temp["endpoint"] = endpoint;
-            temp["results"] = tempResult;
-            temp.ToString(response);
-
-            return Core::ERROR_NONE;
+            auto sync = std::make_shared<SyncResult>();
+            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
+                [sync](const uint32_t result, const string& text) { sync->Set(result, text); },
+                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); });
+            return (rc == Core::ERROR_NONE) ? sync->Wait(response) : rc;
         }
 
-        void NetworkManagerImplementation::executeExternally(NetworkEvents event, const string commandToExecute, string& response)
+        void NetworkManagerImplementation::SetDiagnosticsRunner(std::shared_ptr<Diagnostics::IProcessRunner> runner)
         {
-            LOG_ENTRY_FUNCTION();
-            FILE *pipe = NULL;
-            string output{};
-            char buffer[1024];
-            JsonObject pingResult;
-            int exitStatus;
-
-            pipe = popen(commandToExecute.c_str(), "r");
-            if (pipe == NULL)
-            {
-                NMLOG_INFO ("%s: failed to open file '%s' for read mode with result: %s", __FUNCTION__, commandToExecute.c_str(), strerror(errno));
-                return;
-            }
-
-            if (NETMGR_PING == event)
-            {
-                while (!feof(pipe) && fgets(buffer, 1024, pipe) != NULL)
-                {
-                    // remove newline from buffer
-                    buffer[strcspn(buffer, "\n")] = '\0';
-                    string line(buffer);
-
-                    if( line.find( "packet" ) != string::npos )
-                    {
-                        //Example: 10 packets transmitted, 10 packets received, 0% packet loss
-                        stringstream ss( line );
-                        int transCount;
-                        ss >> transCount;
-                        pingResult["packetsTransmitted"] = transCount;
-
-                        string token;
-                        getline( ss, token, ',' );
-                        getline( ss, token, ',' );
-                        stringstream ss2( token );
-                        int rxCount;
-                        ss2 >> rxCount;
-                        pingResult["packetsReceived"] = rxCount;
-
-                        getline( ss, token, ',' );
-                        string prefix = token.substr(0, token.find("%"));
-                        pingResult["packetLoss"] = prefix.c_str();
-
-                    }
-                    else if( line.find( "min/avg/max" ) != string::npos )
-                    {
-                        //Example: round-trip min/avg/max = 17.038/18.310/20.197 ms
-                        stringstream ss( line );
-                        string fullpath;
-                        getline( ss, fullpath, '=' );
-                        getline( ss, fullpath, '=' );
-
-                        string prefix;
-                        int index = fullpath.find("/");
-                        if (index >= 0)
-                        {
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripMin"] = prefix.c_str();
-                        }
-
-                        index = fullpath.find("/");
-                        if (index >= 0)
-                        {
-                            fullpath = fullpath.substr(index + 1, fullpath.length());
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripAvg"] = prefix.c_str();
-                        }
-
-                        index = fullpath.find("/");
-                        if (index >= 0)
-                        {
-                            fullpath = fullpath.substr(index + 1, fullpath.length());
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripMax"] = prefix.c_str();
-                        }
-
-                        index = fullpath.find("/");
-                        if (index >= 0)
-                        {
-                            fullpath = fullpath.substr(index + 1, fullpath.length());
-                            pingResult["tripStdDev"] = fullpath.c_str();
-                        }
-                    }
-                    else if( line.find( "bad" ) != string::npos )
-                    {
-                        pingResult["success"] = false;
-                        pingResult["error"] = "Bad Address";
-                    }
-                }
-                exitStatus = pclose(pipe);
-                // Check the exit status to determine if the command was successful
-                if (WIFEXITED(exitStatus) && WEXITSTATUS(exitStatus) == 0) {
-                    pingResult["success"] = true;
-                } else {
-                    pingResult["success"] = false;
-                    pingResult["error"] = "Could not ping endpoint";
-                }
-
-                pingResult.ToString(response);
-                NMLOG_DEBUG("Response is, %s", response.c_str());
-            }
-            else if (NETMGR_TRACE == event)
-            {
-
-                // We return the entire output of the trace command but since this contains newlines it is not valid as
-                // a json value so we will parse the output into an array of strings, one element for each line.
-                JsonArray list;
-                while (!feof(pipe) && fgets(buffer, 1024, pipe) != NULL)
-                {
-                    // remove newline from buffer
-                    buffer[strcspn(buffer, "\n")] = ' ';
-                    string line(buffer);
-                    list.Add(line);
-                }
-
-                pclose(pipe);
-                list.ToString(response);
-                NMLOG_DEBUG("Response is, %s", response.c_str());
-            }
-            return;
+            m_diagnostics.reset();
+            m_diagnostics.reset(new Diagnostics::Engine(std::move(runner)));
         }
 
         void NetworkManagerImplementation::filterScanResults(JsonArray &ssids,
