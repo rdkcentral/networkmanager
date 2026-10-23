@@ -43,6 +43,7 @@ using namespace std;
 #endif
 #include "NetworkManagerStunClient.h"
 #include "NetworkManagerPowerClient.h"
+#include "NetworkManagerDiagnostics.h"
 
 /* Forward declarations to avoid pulling GLib/libnm headers into this header */
 typedef struct _GMainContext GMainContext;
@@ -114,12 +115,6 @@ namespace WPEFramework
         class NetworkManagerImplementation : public Exchange::INetworkManager
                                            , public INetworkPowerCallback
         {
-            enum NetworkEvents
-            {
-                NETMGR_PING,
-                NETMGR_TRACE,
-            };
-
             class ConnectivityConf : public Core::JSON::Container {
                 public:
                     ConnectivityConf& operator=(const ConnectivityConf&) = delete;
@@ -353,11 +348,17 @@ namespace WPEFramework
                 /* @brief Get the Public IP used for external world communication */
                 uint32_t GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */) override;
 
-                /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
+                /* @brief Run ping and return the result. Deprecated: use PingAsync. */
                 uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
+                /* @brief Run traceroute and return the result. Deprecated: use TraceAsync. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
+
+                uint32_t PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IDiagnosticsCallback* callback) override;
+                uint32_t TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, IDiagnosticsCallback* callback) override;
+
+                // Test seam: replaces the engine so tests can supply canned process output.
+                void SetDiagnosticsRunner(std::shared_ptr<Diagnostics::IProcessRunner> runner);
 
                 uint32_t GetSupportedSecurityModes(ISecurityModeIterator*& security /* @out */) const override;
 
@@ -401,7 +402,9 @@ namespace WPEFramework
                  * fallback key, then default false (built-in monitor). */
                 bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
-                void executeExternally(NetworkEvents event, const string commandToExecute, string& response);
+                using DiagnosticsDone = std::function<void(const uint32_t result, const string& response)>;
+                uint32_t submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, DiagnosticsDone done, std::function<void()> dropped);
+                uint32_t submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, DiagnosticsDone done, std::function<void()> dropped);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids, const std::vector<std::string>& filterSsidslist, const std::vector<std::string>& filterFrequencies);
                 void startWiFiSignalQualityMonitor(int interval);
@@ -444,6 +447,7 @@ namespace WPEFramework
                 std::mutex m_condVariableMutex;
                 std::condition_variable m_condVariable;
                 std::unique_ptr<NetworkManagerPowerClient> m_powerClient;
+                std::unique_ptr<Diagnostics::Engine> m_diagnostics;
             public:
 #if defined(NM_BACKEND_GDBUS) || defined(NM_BACKEND_RDK)
                 IPAddress m_ethIPv4Address;

@@ -25,6 +25,7 @@
 #include "core/Link.h"
 #include "NetworkManagerTimer.h"
 #include "INetworkManager.h"
+#include "NetworkManagerDeferredReply.h"
 
 namespace WPEFramework {
     namespace Plugin {
@@ -60,8 +61,8 @@ namespace WPEFramework {
             uint32_t setInterfaceEnabled(const JsonObject& parameters, JsonObject& response);
             uint32_t getDefaultInterface(const JsonObject& parameters, JsonObject& response);
             uint32_t setDefaultInterface(const JsonObject& parameters, JsonObject& response);
-            uint32_t doTrace(const JsonObject& parameters, JsonObject& response);
-            uint32_t doPing(const JsonObject& parameters, JsonObject& response);
+            uint32_t doTrace(const Core::JSONRPC::Context& context, const string& parameters, string& response);
+            uint32_t doPing(const Core::JSONRPC::Context& context, const string& parameters, string& response);
             uint32_t setIPSettings(const JsonObject& parameters, JsonObject& response);
             uint32_t getIPSettings(const JsonObject& parameters, JsonObject& response);
             uint32_t getIPSettings2(const JsonObject& parameters, JsonObject& response);
@@ -106,6 +107,7 @@ namespace WPEFramework {
             std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
             //WPEFramework::Exchange::INetworkManager* m_nwmgr;
             NetworkManagerTimer m_timer;
+            std::shared_ptr<DeferredReply::Table> m_diagnosticsReplies;
 
             bool m_subsIfaceStateChange;
             bool m_subsActIfaceChange;
