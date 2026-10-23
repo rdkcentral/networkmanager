@@ -166,6 +166,12 @@ namespace WPEFramework
         checkAndSetHostname(connection, resolveHostname());
     }
 
+    static void connectionRemovedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
+    {
+        NMLOG_INFO(" connection removed: '%s'", nm_connection_get_id(connection)? nm_connection_get_id(connection) : "unknown");
+        // Additional logic for connection removal can be added here if needed
+    }
+
     bool GnomeNetworkManagerEvents::isInterfaceStateEnabled(NMDeviceState state)
     {
         return (state >= NM_DEVICE_STATE_UNAVAILABLE);
@@ -882,6 +888,7 @@ namespace WPEFramework
                 checkAndSetHostname(NM_REMOTE_CONNECTION(connections->pdata[index]), hostname);
         }
         g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_ADDED, G_CALLBACK(connectionAddedCb), nmEvents);
+        g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_REMOVED, G_CALLBACK(connectionRemovedCb), nmEvents);
 
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
