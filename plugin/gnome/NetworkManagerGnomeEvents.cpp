@@ -168,7 +168,8 @@ namespace WPEFramework
 
     static void connectionRemovedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
     {
-        NMLOG_INFO(" connection removed: '%s'", nm_connection_get_id(connection)? nm_connection_get_id(connection) : "unknown");
+        NMConnection *nmConnection = NM_CONNECTION(connection);
+        NMLOG_INFO(" connection removed: '%s'", nm_connection_get_id(nmConnection) ? nm_connection_get_id(nmConnection) : "unknown");
         // Additional logic for connection removal can be added here if needed
     }
 
