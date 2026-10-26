@@ -663,9 +663,12 @@ namespace WPEFramework
         // Convert an IPv6 string address to an array of bytes
         std::array<guint8, 16> GnomeUtils::ip6StrToNBO(const std::string &ipAddress)
         {
-            struct in6_addr addr6;
-            inet_pton(AF_INET6, ipAddress.c_str(), &addr6);
             std::array<guint8, 16> ip6{};
+            struct in6_addr addr6{};
+            if (inet_pton(AF_INET6, ipAddress.c_str(), &addr6) != 1) {
+                NMLOG_ERROR("Invalid IPv6 address format: %s", ipAddress.c_str());
+                return ip6;
+            }
             std::memcpy(ip6.data(), &addr6, 16);
             return ip6;
         }
