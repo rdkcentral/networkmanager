@@ -1806,6 +1806,32 @@ TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
     EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
+TEST_F(DeferredReplyTest, DirectCallerSurvivesOwnerReleasingTableDuringClose)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    std::weak_ptr<Plugin::DeferredReply::Table> observer = table;
+    std::promise<void> started;
+    Plugin::DeferredReply::Callback* held = nullptr;
+    uint32_t rc = Core::ERROR_NONE;
+
+    // Shutdown order from the review: waiter woken by Close(), then every other owner goes away. A use-after-free here only shows under ASan.
+    std::thread caller([&, raw = table.get()]() {
+        string reply;
+        rc = raw->Invoke(DirectCaller(),
+            [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); started.set_value(); return Core::ERROR_NONE; },
+            PassThrough, reply);
+    });
+    started.get_future().wait();
+    table->Close(Core::ERROR_UNAVAILABLE);
+    table.reset();
+    held->Release();
+    caller.join();
+
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, rc);
+    EXPECT_TRUE(observer.expired());
+}
+
 TEST_F(DeferredReplyTest, DirectCallerWaitsForCompletion)
 {
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);

@@ -206,6 +206,14 @@ TEST(DiagnosticsArgs, EndpointIsOneArgumentAfterOptionTerminator)
     EXPECT_EQ("traceroute6", TraceArgs(true, 1, "x")[0]);
 }
 
+TEST(DiagnosticsArgs, PingIsQuietSoLargeCountsCannotPushTheSummaryPastTheOutputCap)
+{
+    for (const bool ipv6 : { false, true }) {
+        const auto argv = PingArgs(ipv6, 20000, 1, "x");
+        EXPECT_EQ(1, std::count(argv.begin(), argv.end(), "-q"));
+    }
+}
+
 TEST(DiagnosticsArgs, DeadlinesGrowWithRequestAndAreCapped)
 {
     EXPECT_LT(PingDeadline(1, 1), PingDeadline(5, 2));
