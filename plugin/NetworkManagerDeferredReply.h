@@ -91,6 +91,8 @@ namespace WPEFramework
                 // Returns ReplyLater for connected callers; direct callers wait here and get the result synchronously.
                 uint32_t Invoke(const Core::JSONRPC::Context& context, const Starter& start, const Shaper& shape, string& reply)
                 {
+                    // The owner may drop its reference during Close() while a direct caller still waits here.
+                    const std::shared_ptr<Table> keepAlive = shared_from_this();
                     const bool direct = (context.ChannelId() == DirectCallerChannel);
                     uint64_t id;
                     {
@@ -101,7 +103,7 @@ namespace WPEFramework
                         _pending.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple(context, shape, direct));
                     }
 
-                    Callback* callback = Core::Service<Reply>::Create<Callback>(shared_from_this(), id);
+                    Callback* callback = Core::Service<Reply>::Create<Callback>(keepAlive, id);
                     const uint32_t rc = start(callback);
                     if (rc != Core::ERROR_NONE)
                     {
