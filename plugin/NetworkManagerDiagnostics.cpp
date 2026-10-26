@@ -268,9 +268,10 @@ namespace WPEFramework
             }
 
             // "--" ends option parsing (busybox 1.35 ping/traceroute honour it); IsValidEndpoint() already rejects a leading '-'.
+            // -q: only the summary is parsed, and per-packet lines could push it past MaxOutputBytes.
             std::vector<string> PingArgs(const bool ipv6, const uint32_t count, const uint16_t timeout, const string& endpoint)
             {
-                return { (ipv6 ? "ping6" : "ping"), "-c", std::to_string(count), "-W", std::to_string(timeout), "-i", "0.002", "--", endpoint };
+                return { (ipv6 ? "ping6" : "ping"), "-q", "-c", std::to_string(count), "-W", std::to_string(timeout), "-i", "0.002", "--", endpoint };
             }
 
             std::vector<string> TraceArgs(const bool ipv6, const uint32_t nqueries, const string& endpoint)
