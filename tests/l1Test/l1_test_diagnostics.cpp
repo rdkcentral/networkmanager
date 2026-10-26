@@ -154,7 +154,7 @@ namespace {
 TEST(DiagnosticsEndpoint, AcceptsAddressesAndHostnames)
 {
     for (const string endpoint : { "10.0.0.1", "8.8.8.8", "2001:4860:4860::8888", "::1", "fe80::1%eth0",
-                                   "cnn.com", "gateway", "my-router.local", "xn--bcher-kva.example", "a1.b2.c3" }) {
+                                   "cnn.com", "gateway", "my-router.local", "xn--bcher-kva.example", "a1.b2.c3", "example.com." }) {
         EXPECT_TRUE(IsValidEndpoint(endpoint)) << endpoint;
     }
 }
@@ -181,6 +181,9 @@ TEST(DiagnosticsEndpoint, RejectsMalformedHostnames)
     EXPECT_FALSE(IsValidEndpoint(string(254, 'a')));
     EXPECT_FALSE(IsValidEndpoint("a..b"));
     EXPECT_FALSE(IsValidEndpoint(".a"));
+    EXPECT_FALSE(IsValidEndpoint("."));
+    EXPECT_FALSE(IsValidEndpoint("a.."));
+    EXPECT_FALSE(IsValidEndpoint("a-."));
     EXPECT_FALSE(IsValidEndpoint("a-.b"));
     EXPECT_FALSE(IsValidEndpoint("a.-b"));
     EXPECT_TRUE(IsValidEndpoint(string(63, 'a') + ".com"));
@@ -395,6 +398,42 @@ TEST(DiagnosticsProcessRunner, DeadlineKillsWholeProcessGroup)
     EXPECT_TRUE(result.timedOut);
     EXPECT_FALSE(result.Succeeded());
     EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(5));
+}
+
+TEST(DiagnosticsProcessRunner, LeaderExitedButBackgroundChildHoldsOutput_DeadlineStillApplies)
+{
+    ProcessRunner runner;
+    std::atomic<bool> cancel(false);
+    const auto start = std::chrono::steady_clock::now();
+    const ProcessResult result = runner.Run({ "sh", "-c", "echo started; sleep 30 &" }, std::chrono::milliseconds(300), cancel);
+
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(5));
+    EXPECT_TRUE(result.timedOut);
+    EXPECT_THAT(result.output, ::testing::HasSubstr("started"));
+}
+
+TEST(DiagnosticsProcessRunner, LeaderExitedButBackgroundChildHoldsOutput_CancelStillApplies)
+{
+    ProcessRunner runner;
+    std::atomic<bool> cancel(false);
+    auto pending = std::async(std::launch::async, [&] {
+        return runner.Run({ "sh", "-c", "sleep 30 &" }, std::chrono::seconds(60), cancel);
+    });
+    cancel.store(true);
+
+    ASSERT_EQ(std::future_status::ready, pending.wait_for(std::chrono::seconds(5)));
+}
+
+TEST(DiagnosticsProcessRunner, OutputWrittenAfterLeaderExitsIsKept)
+{
+    ProcessRunner runner;
+    std::atomic<bool> cancel(false);
+    const ProcessResult result = runner.Run({ "sh", "-c", "echo first; (sleep 0.2; echo second) &" }, std::chrono::seconds(5), cancel);
+
+    EXPECT_FALSE(result.timedOut);
+    EXPECT_TRUE(result.Succeeded());
+    EXPECT_THAT(result.output, ::testing::HasSubstr("first"));
+    EXPECT_THAT(result.output, ::testing::HasSubstr("second"));
 }
 
 TEST(DiagnosticsProcessRunner, CancelStopsChild)

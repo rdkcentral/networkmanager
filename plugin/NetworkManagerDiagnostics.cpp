@@ -81,7 +81,8 @@ namespace WPEFramework
                         }
                         previous = c;
                     }
-                    return (labelLength > 0) && (previous != '-');
+                    // A single trailing dot (absolute name) leaves labelLength at 0 but is valid.
+                    return !name.empty() && (previous != '-');
                 }
 
                 bool IsValidIPv6WithZone(const string& endpoint)
@@ -177,7 +178,8 @@ namespace WPEFramework
                 int status = -1;
                 char buffer[4096];
 
-                while (!exited)
+                // Runs until the child is reaped AND its output is closed: a descendant may still hold the pipe.
+                while (!exited || (readFd >= 0))
                 {
                     if (cancel.load())
                         break;
@@ -205,7 +207,6 @@ namespace WPEFramework
                             }
                             if ((length < 0) && (errno == EINTR))
                                 continue;
-                            // EOF: the child closed its output; fall through to reap it.
                             ::close(readFd);
                             readFd = -1;
                         }
@@ -220,27 +221,24 @@ namespace WPEFramework
                         std::this_thread::sleep_for(std::chrono::milliseconds(std::min(slice, 10)));
                     }
 
-                    const pid_t reaped = ::waitpid(pid, &status, WNOHANG);
-                    if ((reaped == pid) || ((reaped < 0) && (errno != EINTR)))
-                        exited = true;
-                }
-
-                if (!exited)
-                {
-                    ::kill(-pid, SIGKILL);
-                    ::kill(pid, SIGKILL);
-                    while ((::waitpid(pid, &status, 0) < 0) && (errno == EINTR))
+                    if (!exited)
                     {
+                        const pid_t reaped = ::waitpid(pid, &status, WNOHANG);
+                        if ((reaped == pid) || ((reaped < 0) && (errno != EINTR)))
+                            exited = true;
                     }
                 }
-                else if (readFd >= 0)
+
+                if (!exited || (readFd >= 0))
                 {
-                    // Drain whatever the child wrote just before exiting.
-                    ssize_t length;
-                    while ((length = ::read(readFd, buffer, sizeof(buffer))) > 0)
+                    // The group outlives a reaped leader while any member is left, so this still reaches descendants.
+                    ::kill(-pid, SIGKILL);
+                    if (!exited)
                     {
-                        const size_t room = MaxOutputBytes - std::min(MaxOutputBytes, result.output.size());
-                        result.output.append(buffer, std::min(static_cast<size_t>(length), room));
+                        ::kill(pid, SIGKILL);
+                        while ((::waitpid(pid, &status, 0) < 0) && (errno == EINTR))
+                        {
+                        }
                     }
                 }
                 if (readFd >= 0)
@@ -252,7 +250,10 @@ namespace WPEFramework
 
             bool IsValidEndpoint(const string& endpoint)
             {
-                if (endpoint.empty() || (endpoint.size() > 253) || (endpoint[0] == '-'))
+                if (endpoint.empty() || (endpoint[0] == '-'))
+                    return false;
+                const size_t maxLength = (endpoint.back() == '.') ? 254 : 253;
+                if (endpoint.size() > maxLength)
                     return false;
 
                 struct in_addr v4;

@@ -105,9 +105,10 @@ namespace WPEFramework
                     const uint32_t rc = start(callback);
                     if (rc != Core::ERROR_NONE)
                     {
-                        Forget(id);
+                        const bool unanswered = Withdraw(id);
                         callback->Release();
-                        return shape(rc, string(), reply);
+                        // Drain()/Close() may already have replied while start() was running.
+                        return unanswered ? shape(rc, string(), reply) : ReplyLater;
                     }
                     callback->Release();
 
@@ -149,10 +150,11 @@ namespace WPEFramework
                         _pending.erase(it);
                 }
 
-                void Forget(const uint64_t id)
+                // True if the request was still pending, i.e. no reply has been sent for it.
+                bool Withdraw(const uint64_t id)
                 {
                     std::lock_guard<std::mutex> guard(_lock);
-                    _pending.erase(id);
+                    return (_pending.erase(id) > 0);
                 }
 
                 void DrainLocked(const uint32_t error)

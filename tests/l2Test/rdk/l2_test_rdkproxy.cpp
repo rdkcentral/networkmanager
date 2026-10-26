@@ -1484,6 +1484,39 @@ namespace {
         std::vector<std::vector<string>> _calls;
     };
 
+    // Each Run() blocks until Open() (or engine shutdown), so tests can fill the queue deterministically.
+    class GatedRunner : public Plugin::Diagnostics::IProcessRunner {
+    public:
+        ProcessResult Run(const std::vector<string>&, const std::chrono::milliseconds, const std::atomic<bool>& cancel) override
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            ++_started;
+            _signal.notify_all();
+            while (!_open && !cancel.load())
+                _signal.wait_for(guard, std::chrono::milliseconds(10));
+            ProcessResult result;
+            result.started = true;
+            result.status = 0;
+            return result;
+        }
+        bool WaitStarted(const int count)
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            return _signal.wait_for(guard, std::chrono::seconds(5), [&] { return _started >= count; });
+        }
+        void Open()
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            _open = true;
+            _signal.notify_all();
+        }
+    private:
+        std::mutex _lock;
+        std::condition_variable _signal;
+        int _started = 0;
+        bool _open = false;
+    };
+
     const char* PingOutput =
         "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
         "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
@@ -1658,6 +1691,33 @@ TEST_F(NetworkManagerTest, Trace_InvalidIpversion_ReportsFailureWithoutSpawning)
     EXPECT_TRUE(runner->Calls().empty());
 }
 
+TEST_F(NetworkManagerTest, Trace_QueueFull_ReturnsInProgressError)
+{
+    auto runner = UseRunner(std::make_shared<GatedRunner>());
+    std::mutex lock;
+    std::condition_variable signal;
+    size_t replies = 0;
+    ON_CALL(service, Submit(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>&) {
+            std::lock_guard<std::mutex> guard(lock);
+            ++replies;
+            signal.notify_all();
+            return Core::ERROR_NONE;
+        }));
+    const string params = _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}");
+
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, 100, ""), _T("Trace"), params, response));
+    ASSERT_TRUE(runner->WaitStarted(1));
+    for (uint32_t id = 101; id <= 104; ++id)
+        EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, id, ""), _T("Trace"), params, response));
+
+    EXPECT_EQ(Core::ERROR_INPROGRESS, handler.Invoke(Core::JSONRPC::Context(1, 105, ""), _T("Trace"), params, response));
+
+    runner->Open();
+    std::unique_lock<std::mutex> guard(lock);
+    EXPECT_TRUE(signal.wait_for(guard, std::chrono::seconds(5), [&] { return replies >= 5; }));
+}
+
 // DeferredReply::Table, driven directly with this plugin as the JSON-RPC owner.
 class DeferredReplyTest : public NetworkManagerTest {
 protected:
@@ -1728,6 +1788,22 @@ TEST_F(DeferredReplyTest, StartFailureIsReturnedSynchronously)
     EXPECT_EQ(Core::ERROR_INPROGRESS, table->Invoke(Core::JSONRPC::Context(1, 8, ""),
         [](Plugin::DeferredReply::Callback*) { return Core::ERROR_INPROGRESS; },
         PassThrough, reply));
+}
+
+TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
+{
+    ExpectOneReplyOnChannel1();
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 9, ""),
+        [&](Plugin::DeferredReply::Callback*) { table->Drain(Core::ERROR_UNAVAILABLE); return Core::ERROR_GENERAL; },
+        PassThrough, reply));
+
+    auto message = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+    JsonObject error = Parse(message.get())["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
 TEST_F(DeferredReplyTest, DirectCallerWaitsForCompletion)
