@@ -671,11 +671,11 @@ namespace WPEFramework
 
             if (_wifiManager->m_createNewConnection) {
                 NMLOG_DEBUG("nm_client_add_and_activate_connection_finish");
-                activeConnection = nm_client_add_and_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_add_and_activate_connection2_finish(NM_CLIENT(client), result, NULL, &error);
             }
             else {
                 NMLOG_DEBUG("nm_client_activate_connection_finish ");
-                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(_wifiManager->m_client), result, &error);
+                activeConnection = nm_client_activate_connection_finish(NM_CLIENT(client), result, &error);
             }
 
             // Check if operation was cancelled - this is expected during cleanup
@@ -700,55 +700,6 @@ namespace WPEFramework
             if(activeConnection)
                 g_object_unref(activeConnection);
             g_main_loop_quit(_wifiManager->m_loop);
-        }
-
-        static void wifiConnectTempCb(GObject *client, GAsyncResult *result, gpointer user_data)
-        {
-            GError *error = NULL;
-            wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            NMRemoteConnection *remoteConnection = NULL;
-
-            remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
-
-            if (error) {
-                if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-                    NMLOG_DEBUG("Add temporary connection was cancelled");
-                }
-                else {
-                    NMLOG_ERROR("Failed to add temporary connection: %s", error->message);
-                }
-                _wifiManager->m_isSuccess = false;
-                g_error_free(error);
-                g_main_loop_quit(_wifiManager->m_loop);
-                return;
-            }
-
-            if (remoteConnection) {
-                NMLOG_DEBUG("Temporary connection added, now activating...");
-
-                // Check if client is still valid before activating
-                if (_wifiManager->m_client == NULL) {
-                    NMLOG_WARNING("Client was destroyed, cannot activate connection");
-                    _wifiManager->m_isSuccess = false;
-                    g_object_unref(remoteConnection);
-                    g_main_loop_quit(_wifiManager->m_loop);
-                    return;
-                }
-
-                // Now activate the temporary connection
-                nm_client_activate_connection_async(_wifiManager->m_client,
-                                                  NM_CONNECTION(remoteConnection),
-                                                  _wifiManager->m_wifidevice,
-                                                  _wifiManager->m_objectPath,
-                                                  _wifiManager->m_cancellable,
-                                                  wifiConnectCb,
-                                                  _wifiManager);
-                g_object_unref(remoteConnection);
-            } else {
-                NMLOG_ERROR("Failed to add temporary connection - no connection returned");
-                _wifiManager->m_isSuccess = false;
-                g_main_loop_quit(_wifiManager->m_loop);
-            }
         }
 
         static void wifiConnectionUpdate(GObject *rmObject, GAsyncResult *res, gpointer user_data)
@@ -1225,7 +1176,7 @@ namespace WPEFramework
                     }
                     m_isSuccess = false;
                     m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
+                    nm_client_add_and_activate_connection2 (m_client, ethConn, nmDevice, NULL, NULL, m_cancellable, wifiConnectCb, this);
                     g_object_unref(ethConn);
                     wait(m_loop);
                     deleteClientConnection();
@@ -1319,7 +1270,7 @@ namespace WPEFramework
                     else
                     {
                         m_createNewConnection = true;
-                        nm_client_add_and_activate_connection_async(m_client, ethConn, nmDevice, NULL, m_cancellable, wifiConnectCb, this);
+                        nm_client_add_and_activate_connection2 (m_client, ethConn, nmDevice, NULL, NULL, m_cancellable, wifiConnectCb, this);
                         g_object_unref(ethConn);
                         wait(m_loop);
                     }
@@ -1546,28 +1497,22 @@ namespace WPEFramework
                     deleteClientConnection();
                     return false;
                 }
+
+                GVariantBuilder optionsBuilder;
+                g_variant_builder_init(&optionsBuilder, G_VARIANT_TYPE_VARDICT);
+                m_createNewConnection = true;
+
                 if (ssidInfo.persist)
-                {
-                    m_createNewConnection = true;
-                    nm_client_add_and_activate_connection_async(m_client, m_connection, m_wifidevice, m_objectPath, m_cancellable, wifiConnectCb, this);
-                }
+                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("disk"));
                 else
-                {
-                    // Create temporary connection - add to memory only, do not save to disk
-                    m_createNewConnection = false;
-                    GVariant *connSettings = nm_connection_to_dbus(m_connection, NM_CONNECTION_SERIALIZE_ALL);
-                    // Use nm_client_add_connection2 without NM_SETTINGS_ADD_CONNECTION2_FLAG_TO_DISK
-                    // This creates an in-memory only connection that won't persist
-                    nm_client_add_connection2(m_client,
-                                            connSettings,
-                                            NM_SETTINGS_ADD_CONNECTION2_FLAG_IN_MEMORY,
-                                            NULL,
-                                            TRUE,
-                                            m_cancellable,
-                                            wifiConnectTempCb,
-                                            this);
-                    g_variant_unref(connSettings);
-                }
+                    g_variant_builder_add(&optionsBuilder, "{sv}", "persist", g_variant_new_string("volatile"));
+
+                /* Get options */
+                GVariant *options = g_variant_builder_end(&optionsBuilder);
+
+                nm_client_add_and_activate_connection2 (m_client, m_connection, m_wifidevice, m_objectPath, options, m_cancellable, wifiConnectCb, this);
+                g_variant_unref(options);
+
                 if(m_connection)
                     g_object_unref(m_connection);
             }
@@ -1806,8 +1751,6 @@ namespace WPEFramework
 
         bool wifiManager::getKnownSSIDs(std::list<string>& ssids)
         {
-            std::string ssidPrint{};
-
             if(!createClientNewConnection())
                 return false;
 
@@ -1830,8 +1773,6 @@ namespace WPEFramework
                         if(ssidStr != nullptr)
                         {
                             ssids.push_back(string(ssidStr));
-                            ssidPrint += ssidStr;
-                            ssidPrint += ", ";
                             free(ssidStr);
                         }
                         else
@@ -1847,15 +1788,11 @@ namespace WPEFramework
                     }
                 }
             }
-            if (!ssids.empty())
-            {
-                NMLOG_INFO("known wifi connections are %s", ssidPrint.c_str());
-                deleteClientConnection();
-                return true;
-            }
+            if (ssids.empty())
+                ssids.push_back(string(""));
 
             deleteClientConnection();
-            return false;
+            return true;
         }
 
         static void wifiScanCb(GObject *object, GAsyncResult *result, gpointer user_data)
@@ -2046,7 +1983,7 @@ namespace WPEFramework
 
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
-                sleep(WPS_RETRY_WAIT_IN_MS);
+                sleep(WPS_RETRY_WAIT_TIME);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
                 {
                     NMLOG_INFO("stop wps process reuested");
@@ -2119,7 +2056,7 @@ namespace WPEFramework
                     }
 
                     NMLOG_INFO("WPS process not completed yet, state: %d", state);
-                    if(retry >= WPS_RETRY_COUNT - 1) // 3 times retry to check the status
+                    if(retry >= WPS_RETRY_COUNT - 1) // last monitoring attempt
                     {
                         // wifi state stuck in betwen disconnected and connected
                         NMLOG_ERROR("WPS process failed");
@@ -2224,7 +2161,7 @@ namespace WPEFramework
                     }
 
                     wpsActionTriggerd = true;
-                    retry = WPS_RETRY_COUNT - 3; // expecting wps process will be completed in 30 sec(3 10sec retry) (Ex: retry = 10-3)
+                    retry = WPS_RETRY_COUNT - 3; // leave 20 sec (2 retries) to verify the connection result
                 }
                 else if(!wpsActionTriggerd)
                 {
@@ -2669,11 +2606,15 @@ namespace WPEFramework
             std::string otherInterface;
             std::string wifiname = nmUtils::wlanIface(), ethname = nmUtils::ethIface();
             const char *specObject = NULL;
-            if (!createClientNewConnection())                                                                                     return false;
-                                                                                                                              if(interface.empty() || (wifiname != interface && ethname != interface))
-            {                                                                                                                     NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
+            if (!createClientNewConnection())
+                return false;
+
+            if(interface.empty() || (wifiname != interface && ethname != interface))
+            {
+                NMLOG_FATAL("interface is not valied %s", interface.c_str()!=nullptr? interface.c_str():"empty");
                 deleteClientConnection();
-                return false;                                                                                                 }
+                return false;
+            }
             otherInterface = (interface == wifiname)?ethname:wifiname;
 
             // Retrieve the active connections by interface name

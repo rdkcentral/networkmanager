@@ -422,7 +422,6 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
                         wifiState = "NM_DEVICE_STATE_IP_CHECK";
@@ -458,10 +457,10 @@ namespace WPEFramework
                         wifiState = "WIFI_STATE_CONNECTION_FAILED";
                         GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, attemptingSSID);
                         break;
-                    case NM_DEVICE_STATE_NEED_AUTH:
-                        //GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
-                        wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
-                        break;
+					case NM_DEVICE_STATE_NEED_AUTH:
+						//GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTION_INTERRUPTED);
+						//wifiState = "WIFI_STATE_CONNECTION_INTERRUPTED";
+						break;
                     default:
                         wifiState = "Un handiled: " ;
                         wifiState += std::to_string(deviceState);

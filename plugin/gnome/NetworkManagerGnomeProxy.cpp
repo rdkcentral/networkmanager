@@ -774,11 +774,6 @@ namespace WPEFramework
                     }
                     rc = Core::ERROR_NONE;
                 }
-                else
-                {
-                    NMLOG_INFO("known ssids not found !");
-                    rc = Core::ERROR_GENERAL;
-                }
             }
 
             return rc;

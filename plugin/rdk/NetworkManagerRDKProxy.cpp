@@ -273,6 +273,7 @@ namespace WPEFramework
                             newObject["frequency"] = object["frequency"];
                             ssidsUpdated.Add(newObject);
                         }
+
                         ::_instance->ReportAvailableSSIDs(ssidsUpdated);
                         break;
                     }
@@ -1040,14 +1041,14 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             memset(&param, 0, sizeof(param));
 
-            /* Must add new method to get all the known SSIDs but for now RDK-NM supports only one active SSID. So we repurpose this method */
-            retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getConnectedSSID, (void *)&param, sizeof(param));
+            /* Must add new method to get all the known SSIDs but for now RDK-NM supports only one saved SSID. */
+            retVal = IARM_Bus_Call(IARM_BUS_NM_SRV_MGR_NAME, IARM_BUS_WIFI_MGR_API_getPairedSSID, (void *)&param, sizeof(param));
 
             if(retVal == IARM_RESULT_SUCCESS)
             {
-                auto &connectedSsid = param.data.getConnectedSSID;
+                auto &pairedSsid = param.data.getPairedSSID;
                 std::list<string> ssidList;
-                ssidList.push_back(string(connectedSsid.ssid));
+                ssidList.push_back(string(pairedSsid.ssid));
                 NMLOG_INFO ("GetKnownSSIDs Success");
 
                 ssids = Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(ssidList);

@@ -46,6 +46,14 @@ extern "C" NMActiveConnection* __wrap_nm_client_add_and_activate_connection_fini
     return LibnmWraps::getInstance().nm_client_add_and_activate_connection_finish(client, result, error);
 }
 
+extern "C" void __wrap_nm_client_add_and_activate_connection2(NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    LibnmWraps::getInstance().nm_client_add_and_activate_connection2(client, partial, device, specific_object, options, cancellable, callback, user_data);
+}
+
+extern "C" NMActiveConnection* __wrap_nm_client_add_and_activate_connection2_finish(NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error) {
+    return LibnmWraps::getInstance().nm_client_add_and_activate_connection2_finish(client, result, out_result, error);
+}
+
 extern "C" GVariant* __wrap_nm_remote_connection_update2_finish(NMRemoteConnection *connection, GAsyncResult *result, GError **error) {
     return LibnmWraps::getInstance().nm_remote_connection_update2_finish(connection, result, error);
 }
@@ -649,6 +657,16 @@ void LibnmWraps::nm_client_add_and_activate_connection_async(NMClient *client, N
 NMActiveConnection* LibnmWraps::nm_client_add_and_activate_connection_finish(NMClient *client, GAsyncResult *result, GError **error) {
     EXPECT_NE(impl, nullptr);
     return impl->nm_client_add_and_activate_connection_finish(client, result, error);
+}
+
+void LibnmWraps::nm_client_add_and_activate_connection2(NMClient *client, NMConnection *partial, NMDevice *device, const char *specific_object, GVariant *options, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+    EXPECT_NE(impl, nullptr);
+    impl->nm_client_add_and_activate_connection2(client, partial, device, specific_object, options, cancellable, callback, user_data);
+}
+
+NMActiveConnection* LibnmWraps::nm_client_add_and_activate_connection2_finish(NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error) {
+    EXPECT_NE(impl, nullptr);
+    return impl->nm_client_add_and_activate_connection2_finish(client, result, out_result, error);
 }
 
 GVariant* LibnmWraps::nm_remote_connection_update2_finish(NMRemoteConnection *connection, GAsyncResult *result, GError **error) {
