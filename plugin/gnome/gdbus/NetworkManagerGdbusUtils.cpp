@@ -405,8 +405,9 @@ namespace WPEFramework
                 wifiInfo.frequency = ((double)freq/1000);
                 wifiInfo.rate = bitrate;
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
-                    // TODO add noise: retrieve noise from AP proxy and assign here
-                    wifiInfo.noise = 0;
+
+                // TODO add noise: retrieve noise from AP proxy and do noise cap check and assign wifiInfo.noise accordingly
+                wifiInfo.noise = 0;
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());
