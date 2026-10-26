@@ -349,7 +349,6 @@ namespace WPEFramework
         {
             guint32 flags= 0, wpaFlags= 0, rsnFlags= 0, freq= 0, bitrate= 0;
             uint8_t strength = 0;
-            gint16  noise = 0;
             NM80211Mode mode = NM_802_11_MODE_UNKNOWN;
             bool ret = false;
             GVariant* ssidVariant = NULL;
@@ -406,10 +405,9 @@ namespace WPEFramework
                 wifiInfo.frequency = ((double)freq/1000);
                 wifiInfo.rate = bitrate;
                 wifiInfo.security = static_cast<Exchange::INetworkManager::WIFISecurityMode>(wifiSecurityModeFromApFlags(wifiInfo.ssid, flags, wpaFlags, rsnFlags));
-                if(noise <= 0 && noise >= DEFAULT_NOISE)
-                    wifiInfo.noise = noise;
-                else
-                    wifiInfo.noise = 0;
+
+                // TODO add noise: retrieve noise from AP proxy and do noise cap check and assign wifiInfo.noise accordingly
+                wifiInfo.noise = 0;
 
                 // NMLOG_DEBUG("SSID: %s", wifiInfo.m_ssid.c_str());
                 // NMLOG_DEBUG("bssid %s", wifiInfo.m_bssid.c_str());
@@ -418,7 +416,6 @@ namespace WPEFramework
                 // NMLOG_DEBUG("bitrate : %s kbit/s", wifiInfo.m_rate.c_str());
                 // NMLOG_DEBUG("securityMode : %d", wifiInfo.m_securityMode);
  
-                // TODO add noice
                 ret = true;
             }
             else {
