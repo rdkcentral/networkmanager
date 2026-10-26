@@ -593,6 +593,12 @@ namespace WPEFramework
                 response.FromString(result);
             response["success"] = (Core::ERROR_NONE == rc);
             LOG_OUTPARAM();
+            // Queue full: a JSON-RPC error lets callers tell overload apart from a failed trace and retry.
+            if (Core::ERROR_INPROGRESS == rc)
+            {
+                reply.clear();
+                return rc;
+            }
             response.ToString(reply);
             return Core::ERROR_NONE;
         }
