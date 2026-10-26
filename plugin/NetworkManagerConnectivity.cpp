@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <thread>
 #include <algorithm>
+#include <utility>
 
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerConnectivity.h"
@@ -278,7 +279,7 @@ namespace WPEFramework
             return;
         }
 
-        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, interface);
+        internetSate = checkCurlResponse(endpoints, timeout_ms, headReq, ipversion, std::move(interface));
     }
 
     static bool curlVerboseEnabled() {
@@ -655,7 +656,7 @@ namespace WPEFramework
             NMLOG_INFO("notifying internet state %s", getInternetStateString(newInternetState));
             Exchange::INetworkManager::InternetStatus newState = newInternetState;
             string defaultIface = _instance->getDefaultInterface();
-            _instance->ReportInternetStatusChange(oldState, newState, defaultIface);
+            _instance->ReportInternetStatusChange(oldState, newState, std::move(defaultIface));
             m_InternetState = newInternetState;
             oldState = newState; // 'm_InternetState' not exactly previous state, it may change to unknow when interface changed
         }
@@ -745,7 +746,7 @@ namespace WPEFramework
                     if(m_InternetState != INTERNET_FULLY_CONNECTED)
                     {
                         TestConnectivity testInternet(m_endpoint(), NMCONNECTIVITY_CURL_REQUEST_TIMEOUT_MS,
-                                NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, defaultIface); // check both IP versions
+                                NMCONNECTIVITY_CURL_HEAD_REQUEST, 2, std::move(defaultIface)); // check both IP versions
                         currentInternetState = testInternet.getInternetState();
 
                         if (currentInternetState == INTERNET_CAPTIVE_PORTAL) // if captive portal found copy the URL
