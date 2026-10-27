@@ -69,8 +69,10 @@ namespace WPEFramework
             Register("IsConnectedToInternet",             &NetworkManager::IsConnectedToInternet, this);
             Register("GetCaptivePortalURI",               &NetworkManager::GetCaptivePortalURI, this);
             Register("GetPublicIP",                       &NetworkManager::GetPublicIP, this);
-            Register("Ping",                              &NetworkManager::Ping, this);
-            Register("Trace",                             &NetworkManager::Trace, this);
+            Register("Ping", Core::JSONRPC::InvokeFunction(
+                [this](const Core::JSONRPC::Context& context, const string&, const string& parameters, string& response) { return Ping(context, parameters, response); }));
+            Register("Trace", Core::JSONRPC::InvokeFunction(
+                [this](const Core::JSONRPC::Context& context, const string&, const string& parameters, string& response) { return Trace(context, parameters, response); }));
             Register("SetHostname",                       &NetworkManager::SetHostname, this);
             Register("StartWiFiScan",                     &NetworkManager::StartWiFiScan, this);
             Register("StopWiFiScan",                      &NetworkManager::StopWiFiScan, this);
@@ -571,75 +573,87 @@ namespace WPEFramework
             }
         }
 
-        uint32_t NetworkManager::Ping(const JsonObject& parameters, JsonObject& response)
+        static uint32_t ShapePingReply(const uint32_t rc, const string& result, string& reply)
         {
-            LOG_INPARAM();
-            string result{};
-            string endpoint{};
-            uint32_t rc = Core::ERROR_GENERAL;
-            if (parameters.HasLabel("endpoint"))
-            {
-                string guid{};
-                string ipversion{"IPv4"};
-                uint32_t noOfRequest = 1;
-                uint16_t timeOutInSeconds = 1;
-
-                endpoint = parameters["endpoint"].String();
-
-                if (parameters.HasLabel("ipversion"))
-                    ipversion = parameters["ipversion"].String();
-
-                if (parameters.HasLabel("count"))
-                    noOfRequest  = parameters["count"].Number();
-
-                if (parameters.HasLabel("timeout"))
-                    timeOutInSeconds  = parameters["timeout"].Number();
-
-                if (parameters.HasLabel("guid"))
-                    guid = parameters["guid"].String();
-
-                if (_networkManager)
-                    rc = _networkManager->Ping(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, result);
-                else
-                    rc = Core::ERROR_UNAVAILABLE;
-            }
-
+            JsonObject response;
             if (Core::ERROR_NONE == rc)
-            {
-                JsonObject reply;
-                reply.FromString(result);
-                response = reply;
-            }
+                response.FromString(result);
             LOG_OUTPARAM();
+            if (Core::ERROR_NONE == rc)
+                response.ToString(reply);
+            else
+                reply.clear();
             return rc;
         }
 
-        uint32_t NetworkManager::Trace(const JsonObject& parameters, JsonObject& response)
+        static uint32_t ShapeTraceReply(const uint32_t rc, const string& result, string& reply)
         {
-            LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            string result{};
-        
-            if (parameters.HasLabel("endpoint"))
+            JsonObject response;
+            if (Core::ERROR_NONE == rc)
+                response.FromString(result);
+            response["success"] = (Core::ERROR_NONE == rc);
+            LOG_OUTPARAM();
+            // Queue full: a JSON-RPC error lets callers tell overload apart from a failed trace and retry.
+            if (Core::ERROR_INPROGRESS == rc)
             {
-                const string ipversion      = parameters["ipversion"].String();
-                const string endpoint       = parameters["endpoint"].String();
-                const uint32_t noOfRequest  = parameters["packets"].Number();
-                const string guid           = parameters["guid"].String();
-
-                if (_networkManager)
-                    rc = _networkManager->Trace(ipversion, endpoint, noOfRequest, guid, result);
-                else
-                    rc = Core::ERROR_UNAVAILABLE;
-
-                if (Core::ERROR_NONE == rc)
-                {
-                    JsonObject reply;
-                    reply.FromString(result);
-                    response = reply;
-                }
+                reply.clear();
+                return rc;
             }
-            returnJson(rc);
+            response.ToString(reply);
+            return Core::ERROR_NONE;
+        }
+
+        uint32_t NetworkManager::Ping(const Core::JSONRPC::Context& context, const string& params, string& result)
+        {
+            JsonObject parameters;
+            parameters.FromString(params);
+            LOG_INPARAM();
+            if (!parameters.HasLabel("endpoint"))
+                return ShapePingReply(Core::ERROR_GENERAL, string(), result);
+            if (_networkManager == nullptr)
+                return ShapePingReply(Core::ERROR_UNAVAILABLE, string(), result);
+
+            string guid{};
+            string ipversion{"IPv4"};
+            uint32_t noOfRequest = 1;
+            uint16_t timeOutInSeconds = 1;
+            const string endpoint = parameters["endpoint"].String();
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
+
+            if (parameters.HasLabel("count"))
+                noOfRequest  = parameters["count"].Number();
+
+            if (parameters.HasLabel("timeout"))
+                timeOutInSeconds  = parameters["timeout"].Number();
+
+            if (parameters.HasLabel("guid"))
+                guid = parameters["guid"].String();
+
+            return _diagnosticsReplies->Invoke(context,
+                [&](DeferredReply::Callback* callback) { return _networkManager->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback); },
+                ShapePingReply, result);
+        }
+
+        uint32_t NetworkManager::Trace(const Core::JSONRPC::Context& context, const string& params, string& result)
+        {
+            JsonObject parameters;
+            parameters.FromString(params);
+            LOG_INPARAM();
+            if (!parameters.HasLabel("endpoint"))
+                return ShapeTraceReply(Core::ERROR_GENERAL, string(), result);
+            if (_networkManager == nullptr)
+                return ShapeTraceReply(Core::ERROR_UNAVAILABLE, string(), result);
+
+            const string ipversion      = parameters["ipversion"].String();
+            const string endpoint       = parameters["endpoint"].String();
+            const uint32_t noOfRequest  = parameters["packets"].Number();
+            const string guid           = parameters["guid"].String();
+
+            return _diagnosticsReplies->Invoke(context,
+                [&](DeferredReply::Callback* callback) { return _networkManager->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback); },
+                ShapeTraceReply, result);
         }
 
         uint32_t NetworkManager::SetHostname (const JsonObject& parameters, JsonObject& response)

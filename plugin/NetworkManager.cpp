@@ -121,6 +121,7 @@ namespace WPEFramework
 
                 // Register all custom JSON-RPC methods
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
+                _diagnosticsReplies = std::make_shared<DeferredReply::Table>(*this);
                 RegisterAllMethods();
 
 
@@ -157,6 +158,10 @@ namespace WPEFramework
             SYSLOG(Logging::Shutdown, (_T("Deinitializing NetworkManager")));
             if (_networkManager != nullptr)
             {
+                // Answer pending Ping/Trace callers before the JSON-RPC dispatcher is deactivated.
+                if (_diagnosticsReplies)
+                    _diagnosticsReplies->Close(Core::ERROR_UNAVAILABLE);
+
                 SYSLOG(Logging::Shutdown, (_T("Unregister Thunder Notifications for NetworkManager")));
                 _service->Unregister(&_notification);
 
@@ -196,6 +201,7 @@ namespace WPEFramework
             _service = nullptr;
             _networkManagerImpl = nullptr;
             _networkManager = nullptr;
+            _diagnosticsReplies.reset();
         }
 
         string NetworkManager::Information() const
@@ -212,6 +218,8 @@ namespace WPEFramework
             if (connection->Id() == _connectionId)
             {
                 ASSERT(_service != nullptr);
+                if (_diagnosticsReplies)
+                    _diagnosticsReplies->Drain(Core::ERROR_UNAVAILABLE);
                 Core::IWorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, PluginHost::IShell::DEACTIVATED, PluginHost::IShell::FAILURE));
             }
         }
