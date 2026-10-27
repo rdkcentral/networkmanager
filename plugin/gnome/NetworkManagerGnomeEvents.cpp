@@ -109,7 +109,7 @@ namespace WPEFramework
 
         // TODO: Use nm_remote_connection_commit_changes_async to avoid stalling event delivery.
         const gboolean committed = nm_remote_connection_commit_changes(
-            NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);Expand commentComment on lines R117 to R118Resolved as Addressed
+            NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);
         if (!committed || error != nullptr) {
             NMLOG_ERROR("Failed to commit changes: %s", error ? error->message : "commit returned failure");
             if (error)
@@ -150,7 +150,7 @@ namespace WPEFramework
             return;
         }
 
-        setHostname(NM_CONNECTION(connection), hostname);Expand commentComment on line R159Resolved as Addressed
+        setHostname(NM_CONNECTION(connection), hostname);
     }
 
     static void connectionAddedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
