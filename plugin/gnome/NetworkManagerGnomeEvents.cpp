@@ -44,6 +44,129 @@ namespace WPEFramework
     extern NetworkManagerImplementation* _instance;
     static GnomeNetworkManagerEvents *_nmEventInstance = nullptr;
 
+    std::mutex hostnameMutex;
+
+    bool setHostname(NMConnection *connection, const std::string& hostname)
+    {
+        GError *error = NULL;
+        NMSettingIPConfig *sIPv4 = NULL;
+        NMSettingIPConfig *sIPv6 = NULL;
+        bool needChange = false;
+
+        if(connection == NULL) {
+            NMLOG_ERROR("Connection is NULL");
+            return false;
+        }
+
+        sIPv4 = nm_connection_get_setting_ip4_config(connection);
+        if (sIPv4) {
+            const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv4);
+            gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv4);
+
+            if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                needChange = true;
+            }
+        }
+        else
+            needChange = true;
+
+        sIPv6 = nm_connection_get_setting_ip6_config(connection);
+        if (sIPv6) {
+            const char* existingHostname = nm_setting_ip_config_get_dhcp_hostname(sIPv6);
+            gboolean sendHostname = nm_setting_ip_config_get_dhcp_send_hostname(sIPv6);
+
+            if (!sendHostname || !existingHostname || hostname != existingHostname) {
+                needChange = true;
+            }
+        }
+        else
+            needChange = true;
+
+        if (!needChange) {
+            NMLOG_DEBUG("Hostname already set to '%s', no changes needed", hostname.c_str());
+            return true;
+        }
+
+        NMLOG_DEBUG("Setting hostname to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+
+        if (!sIPv4) {
+            sIPv4 = NM_SETTING_IP_CONFIG(nm_setting_ip4_config_new());
+            nm_connection_add_setting(connection, NM_SETTING(sIPv4));
+        }
+        g_object_set(sIPv4,
+                    NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                    NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                    NULL);
+
+        if (!sIPv6) {
+            sIPv6 = NM_SETTING_IP_CONFIG(nm_setting_ip6_config_new());
+            nm_connection_add_setting(connection, NM_SETTING(sIPv6));
+        }
+        g_object_set(sIPv6,
+                    NM_SETTING_IP_CONFIG_DHCP_HOSTNAME, hostname.c_str(),
+                    NM_SETTING_IP_CONFIG_DHCP_SEND_HOSTNAME, TRUE,
+                    NULL);
+
+        // TODO: Use nm_remote_connection_commit_changes_async to avoid stalling event delivery.
+        const gboolean committed = nm_remote_connection_commit_changes(
+            NM_REMOTE_CONNECTION(connection), TRUE, NULL, &error);Expand commentComment on lines R117 to R118Resolved as Addressed
+        if (!committed || error != nullptr) {
+            NMLOG_ERROR("Failed to commit changes: %s", error ? error->message : "commit returned failure");
+            if (error)
+                g_error_free(error);
+            return false;
+        }
+
+        NMLOG_INFO("DHCP hostname set to '%s' for connection '%s'", hostname.c_str(), nm_connection_get_id(connection));
+        return true;
+    }
+
+    static std::string resolveHostname()
+    {
+        std::string hostname;
+        if (!nmUtils::readPersistentHostname(hostname))
+            hostname = nmUtils::deviceHostname();
+        if (hostname.empty())
+            NMLOG_WARNING("Hostname is empty. No modification will be made to NM connections.");
+        return hostname;
+    }
+
+    static void checkAndSetHostname(NMRemoteConnection *connection, const std::string& hostname)
+    {
+        if (connection == nullptr || hostname.empty())
+            return;
+
+        const char *iface = nm_connection_get_interface_name(NM_CONNECTION(connection));
+        if (iface == nullptr) {
+            NMLOG_WARNING("Interface name is null");
+            return;
+        }
+
+        // Hostname update is required only for auto-generated Ethernet connections.
+        // Other WIFI connections handle hostname during connection setup.
+        if (iface != std::string(nmUtils::ethIface()))
+        {
+            NMLOG_DEBUG("Interface '%s' is not the Ethernet interface. Skipping hostname set.", iface);
+            return;
+        }
+
+        setHostname(NM_CONNECTION(connection), hostname);Expand commentComment on line R159Resolved as Addressed
+    }
+
+    static void connectionAddedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
+    {
+        std::lock_guard<std::mutex> hostnameLock(hostnameMutex);
+        NMLOG_INFO("hostname lock acquired: connection added");
+        checkAndSetHostname(connection, resolveHostname());
+    }
+
+    static void connectionRemovedCb(NMClient *client, NMRemoteConnection *connection, gpointer userData)
+    {
+        NMConnection *nmConnection = NM_CONNECTION(connection);
+        NMLOG_INFO(" connection removed: '%s'", nm_connection_get_id(nmConnection) ? nm_connection_get_id(nmConnection) : "unknown");
+        // Additional logic for connection removal can be added here if needed
+    }
+
     static void primaryConnectionCb(NMClient *client, GParamSpec *param, NMEvents *nmEvents)
     {
         NMActiveConnection *primaryConn;
@@ -58,15 +181,21 @@ namespace WPEFramework
             connectionTyp = nm_active_connection_get_connection_type(primaryConn);
             NMLOG_INFO("active connection - %s (%s)", activeConnId, connectionTyp);
 
-            if (0 == strncmp("802-3-ethernet", connectionTyp, sizeof("802-3-ethernet")) && string("eth0_missing") != nmUtils::ethIface())
+            if (connectionTyp != nullptr && 0 == strncmp("802-3-ethernet", connectionTyp, sizeof("802-3-ethernet")) && string("eth0_missing") != nmUtils::ethIface())
                 newIface = nmUtils::ethIface();
-            else if(0 == strncmp("802-11-wireless", connectionTyp, sizeof("802-11-wireless")) && string("wlan0_missing") != nmUtils::wlanIface())
+            else if(connectionTyp != nullptr && 0 == strncmp("802-11-wireless", connectionTyp, sizeof("802-11-wireless")) && string("wlan0_missing") != nmUtils::wlanIface())
                 newIface = nmUtils::wlanIface();
             else {
-                NMLOG_WARNING("Active connection not valid: Ethernet/WiFi ID: %s", connectionTyp);
+                NMLOG_WARNING("Active connection not valid: Ethernet/WiFi ID: %s", connectionTyp ? connectionTyp : "unknown");
                 return; // if not good don't report the evnet
             }
 
+            if (_instance != nullptr) {
+                if (_instance->getDefaultInterface() != newIface) {
+                    _instance->setDefaultInterface(newIface);
+                    NMLOG_INFO("default interface is %s", newIface.c_str());
+                }
+            }
             GnomeNetworkManagerEvents::onActiveInterfaceChangeCb(newIface);
         }
         else
@@ -612,19 +741,80 @@ namespace WPEFramework
         }
     }
 
+    static gboolean quitEventLoop(gpointer loop)
+    {
+        g_main_loop_quit(static_cast<GMainLoop *>(loop));
+        return G_SOURCE_REMOVE;
+    }
+
+    static void releaseClient(NMClient *&client, GMainLoop *loop, GMainContext *context)
+    {
+        GObject *busyWatcher = nm_client_get_context_busy_watcher(client);
+        g_object_add_weak_pointer(busyWatcher, reinterpret_cast<gpointer *>(&busyWatcher));
+        g_clear_object(&client);
+        while (busyWatcher)
+            g_main_context_iteration(context, TRUE);
+        if (loop)
+            g_main_loop_unref(loop);
+        g_main_context_unref(context);
+    }
+
     void* GnomeNetworkManagerEvents::networkMangerEventMonitor(void *arg)
     {
+        GError *error = nullptr;
         if(arg == nullptr)
         {
             NMLOG_FATAL("function argument error: nm event monitor failed");
             return nullptr;
         }
 
-        NMEvents *nmEvents = static_cast<NMEvents *>(arg);
+        GnomeNetworkManagerEvents *monitor = static_cast<GnomeNetworkManagerEvents *>(arg);
+
+        NMEvents *nmEvents = &monitor->nmEvents;
+        GMainContext *context = g_main_context_new();
+        if (context == nullptr) {
+            NMLOG_FATAL("Failed to create GMainContext");
+            return nullptr;
+        }
+
+        g_main_context_push_thread_default(context);
+        nmEvents->client = nm_client_new(NULL, &error);
+        g_main_context_pop_thread_default(context);
+        if (nmEvents->client == nullptr || error != nullptr) {
+            NMLOG_ERROR("Could not connect to NetworkManager: %s", error ? error->message : "unknown error");
+            if (error)
+                g_error_free(error);
+            g_clear_object(&nmEvents->client);
+            g_main_context_unref(context);
+            monitor->isEventThrdActive = false;
+            return nullptr;
+        }
+
+        GMainLoop *loop = g_main_loop_new(context, FALSE);
+        if (loop == nullptr) {
+            NMLOG_FATAL("GMain loop failed Fatal Error: Event will not work");
+            monitor->isEventThrdActive = false;
+            releaseClient(nmEvents->client, loop, context);
+            return nullptr;
+        }
+
+        _nmEventInstance = monitor;
+
+        NMLOG_INFO("libnm client connection success version: %s", nm_client_get_version(nmEvents->client));
         primaryConnectionCb(nmEvents->client, NULL, nmEvents);
         g_signal_connect (nmEvents->client, "notify::" NM_CLIENT_NM_RUNNING,G_CALLBACK (managerRunningCb), nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_STATE, G_CALLBACK (clientStateChangedCb),nmEvents);
         g_signal_connect(nmEvents->client, "notify::" NM_CLIENT_PRIMARY_CONNECTION, G_CALLBACK(primaryConnectionCb), nmEvents);
+        const GPtrArray *connections = nm_client_get_connections(nmEvents->client);
+        if (connections != nullptr && connections->len > 0) {
+            std::lock_guard<std::mutex> hostnameLock(hostnameMutex);
+            NMLOG_INFO("hostname lock acquired: startup hostname update");
+            const std::string hostname = resolveHostname();
+            for (guint index = 0; index < connections->len; ++index)
+                checkAndSetHostname(NM_REMOTE_CONNECTION(connections->pdata[index]), hostname);
+        }
+        g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_ADDED, G_CALLBACK(connectionAddedCb), nmEvents);
+        g_signal_connect(nmEvents->client, NM_CLIENT_CONNECTION_REMOVED, G_CALLBACK(connectionRemovedCb), nmEvents);
 
         const GPtrArray *devices = nullptr;
         devices = nm_client_get_devices(nmEvents->client);
@@ -635,6 +825,9 @@ namespace WPEFramework
         if(devices == nullptr)
         {
             NMLOG_ERROR("Failed to get device list.");
+            monitor->cleanupSignalHandlers();
+            _nmEventInstance = nullptr;
+            releaseClient(nmEvents->client, loop, context);
             return nullptr;
         }
 
@@ -700,49 +893,65 @@ namespace WPEFramework
                 NMLOG_WARNING("device error null");
         }
 
-        NMLOG_INFO("registered all networkmnager dbus events");
-        g_main_loop_run(nmEvents->loop);
-        // Clean up all signal handlers after thread has stopped
-        if(_nmEventInstance != nullptr)
+        NMLOG_INFO("registered all networkmanager libnm events");
         {
-            _nmEventInstance->cleanupSignalHandlers();
+            std::lock_guard<std::mutex> lock(monitor->loopMutex);
+            nmEvents->loop = loop;
         }
-        //g_main_loop_unref(nmEvents->loop);
+
+        if (!monitor->stopRequested.load())
+            g_main_loop_run(loop);
+        // Clean up all signal handlers after thread has stopped
+        {
+            std::lock_guard<std::mutex> lock(monitor->loopMutex);
+            nmEvents->loop = nullptr;
+        }
+        monitor->cleanupSignalHandlers();
+        _nmEventInstance = nullptr;
+        releaseClient(nmEvents->client, loop, context);
         return nullptr;
     }
 
     bool GnomeNetworkManagerEvents::startNetworkMangerEventMonitor()
     {
         NMLOG_DEBUG("starting gnome event monitor");
-        if (NULL == nmEvents.client) {
-            NMLOG_ERROR("Client Connection NULL DBUS event Failed!");
-            return false;
-        }
         if(!isEventThrdActive) {
+            if (eventThrdID) {
+                NMLOG_INFO("joining previous gnome event monitor thread");
+                g_thread_join(eventThrdID);
+                eventThrdID = nullptr;
+            }
             isEventThrdActive = true;
-            // Create event monitor thread
-            eventThrdID = g_thread_new("nm_event_thrd", GnomeNetworkManagerEvents::networkMangerEventMonitor, &nmEvents);
+            stopRequested.store(false);
+            eventThrdID = g_thread_new("nm_event_thrd", GnomeNetworkManagerEvents::networkMangerEventMonitor, this);
         }
         return true;
     }
 
     void GnomeNetworkManagerEvents::stopNetworkMangerEventMonitor()
     {
-        // g_signal_handlers_disconnect_by_func(client, G_CALLBACK(primaryConnectionCb), NULL);
-        if (!isEventThrdActive) {
+        if (eventThrdID == nullptr) {
+            NMLOG_INFO("gnome event monitor thread not started");
             return;
         }
-        if (nmEvents.loop != NULL) {
-            g_main_loop_quit(nmEvents.loop);
+        stopRequested.store(true);
+        {
+            std::lock_guard<std::mutex> lock(loopMutex);
+            if (nmEvents.loop != nullptr) {
+                GSource *source = g_idle_source_new();
+                g_source_set_callback(source, quitEventLoop, nmEvents.loop, nullptr);
+                g_source_attach(source, g_main_loop_get_context(nmEvents.loop));
+                g_source_unref(source);
+            }
         }
 
         if (eventThrdID) {
+            NMLOG_INFO("gnome event monitor stopping..");
             g_thread_join(eventThrdID);  // Wait for the thread to finish
-            eventThrdID = NULL;  // Reset the thread ID
+            eventThrdID = nullptr;  // Reset the thread ID
             NMLOG_WARNING("gnome event monitor stopped");
         }
         isEventThrdActive = false;
-
     }
 
     void GnomeNetworkManagerEvents::cleanupSignalHandlers()
@@ -792,14 +1001,6 @@ namespace WPEFramework
     {
         NMLOG_INFO("~GnomeNetworkManagerEvents");
         stopNetworkMangerEventMonitor();
-        if(nmEvents.client != nullptr) {
-            g_object_unref(nmEvents.client);
-            nmEvents.client = nullptr;
-        }
-        if (nmEvents.loop != NULL) {
-            g_main_loop_unref(nmEvents.loop);
-            nmEvents.loop = NULL;
-        }
     }
 
     GnomeNetworkManagerEvents* GnomeNetworkManagerEvents::getInstance()
@@ -811,29 +1012,9 @@ namespace WPEFramework
     GnomeNetworkManagerEvents::GnomeNetworkManagerEvents()
     {
         NMLOG_DEBUG("GnomeNetworkManagerEvents");
-        GError *error = NULL;
         eventThrdID = nullptr;
         isEventThrdActive = false;
         doScanNotify = false;
-
-        nmEvents.client = nm_client_new(NULL, &error);
-        if(!nmEvents.client || error )
-        {
-            if (error) {
-                NMLOG_ERROR("Could not connect to NetworkManager: %s", error->message);
-                g_error_free(error);
-            }
-            NMLOG_INFO("networkmanger client connection failed");
-            return;
-        }
-
-        NMLOG_INFO("libnm client connection success version: %s", nm_client_get_version(nmEvents.client));
-        nmEvents.loop = g_main_loop_new(NULL, FALSE);
-        if(nmEvents.loop == NULL) {
-            NMLOG_FATAL("GMain loop failed Fatal Error: Event will not work");
-            return;
-        }
-        _nmEventInstance = this;
     }
 
     /* Gnome networkmanger new events */
