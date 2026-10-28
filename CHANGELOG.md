@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.6.0] - 2026-10-26
+### Changed
+- Removed redundant publishing of `WIFI_STATE_CONNECTION_CONNECTED` event
+
 ## [4.5.0] - 2026-09-28
 ### Changed
 - Increased amount of time we wait for WPS button to be pressed to 120 from 90; to match with legacy devices
