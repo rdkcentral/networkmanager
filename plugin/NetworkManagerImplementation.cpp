@@ -51,6 +51,7 @@ namespace WPEFramework
 
         NetworkManagerImplementation::NetworkManagerImplementation()
         {
+            const auto tEntry = std::chrono::steady_clock::now();
             /* Initialize STUN Endpoints */
             m_stunEndpoint = "stun.l.google.com";
             m_stunPort = 19302;
@@ -70,7 +71,7 @@ namespace WPEFramework
 
             /* Initialize Network Manager */
             NetworkManagerLogger::Init();
-            SYSLOG(::WPEFramework::Logging::Startup, (_T("NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("[NWMGR] NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
             /* Start dedicated event dispatch thread */
@@ -82,6 +83,7 @@ namespace WPEFramework
                 // Initialize Telemetry T2 for NwMgrPlugin
                 t2_init("NwMgrPlugin");
             #endif
+            NMLOG_INFO("NetworkManagerImplementation instance time %lld ms", static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tEntry).count()));
         }
 
         NetworkManagerImplementation::~NetworkManagerImplementation()
