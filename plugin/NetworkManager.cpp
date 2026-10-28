@@ -59,6 +59,7 @@ namespace WPEFramework
          */
         const string NetworkManager::Initialize(PluginHost::IShell *service)
         {
+            const auto tEntry = std::chrono::steady_clock::now();
             string message{};
             // Make sure everything is null as we expect
             ASSERT(_service == nullptr);
@@ -80,7 +81,7 @@ namespace WPEFramework
             // Ideally for large, complex plugins we would actually split the plugin into two libraries - a thin library that just calls
             // _service->Root to launch WPEProcess, and a larger library that is only ever run inside WPEProcess only (we do this for Cobalt and WebKitBrowser)
             _networkManager = service->Root<Exchange::INetworkManager>(_connectionId, 25000, _T("NetworkManagerImplementation"));
-
+            SYSLOG(Logging::Startup, (_T("[NWMGR] NetworkManager instance created, time %lld ms"), static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tEntry).count())));
             // Still running inside the main WPEFramework process - the child process will have now been spawned and registered if necessary
             if (_networkManager != nullptr)
             {
@@ -95,7 +96,7 @@ namespace WPEFramework
                 }
                 else
                 {
-                    SYSLOG(Logging::Startup, (_T("Configuring successful")));
+                    SYSLOG(Logging::Startup, (_T("[NWMGR] Configuring successful, time %lld ms"), static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tEntry).count())));
                 }
 
                 // Set the plugin log level
@@ -124,6 +125,7 @@ namespace WPEFramework
                 message = _T("Failed to initialize NetworkManager");
             }
 
+            SYSLOG(Logging::Startup, (_T("[NWMGR] NetworkManager initialization time %lld ms"), static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - tEntry).count())));
             // Success
             return message;
         }
