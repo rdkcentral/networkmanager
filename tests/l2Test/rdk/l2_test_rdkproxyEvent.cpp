@@ -717,8 +717,9 @@ TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
 
 TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfterExpiry)
 {
-    NetworkManagerConnectivityClient client;
+    // Declared before the client so it outlives the client's Release() in its destructor.
     ConnectivityStatusProxy connectivity;
+    NetworkManagerConnectivityClient client;
     NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
 
     std::vector<Exchange::INetworkManager::InternetStatus> changes;
@@ -741,6 +742,77 @@ TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfte
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     ASSERT_EQ(changes.size(), 2u);
+    EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+}
+
+// A pending-quiet LIMITED_INTERNET over a known down-state is an upgrade: it is
+// cached and emitted, and a later threshold expiry does not promote again.
+TEST(NetworkManagerConnectivityClientTest, PendingQuietOverDownStateIsExposed)
+{
+    const Exchange::IConnectivityCheck::InternetStatus downStates[] = {
+        Exchange::IConnectivityCheck::NO_INTERNET,
+        Exchange::IConnectivityCheck::UNKNOWN,
+    };
+
+    for (const auto downState : downStates) {
+        ConnectivityStatusProxy connectivity;
+        NetworkManagerConnectivityClient client;
+        NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+        std::vector<Exchange::INetworkManager::InternetStatus> changes;
+        client.SetInternetStatusChangeHandler(
+            [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+                changes.push_back(status);
+            });
+
+        NetworkManagerConnectivityClientTestAccess::Notify(client, downState, "WAITING_GATEWAY");
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+
+        EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+        ASSERT_EQ(changes.size(), 2u);
+        EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+
+        connectivity.armed = true;
+        NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+        EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+        EXPECT_EQ(changes.size(), 2u);
+        EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+    }
+}
+
+// A pending-quiet LIMITED_INTERNET as the first notification (empty cache) is held:
+// queries report UNKNOWN without filling the cache from CCM, and expiry then promotes once.
+TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusWithEmptyCache)
+{
+    ConnectivityStatusProxy connectivity;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_UNKNOWN);
+    EXPECT_TRUE(changes.empty());
+    EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    ASSERT_EQ(changes.size(), 1u);
     EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
     EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);

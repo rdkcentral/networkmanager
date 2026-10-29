@@ -114,6 +114,20 @@ private:
         NetworkManagerConnectivityClient& mParent;
     };
 
+    // RAII guard: releases one in-flight handler slot when the callback returns or throws.
+    class HandlerCompletion {
+    public:
+        explicit HandlerCompletion(NetworkManagerConnectivityClient& parent)
+            : mParent(parent) {}
+        ~HandlerCompletion() { mParent.completeInternetStatusChangeHandler(); }
+
+        HandlerCompletion(const HandlerCompletion&) = delete;
+        HandlerCompletion& operator=(const HandlerCompletion&) = delete;
+
+    private:
+        NetworkManagerConnectivityClient& mParent;
+    };
+
     // SmartInterfaceType lifecycle callback.
     void Operational(bool upAndRunning) override;
 

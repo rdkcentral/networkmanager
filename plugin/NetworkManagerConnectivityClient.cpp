@@ -221,9 +221,14 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
     InternetStatusChangeHandler handler;
     {
         std::lock_guard<std::mutex> lock(mLock);
+        // Hold a pending-quiet LIMITED_INTERNET only over an empty cache or a verified
+        // up-state; over a known down-state (UNKNOWN / NOT_AVAILABLE / CAPTIVE_PORTAL)
+        // it is an upgrade and must be exposed.
         if (status == Exchange::IConnectivityCheck::LIMITED_INTERNET
             && reason == CONNECTIVITY_PENDING_QUIET_REASON
-            && mHasCachedStatus) {
+            && (!mHasCachedStatus
+                || mCachedStatus == Exchange::INetworkManager::INTERNET_FULLY_CONNECTED
+                || mCachedStatus == Exchange::INetworkManager::INTERNET_LIMITED)) {
             mHoldPendingStatus = true;
             mPendingExpired = false;
             return;
@@ -246,17 +251,7 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
         return;
     }
 
-    struct HandlerCompletion {
-        explicit HandlerCompletion(NetworkManagerConnectivityClient& client)
-            : client(client) {}
-        ~HandlerCompletion()
-        {
-            client.completeInternetStatusChangeHandler();
-        }
-
-        NetworkManagerConnectivityClient& client;
-    } completion(*this);
-
+    HandlerCompletion completion(*this);
     handler(mapped, filteredReason);
 }
 
@@ -333,17 +328,17 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
         } else if (mHasCachedStatus) {
             reason = mCachedReason;
             return mCachedStatus;
+        } else if (mHoldPendingStatus) {
+            // Pending-quiet arrived before any status was cached: keep reporting
+            // UNKNOWN until promotion. Filling the cache from CCM would return
+            // LIMITED_INTERNET and bypass the hold.
+            return Exchange::INetworkManager::INTERNET_UNKNOWN;
         }
     }
 
     if (promotePendingStatus) {
         if (handler) {
-            struct HandlerCompletion {
-                explicit HandlerCompletion(NetworkManagerConnectivityClient& client)
-                    : client(client) {}
-                ~HandlerCompletion() { client.completeInternetStatusChangeHandler(); }
-                NetworkManagerConnectivityClient& client;
-            } completion(*this);
+            HandlerCompletion completion(*this);
             handler(Exchange::INetworkManager::INTERNET_LIMITED, std::string());
         }
 
@@ -383,7 +378,8 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     {
         std::lock_guard<std::mutex> lock(mLock);
         // A notification may have landed while the RPC was in flight; it is newer.
-        if (!mHasCachedStatus) {
+        // A pending-quiet hold that landed meanwhile also wins over this seed.
+        if (!mHasCachedStatus && !mHoldPendingStatus) {
             mCachedStatus = mapped;
             mCachedReason = reason;
             mHasCachedStatus = true;
