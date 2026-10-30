@@ -96,7 +96,7 @@ public:
             ++probeTriggerCount;
         }
         info.status = status;
-        info.reason.clear();
+        info.reason = reason;
         return Core::ERROR_NONE;
     }
 
@@ -131,6 +131,7 @@ public:
     mutable std::atomic<uint32_t> probeTriggerCount{0};
     mutable bool armed{false};
     InternetStatus status{FULLY_CONNECTED};
+    string reason;
     INotification* notification{nullptr};
     ILimitedInternetNotification* limitedInternetNotification{nullptr};
 
@@ -715,7 +716,10 @@ TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
     EXPECT_EQ(0u, callbackCount.load());
 }
 
-TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfterExpiry)
+// A pending-quiet LIMITED_INTERNET over a verified up-state is cached without an
+// event. The first query after threshold expiry triggers the armed probe once and
+// still emits nothing; subscribers learn the probe outcome from its notification.
+TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyAndProbesOnceAfterExpiry)
 {
     // Declared before the client so it outlives the client's Release() in its destructor.
     ConnectivityStatusProxy connectivity;
@@ -733,7 +737,7 @@ TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfte
     NetworkManagerConnectivityClientTestAccess::Notify(
         client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
 
-    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_FULLY_CONNECTED);
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     ASSERT_EQ(changes.size(), 1u);
     EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
 
@@ -741,13 +745,13 @@ TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusAndPromotesOnceAfte
     NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
-    ASSERT_EQ(changes.size(), 2u);
-    EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(changes.size(), 1u);
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
     EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(changes.size(), 1u);
 }
 
 // A pending-quiet LIMITED_INTERNET over a known down-state is an upgrade: it is
@@ -787,9 +791,9 @@ TEST(NetworkManagerConnectivityClientTest, PendingQuietOverDownStateIsExposed)
     }
 }
 
-// A pending-quiet LIMITED_INTERNET as the first notification (empty cache) is held:
-// queries report UNKNOWN without filling the cache from CCM, and expiry then promotes once.
-TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusWithEmptyCache)
+// A pending-quiet LIMITED_INTERNET as the first notification (empty cache) is cached
+// as LIMITED without an event; expiry then a query triggers the probe once.
+TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyWithEmptyCache)
 {
     ConnectivityStatusProxy connectivity;
     NetworkManagerConnectivityClient client;
@@ -804,7 +808,7 @@ TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusWithEmptyCache)
     NetworkManagerConnectivityClientTestAccess::Notify(
         client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
 
-    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_UNKNOWN);
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_TRUE(changes.empty());
     EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
 
@@ -812,10 +816,105 @@ TEST(NetworkManagerConnectivityClientTest, HoldsPendingStatusWithEmptyCache)
     NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
-    ASSERT_EQ(changes.size(), 1u);
-    EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_TRUE(changes.empty());
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
     EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+}
+
+// After a silent quiet-link cache, the probe result notification reaches the bridge
+// handler (which dedupes on what subscribers last saw) and clears the probe flag.
+TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentQuietLinkReachesHandler)
+{
+    struct Outcome {
+        Exchange::IConnectivityCheck::InternetStatus status;
+        const char* reason;
+        Exchange::INetworkManager::InternetStatus expected;
+    };
+    const Outcome outcomes[] = {
+        { Exchange::IConnectivityCheck::FULLY_CONNECTED, "", Exchange::INetworkManager::INTERNET_FULLY_CONNECTED },
+        { Exchange::IConnectivityCheck::LIMITED_INTERNET, "", Exchange::INetworkManager::INTERNET_LIMITED },
+        { Exchange::IConnectivityCheck::NO_INTERNET, "PROBE_FAILED", Exchange::INetworkManager::INTERNET_NOT_AVAILABLE },
+    };
+
+    for (const auto& outcome : outcomes) {
+        ConnectivityStatusProxy connectivity;
+        NetworkManagerConnectivityClient client;
+        NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+        std::vector<Exchange::INetworkManager::InternetStatus> changes;
+        client.SetInternetStatusChangeHandler(
+            [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+                changes.push_back(status);
+            });
+
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+        ASSERT_EQ(changes.size(), 1u);
+
+        NetworkManagerConnectivityClientTestAccess::Notify(client, outcome.status, outcome.reason);
+
+        ASSERT_EQ(changes.size(), 2u);
+        EXPECT_EQ(changes.back(), outcome.expected);
+        EXPECT_EQ(client.getInternetState(), outcome.expected);
+
+        // The flag was cleared: a later expiry plus query does not call CCM.
+        connectivity.armed = true;
+        NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+        EXPECT_EQ(client.getInternetState(), outcome.expected);
+        EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+    }
+}
+
+// NetworkManager (re)starts during a quiet link and its first contact is a query:
+// the cold-path read sees PENDING_QUIET, caches LIMITED silently and probes after expiry.
+TEST(NetworkManagerConnectivityClientTest, ColdQueryDuringQuietLinkCachesSilently)
+{
+    ConnectivityStatusProxy connectivity;
+    connectivity.status = Exchange::IConnectivityCheck::LIMITED_INTERNET;
+    connectivity.reason = CONNECTIVITY_PENDING_QUIET_REASON;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    std::string reason;
+    EXPECT_EQ(client.getInternetState(reason), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_TRUE(reason.empty());
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 2u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+    EXPECT_TRUE(changes.empty());
+}
+
+// A cold-path read of an untagged LIMITED_INTERNET is cached normally: a later
+// threshold expiry does not make NetworkManager query CCM again.
+TEST(NetworkManagerConnectivityClientTest, ColdQueryOfUntaggedLimitedDoesNotProbeOnExpiry)
+{
+    ConnectivityStatusProxy connectivity;
+    connectivity.status = Exchange::IConnectivityCheck::LIMITED_INTERNET;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);

@@ -101,7 +101,7 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
             }
             mConnectivity = Interface();
             mHasCachedStatus = false;
-            mHoldPendingStatus = false;
+            mProbeOnExpiry = false;
             mPendingExpired = false;
             mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
             mCachedReason.clear();
@@ -118,7 +118,7 @@ void NetworkManagerConnectivityClient::Operational(bool upAndRunning)
             mConnectivity = nullptr;
         }
         mHasCachedStatus = false;
-        mHoldPendingStatus = false;
+        mProbeOnExpiry = false;
         mPendingExpired = false;
         mCachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
         mCachedReason.clear();
@@ -221,24 +221,21 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
     InternetStatusChangeHandler handler;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        // Hold a pending-quiet LIMITED_INTERNET only over an empty cache or a verified
-        // up-state; over a known down-state (UNKNOWN / NOT_AVAILABLE / CAPTIVE_PORTAL)
-        // it is an upgrade and must be exposed.
-        if (status == Exchange::IConnectivityCheck::LIMITED_INTERNET
+        // A pending-quiet LIMITED_INTERNET over an empty cache or a verified
+        // up-state is cached without an event; subscribers learn the outcome from
+        // the probe result. Over a known down-state (UNKNOWN / NOT_AVAILABLE /
+        // CAPTIVE_PORTAL) it is an upgrade and is emitted.
+        const bool silentQuietLink = status == Exchange::IConnectivityCheck::LIMITED_INTERNET
             && reason == CONNECTIVITY_PENDING_QUIET_REASON
             && (!mHasCachedStatus
                 || mCachedStatus == Exchange::INetworkManager::INTERNET_FULLY_CONNECTED
-                || mCachedStatus == Exchange::INetworkManager::INTERNET_LIMITED)) {
-            mHoldPendingStatus = true;
-            mPendingExpired = false;
-            return;
-        }
-        mHoldPendingStatus = false;
+                || mCachedStatus == Exchange::INetworkManager::INTERNET_LIMITED);
+        mProbeOnExpiry = silentQuietLink;
         mPendingExpired = false;
         mCachedStatus = mapped;
         mCachedReason = filteredReason;
         mHasCachedStatus = true;
-        if (mHandlerClearInProgress) {
+        if (silentQuietLink || mHandlerClearInProgress) {
             return;
         }
         handler = mInternetStatusChangeHandler;
@@ -279,7 +276,7 @@ void NetworkManagerConnectivityClient::LimitedInternetNotification::OnLimitedInt
 void NetworkManagerConnectivityClient::notifyLimitedInternetThresholdExpired()
 {
     std::lock_guard<std::mutex> lock(mLock);
-    if (mHoldPendingStatus) {
+    if (mProbeOnExpiry) {
         mPendingExpired = true;
     }
 }
@@ -310,38 +307,27 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     LOG_ENTRY_FUNCTION();
     reason.clear();
 
-    InternetStatusChangeHandler handler;
-    bool promotePendingStatus = false;
+    bool triggerProbe = false;
+    NmInternetStatus cachedStatus = Exchange::INetworkManager::INTERNET_UNKNOWN;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        if (mPendingExpired) {
-            mPendingExpired = false;
-            mHoldPendingStatus = false;
-            mCachedStatus = Exchange::INetworkManager::INTERNET_LIMITED;
-            mCachedReason.clear();
-            mHasCachedStatus = true;
-            if (!mHandlerClearInProgress && mInternetStatusChangeHandler) {
-                handler = mInternetStatusChangeHandler;
-                ++mHandlersInFlight;
-            }
-            promotePendingStatus = true;
-        } else if (mHasCachedStatus) {
+        if (mHasCachedStatus) {
             reason = mCachedReason;
-            return mCachedStatus;
-        } else if (mHoldPendingStatus) {
-            // Pending-quiet arrived before any status was cached: keep reporting
-            // UNKNOWN until promotion. Filling the cache from CCM would return
-            // LIMITED_INTERNET and bypass the hold.
-            return Exchange::INetworkManager::INTERNET_UNKNOWN;
+            cachedStatus = mCachedStatus;
+            triggerProbe = mPendingExpired;
+            if (!triggerProbe) {
+                return cachedStatus;
+            }
+            mPendingExpired = false;
+            mProbeOnExpiry = false;
         }
     }
 
-    if (promotePendingStatus) {
-        if (handler) {
-            HandlerCompletion completion(*this);
-            handler(Exchange::INetworkManager::INTERNET_LIMITED, std::string());
-        }
-
+    if (triggerProbe) {
+        // First query after threshold expiry on a silent quiet link: this read
+        // makes ConnectivityCheckMgr run its armed probe. The outcome arrives as
+        // a status notification, so the result here is ignored and no event is
+        // emitted.
         Exchange::IConnectivityCheck* connectivity = acquireInterface();
         if (connectivity != nullptr) {
             Exchange::IConnectivityCheck::StatusInfo info{};
@@ -351,7 +337,7 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
                 NMLOG_ERROR("ConnectivityCheckMgr GetInternetStatus failed (%u)", r);
             }
         }
-        return Exchange::INetworkManager::INTERNET_LIMITED;
+        return cachedStatus;
     }
 
     // Cold path only: no notification received yet, so seed the cache once.
@@ -374,15 +360,21 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     if (info.status == Exchange::IConnectivityCheck::NO_INTERNET) {
         reason = info.reason;
     }
+    // Same rule as a notification over an empty cache: a quiet link is cached as
+    // LIMITED and probes on the first query after threshold expiry. If the
+    // threshold has already expired, this read has already triggered the probe.
+    const bool quietLink = info.status == Exchange::IConnectivityCheck::LIMITED_INTERNET
+        && info.reason == CONNECTIVITY_PENDING_QUIET_REASON;
 
     {
         std::lock_guard<std::mutex> lock(mLock);
         // A notification may have landed while the RPC was in flight; it is newer.
-        // A pending-quiet hold that landed meanwhile also wins over this seed.
-        if (!mHasCachedStatus && !mHoldPendingStatus) {
+        if (!mHasCachedStatus) {
             mCachedStatus = mapped;
             mCachedReason = reason;
             mHasCachedStatus = true;
+            mProbeOnExpiry = quietLink;
+            mPendingExpired = false;
         }
     }
     return mapped;
