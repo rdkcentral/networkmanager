@@ -161,7 +161,7 @@ private:
     NmInternetStatus                 mCachedStatus{Exchange::INetworkManager::INTERNET_UNKNOWN};
     std::string                      mCachedReason;
     bool                             mHasCachedStatus{false};
-    // Set when a pending-quiet LIMITED_INTERNET was cached without an event: the
+    // Set when a no-inbound-traffic LIMITED_INTERNET was cached without an event: the
     // first query after OnLimitedInternetThresholdExpired must call
     // GetInternetStatus() so ConnectivityCheckMgr runs its armed probe.
     bool                             mProbeOnExpiry{false};

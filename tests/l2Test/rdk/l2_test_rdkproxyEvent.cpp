@@ -716,10 +716,10 @@ TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
     EXPECT_EQ(0u, callbackCount.load());
 }
 
-// A pending-quiet LIMITED_INTERNET over a verified up-state is cached without an
+// A no-inbound-traffic LIMITED_INTERNET over a verified up-state is cached without an
 // event. The first query after threshold expiry triggers the armed probe once and
 // still emits nothing; subscribers learn the probe outcome from its notification.
-TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyAndProbesOnceAfterExpiry)
+TEST(NetworkManagerConnectivityClientTest, CachesNoInboundTrafficSilentlyAndProbesOnceAfterExpiry)
 {
     // Declared before the client so it outlives the client's Release() in its destructor.
     ConnectivityStatusProxy connectivity;
@@ -735,7 +735,7 @@ TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyAndProbesOn
     NetworkManagerConnectivityClientTestAccess::Notify(
         client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
     NetworkManagerConnectivityClientTestAccess::Notify(
-        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     ASSERT_EQ(changes.size(), 1u);
@@ -754,9 +754,9 @@ TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyAndProbesOn
     EXPECT_EQ(changes.size(), 1u);
 }
 
-// A pending-quiet LIMITED_INTERNET over a known down-state is an upgrade: it is
+// A no-inbound-traffic LIMITED_INTERNET over a known down-state is an upgrade: it is
 // cached and emitted, and a later threshold expiry does not promote again.
-TEST(NetworkManagerConnectivityClientTest, PendingQuietOverDownStateIsExposed)
+TEST(NetworkManagerConnectivityClientTest, NoInboundTrafficOverDownStateIsExposed)
 {
     const Exchange::IConnectivityCheck::InternetStatus downStates[] = {
         Exchange::IConnectivityCheck::NO_INTERNET,
@@ -776,7 +776,7 @@ TEST(NetworkManagerConnectivityClientTest, PendingQuietOverDownStateIsExposed)
 
         NetworkManagerConnectivityClientTestAccess::Notify(client, downState, "WAITING_GATEWAY");
         NetworkManagerConnectivityClientTestAccess::Notify(
-            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
 
         EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
         ASSERT_EQ(changes.size(), 2u);
@@ -791,9 +791,9 @@ TEST(NetworkManagerConnectivityClientTest, PendingQuietOverDownStateIsExposed)
     }
 }
 
-// A pending-quiet LIMITED_INTERNET as the first notification (empty cache) is cached
+// A no-inbound-traffic LIMITED_INTERNET as the first notification (empty cache) is cached
 // as LIMITED without an event; expiry then a query triggers the probe once.
-TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyWithEmptyCache)
+TEST(NetworkManagerConnectivityClientTest, CachesNoInboundTrafficSilentlyWithEmptyCache)
 {
     ConnectivityStatusProxy connectivity;
     NetworkManagerConnectivityClient client;
@@ -806,7 +806,7 @@ TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyWithEmptyCa
         });
 
     NetworkManagerConnectivityClientTestAccess::Notify(
-        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
 
     EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
     EXPECT_TRUE(changes.empty());
@@ -824,9 +824,9 @@ TEST(NetworkManagerConnectivityClientTest, CachesPendingQuietSilentlyWithEmptyCa
     EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
 }
 
-// After a silent quiet-link cache, the probe result notification reaches the bridge
+// After a silent no-inbound-traffic cache, the probe result notification reaches the bridge
 // handler (which dedupes on what subscribers last saw) and clears the probe flag.
-TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentQuietLinkReachesHandler)
+TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentNoInboundTrafficReachesHandler)
 {
     struct Outcome {
         Exchange::IConnectivityCheck::InternetStatus status;
@@ -853,7 +853,7 @@ TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentQuietLinkReache
         NetworkManagerConnectivityClientTestAccess::Notify(
             client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
         NetworkManagerConnectivityClientTestAccess::Notify(
-            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_PENDING_QUIET_REASON);
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
         ASSERT_EQ(changes.size(), 1u);
 
         NetworkManagerConnectivityClientTestAccess::Notify(client, outcome.status, outcome.reason);
@@ -870,13 +870,13 @@ TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentQuietLinkReache
     }
 }
 
-// NetworkManager (re)starts during a quiet link and its first contact is a query:
-// the cold-path read sees PENDING_QUIET, caches LIMITED silently and probes after expiry.
-TEST(NetworkManagerConnectivityClientTest, ColdQueryDuringQuietLinkCachesSilently)
+// NetworkManager (re)starts while there is no inbound traffic and its first contact is a query:
+// the cold-path read sees NO_INBOUND_TRAFFIC, caches LIMITED silently and probes after expiry.
+TEST(NetworkManagerConnectivityClientTest, ColdQueryDuringNoInboundTrafficCachesSilently)
 {
     ConnectivityStatusProxy connectivity;
     connectivity.status = Exchange::IConnectivityCheck::LIMITED_INTERNET;
-    connectivity.reason = CONNECTIVITY_PENDING_QUIET_REASON;
+    connectivity.reason = CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON;
     NetworkManagerConnectivityClient client;
     NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
 

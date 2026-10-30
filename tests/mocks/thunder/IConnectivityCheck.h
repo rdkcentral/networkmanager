@@ -31,7 +31,7 @@
 
 #include <core/core.h>
 
-#define CONNECTIVITY_PENDING_QUIET_REASON "PENDING_QUIET"
+#define CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON "NO_INBOUND_TRAFFIC"
 
 namespace WPEFramework {
 namespace Exchange {

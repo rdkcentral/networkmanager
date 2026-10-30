@@ -221,21 +221,21 @@ void NetworkManagerConnectivityClient::notifyInternetStatusChanged(Exchange::ICo
     InternetStatusChangeHandler handler;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        // A pending-quiet LIMITED_INTERNET over an empty cache or a verified
+        // A no-inbound-traffic LIMITED_INTERNET over an empty cache or a verified
         // up-state is cached without an event; subscribers learn the outcome from
         // the probe result. Over a known down-state (UNKNOWN / NOT_AVAILABLE /
         // CAPTIVE_PORTAL) it is an upgrade and is emitted.
-        const bool silentQuietLink = status == Exchange::IConnectivityCheck::LIMITED_INTERNET
-            && reason == CONNECTIVITY_PENDING_QUIET_REASON
+        const bool silentNoInboundTraffic = status == Exchange::IConnectivityCheck::LIMITED_INTERNET
+            && reason == CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON
             && (!mHasCachedStatus
                 || mCachedStatus == Exchange::INetworkManager::INTERNET_FULLY_CONNECTED
                 || mCachedStatus == Exchange::INetworkManager::INTERNET_LIMITED);
-        mProbeOnExpiry = silentQuietLink;
+        mProbeOnExpiry = silentNoInboundTraffic;
         mPendingExpired = false;
         mCachedStatus = mapped;
         mCachedReason = filteredReason;
         mHasCachedStatus = true;
-        if (silentQuietLink || mHandlerClearInProgress) {
+        if (silentNoInboundTraffic || mHandlerClearInProgress) {
             return;
         }
         handler = mInternetStatusChangeHandler;
@@ -324,10 +324,10 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     }
 
     if (triggerProbe) {
-        // First query after threshold expiry on a silent quiet link: this read
-        // makes ConnectivityCheckMgr run its armed probe. The outcome arrives as
-        // a status notification, so the result here is ignored and no event is
-        // emitted.
+        // First query after threshold expiry on a silently cached
+        // NO_INBOUND_TRAFFIC status: this read makes ConnectivityCheckMgr run its
+        // armed probe. The outcome arrives as a status notification, so the
+        // result here is ignored and no event is emitted.
         Exchange::IConnectivityCheck* connectivity = acquireInterface();
         if (connectivity != nullptr) {
             Exchange::IConnectivityCheck::StatusInfo info{};
@@ -360,11 +360,11 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
     if (info.status == Exchange::IConnectivityCheck::NO_INTERNET) {
         reason = info.reason;
     }
-    // Same rule as a notification over an empty cache: a quiet link is cached as
-    // LIMITED and probes on the first query after threshold expiry. If the
-    // threshold has already expired, this read has already triggered the probe.
-    const bool quietLink = info.status == Exchange::IConnectivityCheck::LIMITED_INTERNET
-        && info.reason == CONNECTIVITY_PENDING_QUIET_REASON;
+    // Same rule as a notification over an empty cache: NO_INBOUND_TRAFFIC is
+    // cached as LIMITED and probes on the first query after threshold expiry. If
+    // the threshold has already expired, this read has already triggered the probe.
+    const bool noInboundTraffic = info.status == Exchange::IConnectivityCheck::LIMITED_INTERNET
+        && info.reason == CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON;
 
     {
         std::lock_guard<std::mutex> lock(mLock);
@@ -373,7 +373,7 @@ NetworkManagerConnectivityClient::getInternetState(std::string& reason)
             mCachedStatus = mapped;
             mCachedReason = reason;
             mHasCachedStatus = true;
-            mProbeOnExpiry = quietLink;
+            mProbeOnExpiry = noInboundTraffic;
             mPendingExpired = false;
         }
     }
