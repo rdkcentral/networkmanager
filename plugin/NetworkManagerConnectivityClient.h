@@ -31,6 +31,11 @@
 #include <string>
 #include <thread>
 
+// Reason ConnectivityCheckMgr sends with LIMITED_INTERNET when no inbound traffic was seen for
+// the age-timer period (the link may still be fully connected). Must match the value published
+// by ConnectivityCheckMgr (ConnectivityImplementation.h).
+#define CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON "NO_INBOUND_TRAFFIC"
+
 namespace WPEFramework {
 namespace Plugin {
 
