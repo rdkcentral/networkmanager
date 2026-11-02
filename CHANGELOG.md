@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.7.0] - 2026-11-02
+### Changed
+- Improved boot-up time of RDK by improving the activation time of NetworkManager Thunder Plugin
+
 ## [4.6.0] - 2026-10-26
 ### Changed
 - Removed redundant publishing of `WIFI_STATE_CONNECTION_CONNECTED` event
