@@ -158,32 +158,27 @@ void NetworkManagerConnectivityClient::registerEvents()
     Exchange::IConnectivityCheck* connectivity = nullptr;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        if (mConnectivity == nullptr || mNotificationRegistered) {
+        if (mConnectivity == nullptr) {
             return;
         }
-        // Claim the flag before dropping mLock so a concurrent caller cannot register twice.
-        mNotificationRegistered = true;
         connectivity = mConnectivity;
         connectivity->AddRef();
     }
 
-    const uint32_t r = connectivity->Register(&mNotification);
-    const uint32_t limitedInternetResult = r == Core::ERROR_NONE
-        ? connectivity->RegisterLimitedInternet(&mLimitedInternetNotification)
-        : r;
-    if (r == Core::ERROR_NONE && limitedInternetResult != Core::ERROR_NONE) {
-        connectivity->Unregister(&mNotification);
-    }
+    const uint32_t notificationResult = connectivity->Register(&mNotification);
+    const uint32_t limitedInternetResult =
+        connectivity->RegisterLimitedInternet(&mLimitedInternetNotification);
     connectivity->Release();
 
-    if (limitedInternetResult != Core::ERROR_NONE) {
-        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u/%u)", r, limitedInternetResult);
-        std::lock_guard<std::mutex> lock(mLock);
-        mNotificationRegistered = false;
-        return;
+    if (notificationResult != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u)", notificationResult);
     }
-
-    NMLOG_INFO("registered for ConnectivityCheckMgr internet-status notifications");
+    if (limitedInternetResult != Core::ERROR_NONE) {
+        NMLOG_ERROR("ConnectivityCheckMgr register(limited-internet notification) failed (%u)", limitedInternetResult);
+    }
+    if (notificationResult == Core::ERROR_NONE && limitedInternetResult == Core::ERROR_NONE) {
+        NMLOG_INFO("registered for ConnectivityCheckMgr internet-status notifications");
+    }
 }
 
 void NetworkManagerConnectivityClient::unregisterEvents()
@@ -191,10 +186,6 @@ void NetworkManagerConnectivityClient::unregisterEvents()
     Exchange::IConnectivityCheck* connectivity = nullptr;
     {
         std::lock_guard<std::mutex> lock(mLock);
-        if (!mNotificationRegistered) {
-            return;
-        }
-        mNotificationRegistered = false;
         if (mConnectivity == nullptr) {
             return;
         }

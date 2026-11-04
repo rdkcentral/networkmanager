@@ -159,7 +159,6 @@ private:
     std::condition_variable          mHandlerDrainCv;
     uint32_t                         mHandlersInFlight{0};
     bool                             mHandlerClearInProgress{false};
-    bool                             mNotificationRegistered{false}; // guarded by mLock
 
     // Status cache kept current by OnInternetStatusChange, so the hot
     // isConnectedToInternet path needs no cross-process round trip.
