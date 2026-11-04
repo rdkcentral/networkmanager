@@ -171,10 +171,10 @@ void NetworkManagerConnectivityClient::registerEvents()
     connectivity->Release();
 
     if (notificationResult != Core::ERROR_NONE) {
-        NMLOG_ERROR("ConnectivityCheckMgr register(notification) failed (%u)", notificationResult);
+        NMLOG_WARNING("ConnectivityCheckMgr register(GENERAL NOTIFICATION) failed (%u)", notificationResult);
     }
     if (limitedInternetResult != Core::ERROR_NONE) {
-        NMLOG_ERROR("ConnectivityCheckMgr register(limited-internet notification) failed (%u)", limitedInternetResult);
+        NMLOG_WARNING("ConnectivityCheckMgr register(LIMITED_INTERNET NOTIFICATION) failed (%u)", limitedInternetResult);
     }
     if (notificationResult == Core::ERROR_NONE && limitedInternetResult == Core::ERROR_NONE) {
         NMLOG_INFO("registered for ConnectivityCheckMgr internet-status notifications");
