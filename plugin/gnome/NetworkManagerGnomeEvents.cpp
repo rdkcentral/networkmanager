@@ -413,6 +413,17 @@ namespace WPEFramework
                 NMLOG_FATAL("not a wifi device !");
                 return;
             }
+
+            /* Retrieve the active connection and populate the last connected SSID */
+            {
+    			if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
+                {
+                    const char* connId = nm_active_connection_get_id(wifiActiveConn);
+                    if(connId != NULL && connId[0] != '\0' && _instance != nullptr)
+                        _instance->m_lastConnectedSSID = connId; // last connected ssid used in wifiConnect
+                }
+            }
+
             std::string wifiState;
             switch (reason)
             {
@@ -478,7 +489,7 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
-					    if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
+                        if(NMActiveConnection *wifiActiveConn = nm_device_get_active_connection(device))
                         {
                             const char* connId = nm_active_connection_get_id(wifiActiveConn);
                             if(connId != NULL && connId[0] != '\0' && _instance != nullptr)
