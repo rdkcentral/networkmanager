@@ -551,10 +551,10 @@ namespace WPEFramework
                     case NM_DEVICE_STATE_IP_CONFIG:
                         wifiState = "NM_DEVICE_STATE_IP_CONFIG";
                         GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_LINK_UP, nmUtils::wlanIface());
+						GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
                         break;
                     case NM_DEVICE_STATE_IP_CHECK:
                         wifiState = "NM_DEVICE_STATE_IP_CHECK";
-                        //GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ACQUIRING_IP, nmUtils::wlanIface());
                         break;
                     case NM_DEVICE_STATE_SECONDARIES:
                         wifiState = "NM_DEVICE_STATE_SECONDARIES";
@@ -562,7 +562,14 @@ namespace WPEFramework
                         break;
                     case NM_DEVICE_STATE_ACTIVATED:
                         wifiState = "WIFI_STATE_CONNECTED";
-                        GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
+                        /*
+                         * If this callback was locally triggered by the platform_init(), the `pspec` will be NULL
+                         * and If the interface was already up n running with activated state, this `pspec == nullptr` will help to publish connected event.
+                         */
+                        if (pspec == nullptr)
+                        {
+                            GnomeNetworkManagerEvents::onWIFIStateChanged(Exchange::INetworkManager::WIFI_STATE_CONNECTED, attemptingSSID);
+                        }
 #if USE_TELEMETRY
                         {
                             static std::string lastWlanGatewayMac;
