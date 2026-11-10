@@ -113,7 +113,6 @@ namespace WPEFramework
             bool m_isSuccess = false;
             NMConnection *m_appliedConn = nullptr;
             guint64 m_versionId = 0;
-            SecretAgent m_secretAgent;
         };
     }   // Plugin
 }   // WPEFramework

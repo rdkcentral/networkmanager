@@ -2957,6 +2957,7 @@ namespace WPEFramework
             deviceInfo devProperty{};
             bool wpsComplete = false;
             NMLOG_INFO("WPS process started !");
+            SecretAgent::getInstance().RegisterAgent();
 
             if(!getWifiState(state))
             {
@@ -3087,7 +3088,6 @@ namespace WPEFramework
                 return true;
             }
 
-            m_secretAgent.RegisterAgent();
             m_wpsthread = std::thread(&NetworkManagerClient::wpsProcess, this);
             m_wpsthread.detach();
             return true;
@@ -3095,9 +3095,11 @@ namespace WPEFramework
 
         bool NetworkManagerClient::stopWPS() {
             NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
-            m_wpsProcessRun = false;
             m_wpsActionTriggered = false;
-            return m_secretAgent.UnregisterAgent();
+            // Avoid creating the SecretAgent (system bus connect) when WPS was never started.
+            if(!m_wpsProcessRun.exchange(false))
+                return true;
+            return SecretAgent::getInstance().UnregisterAgent();
         }
 
         bool NetworkManagerClient::modifyDefaultConnectionsConfig()

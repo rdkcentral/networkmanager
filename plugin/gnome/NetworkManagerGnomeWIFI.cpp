@@ -2041,6 +2041,8 @@ namespace WPEFramework
             bool wpsComplete= false;
             bool wpsActionTriggerd = false;
 
+            SecretAgent::getInstance().RegisterAgent();
+
             if(_instance != nullptr)
                 _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
 
@@ -2276,7 +2278,7 @@ namespace WPEFramework
             }
 
             // wps success ! wifi connect event will be send by wifi event monitor
-            m_secretAgent.UnregisterAgent();
+            SecretAgent::getInstance().UnregisterAgent();
             NMLOG_INFO("WPS process thread exist");
             wpsProcessRun = false;
         }
@@ -2290,7 +2292,6 @@ namespace WPEFramework
                 return true;
             }
 
-            m_secretAgent.RegisterAgent();
             std::thread wpsthread(&wifiManager::wpsProcess, this);
             wpsthread.detach();
             return true;
@@ -2298,8 +2299,10 @@ namespace WPEFramework
 
         bool wifiManager::stopWPS() {
             NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
-            wpsProcessRun = false; 
-            return m_secretAgent.UnregisterAgent();
+            // Avoid creating the SecretAgent (system bus connect) when WPS was never started.
+            if(!wpsProcessRun.exchange(false))
+                return true;
+            return SecretAgent::getInstance().UnregisterAgent();
         }
 
         static void deviceManagedCb(GObject *object, GAsyncResult *result, gpointer user_data)
