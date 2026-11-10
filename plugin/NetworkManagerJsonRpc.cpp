@@ -20,6 +20,7 @@
 #include "NetworkManager.h"
 #include "INetworkManager.h"
 #include "NetworkManagerJsonEnum.h"
+#include "NetworkManagerDiagnosticsReply.h"
 
 #include <chrono>
 
@@ -573,25 +574,19 @@ namespace WPEFramework
             }
         }
 
-        static uint32_t ShapePingReply(const uint32_t rc, const string& result, string& reply)
+        // Failure replies; successful results are built by the Diagnostics::PingReply/TraceReply adapters.
+        static uint32_t PingFailure(const uint32_t rc, string& reply)
         {
             JsonObject response;
-            if (Core::ERROR_NONE == rc)
-                response.FromString(result);
             LOG_OUTPARAM();
-            if (Core::ERROR_NONE == rc)
-                response.ToString(reply);
-            else
-                reply.clear();
+            reply.clear();
             return rc;
         }
 
-        static uint32_t ShapeTraceReply(const uint32_t rc, const string& result, string& reply)
+        static uint32_t TraceFailure(const uint32_t rc, string& reply)
         {
             JsonObject response;
-            if (Core::ERROR_NONE == rc)
-                response.FromString(result);
-            response["success"] = (Core::ERROR_NONE == rc);
+            response["success"] = false;
             LOG_OUTPARAM();
             // Queue full: a JSON-RPC error lets callers tell overload apart from a failed trace and retry.
             if (Core::ERROR_INPROGRESS == rc)
@@ -609,9 +604,9 @@ namespace WPEFramework
             parameters.FromString(params);
             LOG_INPARAM();
             if (!parameters.HasLabel("endpoint"))
-                return ShapePingReply(Core::ERROR_GENERAL, string(), result);
+                return PingFailure(Core::ERROR_GENERAL, result);
             if (_networkManager == nullptr)
-                return ShapePingReply(Core::ERROR_UNAVAILABLE, string(), result);
+                return PingFailure(Core::ERROR_UNAVAILABLE, result);
 
             string guid{};
             string ipversion{"IPv4"};
@@ -631,9 +626,15 @@ namespace WPEFramework
             if (parameters.HasLabel("guid"))
                 guid = parameters["guid"].String();
 
-            return _diagnosticsReplies->Invoke(context,
-                [&](DeferredReply::Callback* callback) { return _networkManager->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback); },
-                ShapePingReply, result);
+            return _deferredReplies->Invoke(context,
+                [&](DeferredReply::PendingReply&& reply) {
+                    auto* callback = Core::Service<Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(reply), endpoint,
+                        [](JsonObject& response) { LOG_OUTPARAM(); });
+                    const uint32_t rc = _networkManager->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback);
+                    callback->Release();
+                    return rc;
+                },
+                PingFailure, result);
         }
 
         uint32_t NetworkManager::Trace(const Core::JSONRPC::Context& context, const string& params, string& result)
@@ -642,18 +643,24 @@ namespace WPEFramework
             parameters.FromString(params);
             LOG_INPARAM();
             if (!parameters.HasLabel("endpoint"))
-                return ShapeTraceReply(Core::ERROR_GENERAL, string(), result);
+                return TraceFailure(Core::ERROR_GENERAL, result);
             if (_networkManager == nullptr)
-                return ShapeTraceReply(Core::ERROR_UNAVAILABLE, string(), result);
+                return TraceFailure(Core::ERROR_UNAVAILABLE, result);
 
             const string ipversion      = parameters["ipversion"].String();
             const string endpoint       = parameters["endpoint"].String();
             const uint32_t noOfRequest  = parameters["packets"].Number();
             const string guid           = parameters["guid"].String();
 
-            return _diagnosticsReplies->Invoke(context,
-                [&](DeferredReply::Callback* callback) { return _networkManager->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback); },
-                ShapeTraceReply, result);
+            return _deferredReplies->Invoke(context,
+                [&](DeferredReply::PendingReply&& reply) {
+                    auto* callback = Core::Service<Diagnostics::TraceReply>::Create<Exchange::INetworkManager::ITraceCallback>(std::move(reply), endpoint,
+                        [](JsonObject& response) { response["success"] = true; LOG_OUTPARAM(); });
+                    const uint32_t rc = _networkManager->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback);
+                    callback->Release();
+                    return rc;
+                },
+                TraceFailure, result);
         }
 
         uint32_t NetworkManager::SetHostname (const JsonObject& parameters, JsonObject& response)

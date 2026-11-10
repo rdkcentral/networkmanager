@@ -23,6 +23,7 @@
 #include <cstring>
 #include <cstdio>
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerDiagnosticsJson.h"
 
 #ifdef USE_CONNECTIVITYCHECKMGR
 #include <strings.h>
@@ -545,7 +546,7 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, DiagnosticsDone done, std::function<void()> dropped)
+        uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, PingDone done, std::function<void()> dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
@@ -558,9 +559,9 @@ namespace WPEFramework
             job.argv = Diagnostics::PingArgs(ipv6, count, timeout, endpoint);
             job.deadline = Diagnostics::PingDeadline(count, timeout);
             job.onDone = [endpoint, done](const Diagnostics::ProcessResult& result) {
-                const string response = Diagnostics::PingResponse(result, endpoint);
-                NMLOG_DEBUG("Response is, %s", response.c_str());
-                done(Core::ERROR_NONE, response);
+                const PingResult ping = Diagnostics::ParsePing(result);
+                NMLOG_DEBUG("Ping to %s finished, success=%d", endpoint.c_str(), ping.success);
+                done(Core::ERROR_NONE, ping);
             };
             job.onDrop = std::move(dropped);
 
@@ -570,7 +571,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, DiagnosticsDone done, std::function<void()> dropped)
+        uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, TraceDone done, std::function<void()> dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
@@ -588,9 +589,8 @@ namespace WPEFramework
                     done(Core::ERROR_TIMEDOUT, string());
                     return;
                 }
-                const string response = Diagnostics::TraceResponse(result, endpoint);
-                NMLOG_DEBUG("Response is, %s", response.c_str());
-                done(Core::ERROR_NONE, response);
+                NMLOG_DEBUG("Trace to %s finished, output is, %s", endpoint.c_str(), result.output.c_str());
+                done(Core::ERROR_NONE, result.output);
             };
             job.onDrop = std::move(dropped);
 
@@ -600,7 +600,7 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IDiagnosticsCallback* callback)
+        uint32_t NetworkManagerImplementation::PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IPingCallback* callback)
         {
             LOG_ENTRY_FUNCTION();
             if (callback == nullptr)
@@ -608,14 +608,14 @@ namespace WPEFramework
 
             callback->AddRef();
             const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
-                [callback](const uint32_t result, const string& response) { callback->Completed(result, response); callback->Release(); },
+                [callback](const uint32_t result, const PingResult& ping) { callback->Completed(result, ping); callback->Release(); },
                 [callback]() { callback->Release(); });
             if (rc != Core::ERROR_NONE)
                 callback->Release();
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, IDiagnosticsCallback* callback)
+        uint32_t NetworkManagerImplementation::TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, ITraceCallback* callback)
         {
             LOG_ENTRY_FUNCTION();
             if (callback == nullptr)
@@ -623,7 +623,7 @@ namespace WPEFramework
 
             callback->AddRef();
             const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
-                [callback](const uint32_t result, const string& response) { callback->Completed(result, response); callback->Release(); },
+                [callback](const uint32_t result, const string& output) { callback->Completed(result, output); callback->Release(); },
                 [callback]() { callback->Release(); });
             if (rc != Core::ERROR_NONE)
                 callback->Release();
@@ -631,26 +631,27 @@ namespace WPEFramework
         }
 
         namespace {
+            template <typename RESULT>
             struct SyncResult {
                 std::mutex lock;
                 std::condition_variable signal;
                 bool done = false;
                 uint32_t result = Core::ERROR_UNAVAILABLE;
-                string response;
+                RESULT value{};
 
-                void Set(const uint32_t rc, const string& text)
+                void Set(const uint32_t rc, const RESULT& completed)
                 {
                     std::lock_guard<std::mutex> guard(lock);
                     done = true;
                     result = rc;
-                    response = text;
+                    value = completed;
                     signal.notify_all();
                 }
-                uint32_t Wait(string& text)
+                uint32_t Wait(RESULT& completed)
                 {
                     std::unique_lock<std::mutex> guard(lock);
                     signal.wait(guard, [this] { return done; });
-                    text = response;
+                    completed = value;
                     return result;
                 }
             };
@@ -659,21 +660,35 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const uint16_t timeOutInSeconds /* @in */, const string guid /* @in */, string& response /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            auto sync = std::make_shared<SyncResult>();
-            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
-                [sync](const uint32_t result, const string& text) { sync->Set(result, text); },
-                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); });
-            return (rc == Core::ERROR_NONE) ? sync->Wait(response) : rc;
+            auto sync = std::make_shared<SyncResult<PingResult>>();
+            uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
+                [sync](const uint32_t result, const PingResult& ping) { sync->Set(result, ping); },
+                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, PingResult{}); });
+            if (rc != Core::ERROR_NONE)
+                return rc;
+
+            PingResult ping{};
+            rc = sync->Wait(ping);
+            if (rc == Core::ERROR_NONE)
+                Diagnostics::PingJson(ping, endpoint).ToString(response);
+            return rc;
         }
 
         uint32_t NetworkManagerImplementation::Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            auto sync = std::make_shared<SyncResult>();
-            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
-                [sync](const uint32_t result, const string& text) { sync->Set(result, text); },
+            auto sync = std::make_shared<SyncResult<string>>();
+            uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
+                [sync](const uint32_t result, const string& output) { sync->Set(result, output); },
                 [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); });
-            return (rc == Core::ERROR_NONE) ? sync->Wait(response) : rc;
+            if (rc != Core::ERROR_NONE)
+                return rc;
+
+            string output;
+            rc = sync->Wait(output);
+            if (rc == Core::ERROR_NONE)
+                Diagnostics::TraceJson(output, endpoint).ToString(response);
+            return rc;
         }
 
         void NetworkManagerImplementation::SetDiagnosticsRunner(std::shared_ptr<Diagnostics::IProcessRunner> runner)
