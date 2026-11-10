@@ -28,6 +28,8 @@ DISABLE_FILE="/opt/persistent/wifi.interface.disable"
 # Ensure the config file exists
 [ -f "$CONFIG_FILE" ] || exit 
 
+#Add a delay of 1s to handle quick wifi toggle
+sleep 1
 sed '/^network=/,$d' "$CONFIG_FILE" | while IFS='=' read -r key val; do
     case "$key" in
         '#'*|'') continue ;;
