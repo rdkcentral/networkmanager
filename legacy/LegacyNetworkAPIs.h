@@ -25,7 +25,7 @@
 #include "core/Link.h"
 #include "NetworkManagerTimer.h"
 #include "INetworkManager.h"
-#include "NetworkManagerDeferredReply.h"
+#include "DeferredReply.h"
 
 namespace WPEFramework {
     namespace Plugin {
@@ -107,7 +107,7 @@ namespace WPEFramework {
             std::shared_ptr<WPEFramework::JSONRPC::SmartLinkType<WPEFramework::Core::JSON::IElement>> m_networkmanager;
             //WPEFramework::Exchange::INetworkManager* m_nwmgr;
             NetworkManagerTimer m_timer;
-            std::shared_ptr<DeferredReply::Table> m_diagnosticsReplies;
+            std::shared_ptr<DeferredReply::Registry> m_deferredReplies;
 
             bool m_subsIfaceStateChange;
             bool m_subsActIfaceChange;

@@ -23,7 +23,7 @@
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
-#include "NetworkManagerDeferredReply.h"
+#include "DeferredReply.h"
 
 #include <string>
 #include <atomic>
@@ -279,7 +279,7 @@ namespace WPEFramework
             Exchange::INetworkManager *_networkManager;
             bool m_useConnectivityCheckMgr;
             Core::Sink<Notification> _notification;
-            std::shared_ptr<DeferredReply::Table> _diagnosticsReplies;
+            std::shared_ptr<DeferredReply::Registry> _deferredReplies;
             string m_publicIPAddress;
             string m_publicIPAddressType;
         };

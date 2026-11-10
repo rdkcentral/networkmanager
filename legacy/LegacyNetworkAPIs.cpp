@@ -19,6 +19,7 @@
 #include "LegacyNetworkAPIs.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerJsonEnum.h"
+#include "NetworkManagerDiagnosticsReply.h"
 
 using namespace std;
 using namespace WPEFramework::Plugin;
@@ -99,7 +100,7 @@ namespace WPEFramework
             NetworkManagerLogger::Init();
             m_service = service;
             m_service->AddRef();
-            m_diagnosticsReplies = std::make_shared<DeferredReply::Table>(*this);
+            m_deferredReplies = std::make_shared<DeferredReply::Registry>(*this);
             string message{};
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
@@ -154,9 +155,13 @@ namespace WPEFramework
 
         void Network::Deinitialize(PluginHost::IShell* /* service */)
         {
-            // Answer pending ping/trace callers before the JSON-RPC dispatcher is deactivated.
-            if (m_diagnosticsReplies)
-                m_diagnosticsReplies->Close(Core::ERROR_UNAVAILABLE);
+            // Answer pending deferred callers before the JSON-RPC dispatcher is deactivated.
+            if (m_deferredReplies)
+            {
+                const size_t answered = m_deferredReplies->Close(Core::ERROR_UNAVAILABLE);
+                if (answered > 0)
+                    NMLOG_INFO("Answered %zu pending deferred request(s) with error %u", answered, Core::ERROR_UNAVAILABLE);
+            }
             m_timer.stop();
             unregisterLegacyMethods();
 
@@ -166,7 +171,7 @@ namespace WPEFramework
             m_networkmanager = NULL;
             m_service->Release();
             m_service = nullptr;
-            m_diagnosticsReplies.reset();
+            m_deferredReplies.reset();
             _gNWInstance = nullptr;
         }
 
@@ -618,22 +623,20 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             returnJson(rc);
         }
 
-        // Shapes ping and trace results: the NetworkManager result plus the legacy "target" field.
-        static DeferredReply::Shaper legacyDiagnosticsReply(const string& endpoint)
+        // Failure reply for ping and trace; successful results are the NetworkManager result plus the legacy "target" field.
+        static uint32_t legacyDiagnosticsFailure(const uint32_t rc, string& reply)
         {
-            return [endpoint](const uint32_t rc, const string& result, string& reply) -> uint32_t {
-                JsonObject response;
-                if (Core::ERROR_NONE == rc)
-                {
-                    response.FromString(result);
-                    response["target"] = endpoint;
-                }
+            JsonObject response;
+            LOG_OUTPARAM();
+            reply.clear();
+            return rc;
+        }
+
+        static Diagnostics::Decorator legacyDiagnosticsTarget(const string& endpoint)
+        {
+            return [endpoint](JsonObject& response) {
+                response["target"] = endpoint;
                 LOG_OUTPARAM();
-                if (Core::ERROR_NONE == rc)
-                    response.ToString(reply);
-                else
-                    reply.clear();
-                return rc;
             };
         }
 
@@ -643,7 +646,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             parameters.FromString(params);
             LOG_INPARAM();
             if (!parameters.HasLabel("endpoint"))
-                return legacyDiagnosticsReply(string())(Core::ERROR_GENERAL, string(), result);
+                return legacyDiagnosticsFailure(Core::ERROR_GENERAL, result);
 
             string guid{};
             string ipversion{"IPv4"};
@@ -660,18 +663,22 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             if (parameters.HasLabel("guid"))
                 guid = parameters["guid"].String();
 
-            const DeferredReply::Shaper shape = legacyDiagnosticsReply(endpoint);
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if ((_nwmgr == nullptr) || !m_diagnosticsReplies)
+            if ((_nwmgr == nullptr) || !m_deferredReplies)
             {
                 if (_nwmgr)
                     _nwmgr->Release();
-                return shape(Core::ERROR_UNAVAILABLE, string(), result);
+                return legacyDiagnosticsFailure(Core::ERROR_UNAVAILABLE, result);
             }
 
-            const uint32_t rc = m_diagnosticsReplies->Invoke(context,
-                [&](DeferredReply::Callback* callback) { return _nwmgr->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback); },
-                shape, result);
+            const uint32_t rc = m_deferredReplies->Invoke(context,
+                [&](DeferredReply::PendingReply&& reply) {
+                    auto* callback = Core::Service<Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(reply), endpoint, legacyDiagnosticsTarget(endpoint));
+                    const uint32_t started = _nwmgr->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback);
+                    callback->Release();
+                    return started;
+                },
+                legacyDiagnosticsFailure, result);
             _nwmgr->Release();
             return rc;
         }
@@ -682,7 +689,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             parameters.FromString(params);
             LOG_INPARAM();
             if (!parameters.HasLabel("endpoint"))
-                return legacyDiagnosticsReply(string())(Core::ERROR_GENERAL, string(), result);
+                return legacyDiagnosticsFailure(Core::ERROR_GENERAL, result);
 
             string ipversion{"IPv4"};
             const string endpoint = parameters["endpoint"].String();
@@ -692,18 +699,22 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             if (parameters.HasLabel("ipversion"))
                 ipversion = parameters["ipversion"].String();
 
-            const DeferredReply::Shaper shape = legacyDiagnosticsReply(endpoint);
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-            if ((_nwmgr == nullptr) || !m_diagnosticsReplies)
+            if ((_nwmgr == nullptr) || !m_deferredReplies)
             {
                 if (_nwmgr)
                     _nwmgr->Release();
-                return shape(Core::ERROR_UNAVAILABLE, string(), result);
+                return legacyDiagnosticsFailure(Core::ERROR_UNAVAILABLE, result);
             }
 
-            const uint32_t rc = m_diagnosticsReplies->Invoke(context,
-                [&](DeferredReply::Callback* callback) { return _nwmgr->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback); },
-                shape, result);
+            const uint32_t rc = m_deferredReplies->Invoke(context,
+                [&](DeferredReply::PendingReply&& reply) {
+                    auto* callback = Core::Service<Diagnostics::TraceReply>::Create<Exchange::INetworkManager::ITraceCallback>(std::move(reply), endpoint, legacyDiagnosticsTarget(endpoint));
+                    const uint32_t started = _nwmgr->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback);
+                    callback->Release();
+                    return started;
+                },
+                legacyDiagnosticsFailure, result);
             _nwmgr->Release();
             return rc;
         }

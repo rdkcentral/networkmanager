@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Module.h"
+#include "INetworkManager.h"
 
 #include <atomic>
 #include <chrono>
@@ -69,9 +70,8 @@ namespace WPEFramework
             std::chrono::milliseconds PingDeadline(const uint32_t count, const uint16_t timeout);
             std::chrono::milliseconds TraceDeadline(const uint32_t nqueries);
 
-            // Same JSON as the INetworkManager::Ping/Trace "response" out-parameter.
-            std::string PingResponse(const ProcessResult& result, const std::string& endpoint);
-            std::string TraceResponse(const ProcessResult& result, const std::string& endpoint);
+            // Parses ping's summary; the INetworkManager::Ping/Trace "response" JSON is built in NetworkManagerDiagnosticsJson.h.
+            Exchange::INetworkManager::PingResult ParsePing(const ProcessResult& result);
 
             // One worker and one bounded FIFO per kind: at most one Ping and one Trace child run at a time.
             class Engine

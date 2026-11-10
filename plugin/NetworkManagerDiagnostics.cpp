@@ -289,9 +289,9 @@ namespace WPEFramework
                 return Capped(static_cast<int64_t>(nqueries) * TraceMsPerQuery + DeadlineMarginMs);
             }
 
-            string PingResponse(const ProcessResult& result, const string& endpoint)
+            Exchange::INetworkManager::PingResult ParsePing(const ProcessResult& result)
             {
-                JsonObject pingResult;
+                Exchange::INetworkManager::PingResult ping{};
                 std::istringstream output(result.output);
                 string line;
                 while (std::getline(output, line))
@@ -299,10 +299,11 @@ namespace WPEFramework
                     if( line.find( "packet" ) != string::npos )
                     {
                         //Example: 10 packets transmitted, 10 packets received, 0% packet loss
+                        ping.countsReported = true;
                         stringstream ss( line );
                         int transCount;
                         ss >> transCount;
-                        pingResult["packetsTransmitted"] = transCount;
+                        ping.packetsTransmitted = transCount;
 
                         string token;
                         getline( ss, token, ',' );
@@ -310,11 +311,10 @@ namespace WPEFramework
                         stringstream ss2( token );
                         int rxCount;
                         ss2 >> rxCount;
-                        pingResult["packetsReceived"] = rxCount;
+                        ping.packetsReceived = rxCount;
 
                         getline( ss, token, ',' );
-                        string prefix = token.substr(0, token.find("%"));
-                        pingResult["packetLoss"] = prefix.c_str();
+                        ping.packetLoss = token.substr(0, token.find("%"));
 
                     }
                     else if( line.find( "min/avg/max" ) != string::npos )
@@ -325,84 +325,47 @@ namespace WPEFramework
                         getline( ss, fullpath, '=' );
                         getline( ss, fullpath, '=' );
 
-                        string prefix;
                         int index = fullpath.find("/");
                         if (index >= 0)
                         {
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripMin"] = prefix.c_str();
+                            ping.tripMin = fullpath.substr(0, fullpath.find("/"));
                         }
 
                         index = fullpath.find("/");
                         if (index >= 0)
                         {
                             fullpath = fullpath.substr(index + 1, fullpath.length());
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripAvg"] = prefix.c_str();
+                            ping.tripAvg = fullpath.substr(0, fullpath.find("/"));
                         }
 
                         index = fullpath.find("/");
                         if (index >= 0)
                         {
                             fullpath = fullpath.substr(index + 1, fullpath.length());
-                            prefix = fullpath.substr(0, fullpath.find("/"));
-                            pingResult["tripMax"] = prefix.c_str();
+                            ping.tripMax = fullpath.substr(0, fullpath.find("/"));
                         }
 
                         index = fullpath.find("/");
                         if (index >= 0)
                         {
                             fullpath = fullpath.substr(index + 1, fullpath.length());
-                            pingResult["tripStdDev"] = fullpath.c_str();
+                            ping.tripStdDev = fullpath;
                         }
                     }
                     else if( line.find( "bad" ) != string::npos )
                     {
-                        pingResult["success"] = false;
-                        pingResult["error"] = "Bad Address";
+                        ping.success = false;
+                        ping.error = "Bad Address";
                     }
                 }
 
                 if (result.Succeeded()) {
-                    pingResult["success"] = true;
+                    ping.success = true;
                 } else {
-                    pingResult["success"] = false;
-                    pingResult["error"] = "Could not ping endpoint";
+                    ping.success = false;
+                    ping.error = "Could not ping endpoint";
                 }
-                pingResult["endpoint"] = endpoint;
-
-                string response;
-                pingResult.ToString(response);
-                return response;
-            }
-
-            string TraceResponse(const ProcessResult& result, const string& endpoint)
-            {
-                // The output contains newlines, so it is returned as an array of lines; each complete line keeps a trailing space where its newline was.
-                JsonArray list;
-                size_t start = 0;
-                while (start < result.output.size())
-                {
-                    const size_t newline = result.output.find('\n', start);
-                    if (newline == string::npos)
-                    {
-                        list.Add(result.output.substr(start));
-                        break;
-                    }
-                    list.Add(result.output.substr(start, newline - start) + " ");
-                    start = newline + 1;
-                }
-
-                string lines;
-                list.ToString(lines);
-
-                JsonObject trace;
-                trace["endpoint"] = endpoint;
-                trace["results"] = lines;
-
-                string response;
-                trace.ToString(response);
-                return response;
+                return ping;
             }
 
             Engine::Engine(std::shared_ptr<IProcessRunner> runner)
