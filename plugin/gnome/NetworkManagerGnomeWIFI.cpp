@@ -2041,7 +2041,9 @@ namespace WPEFramework
             bool wpsComplete= false;
             bool wpsActionTriggerd = false;
 
-            SecretAgent::getInstance().RegisterAgent();
+            SecretAgent& secretAgent = SecretAgent::getInstance();
+            g_usleep(500 * 1000); // let the agent thread export its D-Bus object before Register
+            secretAgent.RegisterAgent();
 
             if(_instance != nullptr)
                 _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
