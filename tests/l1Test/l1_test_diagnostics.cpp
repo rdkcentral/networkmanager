@@ -18,6 +18,7 @@
 **/
 
 #include "NetworkManagerDiagnostics.h"
+#include "NetworkManagerDiagnosticsJson.h"
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -52,6 +53,21 @@ namespace {
         JsonObject object;
         object.FromString(json);
         return object;
+    }
+
+    // The JSON the sync INetworkManager::Ping/Trace return for a finished child.
+    string PingResponse(const ProcessResult& result, const string& endpoint)
+    {
+        string json;
+        PingJson(ParsePing(result), endpoint).ToString(json);
+        return json;
+    }
+
+    string TraceResponse(const ProcessResult& result, const string& endpoint)
+    {
+        string json;
+        TraceJson(result.output, endpoint).ToString(json);
+        return json;
     }
 
     JsonArray TraceLines(const string& response)
@@ -294,6 +310,110 @@ TEST(DiagnosticsTraceResponse, LongLineKeptWholeWithNoExtraBytes)
 TEST(DiagnosticsTraceResponse, EmptyOutputGivesEmptyList)
 {
     EXPECT_EQ(0, TraceLines(TraceResponse(Finished("", 0), "8.8.8.8")).Length());
+}
+
+// ---- Exact bytes of the sync INetworkManager::Ping/Trace JSON (unchanged since the shell-based implementation) ----
+
+namespace {
+    string SyncPingJson(const ProcessResult& result, const string& endpoint)
+    {
+        return PingResponse(result, endpoint);
+    }
+
+    string SyncTraceJson(const ProcessResult& result, const string& endpoint)
+    {
+        return TraceResponse(result, endpoint);
+    }
+}
+
+TEST(DiagnosticsGolden, PingFullStatistics)
+{
+    const string output =
+        "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+        "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
+        "\n"
+        "--- 8.8.8.8 ping statistics ---\n"
+        "3 packets transmitted, 3 packets received, 0% packet loss\n"
+        "round-trip min/avg/max/mdev = 23.363/23.395/23.440/0.179 ms\n";
+    EXPECT_EQ(R"({"packetsTransmitted":3,"packetsReceived":3,"packetLoss":" 0","tripMin":" 23.363","tripAvg":"23.395","tripMax":"23.440","tripStdDev":"0.179 ms","success":true,"endpoint":"8.8.8.8"})", SyncPingJson(Finished(output, 0), "8.8.8.8"));
+}
+
+TEST(DiagnosticsGolden, PingBusyboxStatistics)
+{
+    const string output =
+        "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+        "\n"
+        "--- 8.8.8.8 ping statistics ---\n"
+        "5 packets transmitted, 4 packets received, 20% packet loss\n"
+        "round-trip min/avg/max = 17.038/18.310/20.197 ms\n";
+    EXPECT_EQ(R"({"packetsTransmitted":5,"packetsReceived":4,"packetLoss":" 20","tripMin":" 17.038","tripAvg":"18.310","tripMax":"20.197 ms","success":true,"endpoint":"8.8.8.8"})", SyncPingJson(Finished(output, 0), "8.8.8.8"));
+}
+
+TEST(DiagnosticsGolden, PingNonZeroExit)
+{
+    EXPECT_EQ(R"({"packetsTransmitted":3,"packetsReceived":0,"packetLoss":" 100","success":false,"error":"Could not ping endpoint","endpoint":"192.0.0.1"})", SyncPingJson(Finished("3 packets transmitted, 0 packets received, 100% packet loss\n", 1), "192.0.0.1"));
+}
+
+TEST(DiagnosticsGolden, PingBadAddress)
+{
+    EXPECT_EQ(R"({"success":false,"error":"Could not ping endpoint","endpoint":"nowhere.invalid"})", SyncPingJson(Finished("ping: bad address 'nowhere.invalid'\n", 1), "nowhere.invalid"));
+}
+
+TEST(DiagnosticsGolden, PingBadAddressButExitZero)
+{
+    EXPECT_EQ(R"({"success":true,"error":"Bad Address","endpoint":"nowhere.invalid"})", SyncPingJson(Finished("ping: bad address 'nowhere.invalid'\n", 0), "nowhere.invalid"));
+}
+
+TEST(DiagnosticsGolden, PingNotStarted)
+{
+    EXPECT_EQ(R"({"success":false,"error":"Could not ping endpoint","endpoint":"8.8.8.8"})", SyncPingJson(ProcessResult(), "8.8.8.8"));
+}
+
+TEST(DiagnosticsGolden, TraceLinesEndingInNewline)
+{
+    const string output =
+        "traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n"
+        "1  gateway (10.46.5.1)  0.448 ms\n"
+        "2  *\n";
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \",\"1  gateway (10.46.5.1)  0.448 ms \",\"2  * \"]"})", SyncTraceJson(Finished(output, 0), "8.8.8.8"));
+}
+
+TEST(DiagnosticsGolden, TraceLastLineWithoutNewline)
+{
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[\"1  \\\"quoted\\\"\\\\path \",\"2  *\"]"})", SyncTraceJson(Finished("1  \"quoted\"\\path\n2  *", 0), "8.8.8.8"));
+}
+
+TEST(DiagnosticsGolden, TraceEmptyOutput)
+{
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[]"})", SyncTraceJson(Finished("", 0), "8.8.8.8"));
+}
+
+TEST(DiagnosticsParsePing, KeepsPingTextAndReportsWhatWasPrinted)
+{
+    const auto ping = ParsePing(Finished(
+        "5 packets transmitted, 4 packets received, 20% packet loss\n"
+        "round-trip min/avg/max = 17.038/18.310/20.197 ms\n", 0));
+
+    EXPECT_TRUE(ping.success);
+    EXPECT_TRUE(ping.error.empty());
+    EXPECT_TRUE(ping.countsReported);
+    EXPECT_EQ(5, ping.packetsTransmitted);
+    EXPECT_EQ(4, ping.packetsReceived);
+    EXPECT_EQ(" 20", ping.packetLoss);
+    EXPECT_EQ(" 17.038", ping.tripMin);
+    EXPECT_EQ("18.310", ping.tripAvg);
+    EXPECT_EQ("20.197 ms", ping.tripMax);
+    EXPECT_TRUE(ping.tripStdDev.empty());
+}
+
+TEST(DiagnosticsParsePing, NothingPrintedMeansNothingReported)
+{
+    const auto ping = ParsePing(ProcessResult());
+
+    EXPECT_FALSE(ping.success);
+    EXPECT_EQ("Could not ping endpoint", ping.error);
+    EXPECT_FALSE(ping.countsReported);
+    EXPECT_TRUE(ping.tripMin.empty() && ping.tripAvg.empty() && ping.tripMax.empty() && ping.tripStdDev.empty());
 }
 
 // ---- Engine ----

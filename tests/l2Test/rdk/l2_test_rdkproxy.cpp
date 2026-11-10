@@ -39,6 +39,7 @@
 #include "NetworkManagerRDKProxy.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
+#include "NetworkManagerDiagnosticsReply.h"
 
 using namespace WPEFramework;
 using ::testing::NiceMock;
@@ -1659,6 +1660,35 @@ TEST_F(NetworkManagerTest, Trace_DirectCaller_ReturnsOneElementPerLine)
     EXPECT_EQ("traceroute", runner->Calls()[0].front());
 }
 
+// Exact result bytes seen by JSON-RPC callers; these must never change.
+TEST_F(NetworkManagerTest, Ping_Golden_ResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"8.8.8.8\",\"count\":3}"), response));
+    EXPECT_EQ(R"({"packetsTransmitted":3,"packetsReceived":3,"packetLoss":" 0","tripMin":" 23.363","tripAvg":"23.395","tripMax":"23.440","tripStdDev":"0.179 ms","success":true,"endpoint":"8.8.8.8"})", response);
+}
+
+TEST_F(NetworkManagerTest, Ping_Golden_FailureResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>("ping: bad address 'nowhere.invalid'\n", 1));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"nowhere.invalid\"}"), response));
+    EXPECT_EQ(R"({"success":false,"error":"Could not ping endpoint","endpoint":"nowhere.invalid"})", response);
+}
+
+TEST_F(NetworkManagerTest, Trace_Golden_ResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \",\"1  gateway (10.46.5.1)  0.448 ms \",\"2  * \"]","success":true})", response);
+}
+
+TEST_F(NetworkManagerTest, Trace_Golden_TimeoutResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>("1  *\n", 0, true));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+    EXPECT_EQ(R"({"success":false})", response);
+}
+
 TEST_F(NetworkManagerTest, Trace_StderrTextIsInResults)
 {
     auto runner = UseRunner(std::make_shared<CannedRunner>("traceroute6: bad address '8.8.8.8'", 1));
@@ -1718,7 +1748,7 @@ TEST_F(NetworkManagerTest, Trace_QueueFull_ReturnsInProgressError)
     EXPECT_TRUE(signal.wait_for(guard, std::chrono::seconds(5), [&] { return replies >= 5; }));
 }
 
-// DeferredReply::Table, driven directly with this plugin as the JSON-RPC owner.
+// DeferredReply::Registry, driven directly with this plugin as the JSON-RPC owner.
 class DeferredReplyTest : public NetworkManagerTest {
 protected:
     std::promise<string> sent;
@@ -1734,118 +1764,205 @@ protected:
             }));
     }
 
-    static uint32_t PassThrough(const uint32_t rc, const string& result, string& reply)
+    JsonObject SentMessage()
     {
-        reply = result;
+        auto message = sent.get_future();
+        EXPECT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+        return Parse(message.get());
+    }
+
+    static uint32_t ErrorReply(const uint32_t rc, string& reply)
+    {
+        reply.clear();
         return rc;
+    }
+
+    // Shaper that turns every failure into a successful {"success":false} result, like NetworkManager.1.Trace.
+    static uint32_t FailedResult(const uint32_t, string& reply)
+    {
+        reply = "{\"success\":false}";
+        return Core::ERROR_NONE;
     }
 };
 
 TEST_F(DeferredReplyTest, CloseAnswersPendingRequestWithErrorExactlyOnce)
 {
     ExpectOneReplyOnChannel1();
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
-    Plugin::DeferredReply::Callback* held = nullptr;
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
 
     string reply;
-    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 5, ""),
-        [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); return Core::ERROR_NONE; },
-        PassThrough, reply));
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 5, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        ErrorReply, reply));
 
-    table->Close(Core::ERROR_UNAVAILABLE);
-    held->Completed(Core::ERROR_NONE, "{\"late\":true}");
-    held->Release();
+    EXPECT_EQ(1u, registry->Close(Core::ERROR_UNAVAILABLE));
+    held.Respond("{\"late\":true}");
+    EXPECT_FALSE(held.IsPending());
 
-    auto message = sent.get_future();
-    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
-    JsonObject error = Parse(message.get())["error"].Object();
+    JsonObject error = SentMessage()["error"].Object();
     EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
-TEST_F(DeferredReplyTest, CallbackReleasedWithoutCompletedRepliesWithError)
+TEST_F(DeferredReplyTest, ReplyAbandonedAfterStartRepliesWithError)
 {
     ExpectOneReplyOnChannel1();
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
-    Plugin::DeferredReply::Callback* held = nullptr;
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
 
     string reply;
-    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 6, ""),
-        [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); return Core::ERROR_NONE; },
-        PassThrough, reply));
-    held->Release();
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 6, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        ErrorReply, reply));
+    held = Plugin::DeferredReply::PendingReply();
 
-    auto message = sent.get_future();
-    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
-    EXPECT_TRUE(Parse(message.get()).HasLabel("error"));
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
-TEST_F(DeferredReplyTest, StartFailureIsReturnedSynchronously)
+TEST_F(DeferredReplyTest, ReplyAbandonedInsideSuccessfulStartRepliesWithError)
 {
-    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
 
     string reply;
-    EXPECT_EQ(Core::ERROR_INPROGRESS, table->Invoke(Core::JSONRPC::Context(1, 8, ""),
-        [](Plugin::DeferredReply::Callback*) { return Core::ERROR_INPROGRESS; },
-        PassThrough, reply));
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 7, ""),
+        [](Plugin::DeferredReply::PendingReply&&) { return Core::ERROR_NONE; },
+        ErrorReply, reply));
+
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, StartFailureIsReturnedSynchronouslyEvenWhenReplyIsReleasedInsideStart)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_INPROGRESS, registry->Invoke(Core::JSONRPC::Context(1, 8, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            Plugin::DeferredReply::PendingReply released(std::move(pending));
+            return Core::ERROR_INPROGRESS;
+        },
+        ErrorReply, reply));
+}
+
+TEST_F(DeferredReplyTest, CallbackAdapterReleasedInsideFailedStartDoesNotReply)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_BAD_REQUEST, registry->Invoke(Core::JSONRPC::Context(1, 9, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            auto* callback = Core::Service<Plugin::Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(pending), string("8.8.8.8"), nullptr);
+            Core::IUnknown* unknown = callback->QueryInterface<Core::IUnknown>();
+            EXPECT_NE(nullptr, unknown);
+            if (unknown != nullptr)
+                unknown->Release();
+            callback->Release();
+            return Core::ERROR_BAD_REQUEST;
+        },
+        ErrorReply, reply));
 }
 
 TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
 {
     ExpectOneReplyOnChannel1();
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
 
     string reply;
-    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 9, ""),
-        [&](Plugin::DeferredReply::Callback*) { table->Drain(Core::ERROR_UNAVAILABLE); return Core::ERROR_GENERAL; },
-        PassThrough, reply));
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 10, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) {
+            held = std::move(pending);
+            EXPECT_EQ(1u, registry->Drain(Core::ERROR_UNAVAILABLE));
+            return Core::ERROR_GENERAL;
+        },
+        ErrorReply, reply));
+    held = Plugin::DeferredReply::PendingReply();
 
-    auto message = sent.get_future();
-    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
-    JsonObject error = Parse(message.get())["error"].Object();
+    JsonObject error = SentMessage()["error"].Object();
     EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
-TEST_F(DeferredReplyTest, DirectCallerSurvivesOwnerReleasingTableDuringClose)
+TEST_F(DeferredReplyTest, CompletionInsideStartIsDeliveredOnce)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 11, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            Plugin::DeferredReply::PendingReply local(std::move(pending));
+            local.Respond("{\"fast\":true}");
+            local.Fail(Core::ERROR_GENERAL);
+            return Core::ERROR_NONE;
+        },
+        ErrorReply, reply));
+
+    JsonObject message = SentMessage();
+    EXPECT_FALSE(message.HasLabel("error"));
+    EXPECT_TRUE(message["result"].Object()["fast"].Boolean());
+}
+
+TEST_F(DeferredReplyTest, FailUsesTheRequestsFailureShaper)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 12, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        FailedResult, reply));
+    held.Fail(Core::ERROR_TIMEDOUT);
+
+    JsonObject message = SentMessage();
+    EXPECT_FALSE(message.HasLabel("error"));
+    EXPECT_FALSE(message["result"].Object()["success"].Boolean());
+}
+
+TEST_F(DeferredReplyTest, DirectCallerSurvivesOwnerReleasingRegistryDuringClose)
 {
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
-    std::weak_ptr<Plugin::DeferredReply::Table> observer = table;
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    std::weak_ptr<Plugin::DeferredReply::Registry> observer = registry;
     std::promise<void> started;
-    Plugin::DeferredReply::Callback* held = nullptr;
+    Plugin::DeferredReply::PendingReply held;
     uint32_t rc = Core::ERROR_NONE;
 
     // Shutdown order from the review: waiter woken by Close(), then every other owner goes away. A use-after-free here only shows under ASan.
-    std::thread caller([&, raw = table.get()]() {
+    std::thread caller([&, raw = registry.get()]() {
         string reply;
         rc = raw->Invoke(DirectCaller(),
-            [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); started.set_value(); return Core::ERROR_NONE; },
-            PassThrough, reply);
+            [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); started.set_value(); return Core::ERROR_NONE; },
+            ErrorReply, reply);
     });
     started.get_future().wait();
-    table->Close(Core::ERROR_UNAVAILABLE);
-    table.reset();
-    held->Release();
+    registry->Close(Core::ERROR_UNAVAILABLE);
+    registry.reset();
+    held = Plugin::DeferredReply::PendingReply();
     caller.join();
 
     EXPECT_EQ(Core::ERROR_UNAVAILABLE, rc);
     EXPECT_TRUE(observer.expired());
 }
 
-TEST_F(DeferredReplyTest, DirectCallerWaitsForCompletion)
+TEST_F(DeferredReplyTest, DirectCallerWaitsForRespond)
 {
     EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
-    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
     std::thread worker;
 
     string reply;
-    EXPECT_EQ(Core::ERROR_NONE, table->Invoke(DirectCaller(),
-        [&](Plugin::DeferredReply::Callback* callback) {
-            callback->AddRef();
-            worker = std::thread([callback]() { callback->Completed(Core::ERROR_NONE, "{\"done\":true}"); callback->Release(); });
+    EXPECT_EQ(Core::ERROR_NONE, registry->Invoke(DirectCaller(),
+        [&](Plugin::DeferredReply::PendingReply&& pending) {
+            worker = std::thread([held = std::move(pending)]() mutable { held.Respond("{\"done\":true}"); });
             return Core::ERROR_NONE;
         },
-        PassThrough, reply));
+        ErrorReply, reply));
     worker.join();
 
     EXPECT_TRUE(Parse(reply)["done"].Boolean());

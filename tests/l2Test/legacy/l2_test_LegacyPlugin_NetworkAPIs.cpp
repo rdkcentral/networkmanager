@@ -551,15 +551,22 @@ TEST_F(NetworkTest, doPing) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
-    const string pingResult = "{\"packetsTransmitted\":5,\"packetsReceived\":5,\"packetLoss\":\"0\",\"tripAvg\":\"16.702\",\"success\":true,\"endpoint\":\"8.8.8.8\"}";
+    Exchange::INetworkManager::PingResult ping{};
+    ping.success = true;
+    ping.countsReported = true;
+    ping.packetsTransmitted = 5;
+    ping.packetsReceived = 5;
+    ping.packetLoss = "0";
+    ping.tripAvg = "16.702";
     EXPECT_CALL(*mockNetworkManager, PingAsync(::testing::Eq("IPv4"), ::testing::Eq("8.8.8.8"), 5u, ::testing::_, ::testing::_, ::testing::NotNull()))
         .WillOnce(::testing::Invoke(
-            [&](const string, const string, const uint32_t, const uint16_t, const string, Exchange::INetworkManager::IDiagnosticsCallback* callback) -> uint32_t {
-                callback->Completed(Core::ERROR_NONE, pingResult);
+            [&](const string, const string, const uint32_t, const uint16_t, const string, Exchange::INetworkManager::IPingCallback* callback) -> uint32_t {
+                callback->Completed(Core::ERROR_NONE, ping);
                 return Core::ERROR_NONE;
             }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("ping"), _T("{\"endpoint\":\"8.8.8.8\",\"packets\":5,\"ipversion\":\"IPv4\"}"), response));
+    EXPECT_EQ(R"({"packetsTransmitted":5,"packetsReceived":5,"packetLoss":"0","tripAvg":"16.702","success":true,"endpoint":"8.8.8.8","target":"8.8.8.8"})", response);
 
     JsonObject result = Parse(response);
     EXPECT_TRUE(result["success"].Boolean());
@@ -599,15 +606,16 @@ TEST_F(NetworkTest, doTrace) {
                 return static_cast<void*>(mockNetworkManager);
             }));
 
-    const string traceResult = "{\"endpoint\":\"8.8.8.8\",\"results\":\"[\\\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \\\",\\\"1  gateway (10.46.5.1)  0.448 ms \\\"]\"}";
+    const string traceOutput = "traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n1  gateway (10.46.5.1)  0.448 ms\n";
     EXPECT_CALL(*mockNetworkManager, TraceAsync(::testing::Eq("IPv4"), ::testing::Eq("8.8.8.8"), 1u, ::testing::_, ::testing::NotNull()))
         .WillOnce(::testing::Invoke(
-            [&](const string, const string, const uint32_t, const string, Exchange::INetworkManager::IDiagnosticsCallback* callback) -> uint32_t {
-                callback->Completed(Core::ERROR_NONE, traceResult);
+            [&](const string, const string, const uint32_t, const string, Exchange::INetworkManager::ITraceCallback* callback) -> uint32_t {
+                callback->Completed(Core::ERROR_NONE, traceOutput);
                 return Core::ERROR_NONE;
             }));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \",\"1  gateway (10.46.5.1)  0.448 ms \"]","target":"8.8.8.8"})", response);
 
     JsonObject result = Parse(response);
     EXPECT_EQ("8.8.8.8", result["target"].String());
@@ -624,7 +632,7 @@ TEST_F(NetworkTest, doTraceFailureReturnsError) {
         .WillOnce(::testing::Return(static_cast<void*>(mockNetworkManager)));
     EXPECT_CALL(*mockNetworkManager, TraceAsync(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::NotNull()))
         .WillOnce(::testing::Invoke(
-            [&](const string, const string, const uint32_t, const string, Exchange::INetworkManager::IDiagnosticsCallback* callback) -> uint32_t {
+            [&](const string, const string, const uint32_t, const string, Exchange::INetworkManager::ITraceCallback* callback) -> uint32_t {
                 callback->Completed(Core::ERROR_TIMEDOUT, string());
                 return Core::ERROR_NONE;
             }));
