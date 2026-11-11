@@ -100,7 +100,7 @@ namespace WPEFramework
                 }
 
                 // Set the plugin log level
-                Exchange::INetworkManager::Logging _loglevel;
+                Exchange::INetworkManager::Logging _loglevel=Exchange::INetworkManager::Logging::LOG_LEVEL_INFO;
                 _networkManager->GetLogLevel(_loglevel);
                 NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(_loglevel));
 

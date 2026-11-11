@@ -1137,7 +1137,7 @@ TEST_F(NetworkManagerWifiTest, WiFiConnect_activateKnownConnection_success)
         .WillRepeatedly(::testing::Return(true));
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_activate_connection_finish(::testing::_, ::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(dummyActiveConn));
+        .WillOnce(::testing::Return(static_cast<NMActiveConnection*>(g_object_ref(dummyActiveConn))));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke([](NMClient* client, NMConnection* connection, NMDevice* device, const char* specific_object, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
@@ -1195,7 +1195,7 @@ TEST_F(NetworkManagerWifiTest, Connect_To_Known_SSID)
         .WillRepeatedly(::testing::Return(true));
     NMActiveConnection *dummyActiveConn = static_cast<NMActiveConnection*>(g_object_new(NM_TYPE_ACTIVE_CONNECTION, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_activate_connection_finish(::testing::_, ::testing::_, ::testing::_))
-        .WillOnce(::testing::Return(dummyActiveConn));
+        .WillOnce(::testing::Return(static_cast<NMActiveConnection*>(g_object_ref(dummyActiveConn))));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_activate_connection_async(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke([](NMClient* client, NMConnection* connection, NMDevice* device, const char* specific_object, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer user_data) {
@@ -1996,7 +1996,7 @@ TEST_F(NetworkManagerWifiTest, AddToKnownSSIDs_sae_success)
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_connection2_finish(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke([](NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error) -> NMRemoteConnection* {
-            return reinterpret_cast<NMRemoteConnection*>(0x22222);
+            return static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
         }));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
@@ -2042,7 +2042,7 @@ TEST_F(NetworkManagerWifiTest, AddToKnownSSIDs_eap_success)
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_connection2_finish(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke([](NMClient *client, GAsyncResult *result, GVariant **out_result, GError **error) -> NMRemoteConnection* {
-            return reinterpret_cast<NMRemoteConnection*>(0x22222);
+            return static_cast<NMRemoteConnection*>(g_object_new(NM_TYPE_REMOTE_CONNECTION, NULL));
         }));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_add_connection2(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
