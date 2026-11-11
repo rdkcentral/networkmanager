@@ -1610,7 +1610,8 @@ namespace WPEFramework
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error)) {
+            NMRemoteConnection *remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+            if (!remoteConnection) {
                 NMLOG_ERROR("AddToKnownSSIDs Failed");
                 _wifiManager->m_isSuccess = false;
             }
@@ -1620,6 +1621,8 @@ namespace WPEFramework
                 _wifiManager->m_isSuccess = true;
             }
 
+            if(remoteConnection)
+                g_object_unref(remoteConnection);
             if(error) {
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
                     NMLOG_DEBUG("Add connection operation was cancelled");
@@ -2194,6 +2197,7 @@ namespace WPEFramework
                     if(!connectionBuilder(wifiConnectInfo, connection, true))
                     {
                         NMLOG_ERROR("wps connection builder failed");
+                        g_object_unref(connection);
                         break;
                     }
 
@@ -2201,6 +2205,7 @@ namespace WPEFramework
                     if(loop == NULL)
                     {
                         NMLOG_ERROR("g_main_loop_new failed");
+                        g_object_unref(connection);
                         break;
                     }
 
@@ -2461,7 +2466,8 @@ namespace WPEFramework
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             NMLOG_DEBUG("activate connection completeing...");
             // Check if the operation was successful
-            if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
+            NMActiveConnection *activeConnection = nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error);
+            if (!activeConnection) {
                 NMLOG_ERROR("Activating connection failed");
                 if(error != NULL)
                 {
@@ -2473,6 +2479,8 @@ namespace WPEFramework
                 NMLOG_DEBUG("Activating connection successful");
                 _wifiManager->m_isSuccess = true;
             }
+            if(activeConnection)
+                g_object_unref(activeConnection);
             _wifiManager->quit(nullptr);
         }
 
@@ -2618,6 +2626,8 @@ namespace WPEFramework
                     ipAddress = nm_ip_address_new(AF_INET, address.ipaddress.c_str(), address.prefix, NULL);
                     nm_setting_ip_config_clear_addresses(ip4Config);
                     nm_setting_ip_config_add_address(NM_SETTING_IP_CONFIG(setting), ipAddress);
+                    if(ipAddress)
+                        nm_ip_address_unref(ipAddress);
                     nm_setting_ip_config_clear_dns(ip4Config);
                     if(!address.primarydns.empty())
                         nm_setting_ip_config_add_dns(ip4Config, address.primarydns.c_str());
