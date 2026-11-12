@@ -160,7 +160,7 @@ namespace WPEFramework
             {
                 const size_t answered = m_deferredReplies->Close(Core::ERROR_UNAVAILABLE);
                 if (answered > 0)
-                    NMLOG_INFO("Answered %zu pending deferred request(s) with error %u", answered, Core::ERROR_UNAVAILABLE);
+                    NMLOG_INFO("Answered %zu pending request(s) with ERROR_UNAVAILABLE", answered);
             }
             m_timer.stop();
             unregisterLegacyMethods();
@@ -623,7 +623,7 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             returnJson(rc);
         }
 
-        // Failure reply for ping and trace; successful results are the NetworkManager result plus the legacy "target" field.
+        // Failure reply for ping and trace.
         static uint32_t legacyDiagnosticsFailure(const uint32_t rc, string& reply)
         {
             JsonObject response;
@@ -632,12 +632,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             return rc;
         }
 
-        static Diagnostics::Decorator legacyDiagnosticsTarget(const string& endpoint)
+        // Successful ping and trace results are the NetworkManager result plus the legacy "target" field.
+        static void addLegacyTarget(JsonObject& response)
         {
-            return [endpoint](JsonObject& response) {
-                response["target"] = endpoint;
-                LOG_OUTPARAM();
-            };
+            response["target"] = response["endpoint"].String();
+            LOG_OUTPARAM();
         }
 
         uint32_t Network::doPing(const Core::JSONRPC::Context& context, const string& params, string& result)
@@ -673,8 +672,11 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             const uint32_t rc = m_deferredReplies->Invoke(context,
                 [&](DeferredReply::PendingReply&& reply) {
-                    auto* callback = Core::Service<Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(reply), endpoint, legacyDiagnosticsTarget(endpoint));
-                    const uint32_t started = _nwmgr->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback);
+                    using Callback = Exchange::INetworkManager::IPingCallback;
+                    Callback* callback = Core::Service<Diagnostics::PingReply>::Create<Callback>(
+                        std::move(reply), endpoint, addLegacyTarget);
+                    const uint32_t started = _nwmgr->PingAsync(ipversion, endpoint, noOfRequest,
+                                                               timeOutInSeconds, guid, callback);
                     callback->Release();
                     return started;
                 },
@@ -709,7 +711,9 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
 
             const uint32_t rc = m_deferredReplies->Invoke(context,
                 [&](DeferredReply::PendingReply&& reply) {
-                    auto* callback = Core::Service<Diagnostics::TraceReply>::Create<Exchange::INetworkManager::ITraceCallback>(std::move(reply), endpoint, legacyDiagnosticsTarget(endpoint));
+                    using Callback = Exchange::INetworkManager::ITraceCallback;
+                    Callback* callback = Core::Service<Diagnostics::TraceReply>::Create<Callback>(
+                        std::move(reply), endpoint, addLegacyTarget);
                     const uint32_t started = _nwmgr->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback);
                     callback->Release();
                     return started;

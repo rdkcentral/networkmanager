@@ -24,21 +24,19 @@
 #include "DeferredReply.h"
 #include "NetworkManagerDiagnosticsJson.h"
 
-#include <functional>
-
 namespace WPEFramework
 {
     namespace Plugin
     {
         namespace Diagnostics
         {
-            // Adds the plugin-specific fields to a successful result and logs it.
-            using Decorator = std::function<void(JsonObject& response)>;
+            // Adds the plugin-specific fields to a successful result and logs it; may be nullptr.
+            using Decorator = void (*)(JsonObject& response);
 
             class PingReply : public DeferredReply::CallbackReply<Exchange::INetworkManager::IPingCallback>
             {
             public:
-                PingReply(DeferredReply::PendingReply&& reply, const string& endpoint, const Decorator& decorate)
+                PingReply(DeferredReply::PendingReply&& reply, const string& endpoint, const Decorator decorate)
                     : CallbackReply(std::move(reply)), _endpoint(endpoint), _decorate(decorate) {}
 
                 void Completed(const uint32_t result, const Exchange::INetworkManager::PingResult& ping) override
@@ -49,7 +47,7 @@ namespace WPEFramework
                         return;
                     }
                     JsonObject response = PingJson(ping, _endpoint);
-                    if (_decorate)
+                    if (_decorate != nullptr)
                         _decorate(response);
                     string json;
                     response.ToString(json);
@@ -64,7 +62,7 @@ namespace WPEFramework
             class TraceReply : public DeferredReply::CallbackReply<Exchange::INetworkManager::ITraceCallback>
             {
             public:
-                TraceReply(DeferredReply::PendingReply&& reply, const string& endpoint, const Decorator& decorate)
+                TraceReply(DeferredReply::PendingReply&& reply, const string& endpoint, const Decorator decorate)
                     : CallbackReply(std::move(reply)), _endpoint(endpoint), _decorate(decorate) {}
 
                 void Completed(const uint32_t result, const string& output) override
@@ -75,7 +73,7 @@ namespace WPEFramework
                         return;
                     }
                     JsonObject response = TraceJson(output, _endpoint);
-                    if (_decorate)
+                    if (_decorate != nullptr)
                         _decorate(response);
                     string json;
                     response.ToString(json);
