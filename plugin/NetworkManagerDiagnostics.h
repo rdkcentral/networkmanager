@@ -80,12 +80,22 @@ namespace WPEFramework
             public:
                 enum class Kind : uint8_t { PING = 0, TRACE = 1 };
 
+                // Where a job's onDone/onDrop run.
+                enum class Notify : uint8_t {
+                    // On the notifier thread, so a slow or re-entrant callback (a COM-RPC call to another
+                    // process) holds up neither the lane nor a synchronous request queued on it.
+                    DISPATCHED = 0,
+                    // On the lane worker. Only for callbacks that just wake a waiter and never block.
+                    INLINE = 1
+                };
+
                 struct Job
                 {
                     std::vector<std::string> argv;
                     std::chrono::milliseconds deadline{0};
+                    Notify notify = Notify::DISPATCHED;
                     std::function<void(const ProcessResult&)> onDone;
-                    std::function<void()> onDrop;   // engine stopped before the job finished
+                    std::function<void()> onDrop;   // engine stopped before onDone ran
                 };
 
                 static constexpr size_t MaxQueued = 4;
@@ -98,6 +108,8 @@ namespace WPEFramework
 
                 // ERROR_NONE, ERROR_INPROGRESS (queue full) or ERROR_UNAVAILABLE (stopped).
                 uint32_t Submit(const Kind kind, Job&& job);
+                // Kills running children and calls onDrop for every job whose onDone has not run.
+                // Waits for an onDone that is already running on the notifier thread.
                 void Stop();
 
             private:
@@ -109,11 +121,23 @@ namespace WPEFramework
                     std::thread worker;
                 };
 
+                struct Finished
+                {
+                    Job job;
+                    ProcessResult result;
+                };
+
                 void Work(Lane& lane);
+                void Deliver();   // notifier thread
 
                 std::shared_ptr<IProcessRunner> _runner;
                 std::atomic<bool> _stop;
                 Lane _lanes[2];
+
+                std::mutex _finishedLock;
+                std::condition_variable _finishedSignal;
+                std::deque<Finished> _finished;
+                std::thread _notifier;
             };
         }
     }

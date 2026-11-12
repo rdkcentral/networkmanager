@@ -1767,7 +1767,10 @@ protected:
     JsonObject SentMessage()
     {
         auto message = sent.get_future();
-        EXPECT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+        const auto status = message.wait_for(std::chrono::seconds(1));
+        EXPECT_EQ(std::future_status::ready, status);
+        if (status != std::future_status::ready)
+            return JsonObject();
         return Parse(message.get());
     }
 
