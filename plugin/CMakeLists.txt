@@ -193,4 +193,3 @@ endif(ENABLE_GNOME_NETWORKMANAGER)
 
 #Generate Plugin configuration file
 write_config()
-`
