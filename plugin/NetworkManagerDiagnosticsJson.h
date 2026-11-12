@@ -55,7 +55,8 @@ namespace WPEFramework
                 return response;
             }
 
-            // "results" is a string holding a JSON array with one element per line; each newline-terminated line keeps a trailing space.
+            // "results" is a string holding a JSON array with one element per line;
+            // each newline-terminated line keeps a trailing space.
             inline JsonObject TraceJson(const string& output, const string& endpoint)
             {
                 JsonArray list;

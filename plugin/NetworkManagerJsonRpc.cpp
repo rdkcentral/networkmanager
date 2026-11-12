@@ -598,6 +598,17 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
+        static void LogPingResult(JsonObject& response)
+        {
+            LOG_OUTPARAM();
+        }
+
+        static void AddTraceSuccess(JsonObject& response)
+        {
+            response["success"] = true;
+            LOG_OUTPARAM();
+        }
+
         uint32_t NetworkManager::Ping(const Core::JSONRPC::Context& context, const string& params, string& result)
         {
             JsonObject parameters;
@@ -628,9 +639,11 @@ namespace WPEFramework
 
             return _deferredReplies->Invoke(context,
                 [&](DeferredReply::PendingReply&& reply) {
-                    auto* callback = Core::Service<Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(reply), endpoint,
-                        [](JsonObject& response) { LOG_OUTPARAM(); });
-                    const uint32_t rc = _networkManager->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback);
+                    using Callback = Exchange::INetworkManager::IPingCallback;
+                    Callback* callback = Core::Service<Diagnostics::PingReply>::Create<Callback>(
+                        std::move(reply), endpoint, LogPingResult);
+                    const uint32_t rc = _networkManager->PingAsync(ipversion, endpoint, noOfRequest,
+                                                                   timeOutInSeconds, guid, callback);
                     callback->Release();
                     return rc;
                 },
@@ -654,8 +667,9 @@ namespace WPEFramework
 
             return _deferredReplies->Invoke(context,
                 [&](DeferredReply::PendingReply&& reply) {
-                    auto* callback = Core::Service<Diagnostics::TraceReply>::Create<Exchange::INetworkManager::ITraceCallback>(std::move(reply), endpoint,
-                        [](JsonObject& response) { response["success"] = true; LOG_OUTPARAM(); });
+                    using Callback = Exchange::INetworkManager::ITraceCallback;
+                    Callback* callback = Core::Service<Diagnostics::TraceReply>::Create<Callback>(
+                        std::move(reply), endpoint, AddTraceSuccess);
                     const uint32_t rc = _networkManager->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback);
                     callback->Release();
                     return rc;
