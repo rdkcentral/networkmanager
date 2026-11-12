@@ -548,7 +548,7 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint,
                                                           const uint32_t count, const uint16_t timeout,
-                                                          PingDone done, Dropped dropped)
+                                                          const Notify notify, PingDone done, Dropped dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
@@ -561,6 +561,7 @@ namespace WPEFramework
             Diagnostics::Engine::Job job;
             job.argv = Diagnostics::PingArgs(ipv6, count, timeout, endpoint);
             job.deadline = Diagnostics::PingDeadline(count, timeout);
+            job.notify = notify;
             job.onDone = [endpoint, done](const Diagnostics::ProcessResult& result) {
                 const PingResult ping = Diagnostics::ParsePing(result);
                 NMLOG_DEBUG("Ping to %s finished, success=%d", endpoint.c_str(), ping.success);
@@ -575,7 +576,8 @@ namespace WPEFramework
         }
 
         uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint,
-                                                           const uint32_t nqueries, TraceDone done, Dropped dropped)
+                                                           const uint32_t nqueries, const Notify notify,
+                                                           TraceDone done, Dropped dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
@@ -588,6 +590,7 @@ namespace WPEFramework
             Diagnostics::Engine::Job job;
             job.argv = Diagnostics::TraceArgs(ipv6, nqueries, endpoint);
             job.deadline = Diagnostics::TraceDeadline(nqueries);
+            job.notify = notify;
             job.onDone = [endpoint, done](const Diagnostics::ProcessResult& result) {
                 if (result.timedOut)
                 {
@@ -621,7 +624,8 @@ namespace WPEFramework
             };
             auto drop = [callback]() { callback->Release(); };
 
-            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds, deliver, drop);
+            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
+                                           Notify::DISPATCHED, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 callback->Release();
             return rc;
@@ -643,7 +647,7 @@ namespace WPEFramework
             };
             auto drop = [callback]() { callback->Release(); };
 
-            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, deliver, drop);
+            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, Notify::DISPATCHED, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 callback->Release();
             return rc;
@@ -683,7 +687,7 @@ namespace WPEFramework
             auto deliver = [sync](const uint32_t result, const PingResult& ping) { sync->Set(result, ping); };
             auto drop = [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, PingResult{}); };
 
-            uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds, deliver, drop);
+            uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds, Notify::INLINE, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 return rc;
 
@@ -701,7 +705,7 @@ namespace WPEFramework
             auto deliver = [sync](const uint32_t result, const string& output) { sync->Set(result, output); };
             auto drop = [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); };
 
-            uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, deliver, drop);
+            uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, Notify::INLINE, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 return rc;
 

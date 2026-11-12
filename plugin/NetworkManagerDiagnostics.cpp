@@ -48,6 +48,8 @@ namespace WPEFramework
                 constexpr int PollSliceMs = 100;
                 constexpr int64_t DeadlineMarginMs = 5000;
                 constexpr int64_t DeadlineCapMs = 120000;
+                // Must match ping's "-i 0.002" in PingArgs().
+                constexpr int64_t PingIntervalMs = 2;
                 // traceroute -w 3 -m 6: at most 3 s per probe, 6 hops
                 constexpr int64_t TraceMsPerQuery = 3000 * 6;
 
@@ -250,7 +252,8 @@ namespace WPEFramework
 
             bool IsValidEndpoint(const string& endpoint)
             {
-                if (endpoint.empty() || (endpoint[0] == '-'))
+                // An embedded NUL would let inet_pton() and execvp() see only the part before it.
+                if (endpoint.empty() || (endpoint[0] == '-') || (endpoint.find('\0') != string::npos))
                     return false;
                 const size_t maxLength = (endpoint.back() == '.') ? 254 : 253;
                 if (endpoint.size() > maxLength)
@@ -271,7 +274,8 @@ namespace WPEFramework
             // -q: only the summary is parsed, and per-packet lines could push it past MaxOutputBytes.
             std::vector<string> PingArgs(const bool ipv6, const uint32_t count, const uint16_t timeout, const string& endpoint)
             {
-                return { (ipv6 ? "ping6" : "ping"), "-q", "-c", std::to_string(count), "-W", std::to_string(timeout), "-i", "0.002", "--", endpoint };
+                return { (ipv6 ? "ping6" : "ping"), "-q", "-c", std::to_string(count), "-W", std::to_string(timeout),
+                         "-i", "0.002", "--", endpoint };
             }
 
             std::vector<string> TraceArgs(const bool ipv6, const uint32_t nqueries, const string& endpoint)
@@ -281,7 +285,8 @@ namespace WPEFramework
 
             std::chrono::milliseconds PingDeadline(const uint32_t count, const uint16_t timeout)
             {
-                return Capped(static_cast<int64_t>(count) * timeout * 1000 + DeadlineMarginMs);
+                // Each probe takes the pacing interval and, at worst, the reply timeout.
+                return Capped(static_cast<int64_t>(count) * (timeout * 1000 + PingIntervalMs) + DeadlineMarginMs);
             }
 
             std::chrono::milliseconds TraceDeadline(const uint32_t nqueries)
@@ -374,6 +379,7 @@ namespace WPEFramework
             {
                 for (Lane& lane : _lanes)
                     lane.worker = std::thread(&Engine::Work, this, std::ref(lane));
+                _notifier = std::thread(&Engine::Deliver, this);
             }
 
             Engine::~Engine()
@@ -397,26 +403,45 @@ namespace WPEFramework
             void Engine::Stop()
             {
                 _stop.store(true);
-                for (Lane& lane : _lanes)
-                {
-                    std::lock_guard<std::mutex> guard(lane.lock);
-                    lane.signal.notify_all();
-                }
 
                 std::deque<Job> dropped;
                 for (Lane& lane : _lanes)
                 {
-                    if (lane.worker.joinable())
-                        lane.worker.join();
                     std::lock_guard<std::mutex> guard(lane.lock);
                     for (Job& job : lane.queue)
                         dropped.push_back(std::move(job));
                     lane.queue.clear();
+                    lane.signal.notify_all();
+                }
+                {
+                    std::lock_guard<std::mutex> guard(_finishedLock);
+                    _finishedSignal.notify_all();
+                }
+
+                // Workers return promptly: the runner honours _stop and they never call a dispatched onDone.
+                for (Lane& lane : _lanes)
+                {
+                    if (lane.worker.joinable())
+                        lane.worker.join();
                 }
                 for (Job& job : dropped)
                 {
                     if (job.onDrop)
                         job.onDrop();
+                }
+
+                // May wait for an onDone that is running (a COM-RPC call is bounded by its timeout).
+                if (_notifier.joinable())
+                    _notifier.join();
+                std::deque<Finished> undelivered;
+                {
+                    std::lock_guard<std::mutex> guard(_finishedLock);
+                    undelivered.swap(_finished);
+                }
+                for (Finished& finished : undelivered)
+                {
+                    if (finished.job.onDrop)
+                        finished.job.onDrop();
                 }
             }
 
@@ -442,8 +467,34 @@ namespace WPEFramework
                         return;
                     }
                     if (result.timedOut)
-                        NMLOG_WARNING("%s killed after %lld ms deadline", job.argv[0].c_str(), static_cast<long long>(job.deadline.count()));
-                    job.onDone(result);
+                        NMLOG_WARNING("%s killed after %lld ms deadline", job.argv[0].c_str(),
+                                      static_cast<long long>(job.deadline.count()));
+
+                    if (job.notify == Notify::INLINE)
+                    {
+                        job.onDone(result);
+                        continue;
+                    }
+                    std::lock_guard<std::mutex> guard(_finishedLock);
+                    _finished.push_back(Finished{ std::move(job), result });
+                    _finishedSignal.notify_one();
+                }
+            }
+
+            void Engine::Deliver()
+            {
+                while (true)
+                {
+                    Finished finished;
+                    {
+                        std::unique_lock<std::mutex> guard(_finishedLock);
+                        _finishedSignal.wait(guard, [&] { return _stop.load() || !_finished.empty(); });
+                        if (_stop.load())
+                            return;
+                        finished = std::move(_finished.front());
+                        _finished.pop_front();
+                    }
+                    finished.job.onDone(finished.result);
                 }
             }
         }

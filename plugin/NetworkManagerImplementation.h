@@ -406,14 +406,15 @@ namespace WPEFramework
                 bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
                 // A submitted diagnostic ends with exactly one call: done with its result, or dropped if the
-                // engine stops first.
+                // engine stops first. notify says which engine thread makes that call.
                 using PingDone = std::function<void(const uint32_t result, const PingResult& ping)>;
                 using TraceDone = std::function<void(const uint32_t result, const string& output)>;
                 using Dropped = std::function<void()>;
+                using Notify = Diagnostics::Engine::Notify;
                 uint32_t submitPing(const string& ipversion, const string& endpoint, const uint32_t count,
-                                    const uint16_t timeout, PingDone done, Dropped dropped);
+                                    const uint16_t timeout, const Notify notify, PingDone done, Dropped dropped);
                 uint32_t submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries,
-                                     TraceDone done, Dropped dropped);
+                                     const Notify notify, TraceDone done, Dropped dropped);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids, const std::vector<std::string>& filterSsidslist, const std::vector<std::string>& filterFrequencies);
                 void startWiFiSignalQualityMonitor(int interval);

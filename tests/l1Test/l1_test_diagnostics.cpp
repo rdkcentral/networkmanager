@@ -183,6 +183,12 @@ TEST(DiagnosticsEndpoint, RejectsShellMetacharactersAndSpaces)
     }
 }
 
+TEST(DiagnosticsEndpoint, RejectsEmbeddedNul)
+{
+    EXPECT_FALSE(IsValidEndpoint(string("8.8.8.8\0;invalid", 16)));
+    EXPECT_FALSE(IsValidEndpoint(string("example.com\0", 12)));
+}
+
 TEST(DiagnosticsEndpoint, RejectsOptionInjection)
 {
     for (const string endpoint : { "-f", "-i0", "--help", "-c100000" }) {
@@ -235,6 +241,8 @@ TEST(DiagnosticsArgs, DeadlinesGrowWithRequestAndAreCapped)
     EXPECT_LT(PingDeadline(1, 1), PingDeadline(5, 2));
     EXPECT_GE(PingDeadline(5, 2), std::chrono::seconds(10));
     EXPECT_GT(PingDeadline(0, 1), std::chrono::milliseconds(0));
+    // timeout 0: the probes alone take count x 2 ms at "-i 0.002"
+    EXPECT_GE(PingDeadline(10000, 0), std::chrono::seconds(20));
     EXPECT_LT(TraceDeadline(1), TraceDeadline(2));
     EXPECT_EQ(std::chrono::seconds(120), PingDeadline(1000000, 60));
     EXPECT_EQ(std::chrono::seconds(120), TraceDeadline(100));
@@ -447,6 +455,35 @@ TEST(DiagnosticsEngine, SameKindIsQueuedAndRunsInOrder)
     ASSERT_TRUE(outcomes.WaitDone(2));
     EXPECT_EQ((std::vector<string>{ "tester", "as" }), outcomes.Done());
     EXPECT_EQ(1, runner->MaxRunning());
+}
+
+// A COM-RPC client whose Completed() calls the synchronous Ping: the sync request must not wait for the callback.
+TEST(DiagnosticsEngine, DispatchedCallbackCanWaitForInlineJobOfSameKind)
+{
+    auto runner = std::make_shared<GatedRunner>();
+    runner->Release(2);
+    Engine engine(runner);
+    std::promise<bool> innerFinished;
+
+    Engine::Job outer;
+    outer.argv = { "fake", "outer" };
+    outer.deadline = std::chrono::seconds(5);
+    outer.onDone = [&](const ProcessResult&) {
+        auto inner = std::make_shared<std::promise<void>>();
+        auto innerDone = inner->get_future();
+        Engine::Job job;
+        job.argv = { "fake", "inner" };
+        job.deadline = std::chrono::seconds(5);
+        job.notify = Engine::Notify::INLINE;
+        job.onDone = [inner](const ProcessResult&) { inner->set_value(); };
+        EXPECT_EQ(Core::ERROR_NONE, engine.Submit(Engine::Kind::PING, std::move(job)));
+        innerFinished.set_value(innerDone.wait_for(std::chrono::seconds(3)) == std::future_status::ready);
+    };
+    EXPECT_EQ(Core::ERROR_NONE, engine.Submit(Engine::Kind::PING, std::move(outer)));
+
+    auto finished = innerFinished.get_future();
+    ASSERT_EQ(std::future_status::ready, finished.wait_for(std::chrono::seconds(10)));
+    EXPECT_TRUE(finished.get());
 }
 
 TEST(DiagnosticsEngine, RejectsWhenQueueFull)
