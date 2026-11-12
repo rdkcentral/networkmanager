@@ -70,7 +70,8 @@ namespace WPEFramework
             std::chrono::milliseconds PingDeadline(const uint32_t count, const uint16_t timeout);
             std::chrono::milliseconds TraceDeadline(const uint32_t nqueries);
 
-            // Parses ping's summary; the INetworkManager::Ping/Trace "response" JSON is built in NetworkManagerDiagnosticsJson.h.
+            // Parses ping's summary. The INetworkManager::Ping/Trace "response" JSON is built in
+            // NetworkManagerDiagnosticsJson.h.
             Exchange::INetworkManager::PingResult ParsePing(const ProcessResult& result);
 
             // One worker and one bounded FIFO per kind: at most one Ping and one Trace child run at a time.

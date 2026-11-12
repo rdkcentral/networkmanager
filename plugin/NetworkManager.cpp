@@ -165,7 +165,7 @@ namespace WPEFramework
                 {
                     const size_t answered = _deferredReplies->Close(Core::ERROR_UNAVAILABLE);
                     if (answered > 0)
-                        NMLOG_INFO("Answered %zu pending deferred request(s) with error %u", answered, Core::ERROR_UNAVAILABLE);
+                        NMLOG_INFO("Answered %zu pending request(s) with ERROR_UNAVAILABLE", answered);
                 }
 
                 SYSLOG(Logging::Shutdown, (_T("Unregister Thunder Notifications for NetworkManager")));
@@ -228,7 +228,7 @@ namespace WPEFramework
                 {
                     const size_t answered = _deferredReplies->Drain(Core::ERROR_UNAVAILABLE);
                     if (answered > 0)
-                        NMLOG_INFO("Answered %zu pending deferred request(s) with error %u", answered, Core::ERROR_UNAVAILABLE);
+                        NMLOG_INFO("Answered %zu pending request(s) with ERROR_UNAVAILABLE", answered);
                 }
                 Core::IWorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, PluginHost::IShell::DEACTIVATED, PluginHost::IShell::FAILURE));
             }

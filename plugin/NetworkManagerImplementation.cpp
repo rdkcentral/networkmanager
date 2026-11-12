@@ -546,11 +546,14 @@ namespace WPEFramework
             return Core::ERROR_NONE;
         }
 
-        uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, PingDone done, std::function<void()> dropped)
+        uint32_t NetworkManagerImplementation::submitPing(const string& ipversion, const string& endpoint,
+                                                          const uint32_t count, const uint16_t timeout,
+                                                          PingDone done, Dropped dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
-                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected", ipversion.c_str(), endpoint.size());
+                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected",
+                              ipversion.c_str(), endpoint.size());
                 return Core::ERROR_BAD_REQUEST;
             }
 
@@ -571,11 +574,13 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, TraceDone done, std::function<void()> dropped)
+        uint32_t NetworkManagerImplementation::submitTrace(const string& ipversion, const string& endpoint,
+                                                           const uint32_t nqueries, TraceDone done, Dropped dropped)
         {
             if ((ipversion != "IPv4" && ipversion != "IPv6") || !Diagnostics::IsValidEndpoint(endpoint))
             {
-                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected", ipversion.c_str(), endpoint.size());
+                NMLOG_WARNING("Invalid arguments: ipversion=%s, endpoint of %zu bytes rejected",
+                              ipversion.c_str(), endpoint.size());
                 return Core::ERROR_BAD_REQUEST;
             }
 
@@ -589,7 +594,7 @@ namespace WPEFramework
                     done(Core::ERROR_TIMEDOUT, string());
                     return;
                 }
-                NMLOG_DEBUG("Trace to %s finished, output is, %s", endpoint.c_str(), result.output.c_str());
+                NMLOG_DEBUG("Trace to %s finished, output: %s", endpoint.c_str(), result.output.c_str());
                 done(Core::ERROR_NONE, result.output);
             };
             job.onDrop = std::move(dropped);
@@ -600,31 +605,45 @@ namespace WPEFramework
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IPingCallback* callback)
+        uint32_t NetworkManagerImplementation::PingAsync(const string ipversion, const string endpoint,
+                                                         const uint32_t noOfRequest, const uint16_t timeOutInSeconds,
+                                                         const string guid, IPingCallback* callback)
         {
             LOG_ENTRY_FUNCTION();
             if (callback == nullptr)
                 return Core::ERROR_BAD_REQUEST;
 
+            // The engine holds a reference until it has delivered the result or stopped without one.
             callback->AddRef();
-            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
-                [callback](const uint32_t result, const PingResult& ping) { callback->Completed(result, ping); callback->Release(); },
-                [callback]() { callback->Release(); });
+            auto deliver = [callback](const uint32_t result, const PingResult& ping) {
+                callback->Completed(result, ping);
+                callback->Release();
+            };
+            auto drop = [callback]() { callback->Release(); };
+
+            const uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 callback->Release();
             return rc;
         }
 
-        uint32_t NetworkManagerImplementation::TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, ITraceCallback* callback)
+        uint32_t NetworkManagerImplementation::TraceAsync(const string ipversion, const string endpoint,
+                                                          const uint32_t noOfRequest, const string guid,
+                                                          ITraceCallback* callback)
         {
             LOG_ENTRY_FUNCTION();
             if (callback == nullptr)
                 return Core::ERROR_BAD_REQUEST;
 
+            // The engine holds a reference until it has delivered the result or stopped without one.
             callback->AddRef();
-            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
-                [callback](const uint32_t result, const string& output) { callback->Completed(result, output); callback->Release(); },
-                [callback]() { callback->Release(); });
+            auto deliver = [callback](const uint32_t result, const string& output) {
+                callback->Completed(result, output);
+                callback->Release();
+            };
+            auto drop = [callback]() { callback->Release(); };
+
+            const uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 callback->Release();
             return rc;
@@ -661,9 +680,10 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             auto sync = std::make_shared<SyncResult<PingResult>>();
-            uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds,
-                [sync](const uint32_t result, const PingResult& ping) { sync->Set(result, ping); },
-                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, PingResult{}); });
+            auto deliver = [sync](const uint32_t result, const PingResult& ping) { sync->Set(result, ping); };
+            auto drop = [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, PingResult{}); };
+
+            uint32_t rc = submitPing(ipversion, endpoint, noOfRequest, timeOutInSeconds, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 return rc;
 
@@ -678,9 +698,10 @@ namespace WPEFramework
         {
             LOG_ENTRY_FUNCTION();
             auto sync = std::make_shared<SyncResult<string>>();
-            uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest,
-                [sync](const uint32_t result, const string& output) { sync->Set(result, output); },
-                [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); });
+            auto deliver = [sync](const uint32_t result, const string& output) { sync->Set(result, output); };
+            auto drop = [sync]() { sync->Set(Core::ERROR_UNAVAILABLE, string()); };
+
+            uint32_t rc = submitTrace(ipversion, endpoint, noOfRequest, deliver, drop);
             if (rc != Core::ERROR_NONE)
                 return rc;
 

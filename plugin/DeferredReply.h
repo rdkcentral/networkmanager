@@ -37,18 +37,22 @@ namespace WPEFramework
     {
         namespace DeferredReply
         {
-            // Thunder R4 PluginServer.h: a handler returning ~0 gets no response now; JSONRPC::Response(Context, ...) sends it later.
+            // Thunder R4 PluginServer.h: a handler returning ~0 gets no response now;
+            // JSONRPC::Response(Context, ...) sends it later.
             constexpr uint32_t ReplyLater = static_cast<uint32_t>(~0);
-            // Channel id used by in-process IDispatcher::Invoke callers (e.g. UtilsJsonrpcDirectLink); a later reply cannot reach them.
+            // Channel id used by in-process IDispatcher::Invoke callers (e.g. UtilsJsonrpcDirectLink);
+            // a later reply cannot reach them.
             constexpr uint32_t DirectCallerChannel = static_cast<uint32_t>(~0);
 
-            // Turns a failure code into the handler's return code and its JSON-RPC result (or error text). Method-specific.
+            // Turns a failure code into the handler's return code and its JSON-RPC result (or error text).
+            // Method-specific.
             using FailureShaper = std::function<uint32_t(const uint32_t error, string& reply)>;
 
             class Registry;
 
             // The right and the duty to answer one deferred request. Move-only; answers at most once.
-            // Destroying it unanswered abandons the request, which is then answered as failed with ERROR_UNAVAILABLE.
+            // Destroying it unanswered abandons the request, which is then answered as failed with
+            // ERROR_UNAVAILABLE.
             class PendingReply
             {
             public:
@@ -77,7 +81,8 @@ namespace WPEFramework
 
             private:
                 friend class Registry;
-                PendingReply(const std::shared_ptr<Registry>& registry, const uint64_t id) : _registry(registry), _id(id) {}
+                PendingReply(const std::shared_ptr<Registry>& registry, const uint64_t id)
+                    : _registry(registry), _id(id) {}
                 void Abandon();
 
                 std::shared_ptr<Registry> _registry;
@@ -127,9 +132,10 @@ namespace WPEFramework
                 Registry(const Registry&) = delete;
                 Registry& operator=(const Registry&) = delete;
 
-                // Returns ReplyLater for connected callers; direct callers wait here and get the result synchronously.
-                // A start failure is returned synchronously, shaped by onFailure.
-                uint32_t Invoke(const Core::JSONRPC::Context& context, const Starter& start, const FailureShaper& onFailure, string& reply)
+                // Returns ReplyLater for connected callers; direct callers wait here and get the result
+                // synchronously. A start failure is returned synchronously, shaped by onFailure.
+                uint32_t Invoke(const Core::JSONRPC::Context& context, const Starter& start,
+                                const FailureShaper& onFailure, string& reply)
                 {
                     // The owner may drop its reference during Close() while a direct caller still waits here.
                     const std::shared_ptr<Registry> keepAlive = shared_from_this();
@@ -140,14 +146,15 @@ namespace WPEFramework
                         if (_owner == nullptr)
                             return onFailure(Core::ERROR_UNAVAILABLE, reply);
                         id = ++_lastId;
-                        _pending.emplace(std::piecewise_construct, std::forward_as_tuple(id), std::forward_as_tuple(context, onFailure, direct));
+                        _pending.emplace(std::piecewise_construct, std::forward_as_tuple(id),
+                                         std::forward_as_tuple(context, onFailure, direct));
                     }
 
                     uint32_t rc;
                     {
                         PendingReply pending(keepAlive, id);
                         rc = start(std::move(pending));
-                    }   // A reply the starter did not keep is abandoned here, still inside the start window.
+                    }   // A reply the starter did not keep is abandoned here, inside the start window.
 
                     std::unique_lock<std::mutex> guard(_lock);
                     auto it = _pending.find(id);
@@ -197,7 +204,8 @@ namespace WPEFramework
 
                 struct Entry
                 {
-                    Entry(const Core::JSONRPC::Context& requestContext, const FailureShaper& failureShaper, const bool directCaller)
+                    Entry(const Core::JSONRPC::Context& requestContext, const FailureShaper& failureShaper,
+                          const bool directCaller)
                         : context(requestContext), onFailure(failureShaper), direct(directCaller) {}
 
                     const Core::JSONRPC::Context context;
@@ -265,7 +273,8 @@ namespace WPEFramework
                     return Send(entry, code, reply);
                 }
 
-                // Returns true when the entry has been answered and can be erased; direct entries stay for their waiter.
+                // Returns true when the entry has been answered and can be erased;
+                // direct entries stay for their waiter.
                 bool Send(Entry& entry, const uint32_t code, const string& reply)
                 {
                     if (entry.direct)

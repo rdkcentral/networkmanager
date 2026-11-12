@@ -302,7 +302,7 @@ namespace WPEFramework
             struct EXTERNAL PingResult {
                 bool success;                   // ping ran and exited successfully
                 string error;                   // empty when there is no error
-                bool countsReported;            // ping printed its "N packets transmitted, M received, L% packet loss" line
+                bool countsReported;            // ping printed "N packets transmitted, M received, L% packet loss"
                 int32_t packetsTransmitted;     // valid when countsReported
                 int32_t packetsReceived;        // valid when countsReported
                 string packetLoss;              // valid when countsReported; as printed, without '%'
@@ -330,11 +330,15 @@ namespace WPEFramework
 
             /* @json:omit */
             /* @brief Start ping and return immediately; callback->Completed() is called once with the result unless the implementation shuts down first. */
-            virtual uint32_t PingAsync(const string ipversion /* @in */, const string endpoint /* @in */, const uint32_t count /* @in */, const uint16_t timeout /* @in */, const string guid /* @in */, IPingCallback* callback /* @in */) = 0;
+            virtual uint32_t PingAsync(const string ipversion /* @in */, const string endpoint /* @in */,
+                                       const uint32_t count /* @in */, const uint16_t timeout /* @in */,
+                                       const string guid /* @in */, IPingCallback* callback /* @in */) = 0;
 
             /* @json:omit */
             /* @brief Start traceroute and return immediately; callback->Completed() is called once with the result unless the implementation shuts down first. */
-            virtual uint32_t TraceAsync(const string ipversion /* @in */, const string endpoint /* @in */, const uint32_t nqueries /* @in */, const string guid /* @in */, ITraceCallback* callback /* @in */) = 0;
+            virtual uint32_t TraceAsync(const string ipversion /* @in */, const string endpoint /* @in */,
+                                        const uint32_t nqueries /* @in */, const string guid /* @in */,
+                                        ITraceCallback* callback /* @in */) = 0;
 	private:
             static string& EmptyReason()
             {

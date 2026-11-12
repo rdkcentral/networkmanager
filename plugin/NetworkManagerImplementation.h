@@ -354,8 +354,11 @@ namespace WPEFramework
                 /* @brief Run traceroute and return the result. Deprecated: use TraceAsync. */
                 uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t noOfRequest /* @in */, const string guid /* @in */, string& response /* @out */) override;
 
-                uint32_t PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const uint16_t timeOutInSeconds, const string guid, IPingCallback* callback) override;
-                uint32_t TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest, const string guid, ITraceCallback* callback) override;
+                uint32_t PingAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest,
+                                   const uint16_t timeOutInSeconds, const string guid,
+                                   IPingCallback* callback) override;
+                uint32_t TraceAsync(const string ipversion, const string endpoint, const uint32_t noOfRequest,
+                                    const string guid, ITraceCallback* callback) override;
 
                 // Test seam: replaces the engine so tests can supply canned process output.
                 void SetDiagnosticsRunner(std::shared_ptr<Diagnostics::IProcessRunner> runner);
@@ -402,10 +405,15 @@ namespace WPEFramework
                  * fallback key, then default false (built-in monitor). */
                 bool resolveConnectivityCheckMgrEnabled(const Configuration& config) const;
                 void getInitialConnectionState(void);
+                // A submitted diagnostic ends with exactly one call: done with its result, or dropped if the
+                // engine stops first.
                 using PingDone = std::function<void(const uint32_t result, const PingResult& ping)>;
                 using TraceDone = std::function<void(const uint32_t result, const string& output)>;
-                uint32_t submitPing(const string& ipversion, const string& endpoint, const uint32_t count, const uint16_t timeout, PingDone done, std::function<void()> dropped);
-                uint32_t submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries, TraceDone done, std::function<void()> dropped);
+                using Dropped = std::function<void()>;
+                uint32_t submitPing(const string& ipversion, const string& endpoint, const uint32_t count,
+                                    const uint16_t timeout, PingDone done, Dropped dropped);
+                uint32_t submitTrace(const string& ipversion, const string& endpoint, const uint32_t nqueries,
+                                     TraceDone done, Dropped dropped);
                 void threadEventRegistration(bool iarmInit, bool iarmConnect);
                 void filterScanResults(JsonArray &ssids, const std::vector<std::string>& filterSsidslist, const std::vector<std::string>& filterFrequencies);
                 void startWiFiSignalQualityMonitor(int interval);
