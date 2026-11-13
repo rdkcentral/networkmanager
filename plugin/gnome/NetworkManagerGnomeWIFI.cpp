@@ -41,6 +41,8 @@ namespace WPEFramework
     {
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
+        static std::mutex wpsAgentMutex;
+        static bool wpsAgentRegistered = false;
 
         wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr), m_cancellable(nullptr){
             NMLOG_INFO("wifiManager");
@@ -147,7 +149,7 @@ namespace WPEFramework
         {
             NMLOG_DEBUG("wait started ...");
             if(g_main_loop_is_running(loop)) {
-                NMLOG_WARNING("g_main_loop_is running");
+                NMLOG_WARNING("g_main_loop is running");
                 return false;
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
@@ -2044,9 +2046,26 @@ namespace WPEFramework
             bool wpsComplete= false;
             bool wpsActionTriggerd = false;
 
-            SecretAgent& secretAgent = SecretAgent::getInstance();
+            (void)SecretAgent::getInstance();
             g_usleep(500 * 1000); // let the agent thread export its D-Bus object before Register
-            secretAgent.RegisterAgent();
+            {
+                std::lock_guard<std::mutex> lock(wpsAgentMutex);
+                if (!wpsProcessRun.load()) {
+                    NMLOG_INFO("WPS process canceled before agent registration");
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                    return;
+                }
+
+                wpsAgentRegistered = SecretAgent::getInstance().RegisterAgent();
+                if (!wpsAgentRegistered) {
+                    NMLOG_INFO("WPS process canceled agent registration failed");
+                    wpsProcessRun = false;
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED);
+                    return;
+                }
+            }
 
             if(_instance != nullptr)
                 _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING);
@@ -2056,7 +2075,7 @@ namespace WPEFramework
                 sleep(WPS_RETRY_WAIT_IN_MS);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
                 {
-                    NMLOG_INFO("stop wps process reuested");
+                    NMLOG_INFO("stop wps process requested");
                     break;
                 }
 
@@ -2285,31 +2304,44 @@ namespace WPEFramework
             }
 
             // wps success ! wifi connect event will be send by wifi event monitor
-            SecretAgent::getInstance().UnregisterAgent();
+            {
+                std::lock_guard<std::mutex> lock(wpsAgentMutex);
+                NMLOG_INFO("Unregistering WPS agent if registered");
+                if (wpsAgentRegistered) {
+                    wpsAgentRegistered = false;
+                    SecretAgent::getInstance().UnregisterAgent();
+                }
+            }
+
             NMLOG_INFO("WPS process thread exist");
             wpsProcessRun = false;
         }
 
         bool wifiManager::startWPS()
         {
-            NMLOG_DEBUG("Start WPS %s", __FUNCTION__);
-            if(wpsProcessRun.load())
+            NMLOG_INFO("Starting WPS process");
+            if (wpsProcessRun.exchange(true))   // was already true: a run is in progress
             {
                 NMLOG_WARNING("wps process WPS already running");
                 return true;
             }
-
-            std::thread wpsthread(&wifiManager::wpsProcess, this);
-            wpsthread.detach();
+            std::thread(&wifiManager::wpsProcess, this).detach();
             return true;
         }
 
-        bool wifiManager::stopWPS() {
-            NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
-            // Avoid creating the SecretAgent (system bus connect) when WPS was never started.
-            if(!wpsProcessRun.exchange(false))
+        bool wifiManager::stopWPS()
+        {
+            NMLOG_INFO("Stopping WPS process if running");
+            if (!wpsProcessRun.exchange(false)) // was already false: nothing to stop
                 return true;
-            return SecretAgent::getInstance().UnregisterAgent();
+
+            std::lock_guard<std::mutex> lock(wpsAgentMutex);
+            NMLOG_INFO("Checking if WPS agent is registered");
+            if (wpsAgentRegistered) {
+                SecretAgent::getInstance().UnregisterAgent();
+                wpsAgentRegistered = false;
+            }
+            return true;
         }
 
         static void deviceManagedCb(GObject *object, GAsyncResult *result, gpointer user_data)
