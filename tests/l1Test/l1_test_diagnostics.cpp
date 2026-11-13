@@ -486,6 +486,50 @@ TEST(DiagnosticsEngine, DispatchedCallbackCanWaitForInlineJobOfSameKind)
     EXPECT_TRUE(finished.get());
 }
 
+// A notifier stuck in a slow callback must not let the lane run and buffer an unbounded number of results.
+TEST(DiagnosticsEngine, UndeliveredResultsCountTowardTheQueueLimit)
+{
+    auto runner = std::make_shared<GatedRunner>();
+    runner->Release(100);
+    Engine engine(runner);
+    std::promise<void> blocking;
+    std::promise<void> unblock;
+    auto unblocked = unblock.get_future().share();
+    std::atomic<size_t> delivered{0};
+
+    Engine::Job blocker;
+    blocker.argv = { "fake", "blocker" };
+    blocker.deadline = std::chrono::seconds(5);
+    blocker.onDone = [&](const ProcessResult&) { blocking.set_value(); unblocked.wait(); ++delivered; };
+    ASSERT_EQ(Core::ERROR_NONE, engine.Submit(Engine::Kind::PING, std::move(blocker)));
+    ASSERT_EQ(std::future_status::ready, blocking.get_future().wait_for(std::chrono::seconds(5)));
+
+    // Each job is run before the next is submitted, so only undelivered results can fill the lane.
+    size_t accepted = 0;
+    uint32_t rc = Core::ERROR_NONE;
+    while ((rc == Core::ERROR_NONE) && (accepted < 20))
+    {
+        Engine::Job job;
+        job.argv = { "fake", "job" };
+        job.deadline = std::chrono::seconds(5);
+        job.onDone = [&](const ProcessResult&) { ++delivered; };
+        rc = engine.Submit(Engine::Kind::PING, std::move(job));
+        if ((rc == Core::ERROR_NONE) && !runner->WaitStarted(2 + accepted++))
+        {
+            ADD_FAILURE() << "job " << accepted << " did not start";
+            break;
+        }
+    }
+    EXPECT_EQ(Core::ERROR_INPROGRESS, rc);
+    EXPECT_LE(accepted, Engine::MaxQueued + 1);
+
+    unblock.set_value();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while ((delivered.load() < accepted + 1) && (std::chrono::steady_clock::now() < deadline))
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    EXPECT_EQ(accepted + 1, delivered.load());
+}
+
 TEST(DiagnosticsEngine, RejectsWhenQueueFull)
 {
     auto runner = std::make_shared<GatedRunner>();

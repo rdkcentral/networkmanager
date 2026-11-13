@@ -98,6 +98,7 @@ namespace WPEFramework
                     std::function<void()> onDrop;   // engine stopped before onDone ran
                 };
 
+                // Per kind, jobs waiting to run plus results waiting on the notifier thread.
                 static constexpr size_t MaxQueued = 4;
 
                 explicit Engine(std::shared_ptr<IProcessRunner> runner);
@@ -118,11 +119,13 @@ namespace WPEFramework
                     std::mutex lock;
                     std::condition_variable signal;
                     std::deque<Job> queue;
+                    size_t undelivered = 0;   // finished DISPATCHED jobs whose onDone has not returned yet
                     std::thread worker;
                 };
 
                 struct Finished
                 {
+                    Lane* lane;
                     Job job;
                     ProcessResult result;
                 };
