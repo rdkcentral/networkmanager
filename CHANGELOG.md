@@ -14,6 +14,12 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [4.8.0] - 2026-11-13
+### Added
+- Reapply the wpa_supplicant config when WiFi is enabled. Toggling WiFi makes GNOME NetworkManager remove and re-add the D-Bus interface, which resulted in a NULL config being passed to wpa_supplicant.
+- Avoid publishing `LIMITED_INTERNET` when no transaction is in progress; instead, trigger a fresh probe request when `isConnectedToInternet()` is invoked in that case.
+
+
 ## [4.7.0] - 2026-11-02
 ### Changed
 - Improved boot-up time of RDK by improving the activation time of NetworkManager Thunder Plugin
