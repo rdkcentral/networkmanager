@@ -23,7 +23,6 @@
 #include <string.h>
 #include <iostream>
 #include <atomic>
-#include <mutex>
 
 namespace WPEFramework
 {
@@ -39,9 +38,6 @@ namespace WPEFramework
         std::string ifnameWlan0;
         std::string ifnameEth0;
     } NMEvents;
-
-    bool setHostname(NMConnection *connection, const std::string& hostname);
-    extern std::mutex hostnameMutex;
 
     class GnomeNetworkManagerEvents
     {
@@ -67,9 +63,7 @@ namespace WPEFramework
         ~GnomeNetworkManagerEvents();
         std::atomic<bool>isEventThrdActive = {false};
         std::atomic<bool>doScanNotify = {false};
-        std::atomic<bool>stopRequested = {false};
-        std::mutex loopMutex;
-        NMEvents nmEvents{};
+        NMEvents nmEvents;
         GThread *eventThrdID;
     };
 
