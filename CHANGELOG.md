@@ -14,6 +14,10 @@ All notable changes to this RDK Service will be documented in this file.
 
 * Changes in CHANGELOG should be updated when commits are added to the main or release branches. There should be one CHANGELOG entry per JIRA Ticket. This is not enforced on sprint branches since there could be multiple changes for the same JIRA ticket during development. 
 
+## [3.6.5] - 2026-11-13
+### Removed
+- Reverted the setHostname change (v3.6.3) as it caused deadlock with SecurityAgent
+
 ## [3.6.4] - 2026-11-04
 ### Fixed
 - When Plugin activated after the WiFi Connection established, the last connected SSID is not updated still; fixed now.
