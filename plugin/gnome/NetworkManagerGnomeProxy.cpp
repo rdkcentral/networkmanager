@@ -73,29 +73,6 @@ namespace WPEFramework
             return;
         }
 
-        static NMDeviceState ifaceState(NMClient *client, const char* interface)
-        {
-            NMDeviceState deviceState = NM_DEVICE_STATE_UNKNOWN;
-            NMDevice *device = NULL;
-            if(client == NULL)
-                return deviceState;
-
-            if(string("eth0_missing") == interface || string("wlan0_missing") == interface)
-            {
-                NMLOG_DEBUG("interface %s is not valid", interface);
-                return deviceState;
-            }
-
-            device = nm_client_get_device_by_iface(client, interface);
-            if (device == NULL) {
-                NMLOG_FATAL("libnm doesn't have device corresponding to %s", interface);
-                return deviceState;
-            }
-
-            deviceState = nm_device_get_state(device);
-            return deviceState;
-        }
-
         /* @brief Set the dhcp hostname */
         uint32_t NetworkManagerImplementation::SetHostname(const string& hostname /* @in */)
         {

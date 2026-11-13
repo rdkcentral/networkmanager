@@ -84,7 +84,6 @@ namespace WPEFramework
                 std::thread m_wpsthread;
                 std::atomic<bool> m_wpsProcessRun;
                 std::atomic<bool> m_wpsActionTriggered;
-                SecretAgent m_secretAgent;
                 DbusMgr m_dbus;
         };
     } // Plugin

@@ -22,6 +22,8 @@
 #include <iostream>
 #include <string>
 #include <list>
+#include <atomic>
+#include <thread>
 
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
@@ -33,8 +35,13 @@ namespace WPEFramework
         class SecretAgent
         {
             public:
-                SecretAgent();
-                ~SecretAgent();
+                static SecretAgent& getInstance()
+                {
+                    static SecretAgent instance;
+                    return instance;
+                }
+                SecretAgent(const SecretAgent&) = delete;
+                SecretAgent& operator=(const SecretAgent&) = delete;
                 void startSecurityAgent();
                 void stopSecurityAgent();
                 bool RegisterAgent();
@@ -43,6 +50,9 @@ namespace WPEFramework
                 static void wait(int timeout);
                 static void stopWait();
             private:
+                SecretAgent();
+                ~SecretAgent();
+
                 std::atomic<bool> isSecretAgentLoopRunning;
                 GMainLoop *agentGmainLoop = nullptr;
                 GDBusConnection *GDBusconn;

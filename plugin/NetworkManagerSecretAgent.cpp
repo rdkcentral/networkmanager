@@ -114,6 +114,8 @@ namespace WPEFramework
                     g_variant_unref(settingConn);
                 if(connectionPath)
                     g_variant_unref(connectionPath);
+                if(settingName)
+                    g_variant_unref(settingName);
                 if(hints)
                     g_variant_unref(hints);
                 if(flagVar)
@@ -203,6 +205,7 @@ namespace WPEFramework
             if(secretAgentContext == NULL)
             {
                 NMLOG_ERROR("Failed to create Security Agent gmain loop context");
+                agent->isSecretAgentLoopRunning = false;
                 return;
             }
 
@@ -213,6 +216,7 @@ namespace WPEFramework
                 NMLOG_ERROR("Failed to create Security Agent gmain loop");
                 g_main_context_pop_thread_default(secretAgentContext);
                 g_main_context_unref(secretAgentContext);
+                agent->isSecretAgentLoopRunning = false;
                 return;
             }
 
@@ -220,6 +224,11 @@ namespace WPEFramework
             if (!node_info) {
                 NMLOG_ERROR("Failed to parse XML: %s", error->message);
                 g_error_free(error);
+                g_main_loop_unref(agent->agentGmainLoop);
+                agent->agentGmainLoop = nullptr;
+                g_main_context_pop_thread_default(secretAgentContext);
+                g_main_context_unref(secretAgentContext);
+                agent->isSecretAgentLoopRunning = false;
                 return;
             }
 
@@ -240,6 +249,11 @@ namespace WPEFramework
                     g_error_free(error);
                 }
                 g_dbus_node_info_unref(node_info);
+                g_main_loop_unref(agent->agentGmainLoop);
+                agent->agentGmainLoop = nullptr;
+                g_main_context_pop_thread_default(secretAgentContext);
+                g_main_context_unref(secretAgentContext);
+                agent->isSecretAgentLoopRunning = false;
                 return;
             }
 
@@ -248,6 +262,7 @@ namespace WPEFramework
             g_main_loop_run(agent->agentGmainLoop);
 
             g_main_loop_unref(agent->agentGmainLoop);
+            agent->agentGmainLoop = nullptr;
             g_dbus_connection_unregister_object(agent->GDBusconn, agentRegID);
             g_dbus_node_info_unref(node_info);
             g_main_context_pop_thread_default(secretAgentContext);
@@ -315,6 +330,7 @@ namespace WPEFramework
             if (error != NULL) {
                 NMLOG_ERROR("Failed to register agent: %s", error->message);
                 g_error_free(error);
+                g_object_unref(nmAgentProxy);
                 return false;
             }
 
@@ -361,6 +377,7 @@ namespace WPEFramework
             if (error != NULL) {
                 NMLOG_FATAL("Failed to call Unregister agent: %s", error->message);
                 g_error_free(error);
+                g_object_unref(nmAgentProxy);
                 return false;
             }
             if (result != NULL) {
