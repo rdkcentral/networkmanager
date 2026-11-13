@@ -393,7 +393,9 @@ namespace WPEFramework
                 std::lock_guard<std::mutex> guard(lane.lock);
                 if (_stop.load())
                     return Core::ERROR_UNAVAILABLE;
-                if (lane.queue.size() >= MaxQueued)
+                // Undelivered results count too: a notifier stuck in a slow callback must not let the lane keep
+                // admitting jobs whose results would pile up behind it.
+                if ((lane.queue.size() + lane.undelivered) >= MaxQueued)
                     return Core::ERROR_INPROGRESS;
                 lane.queue.push_back(std::move(job));
                 lane.signal.notify_one();
@@ -475,8 +477,12 @@ namespace WPEFramework
                         job.onDone(result);
                         continue;
                     }
+                    {
+                        std::lock_guard<std::mutex> guard(lane.lock);
+                        ++lane.undelivered;
+                    }
                     std::lock_guard<std::mutex> guard(_finishedLock);
-                    _finished.push_back(Finished{ std::move(job), result });
+                    _finished.push_back(Finished{ &lane, std::move(job), result });
                     _finishedSignal.notify_one();
                 }
             }
@@ -495,6 +501,9 @@ namespace WPEFramework
                         _finished.pop_front();
                     }
                     finished.job.onDone(finished.result);
+
+                    std::lock_guard<std::mutex> guard(finished.lane->lock);
+                    --finished.lane->undelivered;
                 }
             }
         }
