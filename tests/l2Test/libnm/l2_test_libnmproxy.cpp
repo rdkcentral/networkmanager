@@ -17,7 +17,12 @@
 * limitations under the License.
 **/
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <algorithm>
+#include <future>
 #include <iostream>
+#include <mutex>
+#include <thread>
 #include <string>
 #include <vector>
 #include <cstdio>
@@ -35,6 +40,7 @@
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
+#include "NetworkManagerDiagnosticsReply.h"
 #include "NetworkManagerGnomeEvents.h"
 #include <libnm/NetworkManager.h>
 
@@ -1375,4 +1381,522 @@ TEST_F(NetworkManagerTest, SetIPSettings_static_wlan0_autoConffalse)
 
     g_object_unref(dummyActiveConn);
     g_object_unref(dummyRemoteConn);
+}
+
+// ---- Ping/Trace and deferred replies (backend-independent: NetworkManagerImplementation and the plugin) ----
+
+namespace {
+    using Plugin::Diagnostics::ProcessResult;
+
+    // Replaces ping/traceroute: records each argv and returns canned output.
+    class CannedRunner : public Plugin::Diagnostics::IProcessRunner {
+    public:
+        CannedRunner(const string& output, const int exitCode, const bool timedOut = false)
+        {
+            _result.started = true;
+            _result.status = exitCode << 8;
+            _result.timedOut = timedOut;
+            _result.output = output;
+        }
+        ProcessResult Run(const std::vector<string>& argv, const std::chrono::milliseconds, const std::atomic<bool>&) override
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            _calls.push_back(argv);
+            return _result;
+        }
+        std::vector<std::vector<string>> Calls()
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            return _calls;
+        }
+    private:
+        std::mutex _lock;
+        ProcessResult _result;
+        std::vector<std::vector<string>> _calls;
+    };
+
+    // Each Run() blocks until Open() (or engine shutdown), so tests can fill the queue deterministically.
+    class GatedRunner : public Plugin::Diagnostics::IProcessRunner {
+    public:
+        ProcessResult Run(const std::vector<string>&, const std::chrono::milliseconds, const std::atomic<bool>& cancel) override
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            ++_started;
+            _signal.notify_all();
+            while (!_open && !cancel.load())
+                _signal.wait_for(guard, std::chrono::milliseconds(10));
+            ProcessResult result;
+            result.started = true;
+            result.status = 0;
+            return result;
+        }
+        bool WaitStarted(const int count)
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            return _signal.wait_for(guard, std::chrono::seconds(5), [&] { return _started >= count; });
+        }
+        void Open()
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            _open = true;
+            _signal.notify_all();
+        }
+    private:
+        std::mutex _lock;
+        std::condition_variable _signal;
+        int _started = 0;
+        bool _open = false;
+    };
+
+    const char* PingOutput =
+        "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+        "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
+        "\n"
+        "--- 8.8.8.8 ping statistics ---\n"
+        "3 packets transmitted, 3 packets received, 0% packet loss\n"
+        "round-trip min/avg/max/mdev = 23.363/23.395/23.440/0.179 ms\n";
+
+    const char* TraceOutput =
+        "traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n"
+        "1  gateway (10.46.5.1)  0.448 ms\n"
+        "2  *\n";
+
+    JsonObject Parse(const string& json)
+    {
+        JsonObject object;
+        object.FromString(json);
+        return object;
+    }
+
+    Core::JSONRPC::Context DirectCaller()
+    {
+        return Core::JSONRPC::Context(Plugin::DeferredReply::DirectCallerChannel, 7, "");
+    }
+
+    template <typename RUNNER>
+    std::shared_ptr<RUNNER> UseRunner(std::shared_ptr<RUNNER> runner)
+    {
+        EXPECT_NE(nullptr, Plugin::_instance);
+        if (Plugin::_instance != nullptr)
+            Plugin::_instance->SetDiagnosticsRunner(runner);
+        return runner;
+    }
+}
+
+TEST_F(NetworkManagerTest, Ping_DirectCaller_ReturnsParsedResult)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"count\":3,\"timeout\":2}"), response));
+
+    JsonObject result = Parse(response);
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+    EXPECT_EQ(3, result["packetsTransmitted"].Number());
+    EXPECT_EQ(3, result["packetsReceived"].Number());
+    EXPECT_EQ("23.395", result["tripAvg"].String());
+
+    const auto calls = runner->Calls();
+    ASSERT_EQ(1u, calls.size());
+    EXPECT_EQ("ping", calls[0].front());
+    EXPECT_EQ(1, std::count(calls[0].begin(), calls[0].end(), "8.8.8.8"));
+}
+
+TEST_F(NetworkManagerTest, Ping_IPv6_RunsPing6)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"),
+        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\"}"), response));
+
+    EXPECT_EQ("2404:6800:4007:80b::200e", Parse(response)["endpoint"].String());
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("ping6", runner->Calls()[0].front());
+}
+
+TEST_F(NetworkManagerTest, Ping_NonZeroExit_ReportsFailure)
+{
+    UseRunner(std::make_shared<CannedRunner>("3 packets transmitted, 0 packets received, 100% packet loss\n", 1));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"192.0.0.1\"}"), response));
+
+    JsonObject result = Parse(response);
+    EXPECT_FALSE(result["success"].Boolean());
+    EXPECT_TRUE(result.HasLabel("error"));
+    EXPECT_EQ(0, result["packetsReceived"].Number());
+}
+
+TEST_F(NetworkManagerTest, Ping_UnsafeEndpoint_RejectedWithoutSpawning)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    for (const string endpoint : { "8.8.8.8; reboot", "8.8.8.8 $(id)", "-f" }) {
+        JsonObject params;
+        params["endpoint"] = endpoint;
+        string paramString;
+        params.ToString(paramString);
+        EXPECT_EQ(Core::ERROR_BAD_REQUEST, handler.Invoke(connection, _T("Ping"), paramString, response)) << endpoint;
+    }
+    EXPECT_TRUE(runner->Calls().empty());
+}
+
+TEST_F(NetworkManagerTest, Ping_MissingEndpoint_ReturnsError)
+{
+    EXPECT_NE(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), _T("{\"ipversion\":\"IPv4\"}"), response));
+}
+
+TEST_F(NetworkManagerTest, Ping_SocketCaller_RepliesLaterOnSameChannel)
+{
+    UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+    std::promise<string> sent;
+    EXPECT_CALL(service, Submit(::testing::Eq(1u), ::testing::_))
+        .WillOnce(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& element) {
+            string message;
+            element->ToString(message);
+            sent.set_value(message);
+            return Core::ERROR_NONE;
+        }));
+
+    const Core::JSONRPC::Context socketCaller(1, 42, "");
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(socketCaller, _T("Ping"), _T("{\"endpoint\":\"8.8.8.8\"}"), response));
+
+    auto reply = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, reply.wait_for(std::chrono::seconds(5)));
+    JsonObject message = Parse(reply.get());
+    EXPECT_EQ(42, message["id"].Number());
+    EXPECT_FALSE(message.HasLabel("error"));
+    JsonObject result = message["result"].Object();
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+}
+
+TEST_F(NetworkManagerTest, Trace_DirectCaller_ReturnsOneElementPerLine)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+
+    JsonObject result = Parse(response);
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+    JsonArray lines;
+    lines.FromString(result["results"].String());
+    ASSERT_EQ(3, lines.Length());
+    EXPECT_THAT(lines[0].String(), ::testing::HasSubstr("6 hops max, 52 byte packets"));
+
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("traceroute", runner->Calls()[0].front());
+}
+
+// Exact result bytes seen by JSON-RPC callers; these must never change.
+TEST_F(NetworkManagerTest, Ping_Golden_ResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"8.8.8.8\",\"count\":3}"), response));
+    EXPECT_EQ(R"({"packetsTransmitted":3,"packetsReceived":3,"packetLoss":" 0","tripMin":" 23.363","tripAvg":"23.395","tripMax":"23.440","tripStdDev":"0.179 ms","success":true,"endpoint":"8.8.8.8"})", response);
+}
+
+TEST_F(NetworkManagerTest, Ping_Golden_FailureResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>("ping: bad address 'nowhere.invalid'\n", 1));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"nowhere.invalid\"}"), response));
+    EXPECT_EQ(R"({"success":false,"error":"Could not ping endpoint","endpoint":"nowhere.invalid"})", response);
+}
+
+TEST_F(NetworkManagerTest, Trace_Golden_ResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+    EXPECT_EQ(R"({"endpoint":"8.8.8.8","results":"[\"traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets \",\"1  gateway (10.46.5.1)  0.448 ms \",\"2  * \"]","success":true})", response);
+}
+
+TEST_F(NetworkManagerTest, Trace_Golden_TimeoutResultBytes)
+{
+    UseRunner(std::make_shared<CannedRunner>("1  *\n", 0, true));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+    EXPECT_EQ(R"({"success":false})", response);
+}
+
+TEST_F(NetworkManagerTest, Trace_StderrTextIsInResults)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>("traceroute6: bad address '8.8.8.8'", 1));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv6\",\"packets\":1}"), response));
+
+    EXPECT_THAT(Parse(response)["results"].String(), ::testing::HasSubstr("bad address '8.8.8.8'"));
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("traceroute6", runner->Calls()[0].front());
+}
+
+TEST_F(NetworkManagerTest, Trace_Timeout_ReportsFailure)
+{
+    UseRunner(std::make_shared<CannedRunner>("1  *\n", 0, true));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+
+    EXPECT_FALSE(Parse(response)["success"].Boolean());
+}
+
+TEST_F(NetworkManagerTest, Trace_InvalidIpversion_ReportsFailureWithoutSpawning)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv5\"}"), response));
+
+    EXPECT_FALSE(Parse(response)["success"].Boolean());
+    EXPECT_TRUE(runner->Calls().empty());
+}
+
+TEST_F(NetworkManagerTest, Trace_QueueFull_ReturnsInProgressError)
+{
+    auto runner = UseRunner(std::make_shared<GatedRunner>());
+    std::mutex lock;
+    std::condition_variable signal;
+    size_t replies = 0;
+    ON_CALL(service, Submit(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>&) {
+            std::lock_guard<std::mutex> guard(lock);
+            ++replies;
+            signal.notify_all();
+            return Core::ERROR_NONE;
+        }));
+    const string params = _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}");
+
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, 100, ""), _T("Trace"), params, response));
+    ASSERT_TRUE(runner->WaitStarted(1));
+    for (uint32_t id = 101; id <= 104; ++id)
+        EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, id, ""), _T("Trace"), params, response));
+
+    EXPECT_EQ(Core::ERROR_INPROGRESS, handler.Invoke(Core::JSONRPC::Context(1, 105, ""), _T("Trace"), params, response));
+
+    runner->Open();
+    std::unique_lock<std::mutex> guard(lock);
+    EXPECT_TRUE(signal.wait_for(guard, std::chrono::seconds(5), [&] { return replies >= 5; }));
+}
+
+// DeferredReply::Registry, driven directly with this plugin as the JSON-RPC owner.
+class DeferredReplyTest : public NetworkManagerTest {
+protected:
+    std::promise<string> sent;
+
+    void ExpectOneReplyOnChannel1()
+    {
+        EXPECT_CALL(service, Submit(::testing::Eq(1u), ::testing::_))
+            .WillOnce(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& element) {
+                string message;
+                element->ToString(message);
+                sent.set_value(message);
+                return Core::ERROR_NONE;
+            }));
+    }
+
+    JsonObject SentMessage()
+    {
+        auto message = sent.get_future();
+        const auto status = message.wait_for(std::chrono::seconds(1));
+        EXPECT_EQ(std::future_status::ready, status);
+        if (status != std::future_status::ready)
+            return JsonObject();
+        return Parse(message.get());
+    }
+
+    static uint32_t ErrorReply(const uint32_t rc, string& reply)
+    {
+        reply.clear();
+        return rc;
+    }
+
+    // Shaper that turns every failure into a successful {"success":false} result, like NetworkManager.1.Trace.
+    static uint32_t FailedResult(const uint32_t, string& reply)
+    {
+        reply = "{\"success\":false}";
+        return Core::ERROR_NONE;
+    }
+};
+
+TEST_F(DeferredReplyTest, CloseAnswersPendingRequestWithErrorExactlyOnce)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 5, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        ErrorReply, reply));
+
+    EXPECT_EQ(1u, registry->Close(Core::ERROR_UNAVAILABLE));
+    held.Respond("{\"late\":true}");
+    EXPECT_FALSE(held.IsPending());
+
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, ReplyAbandonedAfterStartRepliesWithError)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 6, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        ErrorReply, reply));
+    held = Plugin::DeferredReply::PendingReply();
+
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, ReplyAbandonedInsideSuccessfulStartRepliesWithError)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 7, ""),
+        [](Plugin::DeferredReply::PendingReply&&) { return Core::ERROR_NONE; },
+        ErrorReply, reply));
+
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, StartFailureIsReturnedSynchronouslyEvenWhenReplyIsReleasedInsideStart)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_INPROGRESS, registry->Invoke(Core::JSONRPC::Context(1, 8, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            Plugin::DeferredReply::PendingReply released(std::move(pending));
+            return Core::ERROR_INPROGRESS;
+        },
+        ErrorReply, reply));
+}
+
+TEST_F(DeferredReplyTest, CallbackAdapterReleasedInsideFailedStartDoesNotReply)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_BAD_REQUEST, registry->Invoke(Core::JSONRPC::Context(1, 9, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            auto* callback = Core::Service<Plugin::Diagnostics::PingReply>::Create<Exchange::INetworkManager::IPingCallback>(std::move(pending), string("8.8.8.8"), nullptr);
+            Core::IUnknown* unknown = callback->QueryInterface<Core::IUnknown>();
+            EXPECT_NE(nullptr, unknown);
+            if (unknown != nullptr)
+                unknown->Release();
+            callback->Release();
+            return Core::ERROR_BAD_REQUEST;
+        },
+        ErrorReply, reply));
+}
+
+TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 10, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) {
+            held = std::move(pending);
+            EXPECT_EQ(1u, registry->Drain(Core::ERROR_UNAVAILABLE));
+            return Core::ERROR_GENERAL;
+        },
+        ErrorReply, reply));
+    held = Plugin::DeferredReply::PendingReply();
+
+    JsonObject error = SentMessage()["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, CompletionInsideStartIsDeliveredOnce)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 11, ""),
+        [](Plugin::DeferredReply::PendingReply&& pending) {
+            Plugin::DeferredReply::PendingReply local(std::move(pending));
+            local.Respond("{\"fast\":true}");
+            local.Fail(Core::ERROR_GENERAL);
+            return Core::ERROR_NONE;
+        },
+        ErrorReply, reply));
+
+    JsonObject message = SentMessage();
+    EXPECT_FALSE(message.HasLabel("error"));
+    EXPECT_TRUE(message["result"].Object()["fast"].Boolean());
+}
+
+TEST_F(DeferredReplyTest, FailUsesTheRequestsFailureShaper)
+{
+    ExpectOneReplyOnChannel1();
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, registry->Invoke(Core::JSONRPC::Context(1, 12, ""),
+        [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); return Core::ERROR_NONE; },
+        FailedResult, reply));
+    held.Fail(Core::ERROR_TIMEDOUT);
+
+    JsonObject message = SentMessage();
+    EXPECT_FALSE(message.HasLabel("error"));
+    EXPECT_FALSE(message["result"].Object()["success"].Boolean());
+}
+
+TEST_F(DeferredReplyTest, DirectCallerSurvivesOwnerReleasingRegistryDuringClose)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    std::weak_ptr<Plugin::DeferredReply::Registry> observer = registry;
+    std::promise<void> started;
+    Plugin::DeferredReply::PendingReply held;
+    uint32_t rc = Core::ERROR_NONE;
+
+    // Shutdown order from the review: waiter woken by Close(), then every other owner goes away. A use-after-free here only shows under ASan.
+    std::thread caller([&, raw = registry.get()]() {
+        string reply;
+        rc = raw->Invoke(DirectCaller(),
+            [&](Plugin::DeferredReply::PendingReply&& pending) { held = std::move(pending); started.set_value(); return Core::ERROR_NONE; },
+            ErrorReply, reply);
+    });
+    started.get_future().wait();
+    registry->Close(Core::ERROR_UNAVAILABLE);
+    registry.reset();
+    held = Plugin::DeferredReply::PendingReply();
+    caller.join();
+
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, rc);
+    EXPECT_TRUE(observer.expired());
+}
+
+TEST_F(DeferredReplyTest, DirectCallerWaitsForRespond)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    std::thread worker;
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_NONE, registry->Invoke(DirectCaller(),
+        [&](Plugin::DeferredReply::PendingReply&& pending) {
+            worker = std::thread([held = std::move(pending)]() mutable { held.Respond("{\"done\":true}"); });
+            return Core::ERROR_NONE;
+        },
+        ErrorReply, reply));
+    worker.join();
+
+    EXPECT_TRUE(Parse(reply)["done"].Boolean());
 }
