@@ -2309,7 +2309,7 @@ namespace WPEFramework
                 NMLOG_INFO("Unregistering WPS agent if registered");
                 if (wpsAgentRegistered) {
                     wpsAgentRegistered = false;
-                    SecretAgent::getInstance().UnregisterAgent();
+                    (void)SecretAgent::getInstance().UnregisterAgent();
                 }
             }
 
@@ -2331,6 +2331,7 @@ namespace WPEFramework
 
         bool wifiManager::stopWPS()
         {
+            bool rc = true;
             NMLOG_INFO("Stopping WPS process if running");
             if (!wpsProcessRun.exchange(false)) // was already false: nothing to stop
                 return true;
@@ -2338,10 +2339,10 @@ namespace WPEFramework
             std::lock_guard<std::mutex> lock(wpsAgentMutex);
             NMLOG_INFO("Checking if WPS agent is registered");
             if (wpsAgentRegistered) {
-                SecretAgent::getInstance().UnregisterAgent();
+                rc = SecretAgent::getInstance().UnregisterAgent();
                 wpsAgentRegistered = false;
             }
-            return true;
+            return rc;
         }
 
         static void deviceManagedCb(GObject *object, GAsyncResult *result, gpointer user_data)
