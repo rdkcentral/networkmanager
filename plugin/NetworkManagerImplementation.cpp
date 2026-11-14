@@ -220,6 +220,7 @@ namespace WPEFramework
 
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
+            NMLOG_INFO("Platform initialized");
             /* change gnome networkmanager or netsrvmgr logg level */
             NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
