@@ -17,8 +17,13 @@
 * limitations under the License.
 **/
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <algorithm>
+#include <future>
 #include <iostream>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 #include <cstdio>
 
@@ -1447,181 +1452,401 @@ TEST_F(NetworkManagerTest, GetWiFiSignalQualityConnectedLowBad)
     EXPECT_EQ(response, _T("{\"ssid\":\"dummySSID\",\"quality\":\"Excellent\",\"snr\":120,\"strength\":-120,\"noise\":0,\"success\":true}"));
 }
 
-TEST_F(NetworkManagerTest, Trace_Success_ipv4)
-{
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute -w 3 -m 6 -q 1 8.8.8.8 52 2>&1"));
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n"
-                "1  gateway (10.46.5.1)  0.448 ms\n"
-                "2  10.46.0.240 (10.46.0.240)  3.117 ms\n"
-                "3  *\n"
-                "4  *\n"
-                "5  *\n"
-                "6  *\n", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+namespace WPEFramework { namespace Plugin { extern NetworkManagerImplementation* _instance; } }
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
+namespace {
+    using Plugin::Diagnostics::ProcessResult;
+
+    // Replaces ping/traceroute: records each argv and returns canned output.
+    class CannedRunner : public Plugin::Diagnostics::IProcessRunner {
+    public:
+        CannedRunner(const string& output, const int exitCode, const bool timedOut = false)
+        {
+            _result.started = true;
+            _result.status = exitCode << 8;
+            _result.timedOut = timedOut;
+            _result.output = output;
+        }
+        ProcessResult Run(const std::vector<string>& argv, const std::chrono::milliseconds, const std::atomic<bool>&) override
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            _calls.push_back(argv);
+            return _result;
+        }
+        std::vector<std::vector<string>> Calls()
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            return _calls;
+        }
+    private:
+        std::mutex _lock;
+        ProcessResult _result;
+        std::vector<std::vector<string>> _calls;
+    };
+
+    // Each Run() blocks until Open() (or engine shutdown), so tests can fill the queue deterministically.
+    class GatedRunner : public Plugin::Diagnostics::IProcessRunner {
+    public:
+        ProcessResult Run(const std::vector<string>&, const std::chrono::milliseconds, const std::atomic<bool>& cancel) override
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            ++_started;
+            _signal.notify_all();
+            while (!_open && !cancel.load())
+                _signal.wait_for(guard, std::chrono::milliseconds(10));
+            ProcessResult result;
+            result.started = true;
+            result.status = 0;
+            return result;
+        }
+        bool WaitStarted(const int count)
+        {
+            std::unique_lock<std::mutex> guard(_lock);
+            return _signal.wait_for(guard, std::chrono::seconds(5), [&] { return _started >= count; });
+        }
+        void Open()
+        {
+            std::lock_guard<std::mutex> guard(_lock);
+            _open = true;
+            _signal.notify_all();
+        }
+    private:
+        std::mutex _lock;
+        std::condition_variable _signal;
+        int _started = 0;
+        bool _open = false;
+    };
+
+    const char* PingOutput =
+        "PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
+        "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
+        "\n"
+        "--- 8.8.8.8 ping statistics ---\n"
+        "3 packets transmitted, 3 packets received, 0% packet loss\n"
+        "round-trip min/avg/max/mdev = 23.363/23.395/23.440/0.179 ms\n";
+
+    const char* TraceOutput =
+        "traceroute to 8.8.8.8 (8.8.8.8), 6 hops max, 52 byte packets\n"
+        "1  gateway (10.46.5.1)  0.448 ms\n"
+        "2  *\n";
+
+    JsonObject Parse(const string& json)
+    {
+        JsonObject object;
+        object.FromString(json);
+        return object;
+    }
+
+    Core::JSONRPC::Context DirectCaller()
+    {
+        return Core::JSONRPC::Context(Plugin::DeferredReply::DirectCallerChannel, 7, "");
+    }
+
+    template <typename RUNNER>
+    std::shared_ptr<RUNNER> UseRunner(std::shared_ptr<RUNNER> runner)
+    {
+        EXPECT_NE(nullptr, Plugin::_instance);
+        if (Plugin::_instance != nullptr)
+            Plugin::_instance->SetDiagnosticsRunner(runner);
+        return runner;
+    }
+}
+
+TEST_F(NetworkManagerTest, Ping_DirectCaller_ReturnsParsedResult)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"count\":3,\"timeout\":2}"), response));
+
+    JsonObject result = Parse(response);
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+    EXPECT_EQ(3, result["packetsTransmitted"].Number());
+    EXPECT_EQ(3, result["packetsReceived"].Number());
+    EXPECT_EQ("23.395", result["tripAvg"].String());
+
+    const auto calls = runner->Calls();
+    ASSERT_EQ(1u, calls.size());
+    EXPECT_EQ("ping", calls[0].front());
+    EXPECT_EQ(1, std::count(calls[0].begin(), calls[0].end(), "8.8.8.8"));
+}
+
+TEST_F(NetworkManagerTest, Ping_IPv6_RunsPing6)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"),
+        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\"}"), response));
+
+    EXPECT_EQ("2404:6800:4007:80b::200e", Parse(response)["endpoint"].String());
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("ping6", runner->Calls()[0].front());
+}
+
+TEST_F(NetworkManagerTest, Ping_NonZeroExit_ReportsFailure)
+{
+    UseRunner(std::make_shared<CannedRunner>("3 packets transmitted, 0 packets received, 100% packet loss\n", 1));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Ping"), _T("{\"endpoint\":\"192.0.0.1\"}"), response));
+
+    JsonObject result = Parse(response);
+    EXPECT_FALSE(result["success"].Boolean());
+    EXPECT_TRUE(result.HasLabel("error"));
+    EXPECT_EQ(0, result["packetsReceived"].Number());
+}
+
+TEST_F(NetworkManagerTest, Ping_UnsafeEndpoint_RejectedWithoutSpawning)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+
+    for (const string endpoint : { "8.8.8.8; reboot", "8.8.8.8 $(id)", "-f" }) {
+        JsonObject params;
+        params["endpoint"] = endpoint;
+        string paramString;
+        params.ToString(paramString);
+        EXPECT_EQ(Core::ERROR_BAD_REQUEST, handler.Invoke(connection, _T("Ping"), paramString, response)) << endpoint;
+    }
+    EXPECT_TRUE(runner->Calls().empty());
+}
+
+TEST_F(NetworkManagerTest, Ping_MissingEndpoint_ReturnsError)
+{
+    EXPECT_NE(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), _T("{\"ipversion\":\"IPv4\"}"), response));
+}
+
+TEST_F(NetworkManagerTest, Ping_SocketCaller_RepliesLaterOnSameChannel)
+{
+    UseRunner(std::make_shared<CannedRunner>(PingOutput, 0));
+    std::promise<string> sent;
+    EXPECT_CALL(service, Submit(::testing::Eq(1u), ::testing::_))
+        .WillOnce(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& element) {
+            string message;
+            element->ToString(message);
+            sent.set_value(message);
+            return Core::ERROR_NONE;
+        }));
+
+    const Core::JSONRPC::Context socketCaller(1, 42, "");
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(socketCaller, _T("Ping"), _T("{\"endpoint\":\"8.8.8.8\"}"), response));
+
+    auto reply = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, reply.wait_for(std::chrono::seconds(5)));
+    JsonObject message = Parse(reply.get());
+    EXPECT_EQ(42, message["id"].Number());
+    EXPECT_FALSE(message.HasLabel("error"));
+    JsonObject result = message["result"].Object();
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+}
+
+TEST_F(NetworkManagerTest, Trace_DirectCaller_ReturnsOneElementPerLine)
+{
+    auto runner = UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
         _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
 
-    // We expect the response to contain success and results fields
-    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
-    EXPECT_TRUE(response.find("\"results\":") != std::string::npos);
-    EXPECT_TRUE(response.find("\"endpoint\":\"8.8.8.8\"") != std::string::npos);
-    EXPECT_TRUE(response.find("6 hops max, 52 byte packets") != std::string::npos);
+    JsonObject result = Parse(response);
+    EXPECT_TRUE(result["success"].Boolean());
+    EXPECT_EQ("8.8.8.8", result["endpoint"].String());
+    JsonArray lines;
+    lines.FromString(result["results"].String());
+    ASSERT_EQ(3, lines.Length());
+    EXPECT_THAT(lines[0].String(), ::testing::HasSubstr("6 hops max, 52 byte packets"));
+
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("traceroute", runner->Calls()[0].front());
 }
 
-TEST_F(NetworkManagerTest, Trace_Failed_ipv6)
+TEST_F(NetworkManagerTest, Trace_StderrTextIsInResults)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute6 -w 3 -m 6 -q 1 8.8.8.8 64 2>&1"));
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("traceroute6: bad address '8.8.8.8'", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+    auto runner = UseRunner(std::make_shared<CannedRunner>("traceroute6: bad address '8.8.8.8'", 1));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
         _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv6\",\"packets\":1}"), response));
 
-    EXPECT_EQ(response, _T("{\"results\":\"[\\\"traceroute6: bad address '8.8.8.8' \\\"]\",\"endpoint\":\"8.8.8.8\",\"success\":true}"));
+    EXPECT_THAT(Parse(response)["results"].String(), ::testing::HasSubstr("bad address '8.8.8.8'"));
+    ASSERT_EQ(1u, runner->Calls().size());
+    EXPECT_EQ("traceroute6", runner->Calls()[0].front());
 }
 
-TEST_F(NetworkManagerTest, Trace_Success_ipv6)
+TEST_F(NetworkManagerTest, Trace_Timeout_ReportsFailure)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        EXPECT_THAT(string(command), ::testing::MatchesRegex("traceroute6 -w 3 -m 6 -q 1 2001:4860:4860::8888 64 2>&1"));
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("traceroute to 2001:4860:4860::8888 (2001:4860:4860::8888), 6 hops max, 64 byte packets\n"
-                "1  2401:4900:9092:d613::d4 (2401:4900:9092:d613::d4)  14.503 ms !N\n", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+    UseRunner(std::make_shared<CannedRunner>("1  *\n", 0, true));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), 
-        _T("{\"endpoint\":\"2001:4860:4860::8888\",\"ipversion\":\"IPv6\",\"packets\":1}"), response));
-    EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);
-    EXPECT_TRUE(response.find("6 hops max, 64 byte packets") != std::string::npos);
-    EXPECT_TRUE(response.find("\"endpoint\":\"2001:4860:4860::8888\"") != std::string::npos);
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(DirectCaller(), _T("Trace"),
+        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}"), response));
+
+    EXPECT_FALSE(Parse(response)["success"].Boolean());
 }
 
-TEST_F(NetworkManagerTest, Ping_Success_ipv4)
+TEST_F(NetworkManagerTest, Trace_InvalidIpversion_ReportsFailureWithoutSpawning)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        std::string cmdStr = command;
-        EXPECT_TRUE(cmdStr.find("ping") != std::string::npos);
-        EXPECT_TRUE(cmdStr.find("8.8.8.8") != std::string::npos);
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("PING 8.8.8.8 (8.8.8.8): 56 data bytes\n"
-                  "64 bytes from 8.8.8.8: seq=0 ttl=119 time=23.363 ms\n"
-                  "64 bytes from 8.8.8.8: seq=1 ttl=119 time=23.440 ms\n"
-                  "64 bytes from 8.8.8.8: seq=2 ttl=119 time=23.384 ms\n"
-                  "\n"
-                  "--- 8.8.8.8 ping statistics ---\n"
-                  "3 packets transmitted, 3 packets received, 0% packet loss\n"
-                  "round-trip min/avg/max/mdev = 23.363/23.395/23.440/0.179 ms\n", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+    auto runner = UseRunner(std::make_shared<CannedRunner>(TraceOutput, 0));
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":5,\"timeout\":2}"), response));
-    
-    EXPECT_EQ(response, _T("{\"endpoint\":\"8.8.8.8\",\"success\":true,\"tripStdDev\":\"0.179 ms\",\"tripMax\":\"23.440\",\"tripAvg\":\"23.395\",\"tripMin\":\" 23.363\",\"packetLoss\":\" 0\",\"packetsReceived\":3,\"packetsTransmitted\":3}"));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Trace"), _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv5\"}"), response));
+
+    EXPECT_FALSE(Parse(response)["success"].Boolean());
+    EXPECT_TRUE(runner->Calls().empty());
 }
 
-TEST_F(NetworkManagerTest, Ping_Failed_ipv4)
+TEST_F(NetworkManagerTest, Trace_QueueFull_ReturnsInProgressError)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        std::string cmdStr = command;
-        EXPECT_TRUE(cmdStr.find("ping") != std::string::npos);
-        EXPECT_TRUE(cmdStr.find("192.0.0.1") != std::string::npos);
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("PING 192.0.0.1 (192.0.0.1): 56 data bytes\n"
-                  "\n"
-                  "--- 192.0.0.1 ping statistics ---\n"
-                  "3 packets transmitted, 0 packets received, 100% packet loss\n", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+    auto runner = UseRunner(std::make_shared<GatedRunner>());
+    std::mutex lock;
+    std::condition_variable signal;
+    size_t replies = 0;
+    ON_CALL(service, Submit(::testing::_, ::testing::_))
+        .WillByDefault(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>&) {
+            std::lock_guard<std::mutex> guard(lock);
+            ++replies;
+            signal.notify_all();
+            return Core::ERROR_NONE;
+        }));
+    const string params = _T("{\"endpoint\":\"8.8.8.8\",\"ipversion\":\"IPv4\",\"packets\":1}");
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"192.0.0.1\",\"ipversion\":\"IPv4\",\"packets\":5,\"timeout\":2}"), response));
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, 100, ""), _T("Trace"), params, response));
+    ASSERT_TRUE(runner->WaitStarted(1));
+    for (uint32_t id = 101; id <= 104; ++id)
+        EXPECT_EQ(Plugin::DeferredReply::ReplyLater, handler.Invoke(Core::JSONRPC::Context(1, id, ""), _T("Trace"), params, response));
 
-    EXPECT_EQ(response, _T("{\"endpoint\":\"192.0.0.1\",\"success\":true,\"packetLoss\":\" 100\",\"packetsReceived\":0,\"packetsTransmitted\":3}"));
+    EXPECT_EQ(Core::ERROR_INPROGRESS, handler.Invoke(Core::JSONRPC::Context(1, 105, ""), _T("Trace"), params, response));
+
+    runner->Open();
+    std::unique_lock<std::mutex> guard(lock);
+    EXPECT_TRUE(signal.wait_for(guard, std::chrono::seconds(5), [&] { return replies >= 5; }));
 }
 
-TEST_F(NetworkManagerTest, Ping_success_ipv6)
+// DeferredReply::Table, driven directly with this plugin as the JSON-RPC owner.
+class DeferredReplyTest : public NetworkManagerTest {
+protected:
+    std::promise<string> sent;
+
+    void ExpectOneReplyOnChannel1()
+    {
+        EXPECT_CALL(service, Submit(::testing::Eq(1u), ::testing::_))
+            .WillOnce(::testing::Invoke([&](const uint32_t, const Core::ProxyType<Core::JSON::IElement>& element) {
+                string message;
+                element->ToString(message);
+                sent.set_value(message);
+                return Core::ERROR_NONE;
+            }));
+    }
+
+    static uint32_t PassThrough(const uint32_t rc, const string& result, string& reply)
+    {
+        reply = result;
+        return rc;
+    }
+};
+
+TEST_F(DeferredReplyTest, CloseAnswersPendingRequestWithErrorExactlyOnce)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        std::string cmdStr = command;
-        EXPECT_TRUE(cmdStr.find("ping6") != std::string::npos);
-        EXPECT_TRUE(cmdStr.find("2404:6800:4007:80b::200e") != std::string::npos);
-        EXPECT_EQ(type, "r");
-        // Create a temporary file with the mock output
-        FILE* tempFile = tmpfile();
-        if (tempFile) {
-            fputs("PING 2404:6800:4007:80b::200e (2404:6800:4007:80b::200e): 56 data bytes\n"
-                  "64 bytes from 2404:6800:4007:80b::200e: seq=0 ttl=117 time=39.546 ms\n"
-                  "64 bytes from 2404:6800:4007:80b::200e: seq=0 ttl=117 time=46.505 ms (DUP!)\n"
-                  "64 bytes from 2404:6800:4007:80b::200e: seq=1 ttl=117 time=35.637 ms\n"
-                  "64 bytes from 2404:6800:4007:80b::200e: seq=2 ttl=117 time=44.998 ms\n"
-                  "\n"
-                  "--- 2404:6800:4007:80b::200e ping statistics ---\n"
-                  "3 packets transmitted, 3 packets received, 1 duplicates, 0% packet loss\n"
-                  "round-trip min/avg/max/mdev = 35.637/41.671/46.505/4.345 ms\n", tempFile);
-            rewind(tempFile);
-        }
-        return tempFile;
-    });
+    ExpectOneReplyOnChannel1();
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    Plugin::DeferredReply::Callback* held = nullptr;
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\",\"packets\":5,\"timeout\":2}"), response));
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 5, ""),
+        [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); return Core::ERROR_NONE; },
+        PassThrough, reply));
 
-    EXPECT_EQ(response, _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"success\":true,\"tripStdDev\":\"4.345 ms\",\"tripMax\":\"46.505\",\"tripAvg\":\"41.671\",\"tripMin\":\" 35.637\",\"packetLoss\":\" 1 duplicates\",\"packetsReceived\":3,\"packetsTransmitted\":3}"));
+    table->Close(Core::ERROR_UNAVAILABLE);
+    held->Completed(Core::ERROR_NONE, "{\"late\":true}");
+    held->Release();
+
+    auto message = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+    JsonObject error = Parse(message.get())["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
-TEST_F(NetworkManagerTest, Ping_Failed_ipv6)
+TEST_F(DeferredReplyTest, CallbackReleasedWithoutCompletedRepliesWithError)
 {
-    EXPECT_CALL(*p_wrapsImplMock, popen(::testing::_, ::testing::_))
-        .WillOnce([](const char* command, const char* type) -> FILE* {
-        std::string cmdStr = command;
-        EXPECT_TRUE(cmdStr.find("ping6") != std::string::npos);
-        EXPECT_TRUE(cmdStr.find("2404:6800:4007:80b::200e") != std::string::npos);
-        EXPECT_EQ(type, "r");
-        return NULL;
+    ExpectOneReplyOnChannel1();
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    Plugin::DeferredReply::Callback* held = nullptr;
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 6, ""),
+        [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); return Core::ERROR_NONE; },
+        PassThrough, reply));
+    held->Release();
+
+    auto message = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+    EXPECT_TRUE(Parse(message.get()).HasLabel("error"));
+}
+
+TEST_F(DeferredReplyTest, StartFailureIsReturnedSynchronously)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_INPROGRESS, table->Invoke(Core::JSONRPC::Context(1, 8, ""),
+        [](Plugin::DeferredReply::Callback*) { return Core::ERROR_INPROGRESS; },
+        PassThrough, reply));
+}
+
+TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
+{
+    ExpectOneReplyOnChannel1();
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+
+    string reply;
+    EXPECT_EQ(Plugin::DeferredReply::ReplyLater, table->Invoke(Core::JSONRPC::Context(1, 9, ""),
+        [&](Plugin::DeferredReply::Callback*) { table->Drain(Core::ERROR_UNAVAILABLE); return Core::ERROR_GENERAL; },
+        PassThrough, reply));
+
+    auto message = sent.get_future();
+    ASSERT_EQ(std::future_status::ready, message.wait_for(std::chrono::seconds(1)));
+    JsonObject error = Parse(message.get())["error"].Object();
+    EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
+}
+
+TEST_F(DeferredReplyTest, DirectCallerSurvivesOwnerReleasingTableDuringClose)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    std::weak_ptr<Plugin::DeferredReply::Table> observer = table;
+    std::promise<void> started;
+    Plugin::DeferredReply::Callback* held = nullptr;
+    uint32_t rc = Core::ERROR_NONE;
+
+    // Shutdown order from the review: waiter woken by Close(), then every other owner goes away. A use-after-free here only shows under ASan.
+    std::thread caller([&, raw = table.get()]() {
+        string reply;
+        rc = raw->Invoke(DirectCaller(),
+            [&](Plugin::DeferredReply::Callback* callback) { held = callback; held->AddRef(); started.set_value(); return Core::ERROR_NONE; },
+            PassThrough, reply);
     });
+    started.get_future().wait();
+    table->Close(Core::ERROR_UNAVAILABLE);
+    table.reset();
+    held->Release();
+    caller.join();
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("Ping"), 
-        _T("{\"endpoint\":\"2404:6800:4007:80b::200e\",\"ipversion\":\"IPv6\",\"packets\":5,\"timeout\":2}"), response));
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, rc);
+    EXPECT_TRUE(observer.expired());
+}
 
-    EXPECT_EQ(response, _T("{\"endpoint\":\"2404:6800:4007:80b::200e\"}"));
+TEST_F(DeferredReplyTest, DirectCallerWaitsForCompletion)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto table = std::make_shared<Plugin::DeferredReply::Table>(*plugin);
+    std::thread worker;
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_NONE, table->Invoke(DirectCaller(),
+        [&](Plugin::DeferredReply::Callback* callback) {
+            callback->AddRef();
+            worker = std::thread([callback]() { callback->Completed(Core::ERROR_NONE, "{\"done\":true}"); callback->Release(); });
+            return Core::ERROR_NONE;
+        },
+        PassThrough, reply));
+    worker.join();
+
+    EXPECT_TRUE(Parse(reply)["done"].Boolean());
 }

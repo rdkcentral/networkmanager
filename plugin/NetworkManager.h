@@ -23,6 +23,7 @@
 
 #include "INetworkManager.h"
 #include "NetworkManagerLogger.h"
+#include "NetworkManagerDeferredReply.h"
 
 #include <string>
 #include <atomic>
@@ -244,8 +245,8 @@ namespace WPEFramework
             uint32_t IsConnectedToInternet(const JsonObject& parameters, JsonObject& response);
             uint32_t GetCaptivePortalURI(const JsonObject& parameters, JsonObject& response);
             uint32_t GetPublicIP(const JsonObject& parameters, JsonObject& response);
-            uint32_t Ping(const JsonObject& parameters, JsonObject& response);
-            uint32_t Trace(const JsonObject& parameters, JsonObject& response);
+            uint32_t Ping(const Core::JSONRPC::Context& context, const string& parameters, string& response);
+            uint32_t Trace(const Core::JSONRPC::Context& context, const string& parameters, string& response);
             uint32_t SetHostname (const JsonObject& parameters, JsonObject& response);
             uint32_t StartWiFiScan(const JsonObject& parameters, JsonObject& response);
             uint32_t StopWiFiScan(const JsonObject& parameters, JsonObject& response);
@@ -278,6 +279,7 @@ namespace WPEFramework
             Exchange::INetworkManager *_networkManager;
             bool m_useConnectivityCheckMgr;
             Core::Sink<Notification> _notification;
+            std::shared_ptr<DeferredReply::Table> _diagnosticsReplies;
             string m_publicIPAddress;
             string m_publicIPAddressType;
         };
