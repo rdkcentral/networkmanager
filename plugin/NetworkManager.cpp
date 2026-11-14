@@ -122,6 +122,7 @@ namespace WPEFramework
 
                 // Register all custom JSON-RPC methods
                 SYSLOG(Logging::Startup, (_T("Registering JSONRPC Methods")));
+                _deferredReplies = std::make_shared<DeferredReply::Registry>(*this);
                 RegisterAllMethods();
 
 
@@ -159,6 +160,14 @@ namespace WPEFramework
             SYSLOG(Logging::Shutdown, (_T("Deinitializing NetworkManager")));
             if (_networkManager != nullptr)
             {
+                // Answer pending deferred callers before the JSON-RPC dispatcher is deactivated.
+                if (_deferredReplies)
+                {
+                    const size_t answered = _deferredReplies->Close(Core::ERROR_UNAVAILABLE);
+                    if (answered > 0)
+                        NMLOG_INFO("Answered %zu pending request(s) with ERROR_UNAVAILABLE", answered);
+                }
+
                 SYSLOG(Logging::Shutdown, (_T("Unregister Thunder Notifications for NetworkManager")));
                 _service->Unregister(&_notification);
 
@@ -198,6 +207,7 @@ namespace WPEFramework
             _service = nullptr;
             _networkManagerImpl = nullptr;
             _networkManager = nullptr;
+            _deferredReplies.reset();
         }
 
         string NetworkManager::Information() const
@@ -214,6 +224,12 @@ namespace WPEFramework
             if (connection->Id() == _connectionId)
             {
                 ASSERT(_service != nullptr);
+                if (_deferredReplies)
+                {
+                    const size_t answered = _deferredReplies->Drain(Core::ERROR_UNAVAILABLE);
+                    if (answered > 0)
+                        NMLOG_INFO("Answered %zu pending request(s) with ERROR_UNAVAILABLE", answered);
+                }
                 Core::IWorkerPool::Instance().Submit(PluginHost::IShell::Job::Create(_service, PluginHost::IShell::DEACTIVATED, PluginHost::IShell::FAILURE));
             }
         }

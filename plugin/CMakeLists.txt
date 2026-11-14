@@ -85,6 +85,7 @@ endif()
                                      
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
+                            NetworkManagerDiagnostics.cpp
                             NetworkManagerStunClient.cpp
                             NetworkManagerLogger.cpp
                             NetworkManagerPowerClient.cpp

@@ -876,7 +876,7 @@ Gets the internet/public IP Address of the device.
 <a name="method.Ping"></a>
 ## *Ping [<sup>method</sup>](#head.Methods)*
 
-Pings the specified endpoint with the specified number of packets.
+Pings the specified endpoint with the specified number of packets. One Ping runs at a time; further Ping requests wait in a queue of up to 4 and are rejected with ERROR_INPROGRESS when it is full.
 
 ### Parameters
 
@@ -903,7 +903,6 @@ Pings the specified endpoint with the specified number of packets.
 | result.tripMax | string | The maximum amount of time to receive the packets |
 | result.tripStdDev | string | The standard deviation for the trip |
 | result.error | string | An error message |
-| result.guid | string | The globally unique identifier |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -941,7 +940,6 @@ Pings the specified endpoint with the specified number of packets.
     "tripMax": "230.832",
     "tripStdDev": "80.919",
     "error": "...",
-    "guid": "...",
     "success": true
   }
 }
@@ -950,7 +948,7 @@ Pings the specified endpoint with the specified number of packets.
 <a name="method.Trace"></a>
 ## *Trace [<sup>method</sup>](#head.Methods)*
 
-Traces the specified endpoint with the specified number of packets using `traceroute`.
+Traces the specified endpoint with the specified number of packets using `traceroute`. One Trace runs at a time; further Trace requests wait in a queue of up to 4 and are rejected with ERROR_INPROGRESS when it is full.
 
 ### Parameters
 
@@ -969,7 +967,6 @@ Traces the specified endpoint with the specified number of packets using `tracer
 | result | object |  |
 | result.endpoint | string | The host name or IP address |
 | result.results | string | The response of traceroute |
-| result.guid | string | The globally unique identifier |
 | result.success | boolean | Whether the request succeeded |
 
 ### Example
@@ -999,7 +996,6 @@ Traces the specified endpoint with the specified number of packets using `tracer
   "result": {
     "endpoint": "45.57.221.20",
     "results": "...",
-    "guid": "...",
     "success": true
   }
 }
