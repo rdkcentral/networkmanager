@@ -41,6 +41,8 @@ namespace WPEFramework
     {
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
+        static std::mutex wpsAgentMutex;
+        static bool wpsAgentRegistered = false;
 
         wifiManager::wifiManager() : m_client(nullptr), m_loop(nullptr), m_createNewConnection(false), m_objectPath(nullptr), m_wifidevice(nullptr), m_source(nullptr), m_cancellable(nullptr){
             NMLOG_INFO("wifiManager");
@@ -147,7 +149,7 @@ namespace WPEFramework
         {
             NMLOG_DEBUG("wait started ...");
             if(g_main_loop_is_running(loop)) {
-                NMLOG_WARNING("g_main_loop_is running");
+                NMLOG_WARNING("g_main_loop is running");
                 return false;
             }
             m_source = g_timeout_source_new(timeOutMs);  // 10000ms interval
@@ -1555,7 +1557,8 @@ namespace WPEFramework
         {
             GError *error = NULL;
             wifiManager *_wifiManager = (static_cast<wifiManager*>(user_data));
-            if (!nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error)) {
+            NMRemoteConnection *remoteConnection = nm_client_add_connection2_finish(NM_CLIENT(client), result, NULL, &error);
+            if (!remoteConnection) {
                 NMLOG_ERROR("AddToKnownSSIDs Failed");
                 _wifiManager->m_isSuccess = false;
             }
@@ -1565,6 +1568,8 @@ namespace WPEFramework
                 _wifiManager->m_isSuccess = true;
             }
 
+            if(remoteConnection)
+                g_object_unref(remoteConnection);
             if(error) {
                 if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
                     NMLOG_DEBUG("Add connection operation was cancelled");
@@ -1978,6 +1983,25 @@ namespace WPEFramework
             bool wpsComplete= false;
             bool wpsActionTriggerd = false;
 
+            g_usleep(500 * 1000); // let the agent thread export its D-Bus object before Register
+            {
+                std::lock_guard<std::mutex> lock(wpsAgentMutex);
+                if (!wpsProcessRun.load()) {
+                    NMLOG_INFO("WPS process canceled before agent registration");
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, "");
+                    return;
+                }
+
+                wpsAgentRegistered = m_secretAgent.RegisterAgent();
+                if (!wpsAgentRegistered) {
+                    NMLOG_INFO("WPS process canceled agent registration failed");
+                    wpsProcessRun = false;
+                    if(_instance != nullptr)
+                        _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, "");
+                    return;
+                }
+            }
             if(_instance != nullptr)
                 _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTING, "");
 
@@ -1986,7 +2010,7 @@ namespace WPEFramework
                 sleep(WPS_RETRY_WAIT_TIME);
                 if(wpsProcessRun.load() == false) // stop wps process if reuested
                 {
-                    NMLOG_INFO("stop wps process reuested");
+                    NMLOG_INFO("stop wps process requested");
                     break;
                 }
 
@@ -2127,6 +2151,7 @@ namespace WPEFramework
                     if(!connectionBuilder(wifiConnectInfo, connection, true))
                     {
                         NMLOG_ERROR("wps connection builder failed");
+                        g_object_unref(connection);
                         break;
                     }
 
@@ -2134,6 +2159,7 @@ namespace WPEFramework
                     if(loop == NULL)
                     {
                         NMLOG_ERROR("g_main_loop_new failed");
+                        g_object_unref(connection);
                         break;
                     }
 
@@ -2213,30 +2239,45 @@ namespace WPEFramework
             }
 
             // wps success ! wifi connect event will be send by wifi event monitor
-            m_secretAgent.UnregisterAgent();
+            {
+                std::lock_guard<std::mutex> lock(wpsAgentMutex);
+                NMLOG_INFO("Unregistering WPS agent if registered");
+                if (wpsAgentRegistered) {
+                    wpsAgentRegistered = false;
+                    (void)m_secretAgent.UnregisterAgent();
+                }
+            }
+
             NMLOG_INFO("WPS process thread exist");
             wpsProcessRun = false;
         }
 
         bool wifiManager::startWPS()
         {
-            NMLOG_DEBUG("Start WPS %s", __FUNCTION__);
-            if(wpsProcessRun.load())
+            NMLOG_INFO("Starting WPS process");
+            if (wpsProcessRun.exchange(true))   // was already true: a run is in progress
             {
                 NMLOG_WARNING("wps process WPS already running");
                 return true;
             }
-
-            m_secretAgent.RegisterAgent();
-            std::thread wpsthread(&wifiManager::wpsProcess, this);
-            wpsthread.detach();
+            std::thread(&wifiManager::wpsProcess, this).detach();
             return true;
         }
 
-        bool wifiManager::stopWPS() {
-            NMLOG_DEBUG("Stop WPS %s", __FUNCTION__);
-            wpsProcessRun = false; 
-            return m_secretAgent.UnregisterAgent();
+        bool wifiManager::stopWPS()
+        {
+            bool rc = true;
+            NMLOG_INFO("Stopping WPS process if running");
+            if (!wpsProcessRun.exchange(false)) // was already false: nothing to stop
+                return true;
+
+            std::lock_guard<std::mutex> lock(wpsAgentMutex);
+            NMLOG_INFO("Checking if WPS agent is registered");
+            if (wpsAgentRegistered) {
+                rc = m_secretAgent.UnregisterAgent();
+                wpsAgentRegistered = false;
+            }
+            return rc;
         }
 
         static void deviceManagedCb(GObject *object, GAsyncResult *result, gpointer user_data)
@@ -2393,7 +2434,8 @@ namespace WPEFramework
             wifiManager *_wifiManager = static_cast<wifiManager *>(user_data);
             NMLOG_DEBUG("activate connection completeing...");
             // Check if the operation was successful
-            if (!nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error)) {
+            NMActiveConnection *activeConnection = nm_client_activate_connection_finish(NM_CLIENT(source_object), res, &error);
+            if (!activeConnection) {
                 NMLOG_ERROR("Activating connection failed");
                 if(error != NULL)
                 {
@@ -2405,6 +2447,8 @@ namespace WPEFramework
                 NMLOG_DEBUG("Activating connection successful");
                 _wifiManager->m_isSuccess = true;
             }
+            if(activeConnection)
+                g_object_unref(activeConnection);
             _wifiManager->quit(nullptr);
         }
 
@@ -2550,6 +2594,8 @@ namespace WPEFramework
                     ipAddress = nm_ip_address_new(AF_INET, address.ipaddress.c_str(), address.prefix, NULL);
                     nm_setting_ip_config_clear_addresses(ip4Config);
                     nm_setting_ip_config_add_address(NM_SETTING_IP_CONFIG(setting), ipAddress);
+                    if(ipAddress)
+                        nm_ip_address_unref(ipAddress);
                     nm_setting_ip_config_clear_dns(ip4Config);
                     if(!address.primarydns.empty())
                         nm_setting_ip_config_add_dns(ip4Config, address.primarydns.c_str());
