@@ -41,6 +41,7 @@ namespace WPEFramework
     {
         extern NetworkManagerImplementation* _instance;
         static std::atomic<bool> wpsProcessRun = {false};
+        static std::atomic<bool> wpsCancelRequested = {false};
         static std::mutex wpsAgentMutex;
         static bool wpsAgentRegistered = false;
 
@@ -1969,7 +1970,6 @@ namespace WPEFramework
 
         void wifiManager::wpsProcess()
         {
-            wpsProcessRun = true;
             GError *error = NULL;
             const GPtrArray* ApList = NULL;
             std::string wpsApSsid{};
@@ -1986,10 +1986,11 @@ namespace WPEFramework
             g_usleep(500 * 1000); // let the agent thread export its D-Bus object before Register
             {
                 std::lock_guard<std::mutex> lock(wpsAgentMutex);
-                if (!wpsProcessRun.load()) {
+                if (wpsCancelRequested.load()) {
                     NMLOG_INFO("WPS process canceled before agent registration");
                     if(_instance != nullptr)
                         _instance->ReportWiFiStateChange(Exchange::INetworkManager::WIFI_STATE_CONNECTION_FAILED, "");
+                    wpsProcessRun = false;
                     return;
                 }
 
@@ -2008,7 +2009,7 @@ namespace WPEFramework
             for(int retry = 0; retry < WPS_RETRY_COUNT; retry++)
             {
                 sleep(WPS_RETRY_WAIT_TIME);
-                if(wpsProcessRun.load() == false) // stop wps process if reuested
+                if(wpsCancelRequested.load())
                 {
                     NMLOG_INFO("stop wps process requested");
                     break;
@@ -2209,7 +2210,7 @@ namespace WPEFramework
                     client = NULL;
                 }
 
-                if(wpsComplete || wpsProcessRun.load() == false) // stop wps process if user requested
+                if(wpsComplete || wpsCancelRequested.load())
                     break;
             }
 
@@ -2242,9 +2243,8 @@ namespace WPEFramework
             {
                 std::lock_guard<std::mutex> lock(wpsAgentMutex);
                 NMLOG_INFO("Unregistering WPS agent if registered");
-                if (wpsAgentRegistered) {
+                if (wpsAgentRegistered && m_secretAgent.UnregisterAgent()) {
                     wpsAgentRegistered = false;
-                    (void)m_secretAgent.UnregisterAgent();
                 }
             }
 
@@ -2255,12 +2255,21 @@ namespace WPEFramework
         bool wifiManager::startWPS()
         {
             NMLOG_INFO("Starting WPS process");
-            if (wpsProcessRun.exchange(true))   // was already true: a run is in progress
+            std::lock_guard<std::mutex> lock(wpsAgentMutex);
+            if (wpsProcessRun.load())
             {
                 NMLOG_WARNING("wps process WPS already running");
                 return true;
             }
-            std::thread(&wifiManager::wpsProcess, this).detach();
+            wpsCancelRequested = false;
+            wpsProcessRun = true;
+            try {
+                std::thread(&wifiManager::wpsProcess, this).detach();
+            } catch (...) {
+                wpsProcessRun = false;
+                NMLOG_ERROR("Failed to start WPS process");
+                return false;
+            }
             return true;
         }
 
@@ -2268,14 +2277,14 @@ namespace WPEFramework
         {
             bool rc = true;
             NMLOG_INFO("Stopping WPS process if running");
-            if (!wpsProcessRun.exchange(false)) // was already false: nothing to stop
-                return true;
-
             std::lock_guard<std::mutex> lock(wpsAgentMutex);
+            wpsCancelRequested = true;
             NMLOG_INFO("Checking if WPS agent is registered");
             if (wpsAgentRegistered) {
                 rc = m_secretAgent.UnregisterAgent();
-                wpsAgentRegistered = false;
+                if (rc) {
+                    wpsAgentRegistered = false;
+                }
             }
             return rc;
         }
