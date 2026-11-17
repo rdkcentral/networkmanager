@@ -31,6 +31,11 @@
 #include <string>
 #include <thread>
 
+// Reason ConnectivityCheckMgr sends with LIMITED_INTERNET when no inbound traffic was seen for
+// the age-timer period (the link may still be fully connected). Must match the value published
+// by ConnectivityCheckMgr (ConnectivityImplementation.h).
+#define CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON "NO_INBOUND_TRAFFIC"
+
 namespace WPEFramework {
 namespace Plugin {
 
@@ -99,6 +104,35 @@ private:
         NetworkManagerConnectivityClient& mParent;
     };
 
+    class LimitedInternetNotification : public Exchange::IConnectivityCheck::ILimitedInternetNotification {
+    public:
+        explicit LimitedInternetNotification(NetworkManagerConnectivityClient& parent)
+            : mParent(parent) {}
+
+        void OnLimitedInternetThresholdExpired() override;
+
+        BEGIN_INTERFACE_MAP(LimitedInternetNotification)
+        INTERFACE_ENTRY(Exchange::IConnectivityCheck::ILimitedInternetNotification)
+        END_INTERFACE_MAP
+
+    private:
+        NetworkManagerConnectivityClient& mParent;
+    };
+
+    // RAII guard: releases one in-flight handler slot when the callback returns or throws.
+    class HandlerCompletion {
+    public:
+        explicit HandlerCompletion(NetworkManagerConnectivityClient& parent)
+            : mParent(parent) {}
+        ~HandlerCompletion() { mParent.completeInternetStatusChangeHandler(); }
+
+        HandlerCompletion(const HandlerCompletion&) = delete;
+        HandlerCompletion& operator=(const HandlerCompletion&) = delete;
+
+    private:
+        NetworkManagerConnectivityClient& mParent;
+    };
+
     // SmartInterfaceType lifecycle callback.
     void Operational(bool upAndRunning) override;
 
@@ -106,6 +140,7 @@ private:
     void unregisterEvents();
     void notifyInternetStatusChanged(Exchange::IConnectivityCheck::InternetStatus status,
                                      const std::string& reason);
+    void notifyLimitedInternetThresholdExpired();
     void completeInternetStatusChangeHandler();
     void openThreadLoop();
 
@@ -119,17 +154,22 @@ private:
     mutable std::mutex               mLock;
     Exchange::IConnectivityCheck*    mConnectivity{nullptr};
     Core::Sink<Notification>         mNotification;
+    Core::Sink<LimitedInternetNotification> mLimitedInternetNotification;
     InternetStatusChangeHandler      mInternetStatusChangeHandler;
     std::condition_variable          mHandlerDrainCv;
     uint32_t                         mHandlersInFlight{0};
     bool                             mHandlerClearInProgress{false};
-    bool                             mNotificationRegistered{false}; // guarded by mLock
 
     // Status cache kept current by OnInternetStatusChange, so the hot
     // isConnectedToInternet path needs no cross-process round trip.
     NmInternetStatus                 mCachedStatus{Exchange::INetworkManager::INTERNET_UNKNOWN};
     std::string                      mCachedReason;
     bool                             mHasCachedStatus{false};
+    // Set when a no-inbound-traffic LIMITED_INTERNET was cached without an event: the
+    // first query after OnLimitedInternetThresholdExpired must call
+    // GetInternetStatus() so ConnectivityCheckMgr runs its armed probe.
+    bool                             mProbeOnExpiry{false};
+    bool                             mPendingExpired{false};
 
     // Open() runs on its own thread so plugin Configure() never blocks on, or
     // re-enters, a ConnectivityCheckMgr that is not activated yet.

@@ -31,6 +31,8 @@
 
 #include <core/core.h>
 
+#define CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON "NO_INBOUND_TRAFFIC"
+
 namespace WPEFramework {
 namespace Exchange {
 
@@ -62,11 +64,19 @@ namespace Exchange {
                                                const string& captivePortalURI) {}
         };
 
+        struct EXTERNAL ILimitedInternetNotification : virtual public Core::IUnknown {
+            enum { ID = 0x8192 };
+
+            virtual void OnLimitedInternetThresholdExpired() {}
+        };
+
         virtual Core::hresult GetInternetStatus(StatusInfo& info /* @out */) const {};
         virtual Core::hresult GetCaptivePortalURI(string& uri /* @out */) const {};
 
         virtual Core::hresult Register(INotification* notification) {};
         virtual Core::hresult Unregister(INotification* notification) {};
+        virtual Core::hresult RegisterLimitedInternet(ILimitedInternetNotification* notification) {};
+        virtual Core::hresult UnregisterLimitedInternet(ILimitedInternetNotification* notification) {};
     };
 
 } // namespace Exchange
