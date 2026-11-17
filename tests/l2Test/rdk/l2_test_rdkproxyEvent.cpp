@@ -55,6 +55,88 @@ public:
     {
         client.notifyInternetStatusChanged(status, reason);
     }
+
+    static void SetConnectivity(NetworkManagerConnectivityClient& client,
+                                Exchange::IConnectivityCheck* connectivity)
+    {
+        client.mStopOpenThread = true;
+        client.mOpenCv.notify_one();
+        if (client.mOpenThread.joinable()) {
+            client.mOpenThread.join();
+        }
+        std::lock_guard<std::mutex> lock(client.mLock);
+        connectivity->AddRef();
+        client.mConnectivity = connectivity;
+    }
+
+    static void ExpireLimitedInternetThreshold(NetworkManagerConnectivityClient& client)
+    {
+        client.notifyLimitedInternetThresholdExpired();
+    }
+};
+
+class ConnectivityStatusProxy : public Exchange::IConnectivityCheck {
+public:
+    uint32_t AddRef() const override { return ++m_refCount; }
+    uint32_t Release() const override { return --m_refCount; }
+
+    void* QueryInterface(const uint32_t id) override
+    {
+        if (id == ID || id == Core::IUnknown::ID) {
+            return static_cast<Exchange::IConnectivityCheck*>(this);
+        }
+        return nullptr;
+    }
+
+    uint32_t GetInternetStatus(StatusInfo& info) const override
+    {
+        ++getStatusCount;
+        if (armed) {
+            armed = false;
+            ++probeTriggerCount;
+        }
+        info.status = status;
+        info.reason = reason;
+        return Core::ERROR_NONE;
+    }
+
+    uint32_t GetCaptivePortalURI(string& uri) const override
+    {
+        uri.clear();
+        return Core::ERROR_NONE;
+    }
+
+    uint32_t Register(INotification* sink) override
+    {
+        notification = sink;
+        return Core::ERROR_NONE;
+    }
+    uint32_t Unregister(INotification* sink) override
+    {
+        if (notification == sink) notification = nullptr;
+        return Core::ERROR_NONE;
+    }
+    uint32_t RegisterLimitedInternet(ILimitedInternetNotification* sink) override
+    {
+        limitedInternetNotification = sink;
+        return Core::ERROR_NONE;
+    }
+    uint32_t UnregisterLimitedInternet(ILimitedInternetNotification* sink) override
+    {
+        if (limitedInternetNotification == sink) limitedInternetNotification = nullptr;
+        return Core::ERROR_NONE;
+    }
+
+    mutable std::atomic<uint32_t> getStatusCount{0};
+    mutable std::atomic<uint32_t> probeTriggerCount{0};
+    mutable bool armed{false};
+    InternetStatus status{FULLY_CONNECTED};
+    string reason;
+    INotification* notification{nullptr};
+    ILimitedInternetNotification* limitedInternetNotification{nullptr};
+
+private:
+    mutable std::atomic<uint32_t> m_refCount{1};
 };
 } // namespace Plugin
 } // namespace WPEFramework
@@ -632,6 +714,210 @@ TEST(NetworkManagerConnectivityClientTest, DoesNotInvokeHandlerAfterClear)
         client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
 
     EXPECT_EQ(0u, callbackCount.load());
+}
+
+// A no-inbound-traffic LIMITED_INTERNET over a verified up-state is cached without an
+// event. The first query after threshold expiry triggers the armed probe once and
+// still emits nothing; subscribers learn the probe outcome from its notification.
+TEST(NetworkManagerConnectivityClientTest, CachesNoInboundTrafficSilentlyAndProbesOnceAfterExpiry)
+{
+    // Declared before the client so it outlives the client's Release() in its destructor.
+    ConnectivityStatusProxy connectivity;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(changes.size(), 1u);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(changes.size(), 1u);
+}
+
+// A no-inbound-traffic LIMITED_INTERNET over a known down-state is an upgrade: it is
+// cached and emitted, and a later threshold expiry does not promote again.
+TEST(NetworkManagerConnectivityClientTest, NoInboundTrafficOverDownStateIsExposed)
+{
+    const Exchange::IConnectivityCheck::InternetStatus downStates[] = {
+        Exchange::IConnectivityCheck::NO_INTERNET,
+        Exchange::IConnectivityCheck::UNKNOWN,
+    };
+
+    for (const auto downState : downStates) {
+        ConnectivityStatusProxy connectivity;
+        NetworkManagerConnectivityClient client;
+        NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+        std::vector<Exchange::INetworkManager::InternetStatus> changes;
+        client.SetInternetStatusChangeHandler(
+            [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+                changes.push_back(status);
+            });
+
+        NetworkManagerConnectivityClientTestAccess::Notify(client, downState, "WAITING_GATEWAY");
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
+
+        EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+        ASSERT_EQ(changes.size(), 2u);
+        EXPECT_EQ(changes.back(), Exchange::INetworkManager::INTERNET_LIMITED);
+
+        connectivity.armed = true;
+        NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+        EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+        EXPECT_EQ(changes.size(), 2u);
+        EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+    }
+}
+
+// A no-inbound-traffic LIMITED_INTERNET as the first notification (empty cache) is cached
+// as LIMITED without an event; expiry then a query triggers the probe once.
+TEST(NetworkManagerConnectivityClientTest, CachesNoInboundTrafficSilentlyWithEmptyCache)
+{
+    ConnectivityStatusProxy connectivity;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    NetworkManagerConnectivityClientTestAccess::Notify(
+        client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_TRUE(changes.empty());
+    EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_TRUE(changes.empty());
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+}
+
+// After a silent no-inbound-traffic cache, the probe result notification reaches the bridge
+// handler (which dedupes on what subscribers last saw) and clears the probe flag.
+TEST(NetworkManagerConnectivityClientTest, ProbeResultAfterSilentNoInboundTrafficReachesHandler)
+{
+    struct Outcome {
+        Exchange::IConnectivityCheck::InternetStatus status;
+        const char* reason;
+        Exchange::INetworkManager::InternetStatus expected;
+    };
+    const Outcome outcomes[] = {
+        { Exchange::IConnectivityCheck::FULLY_CONNECTED, "", Exchange::INetworkManager::INTERNET_FULLY_CONNECTED },
+        { Exchange::IConnectivityCheck::LIMITED_INTERNET, "", Exchange::INetworkManager::INTERNET_LIMITED },
+        { Exchange::IConnectivityCheck::NO_INTERNET, "PROBE_FAILED", Exchange::INetworkManager::INTERNET_NOT_AVAILABLE },
+    };
+
+    for (const auto& outcome : outcomes) {
+        ConnectivityStatusProxy connectivity;
+        NetworkManagerConnectivityClient client;
+        NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+        std::vector<Exchange::INetworkManager::InternetStatus> changes;
+        client.SetInternetStatusChangeHandler(
+            [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+                changes.push_back(status);
+            });
+
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::FULLY_CONNECTED, std::string());
+        NetworkManagerConnectivityClientTestAccess::Notify(
+            client, Exchange::IConnectivityCheck::LIMITED_INTERNET, CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON);
+        ASSERT_EQ(changes.size(), 1u);
+
+        NetworkManagerConnectivityClientTestAccess::Notify(client, outcome.status, outcome.reason);
+
+        ASSERT_EQ(changes.size(), 2u);
+        EXPECT_EQ(changes.back(), outcome.expected);
+        EXPECT_EQ(client.getInternetState(), outcome.expected);
+
+        // The flag was cleared: a later expiry plus query does not call CCM.
+        connectivity.armed = true;
+        NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+        EXPECT_EQ(client.getInternetState(), outcome.expected);
+        EXPECT_EQ(connectivity.getStatusCount.load(), 0u);
+    }
+}
+
+// NetworkManager (re)starts while there is no inbound traffic and its first contact is a query:
+// the cold-path read sees NO_INBOUND_TRAFFIC, caches LIMITED silently and probes after expiry.
+TEST(NetworkManagerConnectivityClientTest, ColdQueryDuringNoInboundTrafficCachesSilently)
+{
+    ConnectivityStatusProxy connectivity;
+    connectivity.status = Exchange::IConnectivityCheck::LIMITED_INTERNET;
+    connectivity.reason = CONNECTIVITY_NO_INBOUND_TRAFFIC_REASON;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    std::vector<Exchange::INetworkManager::InternetStatus> changes;
+    client.SetInternetStatusChangeHandler(
+        [&changes](const Exchange::INetworkManager::InternetStatus status, const std::string&) {
+            changes.push_back(status);
+        });
+
+    std::string reason;
+    EXPECT_EQ(client.getInternetState(reason), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_TRUE(reason.empty());
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+
+    connectivity.armed = true;
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 2u);
+    EXPECT_EQ(connectivity.probeTriggerCount.load(), 1u);
+    EXPECT_TRUE(changes.empty());
+}
+
+// A cold-path read of an untagged LIMITED_INTERNET is cached normally: a later
+// threshold expiry does not make NetworkManager query CCM again.
+TEST(NetworkManagerConnectivityClientTest, ColdQueryOfUntaggedLimitedDoesNotProbeOnExpiry)
+{
+    ConnectivityStatusProxy connectivity;
+    connectivity.status = Exchange::IConnectivityCheck::LIMITED_INTERNET;
+    NetworkManagerConnectivityClient client;
+    NetworkManagerConnectivityClientTestAccess::SetConnectivity(client, &connectivity);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
+
+    NetworkManagerConnectivityClientTestAccess::ExpireLimitedInternetThreshold(client);
+
+    EXPECT_EQ(client.getInternetState(), Exchange::INetworkManager::INTERNET_LIMITED);
+    EXPECT_EQ(connectivity.getStatusCount.load(), 1u);
 }
 #endif
 TEST_F(NetworkManagerEventTest, onInternetStatusChange_FULLY_CONNECTED)
