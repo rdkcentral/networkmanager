@@ -27,16 +27,14 @@ find_package(${NAMESPACE}Plugins REQUIRED)
 
 add_executable(${NM_LEGACY_WIFI_UT}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/legacy/l2_test_LegacyPlugin_WiFiManagerAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/legacy/LegacyWiFiManagerAPIs.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
 )
 
 add_executable(${NM_LEGACY_NETWORK_UT}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/legacy/l2_test_LegacyPlugin_NetworkAPIs.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/legacy/LegacyNetworkAPIs.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
 )
 
 set_target_properties(${NM_LEGACY_WIFI_UT} PROPERTIES

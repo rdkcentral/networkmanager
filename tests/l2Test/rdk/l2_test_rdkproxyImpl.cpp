@@ -228,16 +228,6 @@ TEST_F(NetworkManagerImplTest, GetLogLevel) {
     EXPECT_EQ(retrievedLogLevel, Exchange::INetworkManager::LOG_LEVEL_DEBUG);
 }
 
-TEST_F(NetworkManagerImplTest, LogMessageTruncation) {
-    // Generate a log message longer than the maximum allowed size
-    std::string longMessage(1025, 'A'); // Create a string with 1025 'A' characters
-    NetworkManagerLogger::logPrint(NetworkManagerLogger::DEBUG_LEVEL, __FILE__, __func__, __LINE__, "%s", longMessage.c_str());
-
-    // Since the log message is truncated, the last three characters should be "..."
-    // This test ensures that the truncation logic is executed
-    EXPECT_TRUE(true); // Placeholder assertion to ensure the test runs
-}
-
 TEST_F(NetworkManagerImplTest, GetConnectivityTestEndpoints)
 {
     // Set up mock endpoints in the ConnectivityMonitor

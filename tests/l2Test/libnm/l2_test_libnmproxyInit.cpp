@@ -119,7 +119,6 @@ protected:
         dispatcher->Activate(&service);
         response = plugin->Initialize(&service);
         EXPECT_EQ(string(""), response);
-        NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(NetworkManagerLogger::DEBUG_LEVEL)); // Set log level to DEBUG_LEVEL
     }
 
     virtual void SetUp() override
@@ -151,8 +150,6 @@ protected:
 
 TEST_F(NetworkManagerInitTest, platformInit)
 {
-    NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(NetworkManagerLogger::DEBUG_LEVEL));
-
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetAvailableInterfaces"), _T(""), response));
     /* platform_init failed (no NMClient) -> event cache never populated -> empty list, still success */
     EXPECT_TRUE(response.find("\"success\":true") != std::string::npos);

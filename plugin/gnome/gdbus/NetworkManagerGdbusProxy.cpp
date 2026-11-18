@@ -82,10 +82,10 @@ namespace WPEFramework
                 NMLOG_INFO("GetAvailableInterfaces Failed");
         }
 
-        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        void NetworkManagerImplementation::platform_logging(const Exchange::INetworkManager::Logging& level)
         {
             /* set networkmanager daemon log level based on current plugin log level */
-            if(NetworkManagerLogger::DEBUG_LEVEL != level)
+            if(Exchange::INetworkManager::Logging::LOG_LEVEL_DEBUG != level)
                 return;
             nmUtils::setNetworkManagerlogLevelToTrace();
         }

@@ -137,7 +137,6 @@ int main()
 {
     int choice = -1;
     NMLOG_INFO("Starting NetworkManager libnm cli tool");
-    NetworkManagerLogger::SetLevel(NetworkManagerLogger::DEBUG_LEVEL);
     GnomeNetworkManagerEvents* nmEvent = GnomeNetworkManagerEvents::getInstance();
     wifiManager *wifiMgr = wifiManager::getInstance();
     nmEvent->startNetworkMangerEventMonitor();

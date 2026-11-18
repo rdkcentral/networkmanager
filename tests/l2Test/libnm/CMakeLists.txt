@@ -27,14 +27,12 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyWifi.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxyInit.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/libnm/l2_test_libnmproxy.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/CurlWraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/LibnmWraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/GLibWraps.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
@@ -45,6 +43,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeUtils.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerSecretAgent.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${PROXY_STUB_SOURCES}
 )
 

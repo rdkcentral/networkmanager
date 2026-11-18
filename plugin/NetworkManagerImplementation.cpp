@@ -36,11 +36,14 @@
 
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
-using namespace NetworkManagerLogger;
 
 #define CIDR_NETMASK_IP_LEN 32
 #define SSID_COMMAND        "wpa_cli status"
 #define SIGNAL_POLL_COMMAND "wpa_cli signal_poll"
+
+namespace NetworkManagerLogger {
+    static WPEFramework::Exchange::INetworkManager::Logging gDefaultLogLevel = WPEFramework::Exchange::INetworkManager::Logging::LOG_LEVEL_INFO;
+}
 
 namespace WPEFramework
 {
@@ -70,8 +73,7 @@ namespace WPEFramework
             Core::ProcessInfo().Name("NWMgrPlugin");
 
             /* Initialize Network Manager */
-            NetworkManagerLogger::Init();
-            SYSLOG(::WPEFramework::Logging::Startup, (_T("[NWMGR] NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(PLUGIN_BUILD_REFERENCE))));
+            SYSLOG(::WPEFramework::Logging::Startup, (_T("[NWMGR] NWMgrPlugin Out-Of-Process Instantiation; SHA: ") _T(EXPAND_AND_QUOTE(BUILD_REFERENCE))));
             m_processMonThread = std::thread(&NetworkManagerImplementation::processMonitor, this, NM_PROCESS_MONITOR_INTERVAL_SEC);
             
             /* Start dedicated event dispatch thread */
@@ -186,9 +188,6 @@ namespace WPEFramework
                 config.FromString(configLine);
             }
 
-            NetworkManagerLogger::SetLevel(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
-            NMLOG_DEBUG("loglevel %d", config.loglevel.Value());
-
             /* Resolve the connectivity backend at runtime (replaces the old
              * USE_CONNECTIVITY_CHECK_MGR compile-time macro). */
             m_useConnectivityCheckMgr = resolveConnectivityCheckMgrEnabled(config);
@@ -267,7 +266,7 @@ namespace WPEFramework
             /* As all the configuration is set, lets instantiate platform */
             NetworkManagerImplementation::platform_init();
             /* change gnome networkmanager or netsrvmgr logg level */
-            NetworkManagerImplementation::platform_logging(static_cast <NetworkManagerLogger::LogLevel>(config.loglevel.Value()));
+            NetworkManagerImplementation::SetLogLevel(static_cast <Exchange::INetworkManager::Logging>(config.loglevel.Value()));
             m_powerClient.reset(new NetworkManagerPowerClient(*this));
             return(Core::ERROR_NONE);
         }
@@ -524,8 +523,8 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::SetLogLevel(const Logging& level /* @in */)
         {
             LOG_ENTRY_FUNCTION();
-            NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(level));
-            platform_logging(static_cast<NetworkManagerLogger::LogLevel>(level));
+            NetworkManagerLogger::gDefaultLogLevel = level;
+            platform_logging(level);
             NMLOG_DEBUG("loglevel %d", level);
             return Core::ERROR_NONE;
         }
@@ -534,10 +533,7 @@ namespace WPEFramework
         uint32_t NetworkManagerImplementation::GetLogLevel(Logging& level /* @out */)
         {
             LOG_ENTRY_FUNCTION();
-            LogLevel inLevel;
-            NetworkManagerLogger::GetLevel(inLevel);
-
-            level = static_cast<Logging>(inLevel);
+            level = NetworkManagerLogger::gDefaultLogLevel;
             return Core::ERROR_NONE;
         }
 

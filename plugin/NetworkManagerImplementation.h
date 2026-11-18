@@ -394,7 +394,7 @@ namespace WPEFramework
             private:
                 void platform_init(void);
                 void platform_deinit(void);
-                void platform_logging(const NetworkManagerLogger::LogLevel& level);
+                void platform_logging(const Exchange::INetworkManager::Logging& level);
                 /* Resolve whether connectivity is delegated to ConnectivityCheckMgr:
                  * RFC flag Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.ConnectivityCheckMgr.Enable
                  * (when USE_CONNECTIVITYCHECKMGR is built in) takes precedence, then the config-line
