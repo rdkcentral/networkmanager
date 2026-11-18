@@ -44,6 +44,7 @@ add_executable(${NM_LIBNM_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeUtils.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomePropertyFollower.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerSecretAgent.cpp
     ${PROXY_STUB_SOURCES}
 )

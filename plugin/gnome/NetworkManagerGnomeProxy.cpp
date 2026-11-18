@@ -717,11 +717,59 @@ namespace WPEFramework
             return rc;
         }
 
+        /* Same filter as wifiManager::getWifiDevice(): absent, UNKNOWN, UNMANAGED and
+           UNAVAILABLE devices are treated as "no WiFi device". */
+        static bool isWifiDeviceUsable(const GnomeNetworkManagerEvents::WifiConnSnapshot& snapshot)
+        {
+            if (!snapshot.present)
+            {
+                NMLOG_ERROR("Wireless Device not found !");
+                return false;
+            }
+            switch (snapshot.state)
+            {
+                case NM_DEVICE_STATE_UNKNOWN:
+                case NM_DEVICE_STATE_UNMANAGED:
+                case NM_DEVICE_STATE_UNAVAILABLE:
+                    NMLOG_WARNING("wifi device state is not valid; state: (%d)", snapshot.state);
+                    return false;
+                default:
+                    return true;
+            }
+        }
+
         uint32_t NetworkManagerImplementation::GetConnectedSSID(WiFiSSIDInfo&  ssidInfo /* @out */)
         {
+            const auto tEntry = std::chrono::steady_clock::now();
             uint32_t rc = Core::ERROR_RPC_CALL_FAILED;
-            if(wifi->wifiConnectedSSIDInfo(ssidInfo))
+
+            /* Served from the event-maintained snapshot; no per-call NMClient. */
+            const GnomeNetworkManagerEvents::WifiConnSnapshot snapshot = GnomeNetworkManagerEvents::getWifiConnCache();
+            if (!isWifiDeviceUsable(snapshot))
+            {
+                NMLOG_FATAL("NMDeviceWifi * NULL !");
+            }
+            else if (snapshot.state >= NM_DEVICE_STATE_IP_CONFIG)
+            {
+                if (!snapshot.hasActiveAP)
+                {
+                    NMLOG_ERROR("NMAccessPoint = NULL !");
+                }
+                else
+                {
+                    NMLOG_DEBUG("active access point found !");
+                    ssidInfo = snapshot.ssidInfo;
+                    rc = Core::ERROR_NONE;
+                }
+            }
+            else
+            {
+                NMLOG_WARNING("no active access point!; wifi device state: (%d)", snapshot.state);
                 rc = Core::ERROR_NONE;
+            }
+
+            NMLOG_DEBUG("[PERF] GetConnectedSSID (impl) total %lld us",
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - tEntry).count()));
             return rc;
         }
 
@@ -780,10 +828,47 @@ namespace WPEFramework
 
         uint32_t NetworkManagerImplementation::GetWifiState(WiFiState &state)
         {
-            uint32_t rc = Core::ERROR_GENERAL;
-            if(wifi->getWifiState(state))
-                rc = Core::ERROR_NONE;
-            return rc;
+            const auto tEntry = std::chrono::steady_clock::now();
+
+            /* Served from the event-maintained snapshot; no per-call NMClient. */
+            const GnomeNetworkManagerEvents::WifiConnSnapshot snapshot = GnomeNetworkManagerEvents::getWifiConnCache();
+            if (!isWifiDeviceUsable(snapshot))
+            {
+                NMLOG_WARNING("wifi state disabled !");
+                state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
+            }
+            else
+            {
+                // Todo check NMDeviceStateReason for more information
+                switch(snapshot.state)
+                {
+                    case NM_DEVICE_STATE_ACTIVATED:
+                        state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
+                        break;
+                    case NM_DEVICE_STATE_PREPARE:
+                    case NM_DEVICE_STATE_CONFIG:
+                        state = Exchange::INetworkManager::WiFiState::WIFI_STATE_PAIRING;
+                        break;
+                    case NM_DEVICE_STATE_NEED_AUTH:
+                    case NM_DEVICE_STATE_IP_CONFIG:
+                    case NM_DEVICE_STATE_IP_CHECK:
+                    case NM_DEVICE_STATE_SECONDARIES:
+                        state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTING;
+                        break;
+                    case NM_DEVICE_STATE_DEACTIVATING:
+                    case NM_DEVICE_STATE_DISCONNECTED:
+                    case NM_DEVICE_STATE_UNAVAILABLE:
+                        state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED;
+                        break;
+                    default:
+                        state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
+                }
+                NMLOG_INFO("wifi state (%d) mapped state (%d) ", (int)snapshot.state, (int)state);
+            }
+
+            NMLOG_DEBUG("[PERF] GetWifiState (impl) total %lld us",
+                       static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - tEntry).count()));
+            return Core::ERROR_NONE;
         }
 
         uint32_t NetworkManagerImplementation::StartWPS(const WiFiWPS& method /* @in */, const string& wps_pin /* @in */)
