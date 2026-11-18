@@ -33,6 +33,7 @@
 #include "COMLinkMock.h"
 #include "WorkerPoolImplementation.h"
 #include "NetworkManagerImplementation.h"
+#include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
 #include <libnm/NetworkManager.h>
@@ -137,6 +138,9 @@ protected:
 
     virtual void SetUp() override
     {
+        /* The WiFi connection snapshot is process-wide; start every test from "no WiFi device". */
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache({});
+
         struct stat buffer;
         if (stat("/etc/device.properties", &buffer) != 0) {
             std::ofstream file("/etc/device.properties");
@@ -354,368 +358,126 @@ TEST_F(NetworkManagerWifiTest, WiFiAlreadyConnected_success)
     g_ptr_array_free(fakeDevices, TRUE);
 }
 
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_deviceError)
+/* ────────────────────────────────────────────────────────────────────────────
+ * GetConnectedSSID / GetWifiState are served from the WiFi connection snapshot.
+ * The snapshot is injected with setWifiConnCache(); assertions are on the
+ * JSON-RPC response only, so the tests do not depend on how the event monitor
+ * fills the snapshot or on the order of libnm reads.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+using WifiSnapshot = Plugin::GnomeNetworkManagerEvents::WifiConnSnapshot;
+
+static WifiSnapshot wifiSnapshot(NMDeviceState state, bool hasActiveAP = false)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
+    WifiSnapshot snapshot;
+    snapshot.present = true;
+    snapshot.state = state;
+    snapshot.hasActiveAP = hasActiveAP;
+    if (hasActiveAP)
+    {
+        snapshot.ssidInfo.ssid = "TestWiFiNetwork";
+        snapshot.ssidInfo.bssid = "AA:BB:CC:DD:EE:FF";
+        snapshot.ssidInfo.security = Exchange::INetworkManager::WIFI_SECURITY_SAE;
+        snapshot.ssidInfo.strength = -39;
+        snapshot.ssidInfo.frequency = 2.462;
+        snapshot.ssidInfo.rate = 54000;
+        snapshot.ssidInfo.noise = 0;
+    }
+    return snapshot;
 }
 
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_ApNotConnected)
+static const char* const kConnectedSsidResponse =
+    "{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}";
+static const char* const kEmptySsidResponse =
+    "{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}";
+
+TEST_F(NetworkManagerWifiTest, GetWifiState_stateMapping)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
+    struct Row { NMDeviceState state; const char* expected; };
+    const Row rows[] = {
+        { NM_DEVICE_STATE_UNKNOWN,      "{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}" },
+        { NM_DEVICE_STATE_UNMANAGED,    "{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}" },
+        { NM_DEVICE_STATE_UNAVAILABLE,  "{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}" },
+        { NM_DEVICE_STATE_DISCONNECTED, "{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}" },
+        { NM_DEVICE_STATE_PREPARE,      "{\"state\":3,\"status\":\"WIFI_STATE_PAIRING\",\"success\":true}" },
+        { NM_DEVICE_STATE_CONFIG,       "{\"state\":3,\"status\":\"WIFI_STATE_PAIRING\",\"success\":true}" },
+        { NM_DEVICE_STATE_NEED_AUTH,    "{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}" },
+        { NM_DEVICE_STATE_IP_CONFIG,    "{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}" },
+        { NM_DEVICE_STATE_IP_CHECK,     "{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}" },
+        { NM_DEVICE_STATE_SECONDARIES,  "{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}" },
+        { NM_DEVICE_STATE_ACTIVATED,    "{\"state\":5,\"status\":\"WIFI_STATE_CONNECTED\",\"success\":true}" },
+        { NM_DEVICE_STATE_DEACTIVATING, "{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}" },
+        { NM_DEVICE_STATE_FAILED,       "{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}" },
+    };
+    for (const Row& row : rows)
+    {
+        SCOPED_TRACE(::testing::Message() << "NMDeviceState " << row.state);
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache(wifiSnapshot(row.state));
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+        EXPECT_EQ(response, string(row.expected));
+    }
 }
 
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_ApNotNull)
+TEST_F(NetworkManagerWifiTest, GetWifiState_coldCache)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(NULL)));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"success\":false}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_psk)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
-
-    // Create a fake SSID GBytes object
-    const char* ssid_str = "TestWiFiNetwork";
-    GBytes* fake_ssid = g_bytes_new_static(ssid_str, strlen(ssid_str));
-
-    // Setup the Access Point mock calls
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(0x833332)));
-    
-    // AP property mocks
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_PSK)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_SAE)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
-        .WillOnce(::testing::Return(fake_ssid));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    
-    // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
-
-    // Free the GBytes object
-    g_bytes_unref(fake_ssid);
-    
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_EAP)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
-
-    // Create a fake SSID GBytes object
-    const char* ssid_str = "TestWiFiNetwork";
-    GBytes* fake_ssid = g_bytes_new_static(ssid_str, strlen(ssid_str));
-
-    // Setup the Access Point mock calls
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(0x833332)));
-    
-    // AP property mocks
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_802_1X)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_KEY_MGMT_802_1X)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
-        .WillOnce(::testing::Return(fake_ssid));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(85))); // 85% signal strength
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    
-    // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":3,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
-
-    // Free the GBytes object
-    g_bytes_unref(fake_ssid);
-    
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetConnectedSSID_Connected_ssidNull)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
-
-    // Create a fake SSID GBytes object
-    const char* ssid_str = "";
-    GBytes* fake_ssid = g_bytes_new_static(ssid_str, 0);
-
-    // Setup the Access Point mock calls
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<NMAccessPoint*>(0x833332)));
-    
-    // AP property mocks
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApFlags>(NM_802_11_AP_FLAGS_PRIVACY)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_wpa_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_NONE)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_rsn_flags(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211ApSecurityFlags>(NM_802_11_AP_SEC_NONE)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_ssid(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GBytes*>(NULL)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_bssid(::testing::_))
-        .WillOnce(::testing::Return("AA:BB:CC:DD:EE:FF"));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_frequency(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(2462))); // Channel 11 (2.4GHz)
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_mode(::testing::_))
-        .WillOnce(::testing::Return(static_cast<NM80211Mode>(NM_802_11_MODE_INFRA)));
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_max_bitrate(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(54000))); // 54 Mbps
-    
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(::testing::_))
-        .WillOnce(::testing::Return(static_cast<guint32>(20))); // 20% signal strength
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
-    
-    // Update expected response to match the mock data
-    EXPECT_EQ(response, _T("{\"ssid\":\"\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":1,\"strength\":-78,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
-
-    // Free the GBytes object
-    g_bytes_unref(fake_ssid);
-    
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetWifiState_Disconnect)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetWifiState_Connected)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"state\":5,\"status\":\"WIFI_STATE_CONNECTED\",\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetWifiState_Pairing)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_PREPARE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_CONFIG));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"state\":3,\"status\":\"WIFI_STATE_PAIRING\",\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
-}
-
-TEST_F(NetworkManagerWifiTest, GetWifiState_unknown)
-{
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_NEED_AUTH))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNKNOWN));
-
+    Plugin::GnomeNetworkManagerEvents::setWifiConnCache(WifiSnapshot{});
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
 }
 
-TEST_F(NetworkManagerWifiTest, GetWifiState_Connecting)
+TEST_F(NetworkManagerWifiTest, GetConnectedSSID_coldCache)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_NEED_AUTH))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
-
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}"));
-
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
+    Plugin::GnomeNetworkManagerEvents::setWifiConnCache(WifiSnapshot{});
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"success\":false}"));
 }
 
-TEST_F(NetworkManagerWifiTest, GetWifiState_Disabled)
+TEST_F(NetworkManagerWifiTest, GetConnectedSSID_unusableStates)
 {
-    GPtrArray* fakeDevices = g_ptr_array_new();
-    NMDevice *deviceDummy = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    g_ptr_array_add(fakeDevices, deviceDummy);
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
-        .WillRepeatedly(::testing::Return(fakeDevices));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillRepeatedly(::testing::Return("wlan0"));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
+    for (NMDeviceState state : { NM_DEVICE_STATE_UNKNOWN, NM_DEVICE_STATE_UNMANAGED, NM_DEVICE_STATE_UNAVAILABLE })
+    {
+        SCOPED_TRACE(::testing::Message() << "NMDeviceState " << state);
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache(wifiSnapshot(state, true));
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+        EXPECT_EQ(response, _T("{\"success\":false}"));
+    }
+}
 
-    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
-    EXPECT_EQ(response, _T("{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}"));
+TEST_F(NetworkManagerWifiTest, GetConnectedSSID_activatingWithoutAP)
+{
+    for (NMDeviceState state : { NM_DEVICE_STATE_IP_CONFIG, NM_DEVICE_STATE_IP_CHECK, NM_DEVICE_STATE_SECONDARIES,
+                                 NM_DEVICE_STATE_ACTIVATED, NM_DEVICE_STATE_DEACTIVATING, NM_DEVICE_STATE_FAILED })
+    {
+        SCOPED_TRACE(::testing::Message() << "NMDeviceState " << state);
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache(wifiSnapshot(state, false));
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+        EXPECT_EQ(response, _T("{\"success\":false}"));
+    }
+}
 
-    g_object_unref(deviceDummy);
-    g_ptr_array_free(fakeDevices, TRUE);
+TEST_F(NetworkManagerWifiTest, GetConnectedSSID_notAssociated)
+{
+    /* The snapshot still carries AP data; below IP_CONFIG it must not be reported. */
+    for (NMDeviceState state : { NM_DEVICE_STATE_DISCONNECTED, NM_DEVICE_STATE_PREPARE,
+                                 NM_DEVICE_STATE_CONFIG, NM_DEVICE_STATE_NEED_AUTH })
+    {
+        SCOPED_TRACE(::testing::Message() << "NMDeviceState " << state);
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache(wifiSnapshot(state, true));
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+        EXPECT_EQ(response, string(kEmptySsidResponse));
+    }
+}
+
+TEST_F(NetworkManagerWifiTest, GetConnectedSSID_connected)
+{
+    for (NMDeviceState state : { NM_DEVICE_STATE_IP_CONFIG, NM_DEVICE_STATE_IP_CHECK, NM_DEVICE_STATE_SECONDARIES,
+                                 NM_DEVICE_STATE_ACTIVATED, NM_DEVICE_STATE_DEACTIVATING, NM_DEVICE_STATE_FAILED })
+    {
+        SCOPED_TRACE(::testing::Message() << "NMDeviceState " << state);
+        Plugin::GnomeNetworkManagerEvents::setWifiConnCache(wifiSnapshot(state, true));
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+        EXPECT_EQ(response, string(kConnectedSsidResponse));
+    }
 }
 
 TEST_F(NetworkManagerWifiTest, StartWiFiScan_Failed)

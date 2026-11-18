@@ -41,6 +41,8 @@ namespace WPEFramework
 {
     namespace Plugin
     {
+        void getApInfo(NMAccessPoint *AccessPoint, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo, bool doPrint = true);
+
         class wifiManager
         {
         public:
@@ -50,12 +52,10 @@ namespace WPEFramework
                 return &instance;
             }
 
-            bool getWifiState(Exchange::INetworkManager::WiFiState& state);
             bool wifiDisconnect();
             bool ethernetDeactivate();
             bool reacquireDhcpLease(const std::string& iface);
             bool activateKnownConnection(std::string iface, std::string knowConnectionID="");
-            bool wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo);
             bool wifiConnect(const Exchange::INetworkManager::WiFiConnectTo &ssidInfo);
             bool wifiScanRequest(const std::vector<std::string>& ssidsToFilter = {});
             bool isWifiScannedRecently(int timelimitInSec = 5); // default 5 sec as shotest scanning interval

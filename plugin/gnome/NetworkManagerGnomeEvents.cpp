@@ -29,6 +29,8 @@
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManagerGnomeUtils.h"
+#include "NetworkManagerGnomeWIFI.h"
+#include "NetworkManagerGnomePropertyFollower.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
 #include <set>
@@ -49,6 +51,11 @@ namespace WPEFramework
        Written only by the event monitor; read by the proxy's pure readers. */
     static std::map<std::string, GnomeNetworkManagerEvents::InterfaceStateInfo> _ifaceStateCache;
     static std::mutex _ifaceStateCacheMutex;
+
+    /* WiFi connection snapshot served to GetConnectedSSID / GetWifiState.
+       Default-constructed (present == false) answers as "no WiFi device". */
+    static GnomeNetworkManagerEvents::WifiConnSnapshot _wifiConnCache;
+    static std::mutex _wifiConnCacheMutex;
 
     bool GnomeNetworkManagerEvents::isInterfaceStateEnabled(NMDeviceState state)
     {
@@ -86,6 +93,69 @@ namespace WPEFramework
             return false;
         out = it->second;
         return true;
+    }
+
+    void GnomeNetworkManagerEvents::setWifiConnCache(const WifiConnSnapshot& snapshot)
+    {
+        std::lock_guard<std::mutex> lock(_wifiConnCacheMutex);
+        _wifiConnCache = snapshot;
+    }
+
+    GnomeNetworkManagerEvents::WifiConnSnapshot GnomeNetworkManagerEvents::getWifiConnCache()
+    {
+        std::lock_guard<std::mutex> lock(_wifiConnCacheMutex);
+        return _wifiConnCache;
+    }
+
+    void GnomeNetworkManagerEvents::refreshWifiConnCache(NMDevice* wifiDevice)
+    {
+        WifiConnSnapshot snapshot;
+        if (wifiDevice != nullptr && NM_IS_DEVICE_WIFI(wifiDevice))
+        {
+            snapshot.present = true;
+            snapshot.state = nm_device_get_state(wifiDevice);
+            NMAccessPoint* activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(wifiDevice));
+            if (activeAP != nullptr)
+            {
+                snapshot.hasActiveAP = true;
+                getApInfo(activeAP, snapshot.ssidInfo, false);
+            }
+        }
+        setWifiConnCache(snapshot);
+        NMLOG_DEBUG("wifi connection cache: present=%d state=%d activeAP=%d ssid=%s",
+                    snapshot.present, static_cast<int>(snapshot.state), snapshot.hasActiveAP, snapshot.ssidInfo.ssid.c_str());
+    }
+
+    /* Plain cast: the follower only needs the pointer; tests may stub the getter. */
+    static GObject* activeAccessPointOf(GObject* wifiDevice)
+    {
+        return reinterpret_cast<GObject*>(nm_device_wifi_get_active_access_point(reinterpret_cast<NMDeviceWifi*>(wifiDevice)));
+    }
+
+    static void wifiConnChanged(GObject* wifiDevice, gpointer)
+    {
+        GnomeNetworkManagerEvents::refreshWifiConnCache(reinterpret_cast<NMDevice*>(wifiDevice));
+    }
+
+    /* Every active-AP property the snapshot holds; see refreshWifiConnCache / getApInfo. */
+    static PropertyFollower _wifiApFollower(NM_DEVICE_WIFI_ACTIVE_ACCESS_POINT, &activeAccessPointOf,
+        { NM_ACCESS_POINT_SSID, NM_ACCESS_POINT_BSSID, NM_ACCESS_POINT_STRENGTH, NM_ACCESS_POINT_FREQUENCY,
+          NM_ACCESS_POINT_FLAGS, NM_ACCESS_POINT_WPA_FLAGS, NM_ACCESS_POINT_RSN_FLAGS, NM_ACCESS_POINT_MAX_BITRATE },
+        &wifiConnChanged, nullptr);
+
+    void GnomeNetworkManagerEvents::startWifiConnTracking(NMDevice* wifiDevice)
+    {
+        if (wifiDevice != nullptr && NM_IS_DEVICE_WIFI(wifiDevice))
+            _wifiApFollower.start(G_OBJECT(wifiDevice));
+        else
+            _wifiApFollower.stop();
+        refreshWifiConnCache(wifiDevice);
+    }
+
+    void GnomeNetworkManagerEvents::stopWifiConnTracking()
+    {
+        _wifiApFollower.stop();
+        setWifiConnCache(WifiConnSnapshot{});
     }
 
     static void primaryConnectionCb(NMClient *client, GParamSpec *param, NMEvents *nmEvents)
@@ -348,6 +418,9 @@ namespace WPEFramework
                 NMLOG_FATAL("not a wifi device !");
                 return;
             }
+            /* Refresh before dispatching onWIFIStateChanged so a client reacting to
+               the event reads the new state from GetWifiState / GetConnectedSSID. */
+            refreshWifiConnCache(device);
             std::string wifiState;
             /* SSID NM is activating (pairing/connecting); empty once the activation is torn down */
             std::string attemptingSSID = "";
@@ -556,6 +629,8 @@ namespace WPEFramework
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
                 GnomeNetworkManagerEvents::updateInterfaceStateCache(ifname, nm_device_get_state(device), nm_device_get_hw_address(device));
+                if (ifname == nmUtils::wlanIface())
+                    GnomeNetworkManagerEvents::startWifiConnTracking(device);
                 g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                 g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
                 g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
@@ -607,6 +682,7 @@ namespace WPEFramework
             if (!iface) return;
             std::string ifname = iface;
             if(ifname == nmUtils::wlanIface()) {
+                GnomeNetworkManagerEvents::stopWifiConnTracking();
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_REMOVED, nmUtils::wlanIface());
                 NMLOG_INFO("WIFI device removed: %s", ifname.c_str());
             }
@@ -724,6 +800,9 @@ namespace WPEFramework
                 {
                     NMDeviceState devState =  nm_device_get_state(device);
                     GnomeNetworkManagerEvents::updateInterfaceStateCache(ifname, devState, nm_device_get_hw_address(device));
+                    /* Seed the WiFi connection snapshot whatever the device state. */
+                    if (ifname == nmUtils::wlanIface())
+                        GnomeNetworkManagerEvents::startWifiConnTracking(device);
 
                     if(devState > NM_DEVICE_STATE_DISCONNECTED && devState <= NM_DEVICE_STATE_ACTIVATED)
                     {
@@ -861,6 +940,8 @@ namespace WPEFramework
                 }
             }
         }
+
+        stopWifiConnTracking();
 
         NMLOG_DEBUG("Signal handlers cleanup complete");
     }
