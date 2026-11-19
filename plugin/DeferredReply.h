@@ -161,7 +161,9 @@ namespace WPEFramework
                     if (it == _pending.end())
                         return ReplyLater;   // Already answered while start() was running (completion or Drain/Close).
 
-                    if (rc != Core::ERROR_NONE)
+                    // A direct caller's entry stays until collected below: if it was already answered while
+                    // start() was running, that first answer wins over the start error.
+                    if ((rc != Core::ERROR_NONE) && !it->second.done)
                     {
                         _pending.erase(it);
                         guard.unlock();

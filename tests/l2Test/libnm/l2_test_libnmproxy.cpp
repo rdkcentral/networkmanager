@@ -1820,6 +1820,22 @@ TEST_F(DeferredReplyTest, StartFailureAfterDrainDoesNotReplyTwice)
     EXPECT_EQ(static_cast<int>(Core::ERROR_UNAVAILABLE), error["code"].Number());
 }
 
+TEST_F(DeferredReplyTest, DirectCallerStartFailureAfterDrainKeepsDrainReply)
+{
+    EXPECT_CALL(service, Submit(::testing::_, ::testing::_)).Times(0);
+    auto registry = std::make_shared<Plugin::DeferredReply::Registry>(*plugin);
+    Plugin::DeferredReply::PendingReply held;
+
+    string reply;
+    EXPECT_EQ(Core::ERROR_UNAVAILABLE, registry->Invoke(DirectCaller(),
+        [&](Plugin::DeferredReply::PendingReply&& pending) {
+            held = std::move(pending);
+            EXPECT_EQ(1u, registry->Drain(Core::ERROR_UNAVAILABLE));
+            return Core::ERROR_GENERAL;
+        },
+        ErrorReply, reply));
+}
+
 TEST_F(DeferredReplyTest, CompletionInsideStartIsDeliveredOnce)
 {
     ExpectOneReplyOnChannel1();
