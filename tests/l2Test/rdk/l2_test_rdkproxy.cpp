@@ -149,7 +149,6 @@ protected:
         dispatcher->Activate(&service);
         response = plugin->Initialize(&service);
         EXPECT_EQ(string(""), response);
-        NetworkManagerLogger::SetLevel(static_cast<NetworkManagerLogger::LogLevel>(NetworkManagerLogger::INFO_LEVEL)); // Set log level to DEBUG_LEVEL
     }
 
     virtual void SetUp() override

@@ -20,55 +20,44 @@
 #ifndef NM_LOGGER_H
 #define NM_LOGGER_H
 
-#ifdef USE_RDK_LOGGER
-#define RDKLOGGER_MODULE_NAME "LOG.RDK.NWMGR"
-#endif
-
-#include <iostream>
-#include <string>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/syscall.h>
-
 namespace NetworkManagerLogger {
-/**
- * Logging level with an increasing order of refinement
- * (DEBUG_LEVEL = Finest logging)
- * It is essental to start with 0 and increase w/o gaps as the value
- * can be used for indexing in a mapping table.
- */
-enum LogLevel {FATAL_LEVEL = 0, ERROR_LEVEL, WARNING_LEVEL, INFO_LEVEL, DEBUG_LEVEL};
 
-/**
- * @brief Init logging
- * Should be called once per program run before calling log-functions
- */
-void Init();
+class Debug {
+public:
+    Debug() = delete;
+    Debug(const Debug& a_Copy) = delete;
+    Debug& operator=(const Debug& a_RHS) = delete;
+    ~Debug() = default;
 
-/**
- * @brief To set log level while runtime
- */
-void SetLevel(LogLevel level);
+    explicit Debug(const string& text)
+        : _text(WPEFramework::Core::ToString(text))
+    {
+    }
+    Debug(const TCHAR formatter[], ...)
+    {
+        va_list ap;
+        va_start(ap, formatter);
+        WPEFramework::Trace::Format(_text, formatter, ap);
+        va_end(ap);
+    }
+    inline const char* Data() const
+    {
+        return (_text.c_str());
+    }
+    inline uint16_t Length() const
+    {
+        return (static_cast<uint16_t>(_text.length()));
+    }
 
-/**
- * @brief To set log level while runtime
- */
-void GetLevel(LogLevel& level);
+private:
+    std::string _text;
+};
 
-/**
- * @brief Log a message
- * The function is defined by logging backend.
- * Currently 2 variants are supported: RDKLOGGER & stdout(default)
- */
-void logPrint(LogLevel level, const char* file, const char* func, int line, const char* format, ...) __attribute__ ((format (printf, 5, 6)));
-
-
-#define NMLOG_DEBUG(FMT, ...)   logPrint(NetworkManagerLogger::DEBUG_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
-#define NMLOG_INFO(FMT, ...)    logPrint(NetworkManagerLogger::INFO_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
-#define NMLOG_WARNING(FMT, ...) logPrint(NetworkManagerLogger::WARNING_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
-#define NMLOG_ERROR(FMT, ...)   logPrint(NetworkManagerLogger::ERROR_LEVEL, __FILE__, __func__, __LINE__, FMT, ##__VA_ARGS__)
-#define NMLOG_FATAL(FMT, ...)   logPrint(NetworkManagerLogger::FATAL_LEVEL, __FILE__,__func__, __LINE__, FMT, ##__VA_ARGS__)
+#define NMLOG_DEBUG(FMT, ...) TRACE_GLOBAL(NetworkManagerLogger::Debug, (_T(FMT), ##__VA_ARGS__))
+#define NMLOG_INFO(FMT, ...) TRACE_GLOBAL(WPEFramework::Trace::Information, (_T(FMT), ##__VA_ARGS__))
+#define NMLOG_WARNING(FMT, ...) TRACE_GLOBAL(WPEFramework::Trace::Warning, (_T(FMT), ##__VA_ARGS__))
+#define NMLOG_ERROR(FMT, ...) TRACE_GLOBAL(WPEFramework::Trace::Error, (_T(FMT), ##__VA_ARGS__))
+#define NMLOG_FATAL(FMT, ...) TRACE_GLOBAL(WPEFramework::Trace::Fatal, (_T(FMT), ##__VA_ARGS__))
 
 #define LOG_ENTRY_FUNCTION()    { NMLOG_INFO("Entering %s", __func__); }
 

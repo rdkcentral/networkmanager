@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "Module.h"
 #include <string>
 
 typedef enum _SsidSecurity

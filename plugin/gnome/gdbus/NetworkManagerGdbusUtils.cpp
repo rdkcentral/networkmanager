@@ -17,6 +17,7 @@
 * limitations under the License.
 **/
 
+#include "Module.h"
 #include <glib.h>
 #include <gio/gio.h>
 #include <string>

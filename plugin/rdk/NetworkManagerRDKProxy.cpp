@@ -432,7 +432,7 @@ namespace WPEFramework
             }
         }
 
-        void NetworkManagerImplementation::platform_logging(const NetworkManagerLogger::LogLevel& level)
+        void NetworkManagerImplementation::platform_logging(const Exchange::INetworkManager::Logging& level)
         {
             // TODO set the netsrvmgr logLevel
             return;

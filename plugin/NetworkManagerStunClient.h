@@ -19,6 +19,7 @@
 #ifndef STUN_CLIENT_H
 #define STUN_CLIENT_H
 
+#include "Module.h"
 #include <array>
 #include <chrono>
 #include <cstdint>

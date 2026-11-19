@@ -52,7 +52,6 @@ string(TOLOWER ${NAMESPACE} STORAGE_DIRECTORY)
 get_directory_property(SEVICES_DEFINES COMPILE_DEFINITIONS)
 
 option(ENABLE_LEGACY_PLUGINS "Enable Legacy Plugins" ON)
-option(USE_RDK_LOGGER "Enable RDK Logger for logging" OFF )
 option(ENABLE_UNIT_TESTING "Enable unit tests" OFF)
 option(USE_TELEMETRY "Enable Telemetry T2 support" OFF)
 option(USE_CONNECTIVITYCHECKMGR "Enable ConnectivityCheckMgr delegation (compiles the delegation client and reads the TR-181 RFC feature flag via rfcapi)" OFF)

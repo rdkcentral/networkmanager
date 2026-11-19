@@ -21,7 +21,7 @@ message ("building l1 test")
 find_package(CURL)
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
-find_package(${NAMESPACE}Plugins REQUIRED)
+find_package(${NAMESPACE}Messaging REQUIRED)
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin/rdk)
@@ -66,15 +66,16 @@ set(NM_CLASS_L1_TEST "class_l1_test")
 add_executable(${NM_CLASS_L1_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_stunclient.cpp
     ${CMAKE_SOURCE_DIR}/tests/l1Test/l1_test_connectivity.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
 )
 
 target_link_libraries(${NM_CLASS_L1_TEST} PRIVATE
     gmock_main
     ${CURL_LIBRARIES}
     ${NAMESPACE}Core::${NAMESPACE}Core
+    ${NAMESPACE}Messaging::${NAMESPACE}Messaging
 )
 
 set_target_properties(${NM_CLASS_L1_TEST} PROPERTIES

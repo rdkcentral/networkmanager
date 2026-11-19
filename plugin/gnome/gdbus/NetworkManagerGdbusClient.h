@@ -18,6 +18,8 @@
 **/
 
 #pragma once
+
+#include "Module.h"
 #include <gio/gio.h>
 #include <iostream>
 #include <string>

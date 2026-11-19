@@ -37,8 +37,6 @@
     }
 
 
-using namespace NetworkManagerLogger;
-
 namespace WPEFramework
 {
     namespace Plugin
@@ -131,16 +129,12 @@ namespace WPEFramework
             LOG_INPARAM();
 
             uint32_t rc = Core::ERROR_GENERAL;
-            LogLevel level = INFO_LEVEL;
             if (parameters.HasLabel("level"))
             {
-                level = static_cast <LogLevel> (parameters["level"].Number());
+                auto level = static_cast <Exchange::INetworkManager::Logging> (parameters["level"].Number());
 
-                NetworkManagerLogger::SetLevel(level);
-
-                const Exchange::INetworkManager::Logging log = static_cast <Exchange::INetworkManager::Logging> (level);
                 if (_networkManager)
-                    rc = _networkManager->SetLogLevel(log);
+                    rc = _networkManager->SetLogLevel(level);
                 else
                     rc = Core::ERROR_UNAVAILABLE;
             }
@@ -152,8 +146,11 @@ namespace WPEFramework
             LOG_INPARAM();
 
             uint32_t rc = Core::ERROR_NONE;
-            LogLevel level = INFO_LEVEL;
-            NetworkManagerLogger::GetLevel(level);
+            auto level = Exchange::INetworkManager::Logging::LOG_LEVEL_INFO;
+            if (_networkManager)
+                rc = _networkManager->GetLogLevel(level);
+            else
+                rc = Core::ERROR_UNAVAILABLE;
             response["level"] = static_cast <uint8_t>(level);
 
             returnJson(rc);

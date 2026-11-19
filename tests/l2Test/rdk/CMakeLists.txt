@@ -28,18 +28,17 @@ add_executable(${NM_RDK_PROXY_L2_TEST}
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxy.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxyEvent.cpp
     ${CMAKE_SOURCE_DIR}/tests/l2Test/rdk/l2_test_rdkproxyImpl.cpp
-    ${CMAKE_SOURCE_DIR}/tests/mocks/thunder/Module.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Iarm.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/Wraps.cpp
     ${CMAKE_SOURCE_DIR}/tests/mocks/CurlWraps.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManager.cpp
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerJsonRpc.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerImplementation.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerConnectivity.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerStunClient.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerPowerClient.cpp
     ${CMAKE_SOURCE_DIR}/plugin/rdk/NetworkManagerRDKProxy.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
     ${PROXY_STUB_SOURCES}
 )
 

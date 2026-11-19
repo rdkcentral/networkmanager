@@ -21,6 +21,7 @@ message("Building plugin CLI tools")
 # Required packages
 find_package(PkgConfig REQUIRED)
 find_package(${NAMESPACE}Core REQUIRED)
+find_package(${NAMESPACE}Messaging REQUIRED)
 
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 pkg_check_modules(GIO REQUIRED gio-2.0)
@@ -34,9 +35,9 @@ set(COMMON_COMPILE_OPTIONS
 )
 
 set(COMMON_SOURCES
-    ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerLogger.cpp
     ${CMAKE_SOURCE_DIR}/plugin/NetworkManagerSecretAgent.cpp
     ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeUtils.cpp
+    ${CMAKE_SOURCE_DIR}/plugin/Module.cpp
 )
 
 set(COMMON_INCLUDES
@@ -51,6 +52,7 @@ set(COMMON_INCLUDES
 
 set(COMMON_LIBS
     ${NAMESPACE}Core::${NAMESPACE}Core
+    ${NAMESPACE}Messaging::${NAMESPACE}Messaging
     ${GLIB_LIBRARIES}
     ${GIO_LIBRARIES}
 )

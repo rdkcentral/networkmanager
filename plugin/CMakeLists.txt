@@ -26,13 +26,6 @@ find_package(${NAMESPACE}Core REQUIRED)
 find_package(${NAMESPACE}Plugins REQUIRED)
 find_package(CURL)
 
-if (USE_RDK_LOGGER)
-    find_package(rdklogger REQUIRED)
-    add_definitions(-DUSE_RDK_LOGGER)
-
-    include_directories(${RDKLOGGER_INCLUDE_DIRS})
-endif (USE_RDK_LOGGER)
-
 if (USE_TELEMETRY)
     include_directories(${T2_INCLUDE_DIRS})
 endif (USE_TELEMETRY)
@@ -53,8 +46,6 @@ set(PLUGIN_NETWORKMANAGER_LOGLEVEL "3" CACHE STRING "To configure default loglev
 set(PLUGIN_NETWORKMANAGER_STARTUPORDER "25" CACHE STRING "To configure startup order of Unified NetworkManager plugin")
 
 set(PLUGIN_NETWORKMANAGER_AUTOSTART "false" CACHE STRING "Set the default AutoStart of NetworkManager Plugin")
-set(PLUGIN_BUILD_REFERENCE ${PROJECT_VERSION} CACHE STRING "To Set the Hash for the plugin")
-add_definitions(-DPLUGIN_BUILD_REFERENCE=${PLUGIN_BUILD_REFERENCE})
 
 include_directories(${PROJECT_SOURCE_DIR}/interface)
 include_directories(${PROJECT_SOURCE_DIR}/plugin)
@@ -63,7 +54,6 @@ include_directories(${PROJECT_SOURCE_DIR}/plugin)
 add_library(${MODULE_NAME} SHARED
                             NetworkManager.cpp
                             NetworkManagerJsonRpc.cpp
-                            NetworkManagerLogger.cpp
                             Module.cpp)
 
 target_link_libraries(${MODULE_NAME}  PRIVATE
@@ -86,7 +76,6 @@ endif()
 add_library(${MODULE_IMPL_NAME} SHARED
                             NetworkManagerImplementation.cpp
                             NetworkManagerStunClient.cpp
-                            NetworkManagerLogger.cpp
                             NetworkManagerPowerClient.cpp
                             Module.cpp)
 
@@ -166,11 +155,6 @@ target_link_libraries(${MODULE_IMPL_NAME}  PRIVATE
 
 target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${CURL_LIBRARIES})
 target_include_directories(${MODULE_IMPL_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
-
-if (USE_RDK_LOGGER)
-    target_link_libraries(${MODULE_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
-    target_link_libraries(${MODULE_IMPL_NAME} PRIVATE ${RDKLOGGER_LIBRARIES})
-endif (USE_RDK_LOGGER)
 
 if (USE_TELEMETRY)
     target_link_libraries(${MODULE_NAME} PRIVATE ${T2_LIBRARIES})
