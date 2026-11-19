@@ -27,6 +27,7 @@
 #include <future>
 #include <mutex>
 #include <sys/wait.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace WPEFramework;
@@ -662,5 +663,22 @@ TEST(DiagnosticsProcessRunner, MissingProgramFails)
 {
     ProcessRunner runner;
     std::atomic<bool> cancel(false);
-    EXPECT_FALSE(runner.Run({ "/nonexistent/ping" }, std::chrono::seconds(5), cancel).Succeeded());
+    const ProcessResult result = runner.Run({ "/nonexistent/ping" }, std::chrono::seconds(5), cancel);
+    EXPECT_FALSE(result.Succeeded());
+    EXPECT_EQ("/nonexistent/ping: not found\n", result.output);
+}
+
+TEST(DiagnosticsProcessRunner, NonExecutableProgramIsReported)
+{
+    char path[] = "/tmp/nm_diag_not_executable_XXXXXX";
+    const int fd = ::mkstemp(path);
+    ASSERT_GE(fd, 0);
+    ::close(fd);
+
+    ProcessRunner runner;
+    std::atomic<bool> cancel(false);
+    const ProcessResult result = runner.Run({ path }, std::chrono::seconds(5), cancel);
+    ::unlink(path);
+    EXPECT_FALSE(result.Succeeded());
+    EXPECT_EQ(string(path) + ": cannot execute\n", result.output);
 }

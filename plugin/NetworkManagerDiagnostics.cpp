@@ -141,6 +141,9 @@ namespace WPEFramework
                 for (const string& arg : argv)
                     args.push_back(const_cast<char*>(arg.c_str()));
                 args.push_back(nullptr);
+                // Reported in the output if execvp() fails, as the shell did when commands ran through popen().
+                const string notFound = argv[0] + ": not found\n";
+                const string cannotExecute = argv[0] + ": cannot execute\n";
 
                 int fds[2];
                 if (::pipe2(fds, O_CLOEXEC) != 0)
@@ -166,6 +169,10 @@ namespace WPEFramework
                     ::dup2(fds[1], STDERR_FILENO);
                     CloseInheritedFds();
                     ::execvp(args[0], args.data());
+                    const string& failure = (errno == ENOENT) ? notFound : cannotExecute;
+                    while ((::write(STDERR_FILENO, failure.data(), failure.size()) < 0) && (errno == EINTR))
+                    {
+                    }
                     ::_exit(127);
                 }
 
