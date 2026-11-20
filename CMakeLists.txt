@@ -20,13 +20,14 @@ cmake_minimum_required(VERSION 3.3)
 
 project(NetworkManager)
 
-find_package(Thunder REQUIRED)
+find_package(Thunder QUIET)
 
-# Error out if Thunder isn't found
-if (NOT Thunder_FOUND)
-    message(FATAL_ERROR
-        "Thunder could not be found.\n"
-        "Install Thunder and ensure its CMake package is discoverable via CMAKE_PREFIX_PATH or default locations.")
+if(NOT Thunder_FOUND)
+    find_package(WPEFramework QUIET)
+    if(NOT WPEFramework_FOUND)
+        message(FATAL_ERROR "Neither Thunder nor WPEFramework found in sysroot")
+    endif()
+    add_compile_definitions(Thunder=WPEFramework)
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
