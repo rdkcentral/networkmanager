@@ -617,6 +617,9 @@ namespace WPEFramework
             if (!iface) return;
             std::string ifname = iface;
             if(ifname == nmUtils::wlanIface()) {
+                /* Seed the WiFi snapshot before INTERFACE_ADDED so a client reacting
+                   to the event reads the new device from GetWifiState / GetConnectedSSID. */
+                GnomeNetworkManagerEvents::startWifiConnTracking(device);
                 GnomeNetworkManagerEvents::onInterfaceStateChangeCb(Exchange::INetworkManager::INTERFACE_ADDED, nmUtils::wlanIface());
                 NMLOG_INFO("WIFI device added: %s", ifname.c_str());
             }
@@ -629,8 +632,6 @@ namespace WPEFramework
             if(ifname == nmUtils::ethIface() || ifname == nmUtils::wlanIface())
             {
                 GnomeNetworkManagerEvents::updateInterfaceStateCache(ifname, nm_device_get_state(device), nm_device_get_hw_address(device));
-                if (ifname == nmUtils::wlanIface())
-                    GnomeNetworkManagerEvents::startWifiConnTracking(device);
                 g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                 g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
                 g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
