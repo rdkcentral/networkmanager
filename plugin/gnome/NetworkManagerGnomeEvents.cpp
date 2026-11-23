@@ -665,6 +665,43 @@ namespace WPEFramework
         }
     }
 
+    static const char* connectivityStateToString(NMConnectivityState state) {
+        switch (state) {
+            case NM_CONNECTIVITY_UNKNOWN:
+                return "UNKNOWN";
+            case NM_CONNECTIVITY_NONE:
+                return "NONE";
+            case NM_CONNECTIVITY_PORTAL:
+                return "PORTAL";
+            case NM_CONNECTIVITY_LIMITED:
+                return "LIMITED";
+            case NM_CONNECTIVITY_FULL:
+                return "FULL";
+            default:
+                return "INVALID";
+        }
+    }
+
+    static void ip4ConnectivityChangedCb(GObject *object, GParamSpec *pspec, gpointer user_data) {
+        NMDevice *device = NM_DEVICE(object);
+        NMConnectivityState state = nm_device_get_connectivity(device, AF_INET);
+        const char *iface = nm_device_get_iface(device);
+
+        NMLOG_INFO("[%s] IPv4 Connectivity changed: %s\n",
+            iface ? iface : "unknown",
+            connectivityStateToString(state));
+    }
+
+    static void ip6ConnectivityChangedCb(GObject *object, GParamSpec *pspec, gpointer user_data) {
+        NMDevice *device = NM_DEVICE(object);
+        NMConnectivityState state = nm_device_get_connectivity(device, AF_INET6);
+        const char *iface = nm_device_get_iface(device);
+
+        NMLOG_INFO("[%s] IPv6 Connectivity changed: %s\n",
+            iface ? iface : "unknown",
+            connectivityStateToString(state));
+    }
+
     static void deviceAddedCB(NMClient *client, NMDevice *device, NMEvents *nmEvents)
     {
         if( ((device != NULL) && NM_IS_DEVICE(device)) )
@@ -832,6 +869,7 @@ namespace WPEFramework
             g_main_loop_unref(loop);
         g_main_context_unref(context);
     }
+    
 
     void* GnomeNetworkManagerEvents::networkMangerEventMonitor(void *arg)
     {
@@ -928,6 +966,9 @@ namespace WPEFramework
                     g_signal_connect(device, "notify::" NM_DEVICE_STATE, G_CALLBACK(GnomeNetworkManagerEvents::deviceStateChangeCb), nmEvents);
                     g_signal_connect(device, "notify::ip4-config", G_CALLBACK(ip4ConfigChangedCb), nmEvents);
                     g_signal_connect(device, "notify::ip6-config", G_CALLBACK(ip6ConfigChangedCb), nmEvents);
+                    g_signal_connect(device, "notify::" NM_DEVICE_IP4_CONNECTIVITY, G_CALLBACK(ip4ConnectivityChangedCb), nmEvents);
+                    g_signal_connect(device, "notify::" NM_DEVICE_IP6_CONNECTIVITY, G_CALLBACK(ip6ConnectivityChangedCb), nmEvents);
+
                     if(NM_IS_DEVICE_WIFI(device)) {
                         nmEvents->wifiDevice = NM_DEVICE_WIFI(device);
                         g_signal_connect(nmEvents->wifiDevice, "notify::" NM_DEVICE_WIFI_LAST_SCAN, G_CALLBACK(GnomeNetworkManagerEvents::onAvailableSSIDsCb), nmEvents);
