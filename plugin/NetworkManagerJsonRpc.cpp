@@ -224,7 +224,21 @@ namespace WPEFramework
 
             if (Core::ERROR_NONE == rc)
             {
-                response["interface"] = interface;      
+                response["interface"] = interface;
+
+                // Implementation reports only "eth0", "wlan0" or "" (no active interface)
+                if ("eth0" == interface)
+                {
+                    Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET};
+                    response["type"] = type.Data();
+                }
+                else if ("wlan0" == interface)
+                {
+                    Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{Exchange::INetworkManager::INTERFACE_TYPE_WIFI};
+                    response["type"] = type.Data();
+                }
+                else
+                    response["type"] = string("UNKNOWN");
             }
             returnJson(rc);
         }

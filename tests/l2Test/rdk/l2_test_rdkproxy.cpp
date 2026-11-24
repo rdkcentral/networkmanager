@@ -299,7 +299,7 @@ TEST_F(NetworkManagerTest, GetAvailableInterfaces_Failed)
 TEST_F(NetworkManagerTest, GetPrimaryInterface_BothInterfacesDown)
 {
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetPrimaryInterface"), _T("{}"), response));
-    EXPECT_EQ(response, _T("{\"interface\":\"\",\"success\":true}"));
+    EXPECT_EQ(response, _T("{\"interface\":\"\",\"type\":\"UNKNOWN\",\"success\":true}"));
 }
 
 TEST_F(NetworkManagerTest, SetInterfaceState)
