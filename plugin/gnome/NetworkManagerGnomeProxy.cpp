@@ -634,7 +634,8 @@ namespace WPEFramework
 
             if(interface.empty())
             {
-                if(Core::ERROR_NONE != GetPrimaryInterface(interface))
+                InterfaceType primaryType = INTERFACE_TYPE_UNKNOWN;
+                if(Core::ERROR_NONE != GetPrimaryInterface(interface, primaryType))
                 {
                     NMLOG_WARNING("default interface get failed");
                     return Core::ERROR_NONE;

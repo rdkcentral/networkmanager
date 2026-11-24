@@ -24,6 +24,7 @@
 namespace WPEFramework {
 
 ENUM_CONVERSION_BEGIN(Exchange::INetworkManager::InterfaceType)
+    { Exchange::INetworkManager::InterfaceType::INTERFACE_TYPE_UNKNOWN, _TXT("UNKNOWN") },
     { Exchange::INetworkManager::InterfaceType::INTERFACE_TYPE_ETHERNET, _TXT("ETHERNET") },
     { Exchange::INetworkManager::InterfaceType::INTERFACE_TYPE_WIFI, _TXT("WIFI") },
     { Exchange::INetworkManager::InterfaceType::INTERFACE_TYPE_P2P, _TXT("P2P") },

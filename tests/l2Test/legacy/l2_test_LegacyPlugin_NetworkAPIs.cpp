@@ -238,11 +238,12 @@ TEST_F(NetworkTest, getDefaultInterface) {
                     return static_cast<void*>(mockNetworkManager);
                     }));
 
-    EXPECT_CALL(*mockNetworkManager, GetPrimaryInterface(::testing::_))
+    EXPECT_CALL(*mockNetworkManager, GetPrimaryInterface(::testing::_, ::testing::_))
         .Times(1)
         .WillOnce(::testing::Invoke(
-                    [&](string& interface) -> uint32_t                     {
+                    [&](string& interface, Exchange::INetworkManager::InterfaceType& type) -> uint32_t                     {
                     interface = "eth0";
+                    type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
                     return Core::ERROR_NONE;
                     }));
 

@@ -349,12 +349,14 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
 TEST_F(NetworkManagerTest, GetPrimaryInterface_empty)
 {
     string interface{};
+    Exchange::INetworkManager::InterfaceType type = Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET;
     Core::ProxyType<Plugin::NetworkManagerImplementation> NetworkManagerImpl2 = Core::ProxyType<Plugin::NetworkManagerImplementation>::Create();
     NetworkManagerImpl2->m_ethEnabled = false;
     NetworkManagerImpl2->m_wlanEnabled = false;
-    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface);
+    uint32_t result = NetworkManagerImpl2->GetPrimaryInterface(interface, type);
     EXPECT_EQ(result, Core::ERROR_NONE);
     EXPECT_EQ(interface, "");
+    EXPECT_EQ(type, Exchange::INetworkManager::INTERFACE_TYPE_UNKNOWN);
 }
 
 TEST_F(NetworkManagerTest, GetInterfaceState_Failed)

@@ -304,7 +304,7 @@ namespace WPEFramework
                 uint32_t GetAvailableInterfaces (IInterfaceDetailsIterator*& interfaces/* @out */) override;
 
                 /* @brief Get the active Interface used for external world communication */
-                uint32_t GetPrimaryInterface (string& interface /* @out */) override;
+                uint32_t GetPrimaryInterface (string& interface /* @out */, InterfaceType& type /* @out */) override;
 
                 /* @brief Enable/Disable the given interface */
                 uint32_t SetInterfaceState(const string& interface/* @in */, const bool isEnabled/* @in */) override;

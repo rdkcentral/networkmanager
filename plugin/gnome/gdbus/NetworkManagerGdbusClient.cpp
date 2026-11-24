@@ -1088,7 +1088,8 @@ namespace WPEFramework
 
             if(interface.empty())
             {
-                if(Core::ERROR_NONE != _instance->GetPrimaryInterface(interface))
+                Exchange::INetworkManager::InterfaceType primaryType = Exchange::INetworkManager::INTERFACE_TYPE_UNKNOWN;
+                if(Core::ERROR_NONE != _instance->GetPrimaryInterface(interface, primaryType))
                 {
                     NMLOG_WARNING("default interface get failed");
                     return true;

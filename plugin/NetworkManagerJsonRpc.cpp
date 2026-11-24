@@ -216,29 +216,18 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
+            Exchange::INetworkManager::InterfaceType interfaceType = Exchange::INetworkManager::INTERFACE_TYPE_UNKNOWN;
 
             if (_networkManager)
-                rc = _networkManager->GetPrimaryInterface(interface);
+                rc = _networkManager->GetPrimaryInterface(interface, interfaceType);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
+                Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{interfaceType};
                 response["interface"] = interface;
-
-                // Implementation reports only "eth0", "wlan0" or "" (no active interface)
-                if ("eth0" == interface)
-                {
-                    Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{Exchange::INetworkManager::INTERFACE_TYPE_ETHERNET};
-                    response["type"] = type.Data();
-                }
-                else if ("wlan0" == interface)
-                {
-                    Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{Exchange::INetworkManager::INTERFACE_TYPE_WIFI};
-                    response["type"] = type.Data();
-                }
-                else
-                    response["type"] = string("UNKNOWN");
+                response["type"] = type.Data();
             }
             returnJson(rc);
         }

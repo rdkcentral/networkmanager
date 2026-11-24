@@ -364,11 +364,12 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
+            Exchange::INetworkManager::InterfaceType interfaceType = Exchange::INetworkManager::INTERFACE_TYPE_UNKNOWN;
 
             auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
             if (_nwmgr)
             {
-                rc = _nwmgr->GetPrimaryInterface(interface);
+                rc = _nwmgr->GetPrimaryInterface(interface, interfaceType);
                 _nwmgr->Release();
             }
             else
