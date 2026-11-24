@@ -51,11 +51,14 @@ namespace WPEFramework
 
         void PropertyFollower::start(GObject* owner)
         {
+            /* Take the new reference before stop(): when restarting with the current
+               owner, the follower may hold its last reference. */
+            GObject* newOwner = (owner != nullptr) ? G_OBJECT(g_object_ref(owner)) : nullptr;
             stop();
-            if (owner == nullptr)
+            if (newOwner == nullptr)
                 return;
 
-            m_owner = G_OBJECT(g_object_ref(owner));
+            m_owner = newOwner;
             const std::string signal = "notify::" + m_ownerProperty;
             m_ownerHandler = g_signal_connect(m_owner, signal.c_str(), G_CALLBACK(ownerNotifyCb), this);
             bindChild(m_getter(m_owner));

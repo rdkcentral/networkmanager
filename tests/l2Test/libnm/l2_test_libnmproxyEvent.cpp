@@ -25,6 +25,8 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <atomic>
+#include <pthread.h>
 
 #include "FactoriesImplementation.h"
 #include "WrapsMock.h"
@@ -723,6 +725,20 @@ TEST_F(WifiConnCacheEventTest, stopWifiConnTracking_reports_absent)
     EXPECT_EQ(response, _T("{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}"));
 }
 
+/* Set from an idle callback dispatched by the event monitor's running main loop
+   (default context, thread "nm_event_thrd"). Static so a late dispatch after a
+   timed-out wait still writes to valid storage. */
+static std::atomic<bool> s_monitorLoopRunning{false};
+
+static gboolean markMonitorLoopRunning(gpointer)
+{
+    char name[16] = {0};
+    pthread_getname_np(pthread_self(), name, sizeof(name));
+    if (std::string(name) == "nm_event_thrd")
+        s_monitorLoopRunning.store(true);
+    return G_SOURCE_REMOVE;
+}
+
 TEST_F(WifiConnCacheEventTest, startupWalk_seedsDisconnectedWifiDevice)
 {
     /* The fixture's event monitor walked an empty device list; restart it with an
@@ -739,16 +755,28 @@ TEST_F(WifiConnCacheEventTest, startupWalk_seedsDisconnectedWifiDevice)
     deviceState = NM_DEVICE_STATE_DISCONNECTED;
     activeAP = nullptr;
 
+    /* The walk seeds the snapshot before g_main_loop_run(); a quit issued before the
+       loop runs is lost and the join would hang. Stop only once the loop has
+       dispatched our idle callback (which also implies the walk has finished). */
+    s_monitorLoopRunning.store(false);
+    g_idle_add(markMonitorLoopRunning, nullptr);
     ASSERT_TRUE(monitor->startNetworkMangerEventMonitor());
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    while (!Plugin::GnomeNetworkManagerEvents::getWifiConnCache().present && std::chrono::steady_clock::now() < deadline)
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!s_monitorLoopRunning.load() && std::chrono::steady_clock::now() < deadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if (!s_monitorLoopRunning.load())
+    {
+        /* Do not stop (could hang) or free what the monitor thread may still use;
+           the singleton's destructor stops the monitor at process exit. */
+        g_object_ref(wifiDevice);
+        FAIL() << "event monitor main loop did not start";
+    }
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}"));
     EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
 
-    /* Join the monitor thread before the device list goes away. */
+    /* Loop is running, so the quit is not lost; join before the device list goes away. */
     monitor->stopNetworkMangerEventMonitor();
     g_ptr_array_free(devices, FALSE);
 }
@@ -914,6 +942,25 @@ TEST_F(PropertyFollowerTest, PropertyFollower_stopSilencesAndReleasesRefs)
 
     g_object_unref(keepOwner);
     EXPECT_EQ(nullptr, weakOwner); // owner released by stop()
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_restartWhenHoldingLastOwnerRef)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    /* Leave the follower holding the only reference to the owner, then restart with it. */
+    GObject *weakOwner = owner;
+    g_object_add_weak_pointer(weakOwner, reinterpret_cast<gpointer*>(&weakOwner));
+    g_clear_object(&owner);
+    follower.start(weakOwner);
+    ASSERT_NE(nullptr, weakOwner);
+
+    g_object_notify(weakOwner, "active-access-point");
+    EXPECT_EQ(1, changes);
+
+    follower.stop();
+    EXPECT_EQ(nullptr, weakOwner);
 }
 
 TEST_F(PropertyFollowerTest, PropertyFollower_startTwiceDoesNotDuplicateHandlers)
