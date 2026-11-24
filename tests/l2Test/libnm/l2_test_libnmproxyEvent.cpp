@@ -23,6 +23,8 @@
 #include <cstdio>
 #include <sys/stat.h>
 #include <fstream>
+#include <chrono>
+#include <thread>
 
 #include "FactoriesImplementation.h"
 #include "WrapsMock.h"
@@ -719,6 +721,36 @@ TEST_F(WifiConnCacheEventTest, stopWifiConnTracking_reports_absent)
     EXPECT_EQ(connectedSsid(), _T("{\"success\":false}"));
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}"));
+}
+
+TEST_F(WifiConnCacheEventTest, startupWalk_seedsDisconnectedWifiDevice)
+{
+    /* The fixture's event monitor walked an empty device list; restart it with an
+       existing wlan0 already DISCONNECTED (no active AP). The startup walk must seed
+       the snapshot on its own: no state or access-point notification follows. */
+    Plugin::GnomeNetworkManagerEvents* monitor = Plugin::GnomeNetworkManagerEvents::getInstance();
+    monitor->stopNetworkMangerEventMonitor();
+    Plugin::GnomeNetworkManagerEvents::stopWifiConnTracking();
+
+    GPtrArray* devices = g_ptr_array_new();
+    g_ptr_array_add(devices, wifiDevice);
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
+        .WillRepeatedly(::testing::Return(devices));
+    deviceState = NM_DEVICE_STATE_DISCONNECTED;
+    activeAP = nullptr;
+
+    ASSERT_TRUE(monitor->startNetworkMangerEventMonitor());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!Plugin::GnomeNetworkManagerEvents::getWifiConnCache().present && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}"));
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
+
+    /* Join the monitor thread before the device list goes away. */
+    monitor->stopNetworkMangerEventMonitor();
+    g_ptr_array_free(devices, FALSE);
 }
 
 TEST_F(WifiConnCacheEventTest, wifi_roam_ignores_old_ap)
