@@ -28,6 +28,9 @@
 #include "NetworkManagerConnectivity.h"
 #include "NetworkManagerLogger.h"
 #include "INetworkManager.h"
+#if USE_TELEMETRY
+#include <telemetry_busmessage_sender.h>
+#endif
 
 namespace WPEFramework
 {
@@ -448,6 +451,12 @@ namespace WPEFramework
                                                 msg->data.result,
                                                 curl_easy_strerror(msg->data.result));
                     curlErrorCode = static_cast<int>(msg->data.result);
+#if USE_TELEMETRY
+                    {
+                        std::string t2value = std::string("endpoint: ") + (endpntConf ? endpntConf : "") + " curl error: " + curl_easy_strerror(msg->data.result);
+                        t2_event_s("WIFIV_WARN_Connectivityfail", const_cast<char*>(t2value.c_str()));
+                    }
+#endif
                 }
                 http_responses.push_back(response_code);
             }
@@ -517,6 +526,9 @@ namespace WPEFramework
                 case HttpStatus_204_No_Content:
                     InternetConnectionState = INTERNET_FULLY_CONNECTED;
                     NMLOG_INFO("Internet State: FULLY_CONNECTED - %.1f%%", (percentage*100));
+#if USE_TELEMETRY
+                    t2_event_d("WIFI_INFO_INT_CON", 1);
+#endif
                 break;
                 case HttpStatus_200_OK:
                     InternetConnectionState = INTERNET_LIMITED;
@@ -530,9 +542,19 @@ namespace WPEFramework
                 default:
                     InternetConnectionState = INTERNET_NOT_AVAILABLE;
                     if(http_response_code == -1)
+                    {
                         NMLOG_ERROR("Internet State: NO_INTERNET (curl error)");
+#if USE_TELEMETRY
+                        t2_event_d("WIFI_INFO_INT_DISCON", 1);
+#endif
+                    }
                     else
+                    {
                         NMLOG_WARNING("Internet State: NO_INTERNET (http code: %d - %.1f%%)", static_cast<int>(http_response_code), percentage * 100);
+#if USE_TELEMETRY
+                        t2_event_d("WIFI_INFO_INT_DISCON", 1);
+#endif
+                    }
                     break;
             }
         }
