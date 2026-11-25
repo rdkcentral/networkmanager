@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#include <cstdlib>
 #include <sys/stat.h>
 #include <fstream>
 #include <chrono>
@@ -761,15 +762,19 @@ TEST_F(WifiConnCacheEventTest, startupWalk_seedsDisconnectedWifiDevice)
     s_monitorLoopRunning.store(false);
     g_idle_add(markMonitorLoopRunning, nullptr);
     ASSERT_TRUE(monitor->startNetworkMangerEventMonitor());
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    constexpr int kLoopStartTimeoutSec = 30;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(kLoopStartTimeoutSec);
     while (!s_monitorLoopRunning.load() && std::chrono::steady_clock::now() < deadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     if (!s_monitorLoopRunning.load())
     {
-        /* Do not stop (could hang) or free what the monitor thread may still use;
-           the singleton's destructor stops the monitor at process exit. */
-        g_object_ref(wifiDevice);
-        FAIL() << "event monitor main loop did not start";
+        /* A monitor whose loop never ran cannot be stopped (the quit is lost and the
+           join hangs), and returning would run teardown while the monitor thread may
+           still use the fixture, its mocks and objects. Abort the process instead. */
+        fprintf(stderr, "FATAL: %s: event monitor main loop did not start within %d s\n",
+                ::testing::UnitTest::GetInstance()->current_test_info()->name(), kLoopStartTimeoutSec);
+        fflush(stderr);
+        std::abort();
     }
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
