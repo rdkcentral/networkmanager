@@ -1,0 +1,13 @@
+callsign = "org.rdk.NetworkConnectionStats"
+startuporder = "@PLUGIN_NETWORKCONNECTIONSTATS_STARTUPORDER@"
+autostart = "@PLUGIN_NETWORKCONNECTIONSTATS_AUTOSTART@"
+
+process = JSON()
+process.add("outofprocess", "@PLUGIN_NETWORKCONNECTIONSTATS_OUTOFPROCESS@")
+process.add("locator", "lib@MODULE_IMPL_NAME@.so")
+
+configuration = JSON()
+configuration.add("root", process)
+configuration.add("reportingInterval", "@PLUGIN_NETWORKCONNECTIONSTATS_REPORTING_INTERVAL@")
+configuration.add("autoStart", True)
+configuration.add("providerType", "@PLUGIN_NETWORKCONNECTIONSTATS_PROVIDER_TYPE@")
