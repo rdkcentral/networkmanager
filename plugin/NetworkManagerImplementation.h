@@ -337,7 +337,7 @@ namespace WPEFramework
                 uint32_t GetWifiState(WiFiState &state) override;
                 uint32_t GetWiFiSignalQuality(string& ssid /* @out */, int& strength /* @out */, int& noise /* @out */, int& snr /* @out */, WiFiSignalQuality& quality /* @out */) override;
 
-                uint32_t SetStunEndpoint (string const endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */) override;
+                uint32_t SetStunEndpoint (string endpoint /* @in */, const uint32_t port /* @in */, const uint32_t bindTimeout /* @in */, const uint32_t cacheTimeout /* @in */) override;
                 uint32_t GetStunEndpoint (string &endpoint /* @out */, uint32_t& port /* @out */, uint32_t& bindTimeout /* @out */, uint32_t& cacheTimeout /* @out */) const override;
 
                 /* @brief Get ConnectivityTest Endpoints */
@@ -380,8 +380,8 @@ namespace WPEFramework
                 void ReportInternetStatusChange(const Exchange::INetworkManager::InternetStatus prevState, const Exchange::INetworkManager::InternetStatus currState, const string interface, const string& reason = string());
                 void OnDelegatedInternetStatusChange(const Exchange::INetworkManager::InternetStatus currState, const string& reason = string());
                 void ReportAvailableSSIDs(const JsonArray &arrayofWiFiScanResults);
-                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, const string ssid);
-                void ReportWiFiSignalQualityChange(const string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
+                void ReportWiFiStateChange(const Exchange::INetworkManager::WiFiState state, string ssid);
+                void ReportWiFiSignalQualityChange(string ssid, const int strength, const int noise, const int snr, const Exchange::INetworkManager::WiFiSignalQuality quality);
                 void logTelemetry(const std::string& eventName, const std::string& message);
 
                 // INetworkPowerCallback overrides
@@ -455,7 +455,7 @@ namespace WPEFramework
                                    Exchange::INetworkManager::IPAddress& out) const;
                 std::set<std::string> swapIpCache(const std::string& iface,
                                                   const std::string& ipFamily,
-                                                  IpFamilyCache newCache);
+                                                  IpFamilyCache&& newCache);
 
                 std::atomic<bool> m_ethConnected;
                 std::atomic<bool> m_wlanConnected;
