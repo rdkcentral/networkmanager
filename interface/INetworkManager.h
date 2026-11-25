@@ -30,7 +30,9 @@ namespace WPEFramework
             ID_NETWORKMANAGER                               = 0x800004E0,
             ID_NETWORKMANAGER_NOTIFICATION                  = ID_NETWORKMANAGER + 1,
             ID_NETWORKMANAGER_INTERFACE_DETAILS_ITERATOR    = ID_NETWORKMANAGER + 2,
-            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3
+            ID_NETWORKMANAGER_WIFI_SECURITY_MODE_ITERATOR   = ID_NETWORKMANAGER + 3,
+            ID_NETWORKMANAGER_PING_CALLBACK                 = ID_NETWORKMANAGER + 4,
+            ID_NETWORKMANAGER_TRACE_CALLBACK                = ID_NETWORKMANAGER + 5
         };
 
         /* @json @text:keep */
@@ -238,10 +240,10 @@ namespace WPEFramework
             /* @brief Get the Public IP used for external world communication */
             virtual uint32_t GetPublicIP (string& interface /* @inout */, string &ipversion /* @inout */,  string& ipaddress /* @out */) = 0;
 
-            /* @brief Request for ping and get the response in as event. The GUID used in the request will be returned in the event. */
+            /* @brief Run ping and return the result. Deprecated: blocks the implementation for the duration of the ping; use PingAsync. */
             virtual uint32_t Ping (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t count /* @in */, const uint16_t timeout /* @in */, const string guid /* @in */, string& response /* @out */) = 0;
 
-            /* @brief Request for trace get the response in as event. The GUID used in the request will be returned in the event. */
+            /* @brief Run traceroute and return the result. Deprecated: blocks the implementation for the duration of the trace; use TraceAsync. */
             virtual uint32_t Trace (const string ipversion /* @in */,  const string endpoint /* @in */, const uint32_t nqueries /* @in */, const string guid /* @in */, string& response /* @out */) = 0;
 
             /* @brief Set the dhcp hostname */
@@ -295,6 +297,48 @@ namespace WPEFramework
             // Allow other processes to register/unregister from our notifications
             virtual uint32_t Register(INetworkManager::INotification* notification) = 0;
             virtual uint32_t Unregister(INetworkManager::INotification* notification) = 0;
+
+            // Parsed summary of one ping run. Text fields keep ping's own formatting.
+            struct EXTERNAL PingResult {
+                bool success;                   // ping ran and exited successfully
+                string error;                   // empty when there is no error
+                bool countsReported;            // ping printed "N packets transmitted, M received, L% packet loss"
+                int32_t packetsTransmitted;     // valid when countsReported
+                int32_t packetsReceived;        // valid when countsReported
+                string packetLoss;              // valid when countsReported; as printed, without '%'
+                string tripMin;                 // round-trip times as printed; empty when not reported
+                string tripAvg;
+                string tripMax;
+                string tripStdDev;
+            };
+
+            // Receives the result of one PingAsync request.
+            struct EXTERNAL IPingCallback : virtual public Core::IUnknown
+            {
+                enum { ID = ID_NETWORKMANAGER_PING_CALLBACK };
+
+                virtual void Completed(const uint32_t result /* @in */, const PingResult& ping /* @in */) = 0;
+            };
+
+            // Receives the result of one TraceAsync request; output is traceroute's merged stdout and stderr.
+            struct EXTERNAL ITraceCallback : virtual public Core::IUnknown
+            {
+                enum { ID = ID_NETWORKMANAGER_TRACE_CALLBACK };
+
+                virtual void Completed(const uint32_t result /* @in */, const string& output /* @in */) = 0;
+            };
+
+            /* @json:omit */
+            /* @brief Start ping and return immediately; callback->Completed() is called once with the result unless the implementation shuts down first. */
+            virtual uint32_t PingAsync(const string ipversion /* @in */, const string endpoint /* @in */,
+                                       const uint32_t count /* @in */, const uint16_t timeout /* @in */,
+                                       const string guid /* @in */, IPingCallback* callback /* @in */) = 0;
+
+            /* @json:omit */
+            /* @brief Start traceroute and return immediately; callback->Completed() is called once with the result unless the implementation shuts down first. */
+            virtual uint32_t TraceAsync(const string ipversion /* @in */, const string endpoint /* @in */,
+                                        const uint32_t nqueries /* @in */, const string guid /* @in */,
+                                        ITraceCallback* callback /* @in */) = 0;
 	private:
             static string& EmptyReason()
             {
