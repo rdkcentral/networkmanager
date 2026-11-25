@@ -630,7 +630,7 @@ TEST_F(NetworkManagerWifiTest, GetWifiState_Connected)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":5,\"status\":\"WIFI_STATE_CONNECTED\",\"success\":true}"));
@@ -650,7 +650,7 @@ TEST_F(NetworkManagerWifiTest, GetWifiState_Pairing)
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
         .WillOnce(::testing::Return(NM_DEVICE_STATE_PREPARE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_CONFIG));
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_NEED_AUTH));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":3,\"status\":\"WIFI_STATE_PAIRING\",\"success\":true}"));
@@ -689,8 +689,8 @@ TEST_F(NetworkManagerWifiTest, GetWifiState_Connecting)
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillRepeatedly(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_NEED_AUTH))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_CONFIG))
+        .WillOnce(::testing::Return(NM_DEVICE_STATE_CONFIG));
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
     EXPECT_EQ(response, _T("{\"state\":4,\"status\":\"WIFI_STATE_CONNECTING\",\"success\":true}"));

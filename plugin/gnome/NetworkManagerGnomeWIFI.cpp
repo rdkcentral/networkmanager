@@ -310,18 +310,18 @@ namespace WPEFramework
             // Todo check NMDeviceStateReason for more information
             switch(deviceState)
             {
-                case NM_DEVICE_STATE_ACTIVATED: 
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
-                    break;
                 case NM_DEVICE_STATE_PREPARE:
-                case NM_DEVICE_STATE_CONFIG:
+                case NM_DEVICE_STATE_NEED_AUTH:
                     state = Exchange::INetworkManager::WiFiState::WIFI_STATE_PAIRING;
                     break;
-                case NM_DEVICE_STATE_NEED_AUTH:
+                case NM_DEVICE_STATE_CONFIG:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTING;
+                    break;
                 case NM_DEVICE_STATE_IP_CONFIG:
                 case NM_DEVICE_STATE_IP_CHECK:
                 case NM_DEVICE_STATE_SECONDARIES:
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTING;
+                case NM_DEVICE_STATE_ACTIVATED:
+                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
                     break;
                 case NM_DEVICE_STATE_DEACTIVATING:
                 case NM_DEVICE_STATE_DISCONNECTED:
