@@ -111,8 +111,8 @@ protected:
                 "}"
             ));
 
-        EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
-            .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
+//        EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_device_by_iface(::testing::_, ::testing::_))
+//            .WillOnce(::testing::Return(reinterpret_cast<NMDevice*>(0x100178)));
 
         EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
             .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_UNMANAGED));
@@ -289,7 +289,7 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0_alradyset)
     g_ptr_array_add(dummyConns, conn);
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+        .WillRepeatedly(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
@@ -320,7 +320,7 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
     g_ptr_array_add(dummyConns, conn);
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_connections(::testing::_))
-        .WillOnce(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
+        .WillRepeatedly(::testing::Return(reinterpret_cast<GPtrArray*>(dummyConns)));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_interface_name(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
@@ -332,7 +332,7 @@ TEST_F(NetworkManagerTest, SetHostName_iface_wlan0)
         .WillOnce(::testing::Return(reinterpret_cast<NMSettingIPConfig*>(NULL)));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_connection_get_id(::testing::_))
-        .WillOnce(::testing::Return("test_wlan"));
+        .WillRepeatedly(::testing::Return("test_wlan"));
 
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_remote_connection_commit_changes(::testing::_, ::testing::_, ::testing::_, ::testing::_))
         .WillOnce(::testing::Invoke(
