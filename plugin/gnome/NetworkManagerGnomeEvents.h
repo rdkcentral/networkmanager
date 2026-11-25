@@ -23,6 +23,7 @@
 #include <string.h>
 #include <iostream>
 #include <atomic>
+#include "INetworkManager.h"
 
 namespace WPEFramework
 {
@@ -65,6 +66,23 @@ namespace WPEFramework
         /* Canonical enabled/connected definitions shared by both read APIs. */
         static bool isInterfaceStateEnabled(NMDeviceState state);
         static bool isInterfaceStateConnected(NMDeviceState state);
+
+        /* WiFi connection snapshot: one consistent copy of what GetConnectedSSID /
+           GetWifiState need. Sole writer is the event monitor; readers copy it out. */
+        struct WifiConnSnapshot {
+            bool          present     = false;  // wlan iface found and is a WiFi device
+            NMDeviceState state       = NM_DEVICE_STATE_UNKNOWN;
+            bool          hasActiveAP = false;
+            Exchange::INetworkManager::WiFiSSIDInfo ssidInfo{};
+        };
+        static void setWifiConnCache(const WifiConnSnapshot& snapshot);
+        static WifiConnSnapshot getWifiConnCache();
+        /* Rebuilds the snapshot from the device's current libnm state (event thread). */
+        static void refreshWifiConnCache(NMDevice* wifiDevice);
+        /* Follow the device's active access point and keep the snapshot current;
+           stop drops the follower and resets the snapshot to "no WiFi device". */
+        static void startWifiConnTracking(NMDevice* wifiDevice);
+        static void stopWifiConnTracking();
 
     public:
         static GnomeNetworkManagerEvents* getInstance();

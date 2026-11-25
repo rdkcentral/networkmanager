@@ -97,6 +97,7 @@ else()
     set(LIBNM_SOURCES
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeEvents.cpp
         ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomeWIFI.cpp
+        ${CMAKE_SOURCE_DIR}/plugin/gnome/NetworkManagerGnomePropertyFollower.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/NetworkManagerLibnmTest.cpp
     )
 

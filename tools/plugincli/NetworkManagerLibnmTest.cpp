@@ -165,9 +165,9 @@ int main()
                 break;
             }
             case 2: {
-                Exchange::INetworkManager::WiFiSSIDInfo ssidinfo;
-                if (wifiMgr->wifiConnectedSSIDInfo(ssidinfo))
-                    NMLOG_INFO("Connected SSID: %s", ssidinfo.ssid.c_str());
+                const GnomeNetworkManagerEvents::WifiConnSnapshot snapshot = GnomeNetworkManagerEvents::getWifiConnCache();
+                if (snapshot.present && snapshot.hasActiveAP)
+                    NMLOG_INFO("Connected SSID: %s", snapshot.ssidInfo.ssid.c_str());
                 else
                     NMLOG_ERROR("Failed to get connected SSID");
                 break;
@@ -268,9 +268,9 @@ int main()
                 break;
             }
             case 8: {
-                Exchange::INetworkManager::WiFiState state;
-                if (wifiMgr->getWifiState(state)) {
-                    NMLOG_INFO("WiFi State: %d", state);  // Assuming state is an enum or int
+                const GnomeNetworkManagerEvents::WifiConnSnapshot snapshot = GnomeNetworkManagerEvents::getWifiConnCache();
+                if (snapshot.present) {
+                    NMLOG_INFO("WiFi device state: %d", static_cast<int>(snapshot.state));
                 } else {
                     NMLOG_ERROR("Failed to get WiFi state");
                 }

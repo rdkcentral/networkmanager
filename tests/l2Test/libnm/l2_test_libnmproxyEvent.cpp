@@ -21,8 +21,13 @@
 #include <string>
 #include <vector>
 #include <cstdio>
+#include <cstdlib>
 #include <sys/stat.h>
 #include <fstream>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <pthread.h>
 
 #include "FactoriesImplementation.h"
 #include "WrapsMock.h"
@@ -35,6 +40,7 @@
 #include "WorkerPoolImplementation.h"
 #include "NetworkManagerImplementation.h"
 #include "NetworkManagerGnomeEvents.h"
+#include "NetworkManagerGnomePropertyFollower.h"
 #include "NetworkManagerLogger.h"
 #include "NetworkManager.h"
 #include <libnm/NetworkManager.h>
@@ -156,6 +162,13 @@ protected:
 
     virtual void SetUp() override
     {
+        /* WiFi connection snapshot and follower are process-wide; isolate tests. */
+        Plugin::GnomeNetworkManagerEvents::stopWifiConnTracking();
+    }
+
+    virtual void TearDown() override
+    {
+        Plugin::GnomeNetworkManagerEvents::stopWifiConnTracking();
     }
 
     virtual ~NetworkManagerEventTest() override
@@ -272,72 +285,11 @@ TEST_F(NetworkManagerEventTest, onWIFIStateChanged)
     WPEFramework::Plugin::GnomeNetworkManagerEvents::onWIFIStateChanged(1);
 }
 
-TEST_F(NetworkManagerEventTest, deviceStateChangeCb)
-{
-    NMDevice *ethDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_ETHERNET, NULL));
-    NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_UNKNOWN))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DISCONNECTED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_PREPARE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
-        .WillOnce(::testing::Return("eth0"))
-        .WillOnce(::testing::Return("eth0"))
-        .WillOnce(::testing::Return("eth0"))
-        .WillOnce(::testing::Return("eth0"))
-        .WillOnce(::testing::Return("eth0"))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("wlan0"))
-        .WillOnce(::testing::Return("wlan0"));
-
-    EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_NONE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_AVAILABLE))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SSID_NOT_FOUND))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_TIMEOUT))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_FAILED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_CONFIG_FAILED))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_REASON_SUPPLICANT_DISCONNECT));
-
-    // Test with nullptr and with mock device
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(nullptr, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(ethDummyDevice, nullptr, nullptr);
-
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    WPEFramework::Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(reinterpret_cast<NMDevice*>(wifiDummyDevice), nullptr, nullptr);
-    g_object_unref(ethDummyDevice);
-    g_object_unref(wifiDummyDevice);
-}
-
 TEST_F(NetworkManagerEventTest, deviceStateChangeCb_activated)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_ACTIVATED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -373,7 +325,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_prepare)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_PREPARE));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_PREPARE));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -385,7 +337,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_config)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_CONFIG));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_CONFIG));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -397,7 +349,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_config)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_IP_CONFIG));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -409,7 +361,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_ip_check)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_IP_CHECK));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -421,7 +373,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_secondaries)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_SECONDARIES));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_SECONDARIES));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -433,7 +385,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_deactivating)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_DEACTIVATING));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_DEACTIVATING));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -445,7 +397,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_failed)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_FAILED));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_FAILED));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -457,7 +409,7 @@ TEST_F(NetworkManagerEventTest, deviceStateChangeCb_need_auth)
 {
     NMDevice *wifiDummyDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
-        .WillOnce(::testing::Return(NM_DEVICE_STATE_NEED_AUTH));
+        .WillRepeatedly(::testing::Return(NM_DEVICE_STATE_NEED_AUTH));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_))
         .WillOnce(::testing::Return("wlan0"));
     EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
@@ -639,4 +591,391 @@ TEST_F(NetworkManagerEventTest, disconnect_clears_both_ip_family_caches)
 
     EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetIPSettings"), _T("{\"interface\":\"eth0\",\"ipversion\":\"IPv6\"}"), response));
     EXPECT_TRUE(response.find("\"ipaddress\"") == std::string::npos);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * WiFi connection cache tests — events update the snapshot that serves
+ * GetConnectedSSID / GetWifiState. Real NMDeviceWifi / NMAccessPoint objects;
+ * libnm getters are stubbed per object with WillRepeatedly / ON_CALL (no
+ * call-order assumptions); assertions are on the JSON-RPC responses.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+static const char* const kCacheTestSsid = "TestWiFiNetwork";
+
+static void stubAccessPoint(LibnmWrapsImplMock* mock, NMAccessPoint* ap, GBytes* ssid, const char* bssid,
+                            guint32 frequency, guint8 strength, NM80211ApFlags flags,
+                            NM80211ApSecurityFlags wpaFlags, NM80211ApSecurityFlags rsnFlags)
+{
+    ON_CALL(*mock, nm_access_point_get_ssid(ap)).WillByDefault(::testing::Return(ssid));
+    ON_CALL(*mock, nm_access_point_get_bssid(ap)).WillByDefault(::testing::Return(bssid));
+    ON_CALL(*mock, nm_access_point_get_frequency(ap)).WillByDefault(::testing::Return(frequency));
+    ON_CALL(*mock, nm_access_point_get_strength(ap)).WillByDefault(::testing::Return(strength));
+    ON_CALL(*mock, nm_access_point_get_flags(ap)).WillByDefault(::testing::Return(flags));
+    ON_CALL(*mock, nm_access_point_get_wpa_flags(ap)).WillByDefault(::testing::Return(wpaFlags));
+    ON_CALL(*mock, nm_access_point_get_rsn_flags(ap)).WillByDefault(::testing::Return(rsnFlags));
+    ON_CALL(*mock, nm_access_point_get_mode(ap)).WillByDefault(::testing::Return(NM_802_11_MODE_INFRA));
+    ON_CALL(*mock, nm_access_point_get_max_bitrate(ap)).WillByDefault(::testing::Return(54000));
+}
+
+class WifiConnCacheEventTest : public NetworkManagerEventTest {
+protected:
+    NMDevice *wifiDevice = nullptr;
+    NMAccessPoint *apA = nullptr;
+    NMAccessPoint *apB = nullptr;
+    NMAccessPoint *activeAP = nullptr;
+    NMDeviceState deviceState = NM_DEVICE_STATE_ACTIVATED;
+    GBytes *ssid = nullptr;
+
+    void SetUp() override
+    {
+        NetworkManagerEventTest::SetUp();
+        wifiDevice = static_cast<NMDevice*>(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+        apA = static_cast<NMAccessPoint*>(g_object_new(NM_TYPE_ACCESS_POINT, NULL));
+        apB = static_cast<NMAccessPoint*>(g_object_new(NM_TYPE_ACCESS_POINT, NULL));
+        ssid = g_bytes_new_static(kCacheTestSsid, strlen(kCacheTestSsid));
+
+        EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_get_state(::testing::_))
+            .WillRepeatedly(::testing::Invoke([this](NMDevice*) { return deviceState; }));
+        EXPECT_CALL(*p_libnmWrapsImplMock, nm_device_wifi_get_active_access_point(::testing::_))
+            .WillRepeatedly(::testing::Invoke([this](NMDeviceWifi*) { return activeAP; }));
+        ON_CALL(*p_libnmWrapsImplMock, nm_device_get_iface(::testing::_)).WillByDefault(::testing::Return("wlan0"));
+        ON_CALL(*p_libnmWrapsImplMock, nm_device_get_state_reason(::testing::_))
+            .WillByDefault(::testing::Return(NM_DEVICE_STATE_REASON_NONE));
+    }
+
+    void TearDown() override
+    {
+        NetworkManagerEventTest::TearDown();
+        g_clear_object(&apA);
+        g_clear_object(&apB);
+        g_clear_object(&wifiDevice);
+        g_bytes_unref(ssid);
+    }
+
+    /* Real GLib signal connections (the fixture stubs g_signal_connect_data to 0). */
+    void useRealSignals()
+    {
+        EXPECT_CALL(*p_gLibWrapsImplMock, g_signal_connect_data(::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_, ::testing::_))
+            .WillRepeatedly(::testing::Invoke(__real_g_signal_connect_data));
+    }
+
+    string connectedSsid()
+    {
+        EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetConnectedSSID"), _T(""), response));
+        return response;
+    }
+};
+
+TEST_F(WifiConnCacheEventTest, refreshWifiConnCache_psk)
+{
+    stubAccessPoint(p_libnmWrapsImplMock, apA, ssid, "AA:BB:CC:DD:EE:FF", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    activeAP = apA;
+    Plugin::GnomeNetworkManagerEvents::refreshWifiConnCache(wifiDevice);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
+}
+
+TEST_F(WifiConnCacheEventTest, refreshWifiConnCache_eap)
+{
+    stubAccessPoint(p_libnmWrapsImplMock, apA, ssid, "AA:BB:CC:DD:EE:FF", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_802_1X, NM_802_11_AP_SEC_KEY_MGMT_802_1X);
+    activeAP = apA;
+    Plugin::GnomeNetworkManagerEvents::refreshWifiConnCache(wifiDevice);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":3,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
+}
+
+TEST_F(WifiConnCacheEventTest, refreshWifiConnCache_hiddenSsid)
+{
+    stubAccessPoint(p_libnmWrapsImplMock, apA, nullptr, "AA:BB:CC:DD:EE:FF", 2462, 20,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_NONE, NM_802_11_AP_SEC_NONE);
+    activeAP = apA;
+    Plugin::GnomeNetworkManagerEvents::refreshWifiConnCache(wifiDevice);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":1,\"strength\":-78,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
+}
+
+TEST_F(WifiConnCacheEventTest, deviceStateChangeCb_wlan_updates_wifi_cache)
+{
+    stubAccessPoint(p_libnmWrapsImplMock, apA, ssid, "AA:BB:CC:DD:EE:FF", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    activeAP = apA;
+
+    deviceState = NM_DEVICE_STATE_ACTIVATED;
+    Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(wifiDevice, nullptr, nullptr);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:BB:CC:DD:EE:FF\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"state\":5,\"status\":\"WIFI_STATE_CONNECTED\",\"success\":true}"));
+
+    deviceState = NM_DEVICE_STATE_DISCONNECTED;
+    Plugin::GnomeNetworkManagerEvents::deviceStateChangeCb(wifiDevice, nullptr, nullptr);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}"));
+}
+
+TEST_F(WifiConnCacheEventTest, stopWifiConnTracking_reports_absent)
+{
+    stubAccessPoint(p_libnmWrapsImplMock, apA, ssid, "AA:BB:CC:DD:EE:FF", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    activeAP = apA;
+    Plugin::GnomeNetworkManagerEvents::startWifiConnTracking(wifiDevice);
+    EXPECT_TRUE(connectedSsid().find("\"success\":true") != std::string::npos);
+
+    Plugin::GnomeNetworkManagerEvents::stopWifiConnTracking();
+    EXPECT_EQ(connectedSsid(), _T("{\"success\":false}"));
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"state\":1,\"status\":\"WIFI_STATE_DISABLED\",\"success\":true}"));
+}
+
+/* Set from an idle callback dispatched by the event monitor's running main loop
+   (default context, thread "nm_event_thrd"). Static so a late dispatch after a
+   timed-out wait still writes to valid storage. */
+static std::atomic<bool> s_monitorLoopRunning{false};
+
+static gboolean markMonitorLoopRunning(gpointer)
+{
+    char name[16] = {0};
+    pthread_getname_np(pthread_self(), name, sizeof(name));
+    if (std::string(name) == "nm_event_thrd")
+        s_monitorLoopRunning.store(true);
+    return G_SOURCE_REMOVE;
+}
+
+TEST_F(WifiConnCacheEventTest, startupWalk_seedsDisconnectedWifiDevice)
+{
+    /* The fixture's event monitor walked an empty device list; restart it with an
+       existing wlan0 already DISCONNECTED (no active AP). The startup walk must seed
+       the snapshot on its own: no state or access-point notification follows. */
+    Plugin::GnomeNetworkManagerEvents* monitor = Plugin::GnomeNetworkManagerEvents::getInstance();
+    monitor->stopNetworkMangerEventMonitor();
+    Plugin::GnomeNetworkManagerEvents::stopWifiConnTracking();
+
+    GPtrArray* devices = g_ptr_array_new();
+    g_ptr_array_add(devices, wifiDevice);
+    EXPECT_CALL(*p_libnmWrapsImplMock, nm_client_get_devices(::testing::_))
+        .WillRepeatedly(::testing::Return(devices));
+    deviceState = NM_DEVICE_STATE_DISCONNECTED;
+    activeAP = nullptr;
+
+    /* The walk seeds the snapshot before g_main_loop_run(); a quit issued before the
+       loop runs is lost and the join would hang. Stop only once the loop has
+       dispatched our idle callback (which also implies the walk has finished). */
+    s_monitorLoopRunning.store(false);
+    g_idle_add(markMonitorLoopRunning, nullptr);
+    ASSERT_TRUE(monitor->startNetworkMangerEventMonitor());
+    constexpr int kLoopStartTimeoutSec = 30;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(kLoopStartTimeoutSec);
+    while (!s_monitorLoopRunning.load() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    if (!s_monitorLoopRunning.load())
+    {
+        /* A monitor whose loop never ran cannot be stopped (the quit is lost and the
+           join hangs), and returning would run teardown while the monitor thread may
+           still use the fixture, its mocks and objects. Abort the process instead. */
+        fprintf(stderr, "FATAL: %s: event monitor main loop did not start within %d s\n",
+                ::testing::UnitTest::GetInstance()->current_test_info()->name(), kLoopStartTimeoutSec);
+        fflush(stderr);
+        std::abort();
+    }
+
+    EXPECT_EQ(Core::ERROR_NONE, handler.Invoke(connection, _T("GetWifiState"), _T(""), response));
+    EXPECT_EQ(response, _T("{\"state\":2,\"status\":\"WIFI_STATE_DISCONNECTED\",\"success\":true}"));
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"\",\"bssid\":\"\",\"security\":0,\"strength\":0,\"frequency\":0,\"rate\":0,\"noise\":0,\"success\":true}"));
+
+    /* Loop is running, so the quit is not lost; join before the device list goes away. */
+    monitor->stopNetworkMangerEventMonitor();
+    g_ptr_array_free(devices, FALSE);
+}
+
+TEST_F(WifiConnCacheEventTest, wifi_roam_ignores_old_ap)
+{
+    useRealSignals();
+    stubAccessPoint(p_libnmWrapsImplMock, apA, ssid, "AA:AA:AA:AA:AA:AA", 2412, 20,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    stubAccessPoint(p_libnmWrapsImplMock, apB, ssid, "BB:BB:BB:BB:BB:BB", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    const string bOnly = _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"BB:BB:BB:BB:BB:BB\",\"security\":2,\"strength\":-39,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}");
+
+    activeAP = apA;
+    Plugin::GnomeNetworkManagerEvents::startWifiConnTracking(wifiDevice);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"AA:AA:AA:AA:AA:AA\",\"security\":2,\"strength\":-78,\"frequency\":2.412,\"rate\":54000,\"noise\":0,\"success\":true}"));
+
+    /* Roam: the device stays ACTIVATED, only the active access point changes. */
+    activeAP = apB;
+    g_object_notify(G_OBJECT(wifiDevice), NM_DEVICE_WIFI_ACTIVE_ACCESS_POINT);
+    EXPECT_EQ(connectedSsid(), bOnly);
+
+    /* The old AP is still alive (scan list) and keeps reporting changes. */
+    ON_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(apA)).WillByDefault(::testing::Return(85));
+    g_object_notify(G_OBJECT(apA), NM_ACCESS_POINT_STRENGTH);
+    EXPECT_EQ(connectedSsid(), bOnly);
+}
+
+TEST_F(WifiConnCacheEventTest, wifi_ap_strength_change_updates_cache)
+{
+    useRealSignals();
+    stubAccessPoint(p_libnmWrapsImplMock, apB, ssid, "BB:BB:BB:BB:BB:BB", 2462, 85,
+                    NM_802_11_AP_FLAGS_PRIVACY, NM_802_11_AP_SEC_KEY_MGMT_PSK, NM_802_11_AP_SEC_KEY_MGMT_SAE);
+    activeAP = apB;
+    Plugin::GnomeNetworkManagerEvents::startWifiConnTracking(wifiDevice);
+    EXPECT_TRUE(connectedSsid().find("\"strength\":-39") != std::string::npos);
+
+    ON_CALL(*p_libnmWrapsImplMock, nm_access_point_get_strength(apB)).WillByDefault(::testing::Return(20));
+    g_object_notify(G_OBJECT(apB), NM_ACCESS_POINT_STRENGTH);
+    EXPECT_EQ(connectedSsid(), _T("{\"ssid\":\"TestWiFiNetwork\",\"bssid\":\"BB:BB:BB:BB:BB:BB\",\"security\":2,\"strength\":-78,\"frequency\":2.462,\"rate\":54000,\"noise\":0,\"success\":true}"));
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * PropertyFollower tests — real GObjects and real GLib signals (the GLib mock
+ * forwards g_signal_connect_data to GLib by default); g_object_notify emits.
+ * Assertions are on observable effects only: onChange counts, pending
+ * handlers, and object lifetime.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+class PropertyFollowerTest : public ::testing::Test {
+protected:
+    GLibWrapsImplMock *p_gLibWrapsImplMock = nullptr;
+    GObject *owner = nullptr;
+    GObject *apA = nullptr;
+    GObject *apB = nullptr;
+    int changes = 0;
+
+    static GObject* currentChild;
+    static GObject* getChild(GObject*) { return currentChild; }
+    static void onChange(GObject*, gpointer userData) { ++*static_cast<int*>(userData); }
+
+    static bool hasStrengthHandler(GObject* ap)
+    {
+        guint notifyId = g_signal_lookup("notify", G_OBJECT_TYPE(ap));
+        return g_signal_has_handler_pending(ap, notifyId, g_quark_from_string("strength"), FALSE);
+    }
+
+    void SetUp() override
+    {
+        p_gLibWrapsImplMock = new NiceMock<GLibWrapsImplMock>;
+        GLibWraps::setImpl(p_gLibWrapsImplMock);
+        owner = G_OBJECT(g_object_new(NM_TYPE_DEVICE_WIFI, NULL));
+        apA = G_OBJECT(g_object_new(NM_TYPE_ACCESS_POINT, NULL));
+        apB = G_OBJECT(g_object_new(NM_TYPE_ACCESS_POINT, NULL));
+        currentChild = apA;
+    }
+
+    void TearDown() override
+    {
+        currentChild = nullptr;
+        g_clear_object(&apA);
+        g_clear_object(&apB);
+        g_clear_object(&owner);
+        GLibWraps::setImpl(nullptr);
+        delete p_gLibWrapsImplMock;
+        p_gLibWrapsImplMock = nullptr;
+    }
+};
+
+GObject* PropertyFollowerTest::currentChild = nullptr;
+
+TEST_F(PropertyFollowerTest, PropertyFollower_bindsCurrentChild)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    EXPECT_EQ(apA, follower.current());
+    EXPECT_EQ(0, changes); // start() does not call onChange
+
+    g_object_notify(apA, "strength");
+    g_object_notify(apA, "frequency");
+    EXPECT_EQ(2, changes);
+
+    g_object_notify(apA, "bssid"); // not watched
+    EXPECT_EQ(2, changes);
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_rebindIgnoresOldChild)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    currentChild = apB;
+    g_object_notify(owner, "active-access-point");
+    EXPECT_EQ(apB, follower.current());
+    EXPECT_EQ(1, changes);
+
+    EXPECT_FALSE(hasStrengthHandler(apA));
+    EXPECT_TRUE(hasStrengthHandler(apB));
+
+    g_object_notify(apA, "strength");
+    EXPECT_EQ(1, changes);
+    g_object_notify(apB, "strength");
+    EXPECT_EQ(2, changes);
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_rebindToNull)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    currentChild = nullptr;
+    g_object_notify(owner, "active-access-point");
+    EXPECT_EQ(nullptr, follower.current());
+    EXPECT_EQ(1, changes);
+    EXPECT_FALSE(hasStrengthHandler(apA));
+
+    g_object_notify(apA, "strength");
+    EXPECT_EQ(1, changes);
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_stopSilencesAndReleasesRefs)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    /* Drop the test's own references: the follower must keep both objects alive. */
+    GObject *weakOwner = owner;
+    GObject *weakAp = apA;
+    g_object_add_weak_pointer(weakOwner, reinterpret_cast<gpointer*>(&weakOwner));
+    g_object_add_weak_pointer(weakAp, reinterpret_cast<gpointer*>(&weakAp));
+    GObject *keepOwner = G_OBJECT(g_object_ref(owner)); // to notify after stop
+    g_clear_object(&owner);
+    g_clear_object(&apA);
+    EXPECT_NE(nullptr, weakAp);
+
+    follower.stop();
+    EXPECT_EQ(nullptr, follower.current());
+    EXPECT_EQ(nullptr, weakAp); // child released by stop()
+
+    g_object_notify(keepOwner, "active-access-point");
+    EXPECT_EQ(0, changes);
+
+    g_object_unref(keepOwner);
+    EXPECT_EQ(nullptr, weakOwner); // owner released by stop()
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_restartWhenHoldingLastOwnerRef)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+
+    /* Leave the follower holding the only reference to the owner, then restart with it. */
+    GObject *weakOwner = owner;
+    g_object_add_weak_pointer(weakOwner, reinterpret_cast<gpointer*>(&weakOwner));
+    g_clear_object(&owner);
+    follower.start(weakOwner);
+    ASSERT_NE(nullptr, weakOwner);
+
+    g_object_notify(weakOwner, "active-access-point");
+    EXPECT_EQ(1, changes);
+
+    follower.stop();
+    EXPECT_EQ(nullptr, weakOwner);
+}
+
+TEST_F(PropertyFollowerTest, PropertyFollower_startTwiceDoesNotDuplicateHandlers)
+{
+    Plugin::PropertyFollower follower("active-access-point", &getChild, {"strength", "frequency"}, &onChange, &changes);
+    follower.start(owner);
+    follower.start(owner);
+
+    g_object_notify(apA, "strength");
+    EXPECT_EQ(1, changes);
+    g_object_notify(owner, "active-access-point");
+    EXPECT_EQ(2, changes);
 }

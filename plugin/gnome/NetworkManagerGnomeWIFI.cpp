@@ -215,7 +215,7 @@ namespace WPEFramework
             return wifiDevice;
         }
 
-        static void getApInfo(NMAccessPoint *AccessPoint, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo, bool doPrint = true)
+        void getApInfo(NMAccessPoint *AccessPoint, Exchange::INetworkManager::WiFiSSIDInfo &wifiInfo, bool doPrint)
         {
             guint32 flags, wpaFlags, rsnFlags, freq, bitrate;
             guint8 strength;
@@ -292,82 +292,6 @@ namespace WPEFramework
                 return true;
             }
             return false;
-        }
-
-        bool wifiManager::getWifiState(Exchange::INetworkManager::WiFiState& state)
-        {
-            if(!createClientNewConnection())
-                return false;
-
-            NMDevice *wifiDevice = getWifiDevice();
-            if(wifiDevice == NULL) {
-                NMLOG_WARNING("wifi state disabled !");
-                state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
-                deleteClientConnection();
-                return true;
-            }
-            NMDeviceState deviceState = nm_device_get_state(wifiDevice);
-            // Todo check NMDeviceStateReason for more information
-            switch(deviceState)
-            {
-                case NM_DEVICE_STATE_ACTIVATED: 
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTED;
-                    break;
-                case NM_DEVICE_STATE_PREPARE:
-                case NM_DEVICE_STATE_CONFIG:
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_PAIRING;
-                    break;
-                case NM_DEVICE_STATE_NEED_AUTH:
-                case NM_DEVICE_STATE_IP_CONFIG:
-                case NM_DEVICE_STATE_IP_CHECK:
-                case NM_DEVICE_STATE_SECONDARIES:
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_CONNECTING;
-                    break;
-                case NM_DEVICE_STATE_DEACTIVATING:
-                case NM_DEVICE_STATE_DISCONNECTED:
-                case NM_DEVICE_STATE_UNAVAILABLE:
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISCONNECTED;
-                    break;
-                default:
-                    state = Exchange::INetworkManager::WiFiState::WIFI_STATE_DISABLED;
-            }
-
-            NMLOG_INFO("wifi state (%d) mapped state (%d) ", (int)deviceState, (int)state);
-            deleteClientConnection();
-            return true;
-        }
-
-        bool wifiManager::wifiConnectedSSIDInfo(Exchange::INetworkManager::WiFiSSIDInfo &ssidinfo)
-        {
-            if(!createClientNewConnection())
-                return false;
-
-            NMDevice* wifiDevice = getWifiDevice();
-            if(wifiDevice == NULL) {
-                NMLOG_FATAL("NMDeviceWifi * NULL !");
-                deleteClientConnection();
-                return false;
-            }
-
-            NMDeviceState deviceState = nm_device_get_state(wifiDevice);
-            if(deviceState >= NM_DEVICE_STATE_IP_CONFIG)
-            {
-                NMAccessPoint *activeAP = nm_device_wifi_get_active_access_point(NM_DEVICE_WIFI(wifiDevice));
-                if(activeAP == NULL) {
-                    NMLOG_ERROR("NMAccessPoint = NULL !");
-                    deleteClientConnection();
-                    return false;
-                }
-                NMLOG_DEBUG("active access point found !");
-                getApInfo(activeAP, ssidinfo, false);
-                deleteClientConnection();
-                return true;
-            }
-            else
-                NMLOG_WARNING("no active access point!; wifi device state: (%d)", deviceState);
-
-            deleteClientConnection();
-            return true;
         }
 
         static void disconnectCb(GObject *object, GAsyncResult *result, gpointer user_data)
