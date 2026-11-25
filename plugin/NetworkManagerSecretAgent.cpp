@@ -146,6 +146,12 @@ namespace WPEFramework
             .set_property = NULL,
         };
 
+        SecretAgent* SecretAgent::getInstance()
+        {
+            static SecretAgent instance;
+            return &instance;
+        }
+
         SecretAgent::SecretAgent()
         {
             GError *error = NULL;

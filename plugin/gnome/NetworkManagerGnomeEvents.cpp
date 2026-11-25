@@ -28,6 +28,7 @@
 #include "Module.h"
 #include "NetworkManagerGnomeEvents.h"
 #include "NetworkManagerLogger.h"
+#include "NetworkManagerSecretAgent.h"
 #include "NetworkManagerGnomeUtils.h"
 #include "NetworkManagerImplementation.h"
 #include "INetworkManager.h"
@@ -970,6 +971,7 @@ namespace WPEFramework
                 NMLOG_WARNING("device error null");
         }
 
+        SecretAgent::getInstance();
         NMLOG_INFO("registered all networkmanager libnm events");
         {
             std::lock_guard<std::mutex> lock(monitor->loopMutex);
