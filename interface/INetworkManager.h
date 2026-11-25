@@ -41,6 +41,7 @@ namespace WPEFramework
 
             // Define the RPC methods
             enum InterfaceType : uint8_t {
+                INTERFACE_TYPE_UNKNOWN  /* @text: UNKNOWN */,
                 INTERFACE_TYPE_ETHERNET /* @text: ETHERNET */,
                 INTERFACE_TYPE_WIFI     /* @text: WIFI */,
                 INTERFACE_TYPE_P2P      /* @text: P2P */,
@@ -207,7 +208,7 @@ namespace WPEFramework
             virtual uint32_t GetAvailableInterfaces (IInterfaceDetailsIterator*& interfaces/* @out */) = 0;
 
             /* @brief Get the Primary Interface used for external world communication */
-            virtual uint32_t GetPrimaryInterface (string& interface /* @out */) = 0;
+            virtual uint32_t GetPrimaryInterface (string& interface /* @out */, InterfaceType& type /* @out */) = 0;
 
             /* @brief Enable/Disable the given interface */
             virtual uint32_t SetInterfaceState (const string& interface /* @in */, const bool enabled /* @in */) = 0;

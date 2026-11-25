@@ -23,7 +23,7 @@
 class MockINetworkManager : public WPEFramework::Exchange::INetworkManager {
 public:
     MOCK_METHOD(uint32_t, GetAvailableInterfaces, (WPEFramework::Exchange::INetworkManager::IInterfaceDetailsIterator*& interfaces), (override));
-    MOCK_METHOD(uint32_t, GetPrimaryInterface, (string& interface), (override));                                              MOCK_METHOD(uint32_t, SetInterfaceState, (const string& interface, const bool enabled), (override));
+    MOCK_METHOD(uint32_t, GetPrimaryInterface, (string& interface, WPEFramework::Exchange::INetworkManager::InterfaceType& type), (override));                                              MOCK_METHOD(uint32_t, SetInterfaceState, (const string& interface, const bool enabled), (override));
     MOCK_METHOD(uint32_t, GetInterfaceState, (const string& interface, bool& enabled), (override));
     MOCK_METHOD(uint32_t, GetIPSettings, (string& interface, const string& ipversion, IPAddress& address), (override));
     MOCK_METHOD(uint32_t, SetIPSettings, (const string& interface, const IPAddress& address), (override));

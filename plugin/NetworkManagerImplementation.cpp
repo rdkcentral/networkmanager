@@ -454,18 +454,27 @@ namespace WPEFramework
         }
 
         /* @brief Get the active Interface used for external world communication */
-        uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */)
+        uint32_t NetworkManagerImplementation::GetPrimaryInterface (string& interface /* @out */, InterfaceType& type /* @out */)
         {
             LOG_ENTRY_FUNCTION();
             if(m_ethEnabled.load() && m_ethConnected.load())
+            {
                 interface = "eth0";
+                type = INTERFACE_TYPE_ETHERNET;
+            }
             else if(m_wlanEnabled.load() && m_wlanConnected.load())
+            {
                 interface = "wlan0";
+                type = INTERFACE_TYPE_WIFI;
+            }
             else
+            {
                 interface = ""; // no active interface
+                type = INTERFACE_TYPE_UNKNOWN;
+            }
 
-            NMLOG_DEBUG("Primary interface: %s, eth0: [enabled=%d, connected=%d], wlan0: [enabled=%d, connected=%d]", 
-                        interface.c_str(), m_ethEnabled.load(), m_ethConnected.load(), m_wlanEnabled.load(), m_wlanConnected.load());
+            NMLOG_DEBUG("Primary interface: %s (type=%d), eth0: [enabled=%d, connected=%d], wlan0: [enabled=%d, connected=%d]", 
+                        interface.c_str(), static_cast<int>(type), m_ethEnabled.load(), m_ethConnected.load(), m_wlanEnabled.load(), m_wlanConnected.load());
 
             setDefaultInterface(interface);
             return Core::ERROR_NONE;

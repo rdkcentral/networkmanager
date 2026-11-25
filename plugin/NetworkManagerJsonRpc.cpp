@@ -216,15 +216,18 @@ namespace WPEFramework
             LOG_INPARAM();
             uint32_t rc = Core::ERROR_GENERAL;
             string interface;
+            Exchange::INetworkManager::InterfaceType interfaceType = Exchange::INetworkManager::INTERFACE_TYPE_UNKNOWN;
 
             if (_networkManager)
-                rc = _networkManager->GetPrimaryInterface(interface);
+                rc = _networkManager->GetPrimaryInterface(interface, interfaceType);
             else
                 rc = Core::ERROR_UNAVAILABLE;
 
             if (Core::ERROR_NONE == rc)
             {
-                response["interface"] = interface;      
+                Core::JSON::EnumType<Exchange::INetworkManager::InterfaceType> type{interfaceType};
+                response["interface"] = interface;
+                response["type"] = type.Data();
             }
             returnJson(rc);
         }

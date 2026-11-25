@@ -268,10 +268,16 @@
                 "properties": {
                     "interface": {
                         "$ref": "#/definitions/interface"
+                    },
+                    "type": {
+                        "summary": "Type of the primary interface.`ETHERNET`, `WIFI` or `UNKNOWN` (when no active interface is available)",
+                        "type": "string",
+                        "example": "WIFI"
                     }
                 },
                 "required": [
-                    "interface"
+                    "interface",
+                    "type"
                 ]
             }
         },
