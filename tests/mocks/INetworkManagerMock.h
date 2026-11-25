@@ -36,6 +36,8 @@ public:
     MOCK_METHOD(uint32_t, GetPublicIP, (string& interface, string& ipversion, string& ipaddress), (override));
     MOCK_METHOD(uint32_t, Ping, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, string& response), (override));
     MOCK_METHOD(uint32_t, Trace, (const string ipversion, const string endpoint, const uint32_t nqueries, const string guid, string& response), (override));
+    MOCK_METHOD(uint32_t, PingAsync, (const string ipversion, const string endpoint, const uint32_t count, const uint16_t timeout, const string guid, WPEFramework::Exchange::INetworkManager::IDiagnosticsCallback* callback), (override));
+    MOCK_METHOD(uint32_t, TraceAsync, (const string ipversion, const string endpoint, const uint32_t nqueries, const string guid, WPEFramework::Exchange::INetworkManager::IDiagnosticsCallback* callback), (override));
     MOCK_METHOD(uint32_t, StartWiFiScan, (IStringIterator* const frequencies, IStringIterator* const ssids), (override));
     MOCK_METHOD(uint32_t, StopWiFiScan, (), (override));
     MOCK_METHOD(uint32_t, GetKnownSSIDs, (IStringIterator*& ssids), (override));

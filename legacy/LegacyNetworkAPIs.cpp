@@ -99,6 +99,7 @@ namespace WPEFramework
             NetworkManagerLogger::Init();
             m_service = service;
             m_service->AddRef();
+            m_diagnosticsReplies = std::make_shared<DeferredReply::Table>(*this);
             string message{};
 
             string callsign(NETWORK_MANAGER_CALLSIGN);
@@ -153,6 +154,9 @@ namespace WPEFramework
 
         void Network::Deinitialize(PluginHost::IShell* /* service */)
         {
+            // Answer pending ping/trace callers before the JSON-RPC dispatcher is deactivated.
+            if (m_diagnosticsReplies)
+                m_diagnosticsReplies->Close(Core::ERROR_UNAVAILABLE);
             m_timer.stop();
             unregisterLegacyMethods();
 
@@ -162,6 +166,7 @@ namespace WPEFramework
             m_networkmanager = NULL;
             m_service->Release();
             m_service = nullptr;
+            m_diagnosticsReplies.reset();
             _gNWInstance = nullptr;
         }
 
@@ -194,10 +199,12 @@ namespace WPEFramework
             Register("setIPSettings",                     &Network::setIPSettings, this);
             Register("getIPSettings",                     &Network::getIPSettings, this);
             Register("getInternetConnectionState",        &Network::getInternetConnectionState, this);
-            Register("ping",                              &Network::doPing, this);
+            Register("ping", Core::JSONRPC::InvokeFunction(
+                [this](const Core::JSONRPC::Context& context, const string&, const string& parameters, string& response) { return doPing(context, parameters, response); }));
             Register("isConnectedToInternet",             &Network::isConnectedToInternet, this);
             Register("setStunEndPoint",                   &Network::setStunEndpoint, this);
-            Register("trace",                             &Network::doTrace, this);
+            Register("trace", Core::JSONRPC::InvokeFunction(
+                [this](const Core::JSONRPC::Context& context, const string&, const string& parameters, string& response) { return doTrace(context, parameters, response); }));
             Register("setConnectivityTestEndpoints",      &Network::setConnectivityTestEndpoints, this);
             Register("startConnectivityMonitoring",       &Network::startConnectivityMonitoring, this);
             Register("getCaptivePortalURI",               &Network::getCaptivePortalURI, this);
@@ -611,84 +618,93 @@ const string CIDR_PREFIXES[CIDR_NETMASK_IP_LEN+1] = {
             returnJson(rc);
         }
 
-        uint32_t Network::doPing(const JsonObject& parameters, JsonObject& response)
+        // Shapes ping and trace results: the NetworkManager result plus the legacy "target" field.
+        static DeferredReply::Shaper legacyDiagnosticsReply(const string& endpoint)
         {
-            LOG_INPARAM();
-            string result{};
-            string endpoint{};
-            uint32_t rc = Core::ERROR_GENERAL;
-            if (parameters.HasLabel("endpoint"))
-            {
-                string guid{};
-                string ipversion{"IPv4"};
-                uint32_t noOfRequest = 1;
-                uint16_t timeOutInSeconds = 1;
-
-                endpoint = parameters["endpoint"].String();
-
-                if (parameters.HasLabel("ipversion"))
-                    ipversion = parameters["ipversion"].String();
-
-                if (parameters.HasLabel("packets"))
-                    noOfRequest  = parameters["packets"].Number();
-
-                if (parameters.HasLabel("guid"))
-                    guid = parameters["guid"].String();
-
-                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
-                if (_nwmgr)
+            return [endpoint](const uint32_t rc, const string& result, string& reply) -> uint32_t {
+                JsonObject response;
+                if (Core::ERROR_NONE == rc)
                 {
-                    rc = _nwmgr->Ping(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, result);
-                    _nwmgr->Release();
+                    response.FromString(result);
+                    response["target"] = endpoint;
                 }
+                LOG_OUTPARAM();
+                if (Core::ERROR_NONE == rc)
+                    response.ToString(reply);
                 else
-                    rc = Core::ERROR_UNAVAILABLE;
+                    reply.clear();
+                return rc;
+            };
+        }
+
+        uint32_t Network::doPing(const Core::JSONRPC::Context& context, const string& params, string& result)
+        {
+            JsonObject parameters;
+            parameters.FromString(params);
+            LOG_INPARAM();
+            if (!parameters.HasLabel("endpoint"))
+                return legacyDiagnosticsReply(string())(Core::ERROR_GENERAL, string(), result);
+
+            string guid{};
+            string ipversion{"IPv4"};
+            uint32_t noOfRequest = 1;
+            uint16_t timeOutInSeconds = 1;
+            const string endpoint = parameters["endpoint"].String();
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
+
+            if (parameters.HasLabel("packets"))
+                noOfRequest  = parameters["packets"].Number();
+
+            if (parameters.HasLabel("guid"))
+                guid = parameters["guid"].String();
+
+            const DeferredReply::Shaper shape = legacyDiagnosticsReply(endpoint);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if ((_nwmgr == nullptr) || !m_diagnosticsReplies)
+            {
+                if (_nwmgr)
+                    _nwmgr->Release();
+                return shape(Core::ERROR_UNAVAILABLE, string(), result);
             }
 
-            if (Core::ERROR_NONE == rc)
-            {
-                JsonObject reply;
-                reply.FromString(result);
-                response = reply;
-                response["target"] = endpoint;
-            }
-            LOG_OUTPARAM();
+            const uint32_t rc = m_diagnosticsReplies->Invoke(context,
+                [&](DeferredReply::Callback* callback) { return _nwmgr->PingAsync(ipversion, endpoint, noOfRequest, timeOutInSeconds, guid, callback); },
+                shape, result);
+            _nwmgr->Release();
             return rc;
         }
 
-        uint32_t Network::doTrace(const JsonObject& parameters, JsonObject& response)
+        uint32_t Network::doTrace(const Core::JSONRPC::Context& context, const string& params, string& result)
         {
+            JsonObject parameters;
+            parameters.FromString(params);
             LOG_INPARAM();
-            uint32_t rc = Core::ERROR_GENERAL;
-            if (parameters.HasLabel("endpoint"))
+            if (!parameters.HasLabel("endpoint"))
+                return legacyDiagnosticsReply(string())(Core::ERROR_GENERAL, string(), result);
+
+            string ipversion{"IPv4"};
+            const string endpoint = parameters["endpoint"].String();
+            const uint32_t noOfRequest  = parameters["packets"].Number();
+            const string guid           = parameters["guid"].String();
+
+            if (parameters.HasLabel("ipversion"))
+                ipversion = parameters["ipversion"].String();
+
+            const DeferredReply::Shaper shape = legacyDiagnosticsReply(endpoint);
+            auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
+            if ((_nwmgr == nullptr) || !m_diagnosticsReplies)
             {
-                string result{};
-                string ipversion{"IPv4"};
-                const string endpoint = parameters["endpoint"].String();
-                const uint32_t noOfRequest  = parameters["packets"].Number();
-                const string guid           = parameters["guid"].String();
-
-                if (parameters.HasLabel("ipversion"))
-                    ipversion = parameters["ipversion"].String();
-
-                auto _nwmgr = m_service->QueryInterfaceByCallsign<Exchange::INetworkManager>(NETWORK_MANAGER_CALLSIGN);
                 if (_nwmgr)
-                {
-                    rc = _nwmgr->Trace(ipversion, endpoint, noOfRequest, guid, result);
                     _nwmgr->Release();
-                }
-                else
-                    rc = Core::ERROR_UNAVAILABLE;
-
-                if (Core::ERROR_NONE == rc)
-                {
-                    JsonObject reply;
-                    reply.FromString(result);
-                    response = reply;
-                    response["target"] = endpoint;
-                }
+                return shape(Core::ERROR_UNAVAILABLE, string(), result);
             }
-            LOG_OUTPARAM();
+
+            const uint32_t rc = m_diagnosticsReplies->Invoke(context,
+                [&](DeferredReply::Callback* callback) { return _nwmgr->TraceAsync(ipversion, endpoint, noOfRequest, guid, callback); },
+                shape, result);
+            _nwmgr->Release();
             return rc;
         }
 

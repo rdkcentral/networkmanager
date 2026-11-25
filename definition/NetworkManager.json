@@ -697,7 +697,7 @@
             }
         },
         "Ping":{
-            "summary": "Pings the specified endpoint with the specified number of packets.",
+            "summary": "Pings the specified endpoint with the specified number of packets. One Ping runs at a time; further Ping requests wait in a queue of up to 4 and are rejected with ERROR_INPROGRESS when it is full.",
             "params": {
                 "type":"object",
                 "properties": {
@@ -770,11 +770,6 @@
                         "type": "string",
                         "example": "..."
                     },
-                    "guid": {
-                        "summary": "The globally unique identifier",
-                        "type": "string",
-                        "example": "..."
-                    },
                     "success": {
                         "$ref": "#/definitions/success"
                     }
@@ -789,16 +784,12 @@
                     "tripMax",
                     "tripStdDev",
                     "error",
-                    "guid",
                     "success"
                 ]
             }
         },
         "Trace":{
-            "summary": "Traces the specified endpoint with the specified number of packets using `traceroute`.",
-            "onTraceResponse":{
-                "onPingResponse" : "Triggered when Trace request get success."
-            },
+            "summary": "Traces the specified endpoint with the specified number of packets using `traceroute`. One Trace runs at a time; further Trace requests wait in a queue of up to 4 and are rejected with ERROR_INPROGRESS when it is full.",
             "params": {
                 "type":"object",
                 "properties": {
@@ -831,11 +822,6 @@
                         "type": "string",
                         "example": "..."
                    },
-                    "guid": {
-                        "summary": "The globally unique identifier",
-                        "type": "string",
-                        "example": "..."
-                    },
                     "success": {
                         "$ref": "#/definitions/success"
                     }
@@ -843,7 +829,6 @@
                 "required": [
                     "endpoint",
                     "results",
-                    "guid",
                     "success"
                 ]
             }
