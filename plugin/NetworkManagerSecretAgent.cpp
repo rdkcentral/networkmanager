@@ -157,7 +157,7 @@ namespace WPEFramework
             GError *error = NULL;
             isSecretAgentLoopRunning = false;
             isSecurityAgentRegistered = false;
-            NMLOG_INFO("SecretAgent Constructor");
+            NMLOG_INFO("SecretAgent ctor");
             GDBusconn = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &error);
             if (!GDBusconn) {
                 NMLOG_ERROR("Failed to connect to system bus: %s", error->message);
@@ -166,6 +166,7 @@ namespace WPEFramework
             }
 
             startSecurityAgent();
+            NMLOG_INFO("SecretAgent ctor ends");
         }
 
         SecretAgent::~SecretAgent()
