@@ -33,6 +33,7 @@ namespace WPEFramework
         class SecretAgent
         {
             public:
+                static SecretAgent* getInstance();
                 SecretAgent();
                 ~SecretAgent();
                 void startSecurityAgent();
