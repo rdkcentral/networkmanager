@@ -34,6 +34,10 @@
 #include <telemetry_busmessage_sender.h>
 #endif
 
+#ifdef ENABLE_ETH_WIFI_SWITCH_TEST
+#include "gnome/NetworkManagerGnomeEthWifiSwitchTest.h"
+#endif
+
 using namespace WPEFramework;
 using namespace WPEFramework::Plugin;
 using namespace NetworkManagerLogger;
@@ -1139,6 +1143,10 @@ namespace WPEFramework
                 NMLOG_INFO("Posting onInternetStatusChange with current state as %u", (unsigned)currState);
                 enqueueEvent(NM_ON_INTERNETSTATUS_CHANGE, std::move(eventData));
             }
+
+#ifdef ENABLE_ETH_WIFI_SWITCH_TEST
+            EthWifiSwitchTest::getInstance().onInternetStatusChange(currState, interface);
+#endif
 
 #if USE_TELEMETRY
             string stateStr = Core::EnumerateType<Exchange::INetworkManager::InternetStatus>(currState).Data();

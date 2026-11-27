@@ -130,7 +130,10 @@ if(ENABLE_GNOME_NETWORKMANAGER)
             gnome/NetworkManagerGnomeWIFI.cpp
             gnome/NetworkManagerGnomeEvents.cpp
             gnome/NetworkManagerGnomeUtils.cpp
+            gnome/NetworkManagerGnomeEthWifiSwitchTest.cpp
             NetworkManagerSecretAgent.cpp )
+        # Spike test: switch to Wi-Fi on Ethernet NO_INTERNET (not production code)
+        target_compile_definitions(${MODULE_IMPL_NAME} PRIVATE ENABLE_ETH_WIFI_SWITCH_TEST=1)
         if(ENABLE_MIGRATION_MFRMGR_SUPPORT)
             target_sources(${MODULE_IMPL_NAME} PRIVATE
             gnome/NetworkManagerGnomeMfrMgr.cpp
